@@ -1,0 +1,1938 @@
+# TOTETAXI - BACKEND CODE SNAPSHOT
+# AUTO-GENERATED - SECURE VERSION
+# Created: 2025-08-24 13:59:21
+# Total files: 74
+# 🔒 SECURITY: .env files excluded (contain secrets)
+# 📋 INCLUDES: All Django apps, migrations, configuration
+# Apps: accounts (STAFF), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services
+# NEW FEATURES: Customer authentication, guest checkout, customer dashboard
+# Tech Stack: Django 5.2.5, DRF 3.16.1, PostgreSQL, Redis, Celery
+# Integration: S3 storage, SES email, mocked Stripe/Onfleet
+
+
+# ========================= CONFIGURATION & ROOT FILES =========================
+
+
+# ==== .dockerignore ====
+
+```
+# Git
+.git
+.gitignore
+
+# Docker
+.docker
+Dockerfile
+docker-compose*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+.cache
+htmlcov
+.mypy_cache
+.dmypy.json
+dmypy.json
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.development
+.env.production
+
+# Media files
+media/
+
+# Node (if any)
+node_modules
+npm-debug.log
+```
+
+# ==== Dockerfile ====
+
+```dockerfile
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONPATH /app
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client \
+        build-essential \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project
+COPY . /app/
+
+# Create directories for logs and static files
+RUN mkdir -p /app/logs /app/staticfiles /app/media
+
+# Make entrypoint executable
+COPY scripts/entrypoint.sh /app/scripts/entrypoint.sh
+RUN chmod +x /app/scripts/entrypoint.sh
+
+# Expose port
+EXPOSE 8000
+
+# Run entrypoint
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+```
+
+# ==== README.md ====
+
+```markdown
+UPDATED - ToteTaxi Backend Living Documentation & RoadmapStrategic Technical Architecture - Django 5.2.5 + DRF 3.16.1 + PostgreSQL + DockerSystem Architecture OverviewToteTaxi Backend Ecosystem
+├── Core Business Logic
+│   ├── bookings/ → Heart of system, manages all booking lifecycle (guest + authenticated)
+│   ├── services/ → Pricing engine, availability logic, business rules
+│   ├── accounts/ → STAFF authentication, user management (admin dashboard only)
+│   └── customers/ → CUSTOMER authentication, profiles, dashboard (NEW)
+├── Financial Operations
+│   └── payments/ → Payment processing, refunds, financial audit trails
+├── Operational Management  
+│   ├── logistics/ → Delivery coordination, tracking, driver management
+│   ├── documents/ → File storage, COI management, document lifecycle
+│   └── notifications/ → Email communications, template management
+├── Administrative Interface
+│   └── crm/ → Staff dashboard, reporting, administrative actions
+└── Infrastructure Layer
+    ├── PostgreSQL Database (Port 5435)
+    ├── Redis Cache & Queue (Port 6382)
+    ├── Celery Background Jobs
+    └── AWS Services (S3 Storage, SES Email)Frontend Integration Points:
+
+Customer Booking Flow: React app → bookings + services + payments + customers APIs
+Customer Dashboard: React customer portal → customers + bookings APIs
+Admin Dashboard: React admin → crm + all app APIs for management
+Real-time Updates: WebSocket connections for live booking status
+Core Business Applications📋 apps/bookings/ - System Heart & Data HubPrimary Responsibility: Central booking entity that every other system component revolves aroundBusiness Logic Ownership:
+
+Complete booking lifecycle from inquiry to completion
+Dual-mode operation: Works with guest checkout AND authenticated customers
+Address standardization and reuse for logged-in customers
+Booking status orchestration across all systems
+Business rule enforcement and validation
+Core Data Entities:
+
+Booking: UUID primary key, TT-001234 numbering, soft deletes, status tracking
+Address: Reusable addresses with pickup/delivery associations (linked to customers)
+GuestCheckout: Temporary customer data for non-authenticated bookings
+Frontend Integration Needs:
+
+Guest Booking APIs: Create booking with customer info provided
+Authenticated Booking APIs: Create booking using customer profile data
+Booking History APIs: Customer dashboard booking list and details
+Status Tracking APIs: Live booking status for customer tracking page
+Pricing Preview: Real-time pricing as customer makes selections
+Key External Relationships:
+
+→ services/: Gets pricing calculations and availability data
+→ payments/: Triggers payment processing workflows
+→ logistics/: Initiates delivery task creation
+→ documents/: Associates COI files with bookings
+→ notifications/: Triggers confirmation and status emails
+← crm/: Receives admin status updates and modifications
+↔ customers/: Links to customer profiles for authenticated bookings
+Business Rules Enforced:
+
+Minimum item counts for different service types
+Required COI for high-value bookings
+Date availability constraints based on van scheduling
+Customer information validation and standardization
+NEW: Guest vs authenticated customer workflow routing
+MVP Simplifications:
+
+Basic guest checkout capture (name, email, phone)
+Simple customer linking for authenticated bookings
+Address reuse for logged-in customers
+👤 apps/customers/ - Customer Authentication & Profile Management (NEW)Primary Responsibility: Customer-facing authentication, profiles, and self-service capabilitiesBusiness Logic Ownership:
+
+Customer registration and login (separate from staff auth)
+Customer profile management and preferences
+Saved addresses and payment methods integration
+Booking history and status tracking for customers
+Account settings and notification preferences (future)
+Core Data Entities:
+
+Customer: Django User-based model with customer-specific fields
+CustomerProfile: Extended profile information, preferences, booking statistics
+SavedAddress: Customer's frequently used addresses (home, Hamptons, etc.)
+CustomerPaymentMethod: Stripe customer and saved payment methods
+Frontend Integration Needs:
+
+Authentication APIs: Registration, login, logout, password reset
+Profile Management APIs: Update customer info, preferences
+Address Book APIs: CRUD operations for saved addresses
+Payment Methods APIs: Add, list, delete saved payment methods
+Dashboard APIs: Booking history, account overview, notifications
+Customer Dashboard Features:
+
+Booking History: List of all bookings with status tracking
+Active Bookings: Live tracking of in-progress deliveries
+Address Book: Manage saved pickup/delivery locations
+Payment Methods: Manage saved cards via Stripe
+Profile Settings: Update contact info, preferences
+Key External Relationships:
+
+↔ bookings/: Customer bookings linked to authenticated users
+→ payments/: Stripe customer management for saved payment methods
+← notifications/: Customer communication preferences and history
+← crm/: Staff can view customer profiles and booking patterns
+Authentication Strategy:
+
+Optional accounts: Guest checkout remains available
+Email/password authentication: Simple registration flow
+Session-based auth: Standard Django authentication for customer dashboard
+Stripe customer creation: Automatic when saving payment methods
+MVP Simplifications:
+
+Basic email/password authentication (no social login)
+Simple address book (no advanced features like address validation)
+Basic saved payment methods via Stripe
+No notification preferences (use defaults)
+No loyalty/rewards features
+🔐 apps/accounts/ - Staff Authentication & User ManagementPrimary Responsibility: STAFF-ONLY authentication and role-based access control for admin dashboardBusiness Logic Ownership:
+
+CLARIFICATION: This app is for STAFF users only (not customers)
+Staff user authentication and session management
+Role-based permissions (Admin vs Staff capabilities)
+User profile management and preferences
+Authentication token generation and validation
+Core Data Entities:
+
+User: Extended Django user with role field and phone (STAFF ONLY)
+StaffProfile: Employee details, department, permissions level, hire date
+Frontend Integration Needs:
+
+Admin Authentication: Login/logout endpoints for staff dashboard
+User Context: Current staff user info, permissions, role-based UI
+Session Management: Token refresh, password change capabilities
+Permission Levels:
+
+Admin: Full system access, refund processing, user management
+Staff: Booking management, customer service, operational tasks
+View-Only: Dashboard access, reporting, no modifications
+Key External Relationships:
+
+→ crm/: Provides user context for all administrative actions
+→ ALL APPS: Authentication middleware protects all admin endpoints
+← customers/: Staff can view customer profiles for support
+MVP Simplifications:
+
+Simple role-based permissions (no granular permissions)
+Session-based authentication (JWT tokens for API access)
+Manual staff user creation through Django admin
+💰 apps/services/ - Pricing & Availability EnginePrimary Responsibility: All pricing logic, service definitions, and availability managementBusiness Logic Ownership:
+
+Complex multi-factor pricing calculations
+Service catalog management (Mini Moves, Standard Delivery, Specialty Items)
+Dynamic surcharge application (weekend, holiday, peak season)
+Van availability scheduling and capacity management
+Business constraint validation before booking creation
+Core Data Entities:
+
+MiniMovePackage: Petite ($995), Standard ($1725), Full ($2490) with item limits
+StandardDeliveryRate: $95 per item, $285 minimum, $360 same-day pricing
+SpecialtyItem: Peloton ($500), Surfboard ($350), Crib ($350), Wardrobe Box ($275)
+SurchargeRule: Weekend, holiday, peak date pricing modifications
+VanSchedule: Daily availability, capacity overrides, specialty item constraints
+Frontend Integration Needs:
+
+Service Selection: Available packages and specialty items with descriptions
+Calendar Availability: Which dates available for different service types
+Real-time Pricing: Dynamic price updates as customer modifies booking
+Surcharge Display: Clear breakdown of additional fees and reasons
+Pricing Calculation Complexity:
+
+Base service pricing by type and package level
+Item-count validation and pricing for standard deliveries
+Date-based surcharge application with business rules
+COI fee calculation and inclusion logic
+Minimum charge enforcement across all service types
+NEW: Customer-specific pricing (future: loyalty discounts)
+Key External Relationships:
+
+← bookings/: Receives pricing calculation requests
+→ bookings/: Validates booking data against business constraints
+← crm/: Admin updates to pricing rules and availability
+← customers/: Future integration for customer-specific pricing
+MVP Simplifications:
+
+Basic weekend surcharge logic (15% premium)
+Manual van scheduling (no automatic optimization)
+Simple specialty item availability (same van required)
+Standard delivery flat rates (no dynamic pricing)
+💳 apps/payments/ - Financial Operations HubPrimary Responsibility: All money-related operations, audit trails, and financial integrityBusiness Logic Ownership:
+
+Payment processing lifecycle management
+Customer payment methods: Stripe customer management for saved cards
+Refund processing with approval workflows
+Financial audit trails for all money movements
+Integration with payment processors (Stripe initially mocked)
+Payment failure handling and retry logic
+Core Data Entities:
+
+Payment: Links to booking, tracks amount, status, external payment IDs
+CustomerStripeData: Links customers to Stripe customer IDs and saved payment methods
+Refund: Refund records with reasons, approval trails, processing status
+PaymentAudit: Comprehensive audit log for all financial actions
+Frontend Integration Needs:
+
+Payment Processing: Payment intent creation, confirmation handling
+Saved Payment Methods: Customer dashboard payment method management
+Payment Status: Real-time payment status for booking confirmation
+Admin Refunds: Staff interface for processing refunds with approval workflows
+Financial Reporting: Payment analytics and reconciliation data
+Payment Flow Architecture:
+
+Guest checkout: One-time payment processing
+Customer checkout: Option to save payment method or use saved method
+Booking creation triggers payment intent generation
+Frontend handles payment collection via Stripe
+Successful payment triggers logistics and notification workflows
+Failed payments trigger retry logic and customer communication
+Key External Relationships:
+
+← bookings/: Receives payment requests from completed bookings
+→ bookings/: Updates booking status based on payment success/failure
+← customers/: Customer payment method management
+→ logistics/: Triggers delivery task creation after successful payment
+→ notifications/: Sends payment confirmations and failure notifications
+← crm/: Processes refund requests from staff with audit trails
+MVP Simplifications:
+
+Mocked Stripe integration for development
+Simple refund workflow (admin approval required)
+Basic payment retry logic (3 attempts)
+Basic saved payment method functionality
+🚚 apps/logistics/ - Delivery CoordinationPrimary Responsibility: Physical delivery management and real-time trackingBusiness Logic Ownership:
+
+Delivery task creation and driver assignment
+Real-time tracking and status updates
+Customer communication: Tracking updates for both guest and authenticated customers
+Integration with logistics providers (Onfleet initially mocked)
+Failed delivery handling and rescheduling
+Core Data Entities:
+
+DeliveryTask: Links to booking, tracks pickup/delivery status, driver assignment
+TrackingUpdate: Real-time events from logistics provider, customer notifications
+Frontend Integration Needs:
+
+Customer Tracking: Live delivery status and driver location (guest + authenticated)
+Customer Dashboard: Booking tracking integration
+Admin Task Management: Staff interface for managing delivery tasks
+Delivery Analytics: Success rates, timing metrics, driver performance
+Delivery Workflow:
+
+Successful payment triggers delivery task creation
+Tasks assigned to drivers via external logistics platform
+Real-time updates flow from logistics provider to customers
+Customer notifications: Email/SMS to both guest checkout email and customer accounts
+Delivery completion triggers final notifications and booking closure
+Key External Relationships:
+
+← payments/: Creates delivery tasks after successful payment confirmation
+← bookings/: Uses booking data for pickup/delivery addresses and instructions
+→ bookings/: Updates booking status based on delivery progress
+→ notifications/: Sends tracking updates and delivery confirmations
+← customers/: Provides tracking data for customer dashboard
+← crm/: Staff can monitor and modify delivery tasks
+MVP Simplifications:
+
+Mocked Onfleet integration for development
+Basic tracking status updates (created, assigned, in progress, completed)
+Simple delivery failure handling
+Email notifications only (no SMS initially)
+📄 apps/documents/ - File Storage & ManagementPrimary Responsibility: Secure file handling, COI management, and document lifecycleBusiness Logic Ownership:
+
+File upload, storage, and secure access via S3
+Certificate of Insurance (COI) processing and validation
+Document categorization and searchability
+File lifecycle management and cleanup
+Access control and secure URL generation
+Customer document access: Allow customers to view their booking documents
+Core Data Entities:
+
+Document: S3-stored files with metadata, associations to bookings/customers
+COI: Extended document model with insurance-specific fields and validation
+Frontend Integration Needs:
+
+File Upload: Secure upload endpoints with progress tracking
+Customer Document Access: Secure document viewing in customer dashboard
+Document Viewer: Secure document access and display
+COI Management: Staff interface for COI validation and status tracking
+Document Search: Find documents by booking, customer, or date range
+File Storage Architecture:
+
+Direct uploads to S3 with secure presigned URLs
+Database tracking of all file metadata and associations
+Automatic file categorization and tagging
+Customer access control: Customers can only view their own booking documents
+Scheduled cleanup of expired or unused files
+Key External Relationships:
+
+← bookings/: Associates documents with specific bookings
+← customers/: Customer access to their booking documents
+← crm/: Staff upload and manage documents through admin interface
+→ notifications/: Alerts for missing/expired COIs
+S3 Integration: Direct file storage and retrieval
+MVP Simplifications:
+
+Basic COI upload and storage (no OCR or automatic validation)
+Simple file categorization (COI, invoice, receipt)
+Manual document validation by staff
+Basic customer document viewing (no advanced features)
+📧 apps/notifications/ - Communication HubPrimary Responsibility: All customer and staff communication managementBusiness Logic Ownership:
+
+Email template management with dynamic variables
+Multi-channel notification delivery (email via SES, future SMS)
+Dual recipient handling: Guest checkout emails and customer account notifications
+Delivery tracking and failure handling
+Notification scheduling and retry logic
+Communication preference management (future)
+Core Data Entities:
+
+EmailTemplate: Reusable templates with variable substitution
+Notification: Individual communication records with delivery tracking
+DeliveryLog: Comprehensive tracking of communication delivery and engagement
+CustomerNotificationPreference: Customer communication settings (future)
+Frontend Integration Needs:
+
+Template Management: Staff interface for creating and editing email templates
+Customer Notification History: Customer dashboard view of communications
+Notification History: Customer and staff views of communication history
+Delivery Analytics: Email open rates, delivery success, bounce tracking
+Communication Workflows:
+
+Booking events automatically trigger notification creation
+Smart recipient detection: Use customer email if authenticated, booking email if guest
+Templates populated with booking/customer data variables
+SES handles email delivery with tracking and bounce management
+Customer dashboard integration: Show notification history to logged-in customers
+Failed communications trigger retry logic and staff alerts
+Key External Relationships:
+
+← bookings/: Triggered by booking status changes and lifecycle events
+← payments/: Sends payment confirmations and failure notifications
+← logistics/: Sends delivery tracking updates and completion confirmations
+← customers/: Customer notification preferences and dashboard history
+← crm/: Staff can send custom notifications and manage templates
+SES Integration: Email delivery and tracking via AWS Simple Email Service
+MVP Simplifications:
+
+Email-only communications (no SMS initially)
+Basic template system with simple variable substitution
+Standard notification types (booking confirmation, payment confirmation, delivery updates)
+No advanced customer preference management
+📊 apps/crm/ - Administrative Command CenterPrimary Responsibility: Staff operations interface and business intelligenceBusiness Logic Ownership:
+
+Real-time dashboard with key performance indicators
+Comprehensive booking management and modification capabilities
+Customer support: Access to customer profiles, booking history, account management
+Financial operations including refund processing
+Business reporting and data export functionality
+Audit logging for all administrative actions
+Core Data Entities:
+
+Dashboard: Daily KPI aggregation and business metrics
+Report: Configurable business reports with export capabilities
+AuditLog: Complete action tracking for compliance and accountability
+Frontend Integration Needs:
+
+Operations Dashboard: Real-time KPIs, upcoming bookings, pending actions
+Booking Management: Full CRUD interface for all booking operations
+Customer Management: Staff interface for viewing/managing customer accounts
+Financial Interface: Refund processing, payment tracking, revenue reporting
+Analytics Views: Business intelligence dashboards and trend analysis
+Dashboard Metrics:
+
+Daily/weekly/monthly booking volumes and revenue
+Customer metrics: Registration rates, repeat booking patterns
+Service type breakdown and popularity trends
+Payment success rates and processing metrics
+Delivery completion rates and timing analytics
+Customer satisfaction and repeat booking rates
+Administrative Workflows:
+
+Staff can view, modify, and cancel any booking
+Customer account management: Staff can view customer profiles, reset passwords, manage accounts
+Refund processing with approval workflows and audit trails
+Customer service actions with complete interaction history
+Business reporting with scheduled generation and delivery
+Key External Relationships:
+
+→ ALL APPS: CRM interfaces with every system component for management
+← accounts/: Authentication and role-based access control
+← bookings/: Primary data source for operations and customer service
+← customers/: Customer account management and support
+← payments/: Financial data management and refund processing
+← logistics/: Delivery task monitoring and management
+← documents/: Document management and COI processing
+← notifications/: Communication management and template control
+MVP Simplifications:
+
+Basic dashboard with essential KPIs
+Simple booking search and filter capabilities
+Basic customer account viewing (no advanced management)
+Manual report generation (no scheduled reports initially)
+Basic audit logging for critical actions
+System Integration ArchitectureData Flow PatternsCustomer Booking Journey (Guest):
+Marketing Site (SEO/Conversion)
+    ↓
+Booking Wizard (Guest Checkout)
+    ↓ Real-time pricing
+Services API ← → Frontend State Management
+    ↓ Booking creation with guest info
+Bookings API → Payment Processing
+    ↓ Payment confirmation
+Logistics API → Email Notifications (to booking email)
+    ↓
+Confirmation & Tracking (guest access)Customer Booking Journey (Authenticated):
+Marketing Site → Customer Login/Signup
+    ↓
+Customer Dashboard OR Booking Wizard (Authenticated)
+    ↓ Pre-filled data from profile
+Services API ← → Frontend State Management
+    ↓ Booking creation linked to customer
+Bookings API → Payment Processing (saved methods available)
+    ↓ Payment confirmation
+Logistics API → Email Notifications + Dashboard Updates
+    ↓
+Customer Dashboard Tracking + Email confirmationsStaff Operations Flow:
+Admin Authentication (Staff Only)
+    ↓
+Dashboard Overview (Real-time KPIs)
+    ↓
+Booking Management + Customer Management
+    ↓ Staff actions
+CRM API → All Backend Apps
+    ↓ Real-time updates
+WebSocket → Live Dashboard UpdatesExternal Service Integration:
+Frontend → S3 Direct Upload (COI files)
+Frontend → Stripe Elements (Payment processing + saved methods)
+Backend → SES (Email notifications)
+Backend → Onfleet (Delivery coordination)Authentication ArchitectureDual Authentication Strategy:
+Staff Authentication (accounts/)
+├── Django Admin access
+├── Staff dashboard access
+├── Role-based permissions
+└── Session-based auth
+
+Customer Authentication (customers/)
+├── Optional customer accounts
+├── Guest checkout available
+├── Customer dashboard access
+└── Session-based auth with different middlewareDevelopment RoadmapPhase 1: Foundation (Week 1) - "Core Data & Customer Auth"
+Objective: Establish core system with basic booking functionality and customer authenticationBackend Deliverables:
+
+All Django apps created with core models (including customers/)
+Customer authentication system (registration, login, dashboard)
+Basic CRUD APIs for bookings, services, and customers
+UUID primary keys and soft delete implementation
+Docker environment fully operational
+Django admin interfaces for all models
+Frontend Dependencies Created:
+
+Customer authentication APIs (signup, login, profile)
+Booking creation APIs (guest + authenticated)
+Customer dashboard APIs (booking history, profile management)
+Service catalog endpoints available
+Basic booking management APIs functional
+Success Criteria:
+
+Customers can register, login, and view booking history
+Can create booking through API with pricing calculation (guest + authenticated)
+All models properly related with foreign keys
+Docker setup allows immediate development start
+Phase 2: Business Logic (Week 2) - "Pricing & Payment Flow"
+Objective: Implement complex business rules and mocked payment processingBackend Deliverables:
+
+Advanced pricing engine with surcharge calculations
+Mocked payment processing with realistic behaviors
+Stripe customer integration for saved payment methods
+Notification system with SES email integration
+Background job processing with Celery
+Complete booking workflow from creation through payment
+Frontend Dependencies Created:
+
+Real-time pricing APIs with surcharge breakdowns
+Payment processing endpoints (mocked but realistic)
+Saved payment method management
+Email confirmation system operational
+Booking status updates available
+Success Criteria:
+
+Complete customer booking flow functional (guest + authenticated)
+Customer dashboard shows booking history and saved addresses
+Emails sent via SES with proper templates
+Background jobs processing payments and notifications
+Phase 3: Operations (Week 3) - "File Storage & Admin Interface"
+Objective: Document management and staff operational capabilitiesBackend Deliverables:
+
+S3 document storage with secure access
+COI upload and basic validation
+CRM dashboard APIs with business metrics
+Staff authentication and role-based permissions
+Administrative booking and customer management capabilities
+Frontend Dependencies Created:
+
+File upload endpoints with progress tracking
+Admin dashboard data APIs
+Staff authentication and authorization
+Customer account management APIs for staff
+Booking management APIs for admin interface
+Success Criteria:
+
+Documents upload to S3 and associate with bookings
+Staff can log in and manage bookings and customer accounts
+Admin dashboard shows real business metrics
+Customer dashboard fully functional
+Phase 4: Production Readiness (Week 4) - "Real Integrations & Polish"
+Objective: Replace mocks with production services and optimize performanceBackend Deliverables:
+
+Real Stripe integration replacing mocked payments
+Production-ready configuration and security
+Customer authentication security hardening
+Comprehensive API documentation
+Performance optimization and caching
+Complete test coverage for critical paths
+Frontend Dependencies Completed:
+
+All APIs finalized with real payment processing
+Customer dashboard with all MVP features
+Error handling patterns established
+Production-ready authentication flows
+Complete feature parity for MVP launch
+Success Criteria:
+
+Real payments processing through Stripe
+Customer accounts fully functional in production
+System ready for production deployment
+All MVP features tested and documented
+Technical Architecture DecisionsDatabase Design Principles
+
+UUID Primary Keys: Enhanced security, distributed system compatibility
+Soft Deletes: Data preservation for analytics, audit requirements
+Dual Customer Strategy: Guest checkout data + customer accounts
+Optimized Indexes: Query performance on frequently accessed fields
+JSON Fields: Flexible data storage for configurations and metadata
+API Design Standards
+
+RESTful Conventions: Predictable endpoint patterns
+Consistent Response Formats: Standardized success/error responses
+Dual Authentication: Separate auth patterns for staff vs customers
+Pagination Strategy: Efficient large dataset handling
+Version Management: Future-proof API evolution
+Security Implementation
+
+Dual Authentication: Staff vs customer authentication separation
+Role-Based Access Control: Admin/Staff permission separation
+Customer Data Protection: Customers can only access their own data
+Input Validation: Comprehensive data sanitization
+Secure File Storage: S3 with presigned URL access patterns
+Audit Logging: Complete action tracking for compliance
+Performance Optimization
+
+Database Query Optimization: Efficient joins and indexes
+Background Job Processing: Async operations for user experience
+Caching Strategy: Redis for frequently accessed data
+Customer Dashboard Performance: Efficient booking history queries
+File Storage Optimization: Direct S3 upload patterns
+This living document evolves with system development and serves as the single source of truth for ToteTaxi's backend architecture, business logic, and integration patterns.
+```
+
+# ==== docker-compose.yml ====
+
+```yaml
+services:
+  # PostgreSQL Database - PORT 5435
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: totetaxi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery - PORT 6382
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6382:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Backend - PORT 8005
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8005:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/totetaxi
+      - REDIS_URL=redis://redis:6379/0
+
+  # Celery Worker
+  celery:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/totetaxi
+      - REDIS_URL=redis://redis:6379/0
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build: .
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/totetaxi
+      - REDIS_URL=redis://redis:6379/0
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  redis_data:
+```
+
+# ==== gunicorn.conf.py ====
+
+```python
+import multiprocessing
+
+# Server socket
+bind = "0.0.0.0:8000"
+backlog = 2048
+
+# Worker processes
+workers = multiprocessing.cpu_count() * 2 + 1
+worker_class = "sync"
+worker_connections = 1000
+timeout = 30
+keepalive = 2
+max_requests = 1000
+max_requests_jitter = 100
+
+# Logging
+accesslog = "-"
+errorlog = "-"
+loglevel = "info"
+
+# Process naming
+proc_name = "totetaxi"
+
+# Server mechanics
+preload_app = True
+pidfile = "/tmp/gunicorn.pid"
+```
+
+# ==== manage.py ====
+
+```python
+#!/usr/bin/env python
+"""Django's command-line utility for administrative tasks."""
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
+```
+
+# ==== pyproject.toml ====
+
+```toml
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "totetaxi-backend"
+version = "0.1.0"
+description = "ToteTaxi luxury delivery service backend API"
+requires-python = ">=3.11"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+skip_glob = ["**/migrations/*.py"]
+
+[tool.coverage.run]
+source = "."
+omit = [
+    "*/migrations/*",
+    "*/venv/*",
+    "*/tests/*",
+    "manage.py",
+    "config/wsgi.py",
+    "config/asgi.py",
+]
+```
+
+# ==== pytest.ini ====
+
+```ini
+[tool:pytest]
+DJANGO_SETTINGS_MODULE = config.settings.testing
+python_files = tests.py test_*.py *_tests.py
+python_classes = Test*
+python_functions = test_*
+addopts = --tb=short --strict-markers --disable-warnings
+markers =
+    slow: marks tests as slow (deselect with '-m "not slow"')
+    integration: marks tests as integration tests
+```
+
+# ==== requirements.txt ====
+
+```
+# Django Core - Latest LTS with full compatibility
+Django==5.2.5
+djangorestframework==3.16.1
+django-cors-headers==4.6.0
+django-environ==0.11.2
+
+# Database
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# Authentication & Security
+djangorestframework-simplejwt==5.3.0
+django-allauth==0.63.6
+
+# API Documentation
+drf-yasg==1.21.7
+
+# Background Jobs - Latest stable versions
+celery==5.5.3
+redis==5.1.1
+django-celery-beat==2.8.1
+
+# File Storage
+boto3==1.35.19
+django-storages==1.14.4
+Pillow==10.4.0
+
+# Integrations - Latest versions
+stripe==12.4.0
+requests==2.32.3
+
+# Monitoring & Logging
+sentry-sdk==2.13.0
+
+# Development
+django-debug-toolbar==4.4.6
+django-extensions==3.2.3
+
+# Testing
+pytest==8.3.2
+pytest-django==4.9.0
+pytest-cov==5.0.0
+factory-boy==3.3.0
+
+# Production Server
+gunicorn==23.0.0
+whitenoise==6.7.0
+```
+
+# ========================= DJANGO PROJECT SETTINGS (config/) =========================
+
+
+# ==== config/__init__.py ====
+
+```python
+# This will make sure the app is always imported when
+# Django starts so that shared_task will use this app.
+from .celery import app as celery_app
+
+__all__ = ('celery_app',)
+```
+
+# ==== config/asgi.py ====
+
+```python
+"""
+ASGI config for config project.
+
+It exposes the ASGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+"""
+
+import os
+
+from django.core.asgi import get_asgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+application = get_asgi_application()
+```
+
+# ==== config/celery.py ====
+
+```python
+import os
+from celery import Celery
+
+# Set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+app = Celery('totetaxi')
+
+# Using a string here means the worker doesn't have to serialize
+# the configuration object to child processes.
+app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Load task modules from all registered Django apps.
+app.autodiscover_tasks()
+
+@app.task(bind=True, ignore_result=True)
+def debug_task(self):
+    print(f'Request: {self.request!r}')
+```
+
+# ==== config/settings.py ====
+
+```python
+import os
+import environ
+from pathlib import Path
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Environment variables
+env = environ.Env(
+    DEBUG=(bool, True),
+)
+
+# Take environment variables from .env file
+environ.Env.read_env(BASE_DIR / '.env')
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env('DEBUG', default=True)
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
+
+# Application definition
+DJANGO_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+]
+
+THIRD_PARTY_APPS = [
+    'rest_framework',
+    'corsheaders',
+    'django_celery_beat',
+    'drf_yasg',
+]
+
+# LOCAL_APPS - All ToteTaxi apps
+LOCAL_APPS = [
+    'apps.accounts',
+    'apps.bookings',
+    'apps.services', 
+    'apps.payments',
+    'apps.logistics',
+    'apps.documents',
+    'apps.notifications',
+    'apps.crm',
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'config.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'config.wsgi.application'
+
+# Database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME', default='totetaxi'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default='postgres'),
+        'HOST': env('DB_HOST', default='db'),
+        'PORT': env('DB_PORT', default='5432'),
+    }
+}
+
+# Alternative: use DATABASE_URL if provided
+database_url = env('DATABASE_URL', default=None)
+if database_url:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(database_url)
+
+# Password validation
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'America/New_York'
+USE_I18N = True
+USE_TZ = True
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Create static directory if it doesn't exist
+STATICFILES_DIRS = []
+if (BASE_DIR / 'static').exists():
+    STATICFILES_DIRS.append(BASE_DIR / 'static')
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+])
+
+CORS_ALLOW_CREDENTIALS = True
+
+# Celery Configuration
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
+CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Security Settings
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_REDIRECT_EXEMPT = []
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+```
+
+# ==== config/urls.py ====
+
+```python
+"""
+URL configuration for config project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+]
+```
+
+# ==== config/wsgi.py ====
+
+```python
+"""
+WSGI config for config project.
+
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+application = get_wsgi_application()
+```
+
+# ========================= DJANGO APPLICATIONS (apps/) - Including NEW customers/ app =========================
+
+
+# ==== apps/accounts/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/accounts/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/accounts/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class AccountsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'accounts'
+```
+
+# ==== apps/accounts/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/accounts/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/accounts/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/accounts/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/bookings/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/bookings/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/bookings/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class BookingsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'bookings'
+```
+
+# ==== apps/bookings/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/bookings/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/bookings/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/bookings/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/crm/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/crm/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/crm/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class CrmConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'crm'
+```
+
+# ==== apps/crm/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/crm/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/crm/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/crm/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/documents/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/documents/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/documents/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class DocumentsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'documents'
+```
+
+# ==== apps/documents/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/documents/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/documents/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/documents/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/logistics/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/logistics/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/logistics/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class LogisticsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'logistics'
+```
+
+# ==== apps/logistics/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/logistics/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/logistics/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/logistics/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/notifications/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/notifications/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/notifications/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class NotificationsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'notifications'
+```
+
+# ==== apps/notifications/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/notifications/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/notifications/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/notifications/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/payments/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/payments/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/payments/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class PaymentsConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'payments'
+```
+
+# ==== apps/payments/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/payments/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/payments/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/payments/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ==== apps/services/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/services/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== apps/services/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class ServicesConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'services'
+```
+
+# ==== apps/services/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/services/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== apps/services/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== apps/services/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
+```
+
+# ========================= SCRIPTS & UTILITIES =========================
+
+
+# ==== scripts/back_export.py ====
+
+```python
+#!/usr/bin/env python3
+"""
+ToteTaxi Backend Auto-Discovery Export
+"""
+import os
+from pathlib import Path
+from datetime import datetime
+
+def get_file_content(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"# Error reading file: {e}"
+
+def should_include_file(file_path, base_dir):
+    """Smart file inclusion rules for ToteTaxi"""
+    rel_path = file_path.relative_to(base_dir)
+    path_str = str(rel_path)
+    
+    # Skip patterns - SECURITY: Handle .env files separately
+    skip_patterns = [
+        '__pycache__', '.pyc', '.git/', '.pytest_cache/', 'htmlcov/',
+        'staticfiles/', 'media/', 'logs/', '.coverage', 'db.sqlite3',
+        'totetaxi_backend_snapshot.txt', 'back_export.txt',
+        '.DS_Store', '*.swp', '*.swo'
+    ]
+    
+    if any(pattern in path_str for pattern in skip_patterns):
+        return False
+    
+    # SECURITY: Skip .env files (contain secrets)
+    if file_path.name.startswith('.env'):
+        return False
+    
+    # Include all migration files for reference
+    # (Including customer app migrations)
+    
+    # Include patterns
+    include_extensions = {'.py', '.txt', '.yml', '.yaml', '.toml', '.md', '.sh', '.ini', '.conf'}
+    include_files = {
+        'Dockerfile', 'Dockerfile.dev', '.dockerignore', '.gitignore', 
+        'manage.py', 'docker-compose.yml', 'docker-compose.prod.yml',
+        'gunicorn.conf.py', 'pytest.ini'
+    }
+    
+    return (
+        file_path.suffix in include_extensions or 
+        file_path.name in include_files
+    )
+
+def categorize_file(file_path, base_dir):
+    """Auto-categorize files for ToteTaxi structure"""
+    rel_path = file_path.relative_to(base_dir)
+    path_str = str(rel_path)
+    
+    # Configuration files (root level)
+    if (rel_path.parent == Path('.') or 
+        file_path.name in ['manage.py', 'requirements.txt', 'gunicorn.conf.py', 'pytest.ini']):
+        return 'config'
+    
+    # ToteTaxi Django apps (including NEW customers app)
+    totetaxi_apps = [
+        'accounts/', 'bookings/', 'crm/', 'customers/', 'documents/', 
+        'logistics/', 'notifications/', 'payments/', 'services/'
+    ]
+    if any(f'apps/{app}' in path_str for app in totetaxi_apps):
+        return 'apps'
+    
+    # Django project settings (config/ directory)
+    if 'config/' in path_str:
+        return 'project'
+    
+    # Scripts directory
+    if 'scripts/' in path_str:
+        return 'scripts'
+    
+    # Everything else
+    return 'other'
+
+def main():
+    backend_dir = Path(__file__).parent.parent
+    output_file = backend_dir / 'scripts' / 'back_export.txt'
+    
+    print(f"🔍 Auto-discovering ToteTaxi backend files in: {backend_dir}")
+    
+    # Auto-discover all relevant files
+    all_files = []
+    for file_path in backend_dir.rglob('*'):
+        if file_path.is_file() and should_include_file(file_path, backend_dir):
+            all_files.append(file_path)
+    
+    # Categorize files
+    categories = {
+        'config': [],
+        'project': [],
+        'apps': [],
+        'scripts': [],
+        'other': []
+    }
+    
+    for file_path in all_files:
+        category = categorize_file(file_path, backend_dir)
+        categories[category].append(file_path)
+    
+    # Sort within categories
+    for category in categories:
+        categories[category].sort()
+    
+    print(f"📊 Found {len(all_files)} files:")
+    for cat, files in categories.items():
+        if files:
+            print(f"  - {cat}: {len(files)} files")
+    
+    # Generate snapshot
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write("# TOTETAXI - BACKEND CODE SNAPSHOT\n")
+        f.write("# AUTO-GENERATED - SECURE VERSION\n")
+        f.write(f"# Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"# Total files: {len(all_files)}\n")
+        f.write("# 🔒 SECURITY: .env files excluded (contain secrets)\n")
+        f.write("# 📋 INCLUDES: All Django apps, migrations, configuration\n")
+        f.write("# Apps: accounts (STAFF), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services\n")
+        f.write("# NEW FEATURES: Customer authentication, guest checkout, customer dashboard\n")
+        f.write("# Tech Stack: Django 5.2.5, DRF 3.16.1, PostgreSQL, Redis, Celery\n")
+        f.write("# Integration: S3 storage, SES email, mocked Stripe/Onfleet\n\n\n")
+        
+        # Output by category
+        section_names = {
+            'config': 'CONFIGURATION & ROOT FILES',
+            'project': 'DJANGO PROJECT SETTINGS (config/)',
+            'apps': 'DJANGO APPLICATIONS (apps/) - Including NEW customers/ app',
+            'scripts': 'SCRIPTS & UTILITIES',
+            'other': 'OTHER FILES'
+        }
+        
+        for category, section_name in section_names.items():
+            if categories[category]:
+                f.write("# " + "="*25 + f" {section_name} " + "="*25 + "\n\n\n")
+                
+                for file_path in categories[category]:
+                    rel_path = file_path.relative_to(backend_dir)
+                    f.write(f"# ==== {rel_path} ====\n\n")
+                    
+                    # Smart syntax highlighting
+                    if file_path.suffix == '.py':
+                        f.write("```python\n")
+                    elif file_path.suffix in ['.yml', '.yaml']:
+                        f.write("```yaml\n")
+                    elif file_path.suffix == '.toml':
+                        f.write("```toml\n")
+                    elif file_path.suffix == '.md':
+                        f.write("```markdown\n")
+                    elif file_path.suffix == '.sh':
+                        f.write("```bash\n")
+                    elif file_path.name in ['Dockerfile', 'Dockerfile.dev']:
+                        f.write("```dockerfile\n")
+                    elif file_path.suffix == '.ini':
+                        f.write("```ini\n")
+                    else:
+                        f.write("```\n")
+                    
+                    content = get_file_content(file_path)
+                    f.write(content)
+                    if not content.endswith('\n'):
+                        f.write('\n')
+                    f.write("```\n\n")
+    
+    print(f"✅ Auto-generated ToteTaxi backend snapshot: {output_file}")
+    print("🔒 SECURITY: .env files excluded (contain secrets)")
+    print("📋 INCLUDES: All 9 Django apps with migrations (including NEW customers/ app)")
+    print("🏗️  STRUCTURE: accounts (staff), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services")
+    print("👤 NEW FEATURES: Customer authentication, guest checkout, customer dashboard")
+    print("🐳 DOCKER: Configuration and compose files included")
+
+if __name__ == "__main__":
+    main()
+```
+
+# ==== scripts/entrypoint.sh ====
+
+```bash
+#!/bin/bash
+
+# Exit on any failure
+set -e
+
+echo "Waiting for postgres..."
+while ! pg_isready -h db -p 5432 -U postgres; do
+  sleep 1
+done
+echo "PostgreSQL started"
+
+# Only run migrations and collectstatic if manage.py exists
+if [ -f "manage.py" ]; then
+    echo "Running migrations..."
+    python manage.py migrate --no-input
+    
+    echo "Collecting static files..."
+    python manage.py collectstatic --no-input --clear || echo "Collectstatic failed, continuing..."
+    
+    echo "Creating superuser if needed..."
+    python manage.py shell -c "
+from django.contrib.auth import get_user_model
+User = get_user_model()
+if not User.objects.filter(username='admin').exists():
+    User.objects.create_superuser('admin', 'admin@totetaxi.com', 'admin123')
+    print('Superuser created: admin/admin123')
+else:
+    print('Superuser already exists')
+" || echo "Superuser creation failed, continuing..."
+else
+    echo "No manage.py found, skipping Django setup commands"
+fi
+
+exec "$@"
+```
+
+# ========================= OTHER FILES =========================
+
+
+# ==== apps/__init__.py ====
+
+```python
+
+```
+
