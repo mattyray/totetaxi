@@ -34,7 +34,7 @@ def should_include_file(file_path, base_dir):
         return False
     
     # Include all migration files for reference
-    # (Unlike the reference script, we want to keep these)
+    # (Including customer app migrations)
     
     # Include patterns
     include_extensions = {'.py', '.txt', '.yml', '.yaml', '.toml', '.md', '.sh', '.ini', '.conf'}
@@ -59,9 +59,9 @@ def categorize_file(file_path, base_dir):
         file_path.name in ['manage.py', 'requirements.txt', 'gunicorn.conf.py', 'pytest.ini']):
         return 'config'
     
-    # ToteTaxi Django apps
+    # ToteTaxi Django apps (including NEW customers app)
     totetaxi_apps = [
-        'accounts/', 'bookings/', 'crm/', 'documents/', 
+        'accounts/', 'bookings/', 'crm/', 'customers/', 'documents/', 
         'logistics/', 'notifications/', 'payments/', 'services/'
     ]
     if any(f'apps/{app}' in path_str for app in totetaxi_apps):
@@ -120,7 +120,8 @@ def main():
         f.write(f"# Total files: {len(all_files)}\n")
         f.write("# 🔒 SECURITY: .env files excluded (contain secrets)\n")
         f.write("# 📋 INCLUDES: All Django apps, migrations, configuration\n")
-        f.write("# Apps: accounts, bookings, crm, documents, logistics, notifications, payments, services\n")
+        f.write("# Apps: accounts (STAFF), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services\n")
+        f.write("# NEW FEATURES: Customer authentication, guest checkout, customer dashboard\n")
         f.write("# Tech Stack: Django 5.2.5, DRF 3.16.1, PostgreSQL, Redis, Celery\n")
         f.write("# Integration: S3 storage, SES email, mocked Stripe/Onfleet\n\n\n")
         
@@ -128,7 +129,7 @@ def main():
         section_names = {
             'config': 'CONFIGURATION & ROOT FILES',
             'project': 'DJANGO PROJECT SETTINGS (config/)',
-            'apps': 'DJANGO APPLICATIONS (apps/)',
+            'apps': 'DJANGO APPLICATIONS (apps/) - Including NEW customers/ app',
             'scripts': 'SCRIPTS & UTILITIES',
             'other': 'OTHER FILES'
         }
@@ -167,8 +168,9 @@ def main():
     
     print(f"✅ Auto-generated ToteTaxi backend snapshot: {output_file}")
     print("🔒 SECURITY: .env files excluded (contain secrets)")
-    print("📋 INCLUDES: All 8 Django apps with migrations")
-    print("🏗️  STRUCTURE: accounts, bookings, crm, documents, logistics, notifications, payments, services")
+    print("📋 INCLUDES: All 9 Django apps with migrations (including NEW customers/ app)")
+    print("🏗️  STRUCTURE: accounts (staff), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services")
+    print("👤 NEW FEATURES: Customer authentication, guest checkout, customer dashboard")
     print("🐳 DOCKER: Configuration and compose files included")
 
 if __name__ == "__main__":
