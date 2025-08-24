@@ -21,9 +21,15 @@ if [ -f "manage.py" ]; then
     python manage.py shell -c "
 from django.contrib.auth import get_user_model
 User = get_user_model()
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@totetaxi.com', 'admin123')
-    print('Superuser created: admin/admin123')
+if not User.objects.filter(email='admin@totetaxi.com').exists():
+    User.objects.create_superuser(
+        email='admin@totetaxi.com', 
+        first_name='Admin', 
+        last_name='User',
+        phone='+1234567890',
+        password='admin123'
+    )
+    print('Superuser created: admin@totetaxi.com/admin123')
 else:
     print('Superuser already exists')
 " || echo "Superuser creation failed, continuing..."
