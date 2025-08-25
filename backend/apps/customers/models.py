@@ -20,6 +20,7 @@ class CustomerManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', 'admin')  # Superusers are admin role
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -31,24 +32,38 @@ class CustomerManager(BaseUserManager):
 
 class Customer(AbstractUser):
     """
-    Customer authentication model - extends Django's User
-    Separate from staff authentication for clean separation of concerns
+    Unified User model - handles both customers and staff
+    Customers: role='customer', use customer dashboard
+    Staff: role='staff' or 'admin', use Django admin
     """
+    
+    ROLE_CHOICES = [
+        ('customer', 'Customer'),
+        ('staff', 'Staff'),
+        ('admin', 'Admin'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # Override username to use email
     username = None
     email = models.EmailField(unique=True)
     
-    # Customer-specific fields
+    # User role (customers vs staff)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
+    
+    # Contact info
     phone = models.CharField(
         max_length=20, 
         validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')],
-        help_text="Phone number for booking notifications"
+        help_text="Phone number for notifications"
     )
     
-    # Stripe integration
+    # Customer-specific fields (only for role='customer')
     stripe_customer_id = models.CharField(max_length=100, blank=True)
+    
+    # Staff-specific fields (only for role='staff' or 'admin') 
+    department = models.CharField(max_length=50, blank=True)
     
     # Account management
     is_active = models.BooleanField(default=True)
@@ -63,24 +78,46 @@ class Customer(AbstractUser):
     
     class Meta:
         db_table = 'customers_customer'
-        verbose_name = 'Customer'
-        verbose_name_plural = 'Customers'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
     
     def __str__(self):
-        return f"{self.get_full_name()} ({self.email})"
+        return f"{self.get_full_name()} ({self.email}) - {self.role}"
     
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+    
+    @property
+    def is_customer_role(self):
+        return self.role == 'customer'
+    
+    @property
+    def is_staff_role(self):
+        return self.role in ['staff', 'admin']
+    
+    @property
+    def is_admin_role(self):
+        return self.role == 'admin'
+    
+    @property
+    def can_approve_refunds(self):
+        """Only admin role can approve refunds"""
+        return self.role == 'admin'
+    
+    @property
+    def can_manage_bookings(self):
+        """Staff and admin can manage bookings"""
+        return self.role in ['staff', 'admin']
 
 
 class CustomerProfile(models.Model):
     """
     Extended customer profile information and statistics
-    Separate from Customer model for clean data organization
+    Only for users with role='customer'
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.OneToOneField(Customer, on_delete=models.CASCADE, related_name='profile')
+    customer = models.OneToOneField('Customer', on_delete=models.CASCADE, related_name='profile')
     
     # Booking statistics (updated by booking app)
     total_bookings = models.PositiveIntegerField(default=0)
@@ -133,10 +170,10 @@ class CustomerProfile(models.Model):
 class SavedAddress(models.Model):
     """
     Customer's saved addresses for quick booking
-    Enables address reuse and faster checkout for repeat customers
+    Only for users with role='customer'
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='saved_addresses')
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='saved_addresses')
     
     # Customer-friendly naming
     nickname = models.CharField(
@@ -202,10 +239,10 @@ class SavedAddress(models.Model):
 class CustomerPaymentMethod(models.Model):
     """
     Customer's saved payment methods via Stripe
-    Links customer accounts to Stripe customer and payment methods
+    Only for users with role='customer'
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payment_methods')
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='payment_methods')
     
     # Stripe integration
     stripe_payment_method_id = models.CharField(max_length=100, unique=True)
