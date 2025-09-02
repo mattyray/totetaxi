@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database - PORT 5435
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: totetaxi
       POSTGRES_USER: postgres
