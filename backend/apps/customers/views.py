@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
     CustomerRegistrationSerializer, 
@@ -14,6 +17,7 @@ from .serializers import (
 )
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerRegistrationView(generics.CreateAPIView):
     """Register new customer account"""
     serializer_class = CustomerRegistrationSerializer
@@ -27,10 +31,12 @@ class CustomerRegistrationView(generics.CreateAPIView):
         return Response({
             'message': 'Account created successfully',
             'user': UserSerializer(user).data,
-            'customer_profile': CustomerProfileSerializer(user.customer_profile).data
+            'customer_profile': CustomerProfileSerializer(user.customer_profile).data,
+            'csrf_token': get_token(request)
         }, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerLoginView(APIView):
     """Customer login endpoint"""
     permission_classes = [permissions.AllowAny]
@@ -45,7 +51,8 @@ class CustomerLoginView(APIView):
         return Response({
             'message': 'Login successful',
             'user': UserSerializer(user).data,
-            'customer_profile': CustomerProfileSerializer(user.customer_profile).data
+            'customer_profile': CustomerProfileSerializer(user.customer_profile).data,
+            'csrf_token': get_token(request)
         })
 
 
@@ -66,10 +73,22 @@ class CurrentUserView(APIView):
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
-                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data
+                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data,
+                'csrf_token': get_token(request)
             })
         else:
             return Response({'error': 'Not a customer account'}, status=status.HTTP_403_FORBIDDEN)
+
+
+class CSRFTokenView(APIView):
+    """Get CSRF token for authenticated requests"""
+    permission_classes = [permissions.AllowAny]
+    
+    @method_decorator(ensure_csrf_cookie)
+    def get(self, request):
+        return Response({
+            'csrf_token': get_token(request)
+        })
 
 
 class CustomerProfileView(generics.RetrieveUpdateAPIView):

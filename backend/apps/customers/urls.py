@@ -1,9 +1,11 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from . import views
 
 # API patterns
 urlpatterns = [
+    # CSRF token endpoint
+    path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
+    
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),
     path('auth/login/', views.CustomerLoginView.as_view(), name='customer-login'),
