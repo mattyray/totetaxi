@@ -48,8 +48,7 @@ LOCAL_APPS = [
     'apps.documents',
     'apps.notifications',
     'apps.crm',
-    'apps.customers',  # ADD THIS
-
+    'apps.customers',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -201,4 +200,4 @@ LOGGING = {
     },
 }
 
-AUTH_USER_MODEL = 'customers.Customer'
+# REMOVED: AUTH_USER_MODEL = 'customers.Customer'

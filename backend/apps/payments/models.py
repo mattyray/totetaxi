@@ -1,13 +1,11 @@
 import uuid
 from django.db import models
 from django.utils import timezone
-from django.conf import settings
+from django.contrib.auth.models import User
 
 
 class Payment(models.Model):
-    """
-    Payment records for bookings - simple Stripe integration
-    """
+    """Payment records for bookings - simple Stripe integration"""
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -27,7 +25,7 @@ class Payment(models.Model):
     
     # Customer (if authenticated)
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -62,9 +60,7 @@ class Payment(models.Model):
 
 
 class Refund(models.Model):
-    """
-    Refund requests with simple approval workflow (from homework)
-    """
+    """Refund requests with simple approval workflow"""
     
     STATUS_CHOICES = [
         ('requested', 'Requested'),
@@ -86,14 +82,14 @@ class Refund(models.Model):
     amount_cents = models.PositiveBigIntegerField()
     reason = models.TextField()
     
-    # Approval workflow (homework requirement)
+    # Approval workflow
     requested_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,  # Staff user (role='staff' or 'admin')
+        User,
         on_delete=models.PROTECT,
         related_name='requested_refunds'
     )
     approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,  # Admin user (role='admin')
+        User,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -121,9 +117,6 @@ class Refund(models.Model):
     
     def approve(self, admin_user):
         """Admin approves refund"""
-        if not admin_user.can_approve_refunds:
-            raise ValueError("Only admin users can approve refunds")
-        
         self.status = 'approved'
         self.approved_by = admin_user
         self.approved_at = timezone.now()
@@ -131,9 +124,7 @@ class Refund(models.Model):
 
 
 class PaymentAudit(models.Model):
-    """
-    Basic audit log for financial compliance
-    """
+    """Basic audit log for financial compliance"""
     
     ACTION_CHOICES = [
         ('payment_created', 'Payment Created'),
@@ -156,7 +147,7 @@ class PaymentAudit(models.Model):
     
     # Who did it (staff user)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True

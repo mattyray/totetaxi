@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from django.utils import timezone
-from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 
 
@@ -11,7 +11,7 @@ class Address(models.Model):
     
     # Optional customer link (for saved addresses)
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
+        User, 
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
@@ -81,7 +81,7 @@ class Booking(models.Model):
     
     # Customer - EITHER customer OR guest_checkout
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -202,7 +202,7 @@ class Booking(models.Model):
     
     def get_customer_name(self):
         if self.customer:
-            return self.customer.full_name
+            return self.customer.get_full_name()
         elif self.guest_checkout:
             return f"{self.guest_checkout.first_name} {self.guest_checkout.last_name}"
         return "Unknown"
