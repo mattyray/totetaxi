@@ -1,7 +1,7 @@
 from django.urls import path
-from . import views
+from . import views, booking_views
 
-# API patterns
+# API patterns with both authentication and booking functionality
 urlpatterns = [
     # CSRF token endpoint
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
@@ -16,5 +16,14 @@ urlpatterns = [
     path('profile/', views.CustomerProfileView.as_view(), name='customer-profile'),
     path('addresses/', views.SavedAddressListCreateView.as_view(), name='saved-addresses'),
     path('addresses/<uuid:pk>/', views.SavedAddressDetailView.as_view(), name='saved-address-detail'),
+    
+    # Enhanced customer dashboard and preferences
+    path('dashboard/', booking_views.CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('preferences/', booking_views.BookingPreferencesView.as_view(), name='booking-preferences'),
+    
+    # Authenticated booking management
     path('bookings/', views.CustomerBookingListView.as_view(), name='customer-bookings'),
+    path('bookings/create/', booking_views.CustomerBookingCreateView.as_view(), name='customer-booking-create'),
+    path('bookings/<uuid:booking_id>/', booking_views.CustomerBookingDetailView.as_view(), name='customer-booking-detail'),
+    path('bookings/<uuid:booking_id>/rebook/', booking_views.QuickRebookView.as_view(), name='quick-rebook'),
 ]
