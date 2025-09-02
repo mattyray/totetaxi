@@ -28,6 +28,15 @@
 │   │   │   ├── models.py
 │   │   │   ├── tests.py
 │   │   │   └── views.py
+│   │   ├── customers
+│   │   │   ├── migrations
+│   │   │   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── models.py
+│   │   │   ├── tests.py
+│   │   │   └── views.py
 │   │   ├── documents
 │   │   │   ├── migrations
 │   │   │   │   └── __init__.py
@@ -81,9 +90,19 @@
 │   │   ├── settings.py
 │   │   ├── urls.py
 │   │   └── wsgi.py
+│   ├── customers
+│   │   ├── migrations
+│   │   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── models.py
+│   │   ├── tests.py
+│   │   └── views.py
 │   ├── logs
 │   ├── scripts
 │   │   ├── back_export.py
+│   │   ├── back_export.txt
 │   │   └── entrypoint.sh
 │   ├── static
 │   ├── docker-compose.yml
@@ -117,4 +136,4 @@
 ├── project_structure.txt
 └── README.md
 
-27 directories, 91 files
+31 directories, 106 files
