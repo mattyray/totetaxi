@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - SECURE VERSION
-# Created: 2025-08-24 13:59:21
-# Total files: 74
+# Created: 2025-09-02 16:46:56
+# Total files: 88
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services
@@ -125,564 +125,10 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 # ==== README.md ====
 
 ```markdown
-UPDATED - ToteTaxi Backend Living Documentation & RoadmapStrategic Technical Architecture - Django 5.2.5 + DRF 3.16.1 + PostgreSQL + DockerSystem Architecture OverviewToteTaxi Backend Ecosystem
-├── Core Business Logic
-│   ├── bookings/ → Heart of system, manages all booking lifecycle (guest + authenticated)
-│   ├── services/ → Pricing engine, availability logic, business rules
-│   ├── accounts/ → STAFF authentication, user management (admin dashboard only)
-│   └── customers/ → CUSTOMER authentication, profiles, dashboard (NEW)
-├── Financial Operations
-│   └── payments/ → Payment processing, refunds, financial audit trails
-├── Operational Management  
-│   ├── logistics/ → Delivery coordination, tracking, driver management
-│   ├── documents/ → File storage, COI management, document lifecycle
-│   └── notifications/ → Email communications, template management
-├── Administrative Interface
-│   └── crm/ → Staff dashboard, reporting, administrative actions
-└── Infrastructure Layer
-    ├── PostgreSQL Database (Port 5435)
-    ├── Redis Cache & Queue (Port 6382)
-    ├── Celery Background Jobs
-    └── AWS Services (S3 Storage, SES Email)Frontend Integration Points:
 
-Customer Booking Flow: React app → bookings + services + payments + customers APIs
-Customer Dashboard: React customer portal → customers + bookings APIs
-Admin Dashboard: React admin → crm + all app APIs for management
-Real-time Updates: WebSocket connections for live booking status
-Core Business Applications📋 apps/bookings/ - System Heart & Data HubPrimary Responsibility: Central booking entity that every other system component revolves aroundBusiness Logic Ownership:
+---
 
-Complete booking lifecycle from inquiry to completion
-Dual-mode operation: Works with guest checkout AND authenticated customers
-Address standardization and reuse for logged-in customers
-Booking status orchestration across all systems
-Business rule enforcement and validation
-Core Data Entities:
 
-Booking: UUID primary key, TT-001234 numbering, soft deletes, status tracking
-Address: Reusable addresses with pickup/delivery associations (linked to customers)
-GuestCheckout: Temporary customer data for non-authenticated bookings
-Frontend Integration Needs:
-
-Guest Booking APIs: Create booking with customer info provided
-Authenticated Booking APIs: Create booking using customer profile data
-Booking History APIs: Customer dashboard booking list and details
-Status Tracking APIs: Live booking status for customer tracking page
-Pricing Preview: Real-time pricing as customer makes selections
-Key External Relationships:
-
-→ services/: Gets pricing calculations and availability data
-→ payments/: Triggers payment processing workflows
-→ logistics/: Initiates delivery task creation
-→ documents/: Associates COI files with bookings
-→ notifications/: Triggers confirmation and status emails
-← crm/: Receives admin status updates and modifications
-↔ customers/: Links to customer profiles for authenticated bookings
-Business Rules Enforced:
-
-Minimum item counts for different service types
-Required COI for high-value bookings
-Date availability constraints based on van scheduling
-Customer information validation and standardization
-NEW: Guest vs authenticated customer workflow routing
-MVP Simplifications:
-
-Basic guest checkout capture (name, email, phone)
-Simple customer linking for authenticated bookings
-Address reuse for logged-in customers
-👤 apps/customers/ - Customer Authentication & Profile Management (NEW)Primary Responsibility: Customer-facing authentication, profiles, and self-service capabilitiesBusiness Logic Ownership:
-
-Customer registration and login (separate from staff auth)
-Customer profile management and preferences
-Saved addresses and payment methods integration
-Booking history and status tracking for customers
-Account settings and notification preferences (future)
-Core Data Entities:
-
-Customer: Django User-based model with customer-specific fields
-CustomerProfile: Extended profile information, preferences, booking statistics
-SavedAddress: Customer's frequently used addresses (home, Hamptons, etc.)
-CustomerPaymentMethod: Stripe customer and saved payment methods
-Frontend Integration Needs:
-
-Authentication APIs: Registration, login, logout, password reset
-Profile Management APIs: Update customer info, preferences
-Address Book APIs: CRUD operations for saved addresses
-Payment Methods APIs: Add, list, delete saved payment methods
-Dashboard APIs: Booking history, account overview, notifications
-Customer Dashboard Features:
-
-Booking History: List of all bookings with status tracking
-Active Bookings: Live tracking of in-progress deliveries
-Address Book: Manage saved pickup/delivery locations
-Payment Methods: Manage saved cards via Stripe
-Profile Settings: Update contact info, preferences
-Key External Relationships:
-
-↔ bookings/: Customer bookings linked to authenticated users
-→ payments/: Stripe customer management for saved payment methods
-← notifications/: Customer communication preferences and history
-← crm/: Staff can view customer profiles and booking patterns
-Authentication Strategy:
-
-Optional accounts: Guest checkout remains available
-Email/password authentication: Simple registration flow
-Session-based auth: Standard Django authentication for customer dashboard
-Stripe customer creation: Automatic when saving payment methods
-MVP Simplifications:
-
-Basic email/password authentication (no social login)
-Simple address book (no advanced features like address validation)
-Basic saved payment methods via Stripe
-No notification preferences (use defaults)
-No loyalty/rewards features
-🔐 apps/accounts/ - Staff Authentication & User ManagementPrimary Responsibility: STAFF-ONLY authentication and role-based access control for admin dashboardBusiness Logic Ownership:
-
-CLARIFICATION: This app is for STAFF users only (not customers)
-Staff user authentication and session management
-Role-based permissions (Admin vs Staff capabilities)
-User profile management and preferences
-Authentication token generation and validation
-Core Data Entities:
-
-User: Extended Django user with role field and phone (STAFF ONLY)
-StaffProfile: Employee details, department, permissions level, hire date
-Frontend Integration Needs:
-
-Admin Authentication: Login/logout endpoints for staff dashboard
-User Context: Current staff user info, permissions, role-based UI
-Session Management: Token refresh, password change capabilities
-Permission Levels:
-
-Admin: Full system access, refund processing, user management
-Staff: Booking management, customer service, operational tasks
-View-Only: Dashboard access, reporting, no modifications
-Key External Relationships:
-
-→ crm/: Provides user context for all administrative actions
-→ ALL APPS: Authentication middleware protects all admin endpoints
-← customers/: Staff can view customer profiles for support
-MVP Simplifications:
-
-Simple role-based permissions (no granular permissions)
-Session-based authentication (JWT tokens for API access)
-Manual staff user creation through Django admin
-💰 apps/services/ - Pricing & Availability EnginePrimary Responsibility: All pricing logic, service definitions, and availability managementBusiness Logic Ownership:
-
-Complex multi-factor pricing calculations
-Service catalog management (Mini Moves, Standard Delivery, Specialty Items)
-Dynamic surcharge application (weekend, holiday, peak season)
-Van availability scheduling and capacity management
-Business constraint validation before booking creation
-Core Data Entities:
-
-MiniMovePackage: Petite ($995), Standard ($1725), Full ($2490) with item limits
-StandardDeliveryRate: $95 per item, $285 minimum, $360 same-day pricing
-SpecialtyItem: Peloton ($500), Surfboard ($350), Crib ($350), Wardrobe Box ($275)
-SurchargeRule: Weekend, holiday, peak date pricing modifications
-VanSchedule: Daily availability, capacity overrides, specialty item constraints
-Frontend Integration Needs:
-
-Service Selection: Available packages and specialty items with descriptions
-Calendar Availability: Which dates available for different service types
-Real-time Pricing: Dynamic price updates as customer modifies booking
-Surcharge Display: Clear breakdown of additional fees and reasons
-Pricing Calculation Complexity:
-
-Base service pricing by type and package level
-Item-count validation and pricing for standard deliveries
-Date-based surcharge application with business rules
-COI fee calculation and inclusion logic
-Minimum charge enforcement across all service types
-NEW: Customer-specific pricing (future: loyalty discounts)
-Key External Relationships:
-
-← bookings/: Receives pricing calculation requests
-→ bookings/: Validates booking data against business constraints
-← crm/: Admin updates to pricing rules and availability
-← customers/: Future integration for customer-specific pricing
-MVP Simplifications:
-
-Basic weekend surcharge logic (15% premium)
-Manual van scheduling (no automatic optimization)
-Simple specialty item availability (same van required)
-Standard delivery flat rates (no dynamic pricing)
-💳 apps/payments/ - Financial Operations HubPrimary Responsibility: All money-related operations, audit trails, and financial integrityBusiness Logic Ownership:
-
-Payment processing lifecycle management
-Customer payment methods: Stripe customer management for saved cards
-Refund processing with approval workflows
-Financial audit trails for all money movements
-Integration with payment processors (Stripe initially mocked)
-Payment failure handling and retry logic
-Core Data Entities:
-
-Payment: Links to booking, tracks amount, status, external payment IDs
-CustomerStripeData: Links customers to Stripe customer IDs and saved payment methods
-Refund: Refund records with reasons, approval trails, processing status
-PaymentAudit: Comprehensive audit log for all financial actions
-Frontend Integration Needs:
-
-Payment Processing: Payment intent creation, confirmation handling
-Saved Payment Methods: Customer dashboard payment method management
-Payment Status: Real-time payment status for booking confirmation
-Admin Refunds: Staff interface for processing refunds with approval workflows
-Financial Reporting: Payment analytics and reconciliation data
-Payment Flow Architecture:
-
-Guest checkout: One-time payment processing
-Customer checkout: Option to save payment method or use saved method
-Booking creation triggers payment intent generation
-Frontend handles payment collection via Stripe
-Successful payment triggers logistics and notification workflows
-Failed payments trigger retry logic and customer communication
-Key External Relationships:
-
-← bookings/: Receives payment requests from completed bookings
-→ bookings/: Updates booking status based on payment success/failure
-← customers/: Customer payment method management
-→ logistics/: Triggers delivery task creation after successful payment
-→ notifications/: Sends payment confirmations and failure notifications
-← crm/: Processes refund requests from staff with audit trails
-MVP Simplifications:
-
-Mocked Stripe integration for development
-Simple refund workflow (admin approval required)
-Basic payment retry logic (3 attempts)
-Basic saved payment method functionality
-🚚 apps/logistics/ - Delivery CoordinationPrimary Responsibility: Physical delivery management and real-time trackingBusiness Logic Ownership:
-
-Delivery task creation and driver assignment
-Real-time tracking and status updates
-Customer communication: Tracking updates for both guest and authenticated customers
-Integration with logistics providers (Onfleet initially mocked)
-Failed delivery handling and rescheduling
-Core Data Entities:
-
-DeliveryTask: Links to booking, tracks pickup/delivery status, driver assignment
-TrackingUpdate: Real-time events from logistics provider, customer notifications
-Frontend Integration Needs:
-
-Customer Tracking: Live delivery status and driver location (guest + authenticated)
-Customer Dashboard: Booking tracking integration
-Admin Task Management: Staff interface for managing delivery tasks
-Delivery Analytics: Success rates, timing metrics, driver performance
-Delivery Workflow:
-
-Successful payment triggers delivery task creation
-Tasks assigned to drivers via external logistics platform
-Real-time updates flow from logistics provider to customers
-Customer notifications: Email/SMS to both guest checkout email and customer accounts
-Delivery completion triggers final notifications and booking closure
-Key External Relationships:
-
-← payments/: Creates delivery tasks after successful payment confirmation
-← bookings/: Uses booking data for pickup/delivery addresses and instructions
-→ bookings/: Updates booking status based on delivery progress
-→ notifications/: Sends tracking updates and delivery confirmations
-← customers/: Provides tracking data for customer dashboard
-← crm/: Staff can monitor and modify delivery tasks
-MVP Simplifications:
-
-Mocked Onfleet integration for development
-Basic tracking status updates (created, assigned, in progress, completed)
-Simple delivery failure handling
-Email notifications only (no SMS initially)
-📄 apps/documents/ - File Storage & ManagementPrimary Responsibility: Secure file handling, COI management, and document lifecycleBusiness Logic Ownership:
-
-File upload, storage, and secure access via S3
-Certificate of Insurance (COI) processing and validation
-Document categorization and searchability
-File lifecycle management and cleanup
-Access control and secure URL generation
-Customer document access: Allow customers to view their booking documents
-Core Data Entities:
-
-Document: S3-stored files with metadata, associations to bookings/customers
-COI: Extended document model with insurance-specific fields and validation
-Frontend Integration Needs:
-
-File Upload: Secure upload endpoints with progress tracking
-Customer Document Access: Secure document viewing in customer dashboard
-Document Viewer: Secure document access and display
-COI Management: Staff interface for COI validation and status tracking
-Document Search: Find documents by booking, customer, or date range
-File Storage Architecture:
-
-Direct uploads to S3 with secure presigned URLs
-Database tracking of all file metadata and associations
-Automatic file categorization and tagging
-Customer access control: Customers can only view their own booking documents
-Scheduled cleanup of expired or unused files
-Key External Relationships:
-
-← bookings/: Associates documents with specific bookings
-← customers/: Customer access to their booking documents
-← crm/: Staff upload and manage documents through admin interface
-→ notifications/: Alerts for missing/expired COIs
-S3 Integration: Direct file storage and retrieval
-MVP Simplifications:
-
-Basic COI upload and storage (no OCR or automatic validation)
-Simple file categorization (COI, invoice, receipt)
-Manual document validation by staff
-Basic customer document viewing (no advanced features)
-📧 apps/notifications/ - Communication HubPrimary Responsibility: All customer and staff communication managementBusiness Logic Ownership:
-
-Email template management with dynamic variables
-Multi-channel notification delivery (email via SES, future SMS)
-Dual recipient handling: Guest checkout emails and customer account notifications
-Delivery tracking and failure handling
-Notification scheduling and retry logic
-Communication preference management (future)
-Core Data Entities:
-
-EmailTemplate: Reusable templates with variable substitution
-Notification: Individual communication records with delivery tracking
-DeliveryLog: Comprehensive tracking of communication delivery and engagement
-CustomerNotificationPreference: Customer communication settings (future)
-Frontend Integration Needs:
-
-Template Management: Staff interface for creating and editing email templates
-Customer Notification History: Customer dashboard view of communications
-Notification History: Customer and staff views of communication history
-Delivery Analytics: Email open rates, delivery success, bounce tracking
-Communication Workflows:
-
-Booking events automatically trigger notification creation
-Smart recipient detection: Use customer email if authenticated, booking email if guest
-Templates populated with booking/customer data variables
-SES handles email delivery with tracking and bounce management
-Customer dashboard integration: Show notification history to logged-in customers
-Failed communications trigger retry logic and staff alerts
-Key External Relationships:
-
-← bookings/: Triggered by booking status changes and lifecycle events
-← payments/: Sends payment confirmations and failure notifications
-← logistics/: Sends delivery tracking updates and completion confirmations
-← customers/: Customer notification preferences and dashboard history
-← crm/: Staff can send custom notifications and manage templates
-SES Integration: Email delivery and tracking via AWS Simple Email Service
-MVP Simplifications:
-
-Email-only communications (no SMS initially)
-Basic template system with simple variable substitution
-Standard notification types (booking confirmation, payment confirmation, delivery updates)
-No advanced customer preference management
-📊 apps/crm/ - Administrative Command CenterPrimary Responsibility: Staff operations interface and business intelligenceBusiness Logic Ownership:
-
-Real-time dashboard with key performance indicators
-Comprehensive booking management and modification capabilities
-Customer support: Access to customer profiles, booking history, account management
-Financial operations including refund processing
-Business reporting and data export functionality
-Audit logging for all administrative actions
-Core Data Entities:
-
-Dashboard: Daily KPI aggregation and business metrics
-Report: Configurable business reports with export capabilities
-AuditLog: Complete action tracking for compliance and accountability
-Frontend Integration Needs:
-
-Operations Dashboard: Real-time KPIs, upcoming bookings, pending actions
-Booking Management: Full CRUD interface for all booking operations
-Customer Management: Staff interface for viewing/managing customer accounts
-Financial Interface: Refund processing, payment tracking, revenue reporting
-Analytics Views: Business intelligence dashboards and trend analysis
-Dashboard Metrics:
-
-Daily/weekly/monthly booking volumes and revenue
-Customer metrics: Registration rates, repeat booking patterns
-Service type breakdown and popularity trends
-Payment success rates and processing metrics
-Delivery completion rates and timing analytics
-Customer satisfaction and repeat booking rates
-Administrative Workflows:
-
-Staff can view, modify, and cancel any booking
-Customer account management: Staff can view customer profiles, reset passwords, manage accounts
-Refund processing with approval workflows and audit trails
-Customer service actions with complete interaction history
-Business reporting with scheduled generation and delivery
-Key External Relationships:
-
-→ ALL APPS: CRM interfaces with every system component for management
-← accounts/: Authentication and role-based access control
-← bookings/: Primary data source for operations and customer service
-← customers/: Customer account management and support
-← payments/: Financial data management and refund processing
-← logistics/: Delivery task monitoring and management
-← documents/: Document management and COI processing
-← notifications/: Communication management and template control
-MVP Simplifications:
-
-Basic dashboard with essential KPIs
-Simple booking search and filter capabilities
-Basic customer account viewing (no advanced management)
-Manual report generation (no scheduled reports initially)
-Basic audit logging for critical actions
-System Integration ArchitectureData Flow PatternsCustomer Booking Journey (Guest):
-Marketing Site (SEO/Conversion)
-    ↓
-Booking Wizard (Guest Checkout)
-    ↓ Real-time pricing
-Services API ← → Frontend State Management
-    ↓ Booking creation with guest info
-Bookings API → Payment Processing
-    ↓ Payment confirmation
-Logistics API → Email Notifications (to booking email)
-    ↓
-Confirmation & Tracking (guest access)Customer Booking Journey (Authenticated):
-Marketing Site → Customer Login/Signup
-    ↓
-Customer Dashboard OR Booking Wizard (Authenticated)
-    ↓ Pre-filled data from profile
-Services API ← → Frontend State Management
-    ↓ Booking creation linked to customer
-Bookings API → Payment Processing (saved methods available)
-    ↓ Payment confirmation
-Logistics API → Email Notifications + Dashboard Updates
-    ↓
-Customer Dashboard Tracking + Email confirmationsStaff Operations Flow:
-Admin Authentication (Staff Only)
-    ↓
-Dashboard Overview (Real-time KPIs)
-    ↓
-Booking Management + Customer Management
-    ↓ Staff actions
-CRM API → All Backend Apps
-    ↓ Real-time updates
-WebSocket → Live Dashboard UpdatesExternal Service Integration:
-Frontend → S3 Direct Upload (COI files)
-Frontend → Stripe Elements (Payment processing + saved methods)
-Backend → SES (Email notifications)
-Backend → Onfleet (Delivery coordination)Authentication ArchitectureDual Authentication Strategy:
-Staff Authentication (accounts/)
-├── Django Admin access
-├── Staff dashboard access
-├── Role-based permissions
-└── Session-based auth
-
-Customer Authentication (customers/)
-├── Optional customer accounts
-├── Guest checkout available
-├── Customer dashboard access
-└── Session-based auth with different middlewareDevelopment RoadmapPhase 1: Foundation (Week 1) - "Core Data & Customer Auth"
-Objective: Establish core system with basic booking functionality and customer authenticationBackend Deliverables:
-
-All Django apps created with core models (including customers/)
-Customer authentication system (registration, login, dashboard)
-Basic CRUD APIs for bookings, services, and customers
-UUID primary keys and soft delete implementation
-Docker environment fully operational
-Django admin interfaces for all models
-Frontend Dependencies Created:
-
-Customer authentication APIs (signup, login, profile)
-Booking creation APIs (guest + authenticated)
-Customer dashboard APIs (booking history, profile management)
-Service catalog endpoints available
-Basic booking management APIs functional
-Success Criteria:
-
-Customers can register, login, and view booking history
-Can create booking through API with pricing calculation (guest + authenticated)
-All models properly related with foreign keys
-Docker setup allows immediate development start
-Phase 2: Business Logic (Week 2) - "Pricing & Payment Flow"
-Objective: Implement complex business rules and mocked payment processingBackend Deliverables:
-
-Advanced pricing engine with surcharge calculations
-Mocked payment processing with realistic behaviors
-Stripe customer integration for saved payment methods
-Notification system with SES email integration
-Background job processing with Celery
-Complete booking workflow from creation through payment
-Frontend Dependencies Created:
-
-Real-time pricing APIs with surcharge breakdowns
-Payment processing endpoints (mocked but realistic)
-Saved payment method management
-Email confirmation system operational
-Booking status updates available
-Success Criteria:
-
-Complete customer booking flow functional (guest + authenticated)
-Customer dashboard shows booking history and saved addresses
-Emails sent via SES with proper templates
-Background jobs processing payments and notifications
-Phase 3: Operations (Week 3) - "File Storage & Admin Interface"
-Objective: Document management and staff operational capabilitiesBackend Deliverables:
-
-S3 document storage with secure access
-COI upload and basic validation
-CRM dashboard APIs with business metrics
-Staff authentication and role-based permissions
-Administrative booking and customer management capabilities
-Frontend Dependencies Created:
-
-File upload endpoints with progress tracking
-Admin dashboard data APIs
-Staff authentication and authorization
-Customer account management APIs for staff
-Booking management APIs for admin interface
-Success Criteria:
-
-Documents upload to S3 and associate with bookings
-Staff can log in and manage bookings and customer accounts
-Admin dashboard shows real business metrics
-Customer dashboard fully functional
-Phase 4: Production Readiness (Week 4) - "Real Integrations & Polish"
-Objective: Replace mocks with production services and optimize performanceBackend Deliverables:
-
-Real Stripe integration replacing mocked payments
-Production-ready configuration and security
-Customer authentication security hardening
-Comprehensive API documentation
-Performance optimization and caching
-Complete test coverage for critical paths
-Frontend Dependencies Completed:
-
-All APIs finalized with real payment processing
-Customer dashboard with all MVP features
-Error handling patterns established
-Production-ready authentication flows
-Complete feature parity for MVP launch
-Success Criteria:
-
-Real payments processing through Stripe
-Customer accounts fully functional in production
-System ready for production deployment
-All MVP features tested and documented
-Technical Architecture DecisionsDatabase Design Principles
-
-UUID Primary Keys: Enhanced security, distributed system compatibility
-Soft Deletes: Data preservation for analytics, audit requirements
-Dual Customer Strategy: Guest checkout data + customer accounts
-Optimized Indexes: Query performance on frequently accessed fields
-JSON Fields: Flexible data storage for configurations and metadata
-API Design Standards
-
-RESTful Conventions: Predictable endpoint patterns
-Consistent Response Formats: Standardized success/error responses
-Dual Authentication: Separate auth patterns for staff vs customers
-Pagination Strategy: Efficient large dataset handling
-Version Management: Future-proof API evolution
-Security Implementation
-
-Dual Authentication: Staff vs customer authentication separation
-Role-Based Access Control: Admin/Staff permission separation
-Customer Data Protection: Customers can only access their own data
-Input Validation: Comprehensive data sanitization
-Secure File Storage: S3 with presigned URL access patterns
-Audit Logging: Complete action tracking for compliance
-Performance Optimization
-
-Database Query Optimization: Efficient joins and indexes
-Background Job Processing: Async operations for user experience
-Caching Strategy: Redis for frequently accessed data
-Customer Dashboard Performance: Efficient booking history queries
-File Storage Optimization: Direct S3 upload patterns
-This living document evolves with system development and serves as the single source of truth for ToteTaxi's backend architecture, business logic, and integration patterns.
 ```
 
 # ==== docker-compose.yml ====
@@ -691,7 +137,7 @@ This living document evolves with system development and serves as the single so
 services:
   # PostgreSQL Database - PORT 5435
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: totetaxi
       POSTGRES_USER: postgres
@@ -1060,6 +506,7 @@ LOCAL_APPS = [
     'apps.documents',
     'apps.notifications',
     'apps.crm',
+    'apps.customers',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -1210,6 +657,8 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# REMOVED: AUTH_USER_MODEL = 'customers.Customer'
 ```
 
 # ==== config/urls.py ====
@@ -1282,10 +731,9 @@ from django.contrib import admin
 ```python
 from django.apps import AppConfig
 
-
 class AccountsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'accounts'
+    name = 'apps.accounts'  # Changed from 'accounts' to 'apps.accounts'
 ```
 
 # ==== apps/accounts/migrations/__init__.py ====
@@ -1297,9 +745,161 @@ class AccountsConfig(AppConfig):
 # ==== apps/accounts/models.py ====
 
 ```python
+import uuid
+from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
-# Create your models here.
+
+class StaffProfile(models.Model):
+    """Extended profile for staff users (Django User model + additional fields)"""
+    
+    ROLE_CHOICES = [
+        ('staff', 'Staff'),
+        ('admin', 'Admin'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
+    
+    # Staff role within the staff system
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
+    
+    # Staff-specific information
+    department = models.CharField(max_length=50, blank=True)
+    hire_date = models.DateField(null=True, blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    
+    # Permissions tracking
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    login_attempts = models.PositiveIntegerField(default=0)
+    account_locked_until = models.DateTimeField(null=True, blank=True)
+    
+    # Management
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'accounts_staff_profile'
+        verbose_name = 'Staff Profile'
+        verbose_name_plural = 'Staff Profiles'
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} ({self.role})"
+    
+    @property
+    def can_approve_refunds(self):
+        """Only admin role can approve refunds"""
+        return self.role == 'admin'
+    
+    @property
+    def can_manage_staff(self):
+        """Only admin role can manage other staff accounts"""
+        return self.role == 'admin'
+    
+    @property
+    def can_view_financial_reports(self):
+        """Both staff and admin can view financial reports"""
+        return self.role in ['staff', 'admin']
+    
+    @property
+    def full_name(self):
+        """Get full name from associated User model"""
+        return self.user.get_full_name()
+    
+    @property
+    def email(self):
+        """Get email from associated User model"""
+        return self.user.email
+    
+    def lock_account(self, minutes=30):
+        """Lock account for specified minutes after failed login attempts"""
+        self.account_locked_until = timezone.now() + timezone.timedelta(minutes=minutes)
+        self.save()
+    
+    def unlock_account(self):
+        """Unlock account and reset login attempts"""
+        self.account_locked_until = None
+        self.login_attempts = 0
+        self.save()
+    
+    @property
+    def is_account_locked(self):
+        """Check if account is currently locked"""
+        if self.account_locked_until:
+            return timezone.now() < self.account_locked_until
+        return False
+
+
+class StaffAction(models.Model):
+    """Audit log for staff actions - required for compliance"""
+    
+    ACTION_TYPES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('view_customer', 'View Customer'),
+        ('modify_booking', 'Modify Booking'),
+        ('process_refund', 'Process Refund'),
+        ('approve_refund', 'Approve Refund'),
+        ('upload_document', 'Upload Document'),
+        ('send_notification', 'Send Notification'),
+        ('export_data', 'Export Data'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Who performed the action
+    staff_user = models.ForeignKey(User, on_delete=models.PROTECT, related_name='staff_actions')
+    
+    # What action was performed
+    action_type = models.CharField(max_length=30, choices=ACTION_TYPES)
+    description = models.TextField()
+    
+    # Context information
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField(blank=True)
+    
+    # Related objects (for tracking what was accessed/modified)
+    customer_id = models.UUIDField(null=True, blank=True, help_text="Customer affected by action")
+    booking_id = models.UUIDField(null=True, blank=True, help_text="Booking affected by action")
+    
+    # Timing
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'accounts_staff_action'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['staff_user', '-created_at']),
+            models.Index(fields=['action_type', '-created_at']),
+            models.Index(fields=['customer_id']),
+            models.Index(fields=['booking_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.staff_user.username} - {self.action_type} - {self.created_at}"
+    
+    @classmethod
+    def log_action(cls, staff_user, action_type, description, request=None, customer_id=None, booking_id=None):
+        """Helper method to log staff actions"""
+        ip_address = '127.0.0.1'  # default
+        user_agent = ''
+        
+        if request:
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', 
+                                        request.META.get('REMOTE_ADDR', '127.0.0.1'))
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        return cls.objects.create(
+            staff_user=staff_user,
+            action_type=action_type,
+            description=description,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            customer_id=customer_id,
+            booking_id=booking_id
+        )
 ```
 
 # ==== apps/accounts/tests.py ====
@@ -1328,8 +928,83 @@ from django.shortcuts import render
 
 ```python
 from django.contrib import admin
+from .models import Booking, Address, GuestCheckout
 
-# Register your models here.
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    list_display = (
+        'booking_number', 
+        'get_customer_name', 
+        'service_type', 
+        'get_service_details',
+        'status', 
+        'pickup_date', 
+        'total_price_dollars'
+    )
+    list_filter = ('service_type', 'status', 'pickup_date', 'coi_required')
+    search_fields = ('booking_number', 'customer__email', 'guest_checkout__email')
+    readonly_fields = ('booking_number', 'base_price_cents', 'surcharge_cents', 'coi_fee_cents', 'total_price_cents', 'created_at', 'updated_at')
+    
+    fieldsets = (
+        ('Customer Info', {
+            'fields': ('customer', 'guest_checkout')
+        }),
+        ('Service Selection', {
+            'fields': (
+                'service_type', 
+                'mini_move_package', 
+                'standard_delivery_item_count',
+                'is_same_day_delivery',
+                'specialty_items'
+            )
+        }),
+        ('Booking Details', {
+            'fields': ('pickup_date', 'pickup_time', 'pickup_address', 'delivery_address')
+        }),
+        ('Requirements', {
+            'fields': ('special_instructions', 'coi_required')
+        }),
+        ('Calculated Pricing', {
+            'fields': ('base_price_cents', 'surcharge_cents', 'coi_fee_cents', 'total_price_cents'),
+            'classes': ('collapse',)
+        }),
+        ('Status', {
+            'fields': ('status',)
+        }),
+        ('System Info', {
+            'fields': ('booking_number', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    filter_horizontal = ('specialty_items',)  # Nice interface for many-to-many
+    
+    def get_customer_name(self, obj):
+        return obj.get_customer_name()
+    get_customer_name.short_description = 'Customer'
+    
+    def get_service_details(self, obj):
+        if obj.service_type == 'mini_move' and obj.mini_move_package:
+            return obj.mini_move_package.name
+        elif obj.service_type == 'standard_delivery' and obj.standard_delivery_item_count:
+            return f"{obj.standard_delivery_item_count} items"
+        elif obj.service_type == 'specialty_item':
+            items = list(obj.specialty_items.all())
+            return ", ".join([item.name for item in items[:2]]) + ("..." if len(items) > 2 else "")
+        return "Not configured"
+    get_service_details.short_description = 'Service Details'
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ('address_line_1', 'city', 'state', 'customer', 'created_at')
+    list_filter = ('state', 'city')
+    search_fields = ('address_line_1', 'city', 'customer__email')
+
+@admin.register(GuestCheckout)
+class GuestCheckoutAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'last_name', 'email', 'phone', 'created_at')
+    search_fields = ('first_name', 'last_name', 'email')
+    readonly_fields = ('created_at',)
 ```
 
 # ==== apps/bookings/apps.py ====
@@ -1337,10 +1012,9 @@ from django.contrib import admin
 ```python
 from django.apps import AppConfig
 
-
 class BookingsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'bookings'
+    name = 'apps.bookings'  # Changed from 'bookings' to 'apps.bookings'
 ```
 
 # ==== apps/bookings/migrations/__init__.py ====
@@ -1352,9 +1026,295 @@ class BookingsConfig(AppConfig):
 # ==== apps/bookings/models.py ====
 
 ```python
+import uuid
 from django.db import models
+from django.utils import timezone
+from django.contrib.auth.models import User
+from django.core.validators import RegexValidator
 
-# Create your models here.
+
+class Address(models.Model):
+    """Address for pickup/delivery - can be saved by customer or one-time"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Optional customer link (for saved addresses)
+    customer = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='booking_addresses'
+    )
+    
+    # Address fields
+    address_line_1 = models.CharField(max_length=200)
+    address_line_2 = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=2, choices=[
+        ('NY', 'New York'),
+        ('CT', 'Connecticut'), 
+        ('NJ', 'New Jersey'),
+    ])
+    zip_code = models.CharField(max_length=10)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'bookings_address'
+    
+    def __str__(self):
+        return f"{self.address_line_1}, {self.city}, {self.state} {self.zip_code}"
+
+
+class GuestCheckout(models.Model):
+    """Guest customer info for non-authenticated bookings"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(
+        max_length=20, 
+        validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')]
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'bookings_guest_checkout'
+    
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
+
+
+class Booking(models.Model):
+    """Core booking - works with customer OR guest checkout - WITH SERVICES INTEGRATION"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('paid', 'Paid'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    SERVICE_TYPE_CHOICES = [
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('specialty_item', 'Specialty Item'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking_number = models.CharField(max_length=20, unique=True, blank=True)
+    
+    # Customer - EITHER customer OR guest_checkout
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='bookings'
+    )
+    guest_checkout = models.OneToOneField(
+        GuestCheckout,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='booking'
+    )
+    
+    # Service details
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
+    
+    # SERVICE CONNECTIONS
+    # For Mini Move bookings
+    mini_move_package = models.ForeignKey(
+        'services.MiniMovePackage',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Selected mini move package (Petite/Standard/Full)"
+    )
+    
+    # For Standard Delivery bookings  
+    standard_delivery_item_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of items for standard delivery"
+    )
+    is_same_day_delivery = models.BooleanField(
+        default=False,
+        help_text="Same-day delivery (flat $360 rate)"
+    )
+    
+    # For Specialty Item bookings
+    specialty_items = models.ManyToManyField(
+        'services.SpecialtyItem',
+        blank=True,
+        help_text="Selected specialty items (Peloton, Surfboard, etc.)"
+    )
+    
+    # Addresses
+    pickup_address = models.ForeignKey(
+        Address, 
+        on_delete=models.PROTECT, 
+        related_name='pickup_bookings'
+    )
+    delivery_address = models.ForeignKey(
+        Address, 
+        on_delete=models.PROTECT, 
+        related_name='delivery_bookings'
+    )
+    
+    # Date and preferences
+    pickup_date = models.DateField()
+    pickup_time = models.CharField(
+        max_length=20,
+        choices=[
+            ('morning', '8 AM - 11 AM'),
+            ('afternoon', '12 PM - 3 PM'),
+            ('evening', '4 PM - 7 PM'),
+        ],
+        default='morning'
+    )
+    
+    # Special requirements
+    special_instructions = models.TextField(blank=True)
+    coi_required = models.BooleanField(default=False)
+    
+    # CALCULATED PRICING
+    base_price_cents = models.PositiveBigIntegerField(default=0)
+    surcharge_cents = models.PositiveBigIntegerField(default=0)
+    coi_fee_cents = models.PositiveBigIntegerField(default=0)
+    total_price_cents = models.PositiveBigIntegerField(default=0)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Soft delete
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'bookings_booking'
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(customer__isnull=False, guest_checkout__isnull=True) |
+                    models.Q(customer__isnull=True, guest_checkout__isnull=False)
+                ),
+                name='booking_exactly_one_customer_type'
+            )
+        ]
+    
+    def save(self, *args, **kwargs):
+        if not self.booking_number:
+            # Simple booking number generation
+            last_booking = Booking.objects.order_by('created_at').last()
+            if last_booking and last_booking.booking_number:
+                last_num = int(last_booking.booking_number.split('-')[1])
+                next_num = last_num + 1
+            else:
+                next_num = 1
+            self.booking_number = f"TT-{next_num:06d}"
+        
+        # Calculate pricing before saving
+        self.calculate_pricing()
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        customer_name = self.get_customer_name()
+        return f"{self.booking_number} - {customer_name} - ${self.total_price_dollars}"
+    
+    def get_customer_name(self):
+        if self.customer:
+            return self.customer.get_full_name()
+        elif self.guest_checkout:
+            return f"{self.guest_checkout.first_name} {self.guest_checkout.last_name}"
+        return "Unknown"
+    
+    def get_customer_email(self):
+        if self.customer:
+            return self.customer.email
+        elif self.guest_checkout:
+            return self.guest_checkout.email
+        return None
+    
+    @property
+    def total_price_dollars(self):
+        return self.total_price_cents / 100
+    
+    @property
+    def base_price_dollars(self):
+        return self.base_price_cents / 100
+    
+    @property
+    def surcharge_dollars(self):
+        return self.surcharge_cents / 100
+    
+    @property
+    def coi_fee_dollars(self):
+        return self.coi_fee_cents / 100
+    
+    def calculate_pricing(self):
+        """Calculate total pricing using services pricing engine"""
+        from apps.services.models import StandardDeliveryConfig, SurchargeRule
+        
+        # Reset pricing
+        self.base_price_cents = 0
+        self.surcharge_cents = 0
+        self.coi_fee_cents = 0
+        
+        # Calculate base price by service type
+        if self.service_type == 'mini_move' and self.mini_move_package:
+            self.base_price_cents = self.mini_move_package.base_price_cents
+            
+            # COI handling for Mini Moves
+            if self.coi_required and not self.mini_move_package.coi_included:
+                self.coi_fee_cents = self.mini_move_package.coi_fee_cents
+            
+        elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
+            try:
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    self.base_price_cents = config.calculate_total(
+                        self.standard_delivery_item_count,
+                        is_same_day=self.is_same_day_delivery
+                    )
+            except StandardDeliveryConfig.DoesNotExist:
+                pass
+        
+        elif self.service_type == 'specialty_item':
+            # Calculate total for all selected specialty items
+            specialty_total = 0
+            for item in self.specialty_items.all():
+                specialty_total += item.price_cents
+            self.base_price_cents = specialty_total
+        
+        # Calculate surcharges (but not for same-day delivery which has flat rate)
+        if self.pickup_date and not self.is_same_day_delivery:
+            active_surcharges = SurchargeRule.objects.filter(is_active=True)
+            for surcharge in active_surcharges:
+                surcharge_amount = surcharge.calculate_surcharge(
+                    self.base_price_cents, 
+                    self.pickup_date
+                )
+                self.surcharge_cents += surcharge_amount
+        
+        # Calculate total
+        self.total_price_cents = self.base_price_cents + self.surcharge_cents + self.coi_fee_cents
+    
+    def get_pricing_breakdown(self):
+        """Return detailed pricing breakdown for display"""
+        return {
+            'base_price': self.base_price_dollars,
+            'surcharges': self.surcharge_dollars,
+            'coi_fee': self.coi_fee_dollars,
+            'total': self.total_price_dollars,
+            'service_type': self.get_service_type_display(),
+        }
 ```
 
 # ==== apps/bookings/tests.py ====
@@ -1395,7 +1355,7 @@ from django.apps import AppConfig
 
 class CrmConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'crm'
+    name = 'apps.crm'
 ```
 
 # ==== apps/crm/migrations/__init__.py ====
@@ -1428,6 +1388,240 @@ from django.shortcuts import render
 # Create your views here.
 ```
 
+# ==== apps/customers/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/customers/admin.py ====
+
+```python
+from django.contrib import admin
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
+
+
+class CustomerProfileInline(admin.StackedInline):
+    model = CustomerProfile
+    can_delete = False
+    verbose_name_plural = 'Customer Profile'
+
+
+class CustomUserAdmin(BaseUserAdmin):
+    inlines = (CustomerProfileInline,)
+
+
+# Re-register UserAdmin
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)
+
+
+@admin.register(CustomerProfile)
+class CustomerProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'total_bookings', 'total_spent_dollars', 'is_vip', 'last_booking_at')
+    list_filter = ('is_vip', 'preferred_pickup_time', 'email_notifications')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = ('total_bookings', 'total_spent_cents', 'last_booking_at', 'created_at', 'updated_at')
+
+
+@admin.register(SavedAddress)
+class SavedAddressAdmin(admin.ModelAdmin):
+    list_display = ('user', 'nickname', 'city', 'state', 'times_used', 'is_active')
+    list_filter = ('state', 'is_active', 'city')
+    search_fields = ('user__email', 'nickname', 'city', 'address_line_1')
+    readonly_fields = ('times_used', 'last_used_at', 'created_at', 'updated_at')
+
+
+@admin.register(CustomerPaymentMethod)
+class CustomerPaymentMethodAdmin(admin.ModelAdmin):
+    list_display = ('user', 'display_name', 'is_default', 'is_active', 'created_at')
+    list_filter = ('card_brand', 'is_default', 'is_active')
+    search_fields = ('user__email', 'card_last_four')
+    readonly_fields = ('stripe_payment_method_id', 'created_at')
+```
+
+# ==== apps/customers/apps.py ====
+
+```python
+# apps/customers/apps.py
+from django.apps import AppConfig
+
+class CustomersConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.customers'  # Change this from 'customers' to 'apps.customers'
+```
+
+# ==== apps/customers/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/customers/models.py ====
+
+```python
+import uuid
+from django.contrib.auth.models import User
+from django.db import models
+from django.core.validators import RegexValidator
+from django.utils import timezone
+
+
+class CustomerProfile(models.Model):
+    """Customer profile linked to Django's User model"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='customer_profile')
+    
+    # Customer-specific fields
+    phone = models.CharField(
+        max_length=20, 
+        validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$')],
+        blank=True
+    )
+    stripe_customer_id = models.CharField(max_length=100, blank=True)
+    
+    # Booking statistics
+    total_bookings = models.PositiveIntegerField(default=0)
+    total_spent_cents = models.PositiveBigIntegerField(default=0)
+    last_booking_at = models.DateTimeField(null=True, blank=True)
+    
+    # Customer preferences
+    preferred_pickup_time = models.CharField(
+        max_length=20,
+        choices=[
+            ('morning', '8 AM - 11 AM'),
+            ('afternoon', '12 PM - 3 PM'),
+            ('evening', '4 PM - 7 PM'),
+        ],
+        default='morning'
+    )
+    
+    email_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=False)
+    is_vip = models.BooleanField(default=False)
+    notes = models.TextField(blank=True, help_text="Internal notes for staff")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customers_profile'
+    
+    def __str__(self):
+        return f"Profile: {self.user.get_full_name()}"
+    
+    @property
+    def total_spent_dollars(self):
+        return self.total_spent_cents / 100
+    
+    def add_booking_stats(self, booking_total_cents):
+        """Update customer statistics after booking completion"""
+        self.total_bookings += 1
+        self.total_spent_cents += booking_total_cents
+        self.last_booking_at = timezone.now()
+        self.save()
+
+
+class SavedAddress(models.Model):
+    """Customer's saved addresses"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_addresses')
+    
+    nickname = models.CharField(max_length=50)
+    address_line_1 = models.CharField(max_length=200)
+    address_line_2 = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=2, choices=[
+        ('NY', 'New York'),
+        ('CT', 'Connecticut'), 
+        ('NJ', 'New Jersey'),
+    ])
+    zip_code = models.CharField(max_length=10)
+    delivery_instructions = models.TextField(blank=True)
+    
+    times_used = models.PositiveIntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customers_saved_address'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'nickname'], 
+                name='unique_customer_address_nickname'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.nickname}"
+    
+    @property
+    def formatted_address(self):
+        parts = [
+            self.address_line_1,
+            self.address_line_2,
+            f"{self.city}, {self.state} {self.zip_code}"
+        ]
+        return ', '.join(filter(None, parts))
+    
+    def mark_used(self):
+        self.times_used += 1
+        self.last_used_at = timezone.now()
+        self.save()
+
+
+class CustomerPaymentMethod(models.Model):
+    """Customer's saved payment methods"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_methods')
+    
+    stripe_payment_method_id = models.CharField(max_length=100, unique=True)
+    card_brand = models.CharField(max_length=20)
+    card_last_four = models.CharField(max_length=4)
+    card_exp_month = models.PositiveSmallIntegerField()
+    card_exp_year = models.PositiveSmallIntegerField()
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'customers_payment_method'
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.card_brand} ****{self.card_last_four}"
+    
+    @property
+    def display_name(self):
+        return f"{self.card_brand.title()} ending in {self.card_last_four}"
+    
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            CustomerPaymentMethod.objects.filter(
+                user=self.user, 
+                is_default=True
+            ).exclude(id=self.id).update(is_default=False)
+        super().save(*args, **kwargs)
+```
+
+# ==== apps/customers/tests.py ====
+
+```python
+
+```
+
+# ==== apps/customers/views.py ====
+
+```python
+
+```
+
 # ==== apps/documents/__init__.py ====
 
 ```python
@@ -1450,7 +1644,7 @@ from django.apps import AppConfig
 
 class DocumentsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'documents'
+    name = 'apps.documents'
 ```
 
 # ==== apps/documents/migrations/__init__.py ====
@@ -1505,7 +1699,7 @@ from django.apps import AppConfig
 
 class LogisticsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'logistics'
+    name = 'apps.logistics'
 ```
 
 # ==== apps/logistics/migrations/__init__.py ====
@@ -1560,7 +1754,7 @@ from django.apps import AppConfig
 
 class NotificationsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'notifications'
+    name = 'apps.notifications'
 ```
 
 # ==== apps/notifications/migrations/__init__.py ====
@@ -1603,8 +1797,191 @@ from django.shortcuts import render
 
 ```python
 from django.contrib import admin
+from django.utils.html import format_html
+from .models import Payment, Refund, PaymentAudit
 
-# Register your models here.
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        'booking', 
+        'get_customer_name', 
+        'amount_dollars', 
+        'status', 
+        'get_status_badge',
+        'created_at',
+        'processed_at'
+    )
+    list_filter = ('status', 'created_at', 'processed_at')
+    search_fields = (
+        'booking__booking_number', 
+        'customer__email', 
+        'stripe_payment_intent_id',
+        'stripe_charge_id'
+    )
+    readonly_fields = ('created_at', 'updated_at', 'processed_at')
+    
+    fieldsets = (
+        ('Booking & Customer', {
+            'fields': ('booking', 'customer')
+        }),
+        ('Payment Details', {
+            'fields': ('amount_cents', 'status', 'failure_reason')
+        }),
+        ('Stripe Integration', {
+            'fields': ('stripe_payment_intent_id', 'stripe_charge_id')
+        }),
+        ('Timestamps', {
+            'fields': ('processed_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def get_customer_name(self, obj):
+        if obj.customer:
+            return obj.customer.full_name
+        else:
+            return obj.booking.get_customer_name()
+    get_customer_name.short_description = 'Customer'
+    
+    def get_status_badge(self, obj):
+        colors = {
+            'pending': 'orange',
+            'succeeded': 'green',
+            'failed': 'red',
+            'refunded': 'blue'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    get_status_badge.short_description = 'Status'
+
+@admin.register(Refund)
+class RefundAdmin(admin.ModelAdmin):
+    list_display = (
+        'payment',
+        'get_booking_number',
+        'amount_dollars',
+        'status',
+        'get_status_badge',
+        'requested_by',
+        'approved_by',
+        'created_at'
+    )
+    list_filter = ('status', 'created_at', 'approved_at')
+    search_fields = (
+        'payment__booking__booking_number',
+        'reason',
+        'requested_by__email',
+        'approved_by__email'
+    )
+    readonly_fields = ('created_at', 'approved_at', 'completed_at')
+    
+    fieldsets = (
+        ('Refund Details', {
+            'fields': ('payment', 'amount_cents', 'reason')
+        }),
+        ('Approval Workflow', {
+            'fields': ('status', 'requested_by', 'approved_by')
+        }),
+        ('Stripe Integration', {
+            'fields': ('stripe_refund_id',)
+        }),
+        ('Timestamps', {
+            'fields': ('approved_at', 'completed_at', 'created_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    actions = ['approve_refunds', 'deny_refunds']
+    
+    def get_booking_number(self, obj):
+        return obj.payment.booking.booking_number
+    get_booking_number.short_description = 'Booking #'
+    
+    def get_status_badge(self, obj):
+        colors = {
+            'requested': 'orange',
+            'approved': 'green',
+            'denied': 'red',
+            'completed': 'blue'
+        }
+        color = colors.get(obj.status, 'gray')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    get_status_badge.short_description = 'Status'
+    
+    def approve_refunds(self, request, queryset):
+        """Bulk approve refunds (only if user is admin)"""
+        if not request.user.can_approve_refunds:
+            self.message_user(request, 'Only admin users can approve refunds.', level='ERROR')
+            return
+        
+        approved_count = 0
+        for refund in queryset.filter(status='requested'):
+            try:
+                refund.approve(request.user)
+                approved_count += 1
+            except ValueError as e:
+                self.message_user(request, str(e), level='ERROR')
+        
+        if approved_count > 0:
+            self.message_user(
+                request, 
+                f'Successfully approved {approved_count} refund(s).'
+            )
+    approve_refunds.short_description = "Approve selected refunds"
+    
+    def deny_refunds(self, request, queryset):
+        """Bulk deny refunds"""
+        if not request.user.can_approve_refunds:
+            self.message_user(request, 'Only admin users can deny refunds.', level='ERROR')
+            return
+        
+        denied_count = queryset.filter(status='requested').update(status='denied')
+        self.message_user(
+            request, 
+            f'Successfully denied {denied_count} refund(s).'
+        )
+    deny_refunds.short_description = "Deny selected refunds"
+
+@admin.register(PaymentAudit)
+class PaymentAuditAdmin(admin.ModelAdmin):
+    list_display = ('action', 'get_short_description', 'user', 'created_at')
+    list_filter = ('action', 'created_at')
+    search_fields = ('description', 'user__email')
+    readonly_fields = ('created_at',)
+    
+    fieldsets = (
+        ('Action Details', {
+            'fields': ('action', 'description')
+        }),
+        ('Related Records', {
+            'fields': ('payment', 'refund')
+        }),
+        ('User & Timestamp', {
+            'fields': ('user', 'created_at')
+        })
+    )
+    
+    def get_short_description(self, obj):
+        return obj.description[:50] + ('...' if len(obj.description) > 50 else '')
+    get_short_description.short_description = 'Description'
+    
+    # Make it mostly read-only (audit logs shouldn't be edited)
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser  # Only superusers can delete audit logs
 ```
 
 # ==== apps/payments/apps.py ====
@@ -1615,7 +1992,7 @@ from django.apps import AppConfig
 
 class PaymentsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'payments'
+    name = 'apps.payments'
 ```
 
 # ==== apps/payments/migrations/__init__.py ====
@@ -1627,9 +2004,180 @@ class PaymentsConfig(AppConfig):
 # ==== apps/payments/models.py ====
 
 ```python
+import uuid
 from django.db import models
+from django.utils import timezone
+from django.contrib.auth.models import User
 
-# Create your models here.
+
+class Payment(models.Model):
+    """Payment records for bookings - simple Stripe integration"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('succeeded', 'Succeeded'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Link to booking
+    booking = models.ForeignKey(
+        'bookings.Booking',
+        on_delete=models.PROTECT,
+        related_name='payments'
+    )
+    
+    # Customer (if authenticated)
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payments'
+    )
+    
+    # Payment amount
+    amount_cents = models.PositiveBigIntegerField()
+    
+    # Stripe integration
+    stripe_payment_intent_id = models.CharField(max_length=200, blank=True)
+    stripe_charge_id = models.CharField(max_length=200, blank=True)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    failure_reason = models.TextField(blank=True)
+    
+    # Timestamps
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payments_payment'
+    
+    def __str__(self):
+        return f"{self.booking.booking_number} - ${self.amount_dollars} ({self.status})"
+    
+    @property
+    def amount_dollars(self):
+        return self.amount_cents / 100
+
+
+class Refund(models.Model):
+    """Refund requests with simple approval workflow"""
+    
+    STATUS_CHOICES = [
+        ('requested', 'Requested'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+        ('completed', 'Completed'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Original payment
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.PROTECT,
+        related_name='refunds'
+    )
+    
+    # Refund details
+    amount_cents = models.PositiveBigIntegerField()
+    reason = models.TextField()
+    
+    # Approval workflow
+    requested_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='requested_refunds'
+    )
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='approved_refunds'
+    )
+    
+    # Status and Stripe
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
+    stripe_refund_id = models.CharField(max_length=200, blank=True)
+    
+    # Timestamps
+    approved_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'payments_refund'
+    
+    def __str__(self):
+        return f"Refund ${self.amount_dollars} for {self.payment.booking.booking_number}"
+    
+    @property
+    def amount_dollars(self):
+        return self.amount_cents / 100
+    
+    def approve(self, admin_user):
+        """Admin approves refund"""
+        self.status = 'approved'
+        self.approved_by = admin_user
+        self.approved_at = timezone.now()
+        self.save()
+
+
+class PaymentAudit(models.Model):
+    """Basic audit log for financial compliance"""
+    
+    ACTION_CHOICES = [
+        ('payment_created', 'Payment Created'),
+        ('payment_succeeded', 'Payment Succeeded'),
+        ('payment_failed', 'Payment Failed'),
+        ('refund_requested', 'Refund Requested'),
+        ('refund_approved', 'Refund Approved'),
+        ('refund_completed', 'Refund Completed'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # What happened
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    description = models.TextField()
+    
+    # Related records
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
+    refund = models.ForeignKey(Refund, on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Who did it (staff user)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'payments_audit'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.action} - {self.created_at}"
+    
+    @classmethod
+    def log(cls, action, description, payment=None, refund=None, user=None):
+        """Simple audit logging"""
+        return cls.objects.create(
+            action=action,
+            description=description,
+            payment=payment,
+            refund=refund,
+            user=user
+        )
 ```
 
 # ==== apps/payments/tests.py ====
@@ -1658,8 +2206,101 @@ from django.shortcuts import render
 
 ```python
 from django.contrib import admin
+from .models import (
+    MiniMovePackage, 
+    StandardDeliveryConfig, 
+    SpecialtyItem, 
+    SurchargeRule, 
+    VanSchedule
+)
 
-# Register your models here.
+@admin.register(MiniMovePackage)
+class MiniMovePackageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'package_type', 'base_price_dollars', 'max_items', 'coi_included', 'is_most_popular', 'is_active')
+    list_filter = ('package_type', 'coi_included', 'is_most_popular', 'is_active')
+    fieldsets = (
+        ('Package Details', {
+            'fields': ('package_type', 'name', 'description', 'is_most_popular', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('base_price_cents', 'coi_included', 'coi_fee_cents')
+        }),
+        ('Limits & Features', {
+            'fields': ('max_items', 'max_weight_per_item_lbs', 'priority_scheduling', 'protective_wrapping')
+        })
+    )
+
+@admin.register(StandardDeliveryConfig)
+class StandardDeliveryConfigAdmin(admin.ModelAdmin):
+    list_display = ('price_per_item_dollars', 'minimum_items', 'minimum_charge_dollars', 'is_active')
+    fieldsets = (
+        ('Per-Item Pricing', {
+            'fields': ('price_per_item_cents', 'minimum_items', 'minimum_charge_cents')
+        }),
+        ('Same-Day Delivery', {
+            'fields': ('same_day_flat_rate_cents',)
+        }),
+        ('Constraints', {
+            'fields': ('max_weight_per_item_lbs', 'is_active')
+        })
+    )
+
+@admin.register(SpecialtyItem)
+class SpecialtyItemAdmin(admin.ModelAdmin):
+    list_display = ('name', 'item_type', 'price_dollars', 'requires_van_schedule', 'is_active')
+    list_filter = ('item_type', 'requires_van_schedule', 'special_handling', 'is_active')
+    fieldsets = (
+        ('Item Details', {
+            'fields': ('item_type', 'name', 'description', 'is_active')
+        }),
+        ('Pricing', {
+            'fields': ('price_cents',)
+        }),
+        ('Requirements', {
+            'fields': ('requires_van_schedule', 'special_handling')
+        })
+    )
+
+@admin.register(SurchargeRule)
+class SurchargeRuleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'surcharge_type', 'calculation_type', 'get_surcharge_display', 'is_active')
+    list_filter = ('surcharge_type', 'calculation_type', 'is_active')
+    fieldsets = (
+        ('Rule Details', {
+            'fields': ('surcharge_type', 'name', 'description', 'is_active')
+        }),
+        ('Calculation', {
+            'fields': ('calculation_type', 'percentage', 'fixed_amount_cents')
+        }),
+        ('Date Rules', {
+            'fields': ('specific_date', 'applies_saturday', 'applies_sunday')
+        })
+    )
+    
+    def get_surcharge_display(self, obj):
+        if obj.calculation_type == 'percentage' and obj.percentage:
+            return f"{obj.percentage}%"
+        elif obj.calculation_type == 'fixed_amount' and obj.fixed_amount_cents:
+            return f"${obj.fixed_amount_cents / 100}"
+        return "Not configured"
+    get_surcharge_display.short_description = 'Surcharge Amount'
+
+@admin.register(VanSchedule)
+class VanScheduleAdmin(admin.ModelAdmin):
+    list_display = ('date', 'is_available', 'total_bookings', 'max_capacity', 'has_capacity', 'allows_specialty_items')
+    list_filter = ('is_available', 'date')
+    date_hierarchy = 'date'
+    fieldsets = (
+        ('Schedule', {
+            'fields': ('date', 'is_available', 'max_capacity')
+        }),
+        ('Bookings', {
+            'fields': ('mini_moves_booked', 'specialty_items_booked')
+        }),
+        ('Notes', {
+            'fields': ('notes',)
+        })
+    )
 ```
 
 # ==== apps/services/apps.py ====
@@ -1670,7 +2311,7 @@ from django.apps import AppConfig
 
 class ServicesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'services'
+    name = 'apps.services'
 ```
 
 # ==== apps/services/migrations/__init__.py ====
@@ -1682,9 +2323,313 @@ class ServicesConfig(AppConfig):
 # ==== apps/services/models.py ====
 
 ```python
+import uuid
 from django.db import models
+from django.utils import timezone
+from decimal import Decimal
 
-# Create your models here.
+
+class MiniMovePackage(models.Model):
+    """Mini Move service packages from homework: Petite, Standard, Full"""
+    
+    PACKAGE_TYPES = [
+        ('petite', 'Petite'),
+        ('standard', 'Standard'), 
+        ('full', 'Full Move'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Package details
+    package_type = models.CharField(max_length=20, choices=PACKAGE_TYPES, unique=True)
+    name = models.CharField(max_length=50)
+    description = models.TextField()
+    
+    # Pricing
+    base_price_cents = models.PositiveBigIntegerField()
+    
+    # Item limits
+    max_items = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Maximum items allowed (null = unlimited for Full Move)"
+    )
+    max_weight_per_item_lbs = models.PositiveIntegerField(default=50)
+    
+    # COI handling
+    coi_included = models.BooleanField(default=False)
+    coi_fee_cents = models.PositiveBigIntegerField(
+        default=5000,  # $50
+        help_text="COI fee in cents if not included"
+    )
+    
+    # Features
+    priority_scheduling = models.BooleanField(default=False)
+    protective_wrapping = models.BooleanField(default=False)
+    
+    # Marketing
+    is_most_popular = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_mini_move_package'
+        ordering = ['base_price_cents']
+    
+    def __str__(self):
+        return f"{self.name} - ${self.base_price_dollars}"
+    
+    @property
+    def base_price_dollars(self):
+        return self.base_price_cents / 100
+    
+    @property
+    def coi_fee_dollars(self):
+        return self.coi_fee_cents / 100
+
+
+class StandardDeliveryConfig(models.Model):
+    """Configuration for Standard Delivery pricing from homework"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Per-item pricing
+    price_per_item_cents = models.PositiveBigIntegerField(
+        default=9500,  # $95
+        help_text="Price per item in cents"
+    )
+    
+    # Minimums
+    minimum_items = models.PositiveIntegerField(
+        default=3,
+        help_text="Minimum number of items for delivery"
+    )
+    minimum_charge_cents = models.PositiveBigIntegerField(
+        default=28500,  # $285
+        help_text="Minimum delivery charge in cents"
+    )
+    
+    # Same-day delivery
+    same_day_flat_rate_cents = models.PositiveBigIntegerField(
+        default=36000,  # $360
+        help_text="Flat rate for same-day delivery"
+    )
+    
+    # Item constraints
+    max_weight_per_item_lbs = models.PositiveIntegerField(
+        default=50,
+        help_text="Maximum weight per item in pounds"
+    )
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_standard_delivery_config'
+    
+    def __str__(self):
+        return f"Standard Delivery - ${self.price_per_item_dollars}/item"
+    
+    @property
+    def price_per_item_dollars(self):
+        return self.price_per_item_cents / 100
+    
+    @property
+    def minimum_charge_dollars(self):
+        return self.minimum_charge_cents / 100
+    
+    def calculate_total(self, item_count, is_same_day=False):
+        """Calculate total for standard delivery"""
+        if is_same_day:
+            return self.same_day_flat_rate_cents
+        
+        item_total = self.price_per_item_cents * item_count
+        return max(item_total, self.minimum_charge_cents)
+
+
+class SpecialtyItem(models.Model):
+    """Specialty items from homework: Peloton, Surfboard, Crib, Wardrobe Box"""
+    
+    ITEM_TYPES = [
+        ('peloton', 'Peloton'),
+        ('surfboard', 'Surfboard'),
+        ('crib', 'Crib'),
+        ('wardrobe_box', 'Wardrobe Box'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Item details
+    item_type = models.CharField(max_length=30, choices=ITEM_TYPES, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    
+    # Pricing
+    price_cents = models.PositiveBigIntegerField()
+    
+    # Requirements
+    requires_van_schedule = models.BooleanField(
+        default=True,
+        help_text="Can only be booked when van is already scheduled"
+    )
+    special_handling = models.BooleanField(default=True)
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_specialty_item'
+    
+    def __str__(self):
+        return f"{self.name} - ${self.price_dollars}"
+    
+    @property
+    def price_dollars(self):
+        return self.price_cents / 100
+
+
+class SurchargeRule(models.Model):
+    """Weekend, holiday, and peak date surcharges from homework"""
+    
+    SURCHARGE_TYPES = [
+        ('weekend', 'Weekend Surcharge'),
+        ('holiday', 'Holiday Surcharge'),
+        ('peak_date', 'Peak Date Surcharge'),
+    ]
+    
+    CALCULATION_TYPES = [
+        ('percentage', 'Percentage'),
+        ('fixed_amount', 'Fixed Amount'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Surcharge details
+    surcharge_type = models.CharField(max_length=20, choices=SURCHARGE_TYPES)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    
+    # Calculation
+    calculation_type = models.CharField(max_length=20, choices=CALCULATION_TYPES)
+    percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Percentage surcharge (e.g., 15.00 for 15%)"
+    )
+    fixed_amount_cents = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text="Fixed surcharge amount in cents"
+    )
+    
+    # Date rules (for specific dates like Sept 1)
+    specific_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Specific date for peak date surcharges"
+    )
+    
+    # Day of week rules (for weekend surcharges)
+    applies_saturday = models.BooleanField(default=False)
+    applies_sunday = models.BooleanField(default=False)
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_surcharge_rule'
+    
+    def __str__(self):
+        return self.name
+    
+    def calculate_surcharge(self, base_amount_cents, booking_date):
+        """Calculate surcharge for given base amount and date"""
+        if not self.is_active:
+            return 0
+        
+        # Check if rule applies to this date
+        if not self.applies_to_date(booking_date):
+            return 0
+        
+        if self.calculation_type == 'percentage' and self.percentage:
+            return int(base_amount_cents * (self.percentage / 100))
+        elif self.calculation_type == 'fixed_amount' and self.fixed_amount_cents:
+            return self.fixed_amount_cents
+        
+        return 0
+    
+    def applies_to_date(self, booking_date):
+        """Check if surcharge rule applies to given date"""
+        # Specific date check
+        if self.specific_date and self.specific_date == booking_date:
+            return True
+        
+        # Weekend check
+        weekday = booking_date.weekday()
+        if weekday == 5 and self.applies_saturday:  # Saturday
+            return True
+        if weekday == 6 and self.applies_sunday:    # Sunday
+            return True
+        
+        return False
+
+
+class VanSchedule(models.Model):
+    """Basic van availability for specialty item scheduling"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Schedule details
+    date = models.DateField(unique=True)
+    is_available = models.BooleanField(
+        default=True,
+        help_text="Van is available for pickups on this date"
+    )
+    
+    # Capacity tracking
+    mini_moves_booked = models.PositiveIntegerField(default=0)
+    specialty_items_booked = models.PositiveIntegerField(default=0)
+    max_capacity = models.PositiveIntegerField(
+        default=10,
+        help_text="Maximum bookings for this date"
+    )
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        help_text="Internal notes about availability or restrictions"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_van_schedule'
+        ordering = ['date']
+    
+    def __str__(self):
+        status = "Available" if self.is_available else "Unavailable"
+        return f"{self.date} - {status} ({self.total_bookings}/{self.max_capacity})"
+    
+    @property
+    def total_bookings(self):
+        return self.mini_moves_booked + self.specialty_items_booked
+    
+    @property
+    def has_capacity(self):
+        return self.is_available and self.total_bookings < self.max_capacity
+    
+    @property
+    def allows_specialty_items(self):
+        """Specialty items only available when van is scheduled (has any bookings)"""
+        return self.has_capacity and self.total_bookings > 0
 ```
 
 # ==== apps/services/tests.py ====
@@ -1914,9 +2859,15 @@ if [ -f "manage.py" ]; then
     python manage.py shell -c "
 from django.contrib.auth import get_user_model
 User = get_user_model()
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@totetaxi.com', 'admin123')
-    print('Superuser created: admin/admin123')
+if not User.objects.filter(email='admin@totetaxi.com').exists():
+    User.objects.create_superuser(
+        email='admin@totetaxi.com', 
+        first_name='Admin', 
+        last_name='User',
+        phone='+1234567890',
+        password='admin123'
+    )
+    print('Superuser created: admin@totetaxi.com/admin123')
 else:
     print('Superuser already exists')
 " || echo "Superuser creation failed, continuing..."
@@ -1934,5 +2885,60 @@ exec "$@"
 
 ```python
 
+```
+
+# ==== customers/__init__.py ====
+
+```python
+
+```
+
+# ==== customers/admin.py ====
+
+```python
+from django.contrib import admin
+
+# Register your models here.
+```
+
+# ==== customers/apps.py ====
+
+```python
+from django.apps import AppConfig
+
+
+class CustomersConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'customers'
+```
+
+# ==== customers/migrations/__init__.py ====
+
+```python
+
+```
+
+# ==== customers/models.py ====
+
+```python
+from django.db import models
+
+# Create your models here.
+```
+
+# ==== customers/tests.py ====
+
+```python
+from django.test import TestCase
+
+# Create your tests here.
+```
+
+# ==== customers/views.py ====
+
+```python
+from django.shortcuts import render
+
+# Create your views here.
 ```
 
