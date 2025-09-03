@@ -1,106 +1,139 @@
+# ToteTaxi Backend Living Documentation
+
+## About Living Documentation for AI-Assisted Development
+
+This living documentation serves as a **context-preservation system** for AI-assisted development, designed to maintain project continuity across conversations and development sessions. Unlike traditional project documentation that captures specifications and requirements, this documentation functions as **shared project memory** - preserving both operational reality and strategic vision to enable immediate technical discussions without context rebuilding.
+
+### What Living Documentation Is
+
+Living documentation is a comprehensive project map that bridges the gap between what exists and what needs building. It captures not just requirements or code comments, but the complete understanding of a system's architecture, business logic, implementation patterns, and development trajectory. For AI-assisted development, it serves as artificial project memory - allowing any AI to immediately understand a project as if it had been working on it from the beginning.
+
+### Why It Exists
+
+Complex software projects like ToteTaxi require maintaining intricate relationships between business requirements, technical architecture, and implementation details. In AI-assisted development, this context must be explicitly captured because AI cannot retain project understanding across sessions. This documentation eliminates the need to re-explain ToteTaxi's business complexity, technical decisions, and architectural patterns every time development work resumes.
+
+### How It Functions (Dual Purpose)
+
+**Current State Documentation (Operational Reality):**
+- File-by-file breakdown of what actually exists and works
+- Complete API endpoint mapping with authentication patterns
+- Actual model relationships and business logic as implemented
+- Working authentication flows and data patterns
+- Clear distinction between functional, mocked, and stub code
+
+**Future Development Roadmap (Strategic Vision):**
+- Planned features and architectural integration points
+- Implementation priorities and technical requirements
+- Established patterns that new features should follow
+- Business requirements not yet implemented
+- Integration strategies for planned functionality
+
+**Development Bridge (Continuity Patterns):**
+- How to extend existing patterns consistently
+- Where new functionality should be added
+- Integration points between current and planned features
+- Architectural decisions that affect future development
+- Technical debt and enhancement opportunities
+
+### How To Use This Documentation
+
+Read this documentation to immediately understand the ToteTaxi backend as if you built it yourself. Use it to:
+- Reference operational functionality and integration patterns
+- Add features following established architectural patterns
+- Understand where specific functionality should be implemented
+- Grasp the context behind architectural and business logic decisions
+- Bridge between what exists and what needs building next
+
+### Evolution Pattern
+
+This documentation evolves with the codebase, maintaining both operational accuracy and strategic vision. As features move from planned to implemented, the documentation shifts focus while preserving the reasoning and patterns that guide continued development.
 
 ---
 
-# ToteTaxi Living Documentation
-
-## About This Documentation
-
-This living documentation serves as a **context-preservation system** for AI-assisted development, designed to maintain project continuity across conversations and development sessions. Unlike traditional project documentation that captures specifications and requirements, this documentation functions as **shared project memory** - preserving architectural decisions, business logic reasoning, and integration patterns that enable immediate technical discussions without context rebuilding.
-
-## Documentation Philosophy
-
-**Why Living Documentation for AI Development:**
-Complex software projects require maintaining intricate relationships between business requirements, technical architecture, and implementation details. In AI-assisted development, this context must be explicitly captured because AI cannot retain project understanding across sessions. This documentation eliminates the need to re-explain ToteTaxi's business complexity, technical decisions, and architectural patterns every time development work resumes.
-
-**Evolution Pattern:**
-- **Phase 1 (Current):** Strategic architecture and business requirements focused
-- **Phase 2 (Development):** Comprehensive file-by-file documentation with component interactions
-- **Phase 3 (Maintenance):** Complete system mapping with frontend-backend integration patterns
-
-**Project Context:**
-ToteTaxi is a luxury delivery service replacement system with significant business and technical complexity: multiple service types (Mini Moves, Standard Delivery, Specialty Items), sophisticated pricing engines with surcharges, Django User model with profile-based customer/staff separation, payment processing integration, and operational management workflows. This complexity requires detailed documentation to maintain development consistency and architectural integrity.
-
-**Usage Guidelines:**
-This documentation enables immediate technical conversations by providing complete project context. It captures not just what to build, but why architectural decisions were made, how business logic should function, and how components integrate. As the codebase grows, this documentation evolves from strategic overview to comprehensive implementation guide, always serving as the definitive source for project understanding and development coordination.
-
----
-
-# ToteTaxi Backend Living Documentation & Roadmap
+# ToteTaxi Backend: Current State & Development Roadmap
 
 **Strategic Technical Architecture - Django 5.2.5 + DRF 3.16.1 + PostgreSQL + Docker**
 
 ## System Architecture Overview
 
+ToteTaxi is a luxury delivery service system built on Django with a sophisticated dual-customer architecture supporting both authenticated users and guest checkout. The system handles complex pricing calculations, staff operations, and financial workflows while maintaining clean separation between customer and staff concerns.
+
+**Current Implementation Status:**
+- **Fully Implemented:** Customer authentication, guest booking, pricing engine, staff operations, payment processing (mocked)
+- **Partially Implemented:** Admin dashboard views, basic audit logging
+- **Stub Applications:** Logistics, documents, notifications, CRM (empty but structured)
+
 **ToteTaxi Backend Ecosystem**
 ```
-├── Core Business Logic
-│   ├── bookings/ → Heart of system, manages all booking lifecycle (guest + authenticated)
-│   ├── services/ → Pricing engine, availability logic, business rules
-│   └── customers/ → Customer profiles, addresses, payment methods (User model extensions)
-├── Staff Operations
-│   └── accounts/ → Staff profiles, audit logging (User model extensions)
-├── Financial Operations
-│   └── payments/ → Payment processing, refunds, financial audit trails
-├── Operational Management  
-│   ├── logistics/ → Delivery coordination, tracking, driver management
-│   ├── documents/ → File storage, COI management, document lifecycle
-│   └── notifications/ → Email communications, template management
-├── Administrative Interface
-│   └── crm/ → Staff dashboard, reporting, administrative actions
-└── Infrastructure Layer
+├── Core Business Logic (IMPLEMENTED)
+│   ├── bookings/ → Complete booking lifecycle (guest + authenticated)
+│   ├── services/ → Pricing engine with complex calculations
+│   └── customers/ → Customer profiles, addresses, payment methods
+├── Staff Operations (IMPLEMENTED)
+│   └── accounts/ → Staff profiles with comprehensive audit logging
+├── Financial Operations (IMPLEMENTED - MOCKED)
+│   └── payments/ → Payment processing, refunds, audit trails
+├── Operational Management (STUB APPLICATIONS)
+│   ├── logistics/ → Delivery coordination (empty)
+│   ├── documents/ → File storage, COI management (empty)
+│   └── notifications/ → Email communications (empty)
+├── Administrative Interface (PARTIAL)
+│   └── crm/ → Staff dashboard, reporting (views only)
+└── Infrastructure Layer (CONFIGURED)
     ├── PostgreSQL Database (Port 5435)
     ├── Redis Cache & Queue (Port 6382)
-    ├── Celery Background Jobs
-    └── AWS Services (S3 Storage, SES Email)
+    ├── Celery Background Jobs (configured)
+    └── AWS Services (S3 storage, SES email - configured but unused)
 ```
 
-**Frontend Integration Points:**
-- Customer Booking Flow: React app → customers + bookings + services + payments APIs  
-- Customer Dashboard: React customer portal → customers + bookings APIs
-- Admin Dashboard: React admin → accounts + crm + all app APIs for management
-- Public APIs: Pricing and guest checkout → services + bookings APIs
-- Real-time Updates: WebSocket connections for live booking status
+## Authentication Architecture (IMPLEMENTED)
 
-## Authentication Architecture
+**Django User Model + Profile Extension Strategy:**
 
-**Django User Model + Profile Extension Strategy (Simplified & Secure):**
+The system uses Django's built-in User model extended through separate profile models, eliminating custom authentication complexity while maintaining sophisticated business logic separation.
 
-**Unified Authentication Foundation:**
-```
-Django User Model (Base Authentication)
-├── Standard Django authentication (username/password, email, permissions)
+**Authentication Foundation:**
+```python
+# All authentication builds on Django's User model
+User (Django Built-in)
+├── Standard authentication (username/password, email, permissions)
 ├── Built-in security, password handling, session management
 ├── Used by both customers and staff for login/logout
-└── Extended through separate profile models
+└── Extended through OneToOne profile relationships
 ```
 
 **Customer Extensions (customers/ app):**
-```
+```python
+# CustomerProfile extends User with business data
 CustomerProfile (OneToOneField with User)
 ├── Customer-specific fields (phone, stripe_customer_id)
 ├── Booking statistics (total_bookings, total_spent_cents)
 ├── Customer preferences (pickup_time, notifications, VIP status)
 └── Staff notes for customer service
 
+# SavedAddress provides reusable addresses
 SavedAddress (ForeignKey to User)
-├── Customer's frequently used addresses (home, Hamptons, etc.)
+├── Customer's frequently used addresses
 ├── Usage tracking and smart suggestions
 └── Delivery instructions and preferences
 
+# CustomerPaymentMethod handles Stripe integration
 CustomerPaymentMethod (ForeignKey to User)
-├── Stripe integration for saved payment methods
+├── Stripe payment method references
 ├── Card display information and default selection
 └── PCI-compliant payment method management
 ```
 
 **Staff Extensions (accounts/ app):**
-```
-StaffProfile (OneToOneField with User)  
-├── Staff role differentiation (staff vs admin)
+```python
+# StaffProfile extends User for staff operations
+StaffProfile (OneToOneField with User)
+├── Role differentiation (staff vs admin)
 ├── Department, hire date, contact information
 ├── Account security (login attempts, account locking)
 └── Permission methods for role-based access
 
+# StaffAction provides complete audit logging
 StaffAction (ForeignKey to User)
 ├── Complete audit logging for compliance
 ├── Action tracking with IP address and context
@@ -108,381 +141,511 @@ StaffAction (ForeignKey to User)
 └── Financial operation audit trails
 ```
 
-**Security Benefits:**
-- Leverages Django's battle-tested authentication system
-- No custom authentication vulnerabilities or edge cases
-- Standard Django admin integration for staff management
-- Profile-based separation maintains clean boundaries
-- Audit logging ensures compliance and accountability
+**Authentication Flow Patterns:**
+- **Customer Registration:** Creates User + CustomerProfile automatically
+- **Staff Authentication:** Uses username/password with StaffProfile role checking
+- **Session Management:** Standard Django session handling with CSRF protection
+- **Permission Checking:** Profile-based permissions (staff.can_approve_refunds)
 
-## Core Business Applications
+## Core Application Analysis
 
-**📋 apps/bookings/ - System Heart & Data Hub**
+### apps/bookings/ - System Heart (FULLY IMPLEMENTED)
 
-**Primary Responsibility:** Central booking entity that every other system component revolves around
+**Purpose:** Central booking entity managing complete lifecycle from inquiry to completion.
 
-**Business Logic Ownership:**
-- Complete booking lifecycle from inquiry to completion
-- Dual-mode operation: Works with guest checkout AND authenticated customers (Django Users)
-- Address standardization and reuse for logged-in customers
-- Booking status orchestration across all systems
-- Business rule enforcement and validation
-- Guest-to-customer account linking workflow
+**Key Models:**
+- **Booking:** UUID primary key, TT-XXXXXX numbering, supports both customer and guest_checkout
+- **Address:** Reusable addresses with customer linking
+- **GuestCheckout:** Temporary customer data for non-authenticated bookings
 
-**Core Data Entities:**
-- **Booking:** UUID primary key, TT-001234 numbering, soft deletes, status tracking
-- **Address:** Reusable addresses with pickup/delivery associations (linked to Django Users)
-- **GuestCheckout:** Temporary customer data for non-authenticated bookings with automatic linking capability
-
-**Updated Model Relationships:**
+**Business Logic Implementation:**
 ```python
-# Booking model links to Django User for authenticated customers
-customer = models.ForeignKey(
-    User,  # Django's built-in User model
-    on_delete=models.CASCADE,
-    null=True, blank=True,
-    related_name='bookings'
-)
+# Dual-mode customer handling
+booking.customer  # ForeignKey to User (authenticated)
+booking.guest_checkout  # OneToOne to GuestCheckout (guest)
+# Constraint ensures exactly one customer type
 
-# Address model can be associated with Django User
-customer = models.ForeignKey(
-    User,
-    on_delete=models.CASCADE, 
-    null=True, blank=True,
-    related_name='booking_addresses'
-)
+# Automatic pricing calculation
+def save(self):
+    self.calculate_pricing()  # Uses services app pricing engine
+    super().save()
+
+# Service integration
+booking.mini_move_package  # ForeignKey to MiniMovePackage
+booking.specialty_items  # ManyToMany to SpecialtyItem
 ```
 
-**Guest-to-Customer Account Linking:**
-When customer creates Django User account with email matching existing guest bookings, automatically link booking history to new user account with confirmation message.
+**API Endpoints (Implemented):**
+- `GET /api/public/services/` - Service catalog (no auth)
+- `POST /api/public/pricing-preview/` - Real-time pricing (no auth)
+- `GET /api/public/availability/` - Calendar availability (no auth)
+- `POST /api/public/guest-booking/` - Guest booking creation (no auth)
+- `GET /api/public/booking-status/<booking_number>/` - Status lookup (no auth)
 
-**Frontend Integration Needs:**
-- Guest Booking APIs: Create booking with customer info provided
-- Authenticated Booking APIs: Create booking using Django User + CustomerProfile data
-- Booking History APIs: Customer dashboard booking list via user.bookings relationship
-- Status Tracking APIs: Live booking status for customer tracking page
-- Pricing Preview APIs: Real-time pricing as customer makes selections
+**Integration Points:**
+- → services/: Pricing calculation integration
+- → payments/: Payment intent creation trigger
+- ← accounts/: Staff booking management
+- ↔ customers/: Authenticated booking creation
 
-**Key External Relationships:**
-- → services/: Gets pricing calculations and availability data
-- → payments/: Triggers payment processing workflows
-- → logistics/: Initiates delivery task creation
-- → documents/: Associates COI files with bookings (workflow TBD - client discussion)
-- → notifications/: Triggers confirmation and status emails
-- ← crm/: Receives admin status updates and modifications
-- ↔ customers/: Links to Django User with CustomerProfile for authenticated bookings
+**Current Limitations:**
+- No automatic guest-to-customer account linking implemented
+- COI file association not connected to documents app
 
----
+### apps/customers/ - Customer Data Management (FULLY IMPLEMENTED)
 
-**👤 apps/customers/ - Customer Profile & Data Management**
+**Purpose:** Customer-specific data extensions and business logic for Django User model.
 
-**Primary Responsibility:** Customer-specific data extensions and business logic for Django User model
-
-**Simplified Authentication Integration:**
-- **No custom authentication** - uses Django's User model directly
-- **Profile extension pattern** - CustomerProfile extends User with business data
-- **Email-based customer experience** - customers use email as username
-- **Session-based authentication** - standard Django authentication patterns
-
-**Business Logic Ownership:**
-- Customer profile management and preferences
-- Saved addresses and payment methods integration
-- Booking history and status tracking for customers
-- Guest checkout to customer account conversion
-- Customer business metrics and VIP management
-
-**Core Data Entities:**
-- **CustomerProfile:** OneToOneField with User, customer-specific business data
-- **SavedAddress:** ForeignKey to User, customer's frequently used addresses
-- **CustomerPaymentMethod:** ForeignKey to User, Stripe integration for saved cards
-
-**Model Integration Patterns:**
+**Key Models:**
 ```python
-# Access customer data through User model
-user = User.objects.get(email="customer@example.com")
-customer_profile = user.customer_profile
-saved_addresses = user.saved_addresses.all()
-payment_methods = user.payment_methods.filter(is_active=True)
-bookings = user.bookings.all()
+# Profile extending Django User
+CustomerProfile(models.Model):
+    user = OneToOneField(User, related_name='customer_profile')
+    phone, stripe_customer_id, total_bookings, total_spent_cents
+    preferred_pickup_time, email_notifications, is_vip
+    
+# Reusable addresses with usage tracking
+SavedAddress(models.Model):
+    user = ForeignKey(User, related_name='saved_addresses')
+    nickname, address_line_1, city, state, zip_code
+    times_used, last_used_at, is_active
+    
+# Payment method references (Stripe integration ready)
+CustomerPaymentMethod(models.Model):
+    user = ForeignKey(User, related_name='payment_methods')
+    stripe_payment_method_id, card_brand, card_last_four
+    is_default, is_active
 ```
 
-**Frontend Integration Needs:**
-- Authentication APIs: Django User registration, login, logout, password reset
-- Profile Management APIs: CustomerProfile CRUD operations
-- Address Book APIs: SavedAddress CRUD operations
-- Payment Methods APIs: CustomerPaymentMethod + Stripe integration
-- Dashboard APIs: User booking history, account overview, notifications
+**API Endpoints (Implemented):**
+- `POST /api/customer/auth/register/` - Customer registration
+- `POST /api/customer/auth/login/` - Customer authentication  
+- `POST /api/customer/auth/logout/` - Customer logout
+- `GET /api/customer/auth/user/` - Current user info
+- `GET,PUT /api/customer/profile/` - Profile management
+- `GET,POST /api/customer/addresses/` - Address book management
+- `GET,PUT,DELETE /api/customer/addresses/<id>/` - Address CRUD
+- `GET /api/customer/bookings/` - Booking history
+- `POST /api/customer/bookings/create/` - Authenticated booking creation
+- `GET /api/customer/dashboard/` - Account overview
 
-**Key External Relationships:**
-- ↔ Django User: Core authentication and identity
-- ↔ bookings/: Customer bookings linked via User foreign key
-- → payments/: Stripe customer management for saved payment methods
-- ← notifications/: Customer communication preferences and history
-- ← accounts/: Staff can view customer profiles via User relationships
-
----
-
-**🔐 apps/accounts/ - Staff Profile & Operations Management**
-
-**Primary Responsibility:** Staff-specific data extensions and audit logging for Django User model
-
-**Staff Authentication Architecture:**
-- **Django User model foundation** - standard username/password authentication
-- **StaffProfile extension** - additional staff-specific fields and permissions
-- **Role-based permissions** - admin vs staff differentiation within staff system
-- **Comprehensive audit logging** - complete action tracking for compliance
-
-**Business Logic Ownership:**
-- Staff user profile management and role-based permissions
-- Comprehensive audit logging for all administrative actions
-- Account security features (login attempts, account locking)
-- Staff action tracking with complete context information
-
-**Core Data Entities:**
-- **StaffProfile:** OneToOneField with User, staff-specific fields and permissions
-- **StaffAction:** ForeignKey to User, comprehensive audit logging with context
-
-**Model Integration Patterns:**
+**Authentication Patterns:**
 ```python
-# Access staff data through User model
-user = User.objects.get(username="staff_member")
-staff_profile = user.staff_profile
-can_approve_refunds = staff_profile.can_approve_refunds
-recent_actions = user.staff_actions.recent()
+# Email-based customer login (email stored as username)
+user = authenticate(username=email, password=password)
+
+# Profile access patterns
+user.customer_profile  # OneToOne relationship
+user.saved_addresses.all()  # ForeignKey reverse lookup
+user.bookings.all()  # Booking ForeignKey reverse lookup
 ```
 
-**Permission Architecture:**
-- **Admin Role:** Full system access, refund processing, user management, customer account management
-- **Staff Role:** Booking management, customer service, operational tasks
-- **Audit Trail:** Complete logging of all staff actions with user attribution
+**Enhanced Booking Features:**
+- Pre-filled addresses from saved addresses
+- Payment method selection from saved cards
+- Quick rebooking from previous orders
+- Booking preferences (pickup time, notifications)
 
-**Frontend Integration Needs:**
-- Staff Authentication: Django User login/logout for staff dashboard
-- User Context: Staff user info, permissions, role-based UI components
-- Session Management: Standard Django session handling
-- Audit Interface: Staff action logging and review capabilities
+### apps/accounts/ - Staff Operations (FULLY IMPLEMENTED)
 
-**Key External Relationships:**
-- ↔ Django User: Core staff authentication and identity
-- → crm/: Provides user context for all administrative actions
-- → ALL APPS: Staff can access all system components via proper permissions
-- ← customers/: Staff can view customer profiles for support via User relationships
+**Purpose:** Staff authentication, role-based permissions, and comprehensive audit logging.
 
----
-
-**💰 apps/services/ - Pricing & Availability Engine**
-
-**Primary Responsibility:** All pricing logic, service definitions, and availability management
-
-**Business Logic Ownership:**
-- Complex multi-factor pricing calculations
-- Service catalog management (Mini Moves, Standard Delivery, Specialty Items)
-- Dynamic surcharge application (weekend, holiday, peak season)
-- Van availability scheduling and capacity management
-- Business constraint validation before booking creation
-
-**Core Data Entities:**
-- **MiniMovePackage:** Petite ($995), Standard ($1725), Full ($2490) with item limits and COI handling
-- **StandardDeliveryConfig:** $95 per item, $285 minimum, $360 same-day pricing configuration
-- **SpecialtyItem:** Peloton ($500), Surfboard ($350), Crib ($350), Wardrobe Box ($275)
-- **SurchargeRule:** Weekend, holiday, peak date pricing modifications with date-based logic
-- **VanSchedule:** Daily availability, capacity overrides, specialty item constraints
-
-**Integration with Booking System:**
+**Key Models:**
 ```python
-# Services models integrate seamlessly with User-based booking system
-booking.calculate_pricing()  # Uses services pricing engine
-booking.mini_move_package    # References MiniMovePackage
-booking.specialty_items      # ManyToMany with SpecialtyItem
+# Staff profile with role-based permissions
+StaffProfile(models.Model):
+    user = OneToOneField(User, related_name='staff_profile')
+    role = CharField(choices=[('staff', 'Staff'), ('admin', 'Admin')])
+    department, hire_date, phone
+    login_attempts, account_locked_until
+    
+    @property
+    def can_approve_refunds(self):
+        return self.role == 'admin'
+
+# Comprehensive audit logging
+StaffAction(models.Model):
+    staff_user = ForeignKey(User, related_name='staff_actions')
+    action_type = CharField(choices=[...])  # login, view_customer, etc.
+    description, ip_address, user_agent
+    customer_id, booking_id  # Related object tracking
 ```
 
-**Frontend Integration Needs:**
-- Service Selection: Available packages and specialty items with descriptions
-- Calendar Availability: Which dates available for different service types
-- Real-time Pricing: Dynamic price updates as customer modifies booking
-- Surcharge Display: Clear breakdown of additional fees and reasons
+**API Endpoints (Implemented):**
+- `POST /api/staff/auth/login/` - Staff authentication with profile checking
+- `POST /api/staff/auth/logout/` - Staff logout with action logging
+- `GET /api/staff/dashboard/` - KPI dashboard with booking statistics
+- `GET /api/staff/bookings/` - Booking management with filters
+- `GET,PATCH /api/staff/bookings/<id>/` - Booking detail and status updates
 
----
+**Security Features:**
+- Account locking after 5 failed login attempts
+- IP address and user agent tracking
+- Comprehensive action logging for compliance
+- Role-based permission checking
 
-**💳 apps/payments/ - Financial Operations Hub**
-
-**Primary Responsibility:** All money-related operations, audit trails, and financial integrity
-
-**Updated Model Relationships:**
+**Staff Dashboard Implementation:**
 ```python
-# Payment model links to Django User for customer payments
-customer = models.ForeignKey(
-    User,  # Django User instead of settings.AUTH_USER_MODEL
-    on_delete=models.SET_NULL,
-    null=True, blank=True,
-    related_name='payments'
-)
+# Real-time business metrics
+booking_stats = {
+    'total_bookings': Booking.objects.filter(deleted_at__isnull=True).count(),
+    'pending_bookings': Booking.objects.filter(status='pending').count(),
+    # ... additional KPIs
+}
 
-# Refund model uses Django User for staff approval workflow
-requested_by = models.ForeignKey(User, ...)  # Staff user requesting refund
-approved_by = models.ForeignKey(User, ...)   # Admin user approving refund
+# Permission-based UI data
+permissions = {
+    'can_approve_refunds': staff_profile.can_approve_refunds,
+    'can_manage_staff': staff_profile.can_manage_staff,
+    'can_view_financial_reports': staff_profile.can_view_financial_reports
+}
 ```
 
-**Business Logic Ownership:**
-- Payment processing lifecycle management
-- Customer payment methods: Stripe customer management via User.payment_methods
-- Refund processing with approval workflows using User-based staff permissions
-- Financial audit trails for all money movements with User attribution
-- Integration with payment processors (Stripe)
-- Payment failure handling and retry logic
+### apps/services/ - Pricing Engine (FULLY IMPLEMENTED)
 
-**Core Data Entities:**
-- **Payment:** Links to booking, tracks amount, status, external payment IDs
-- **Refund:** Refund records with reasons, User-based approval trails, processing status
-- **PaymentAudit:** Comprehensive audit log for all financial actions
+**Purpose:** Complex multi-factor pricing calculations and service definitions.
 
-**Staff Permission Integration:**
+**Key Models:**
 ```python
-# Refund approval respects staff profile permissions
-def approve(self, admin_user):
-    if admin_user.staff_profile.can_approve_refunds:
-        self.status = 'approved'
-        self.approved_by = admin_user
-        self.save()
+# Mini Move packages from business requirements
+MiniMovePackage(models.Model):
+    package_type = CharField(choices=[('petite', 'Petite'), ('standard', 'Standard'), ('full', 'Full')])
+    base_price_cents, max_items, coi_included, coi_fee_cents
+    priority_scheduling, protective_wrapping, is_most_popular
+
+# Standard delivery configuration
+StandardDeliveryConfig(models.Model):
+    price_per_item_cents = 9500  # $95
+    minimum_charge_cents = 28500  # $285
+    same_day_flat_rate_cents = 36000  # $360
+
+# Specialty items with van scheduling requirements
+SpecialtyItem(models.Model):
+    item_type = CharField(choices=[('peloton', 'Peloton'), ('surfboard', 'Surfboard'), ...])
+    price_cents, requires_van_schedule, special_handling
+
+# Dynamic surcharge rules
+SurchargeRule(models.Model):
+    surcharge_type = CharField(choices=[('weekend', 'Weekend'), ('holiday', 'Holiday'), ...])
+    calculation_type = CharField(choices=[('percentage', 'Percentage'), ('fixed_amount', 'Fixed')])
+    percentage, fixed_amount_cents, specific_date
+    applies_saturday, applies_sunday
 ```
 
----
+**Pricing Integration:**
+```python
+# Automatic pricing calculation in Booking.save()
+def calculate_pricing(self):
+    # Service-specific base pricing
+    if self.service_type == 'mini_move':
+        self.base_price_cents = self.mini_move_package.base_price_cents
+    elif self.service_type == 'standard_delivery':
+        config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+        self.base_price_cents = config.calculate_total(
+            self.standard_delivery_item_count,
+            is_same_day=self.is_same_day_delivery
+        )
+    
+    # Dynamic surcharge calculation
+    for surcharge in SurchargeRule.objects.filter(is_active=True):
+        self.surcharge_cents += surcharge.calculate_surcharge(
+            self.base_price_cents, 
+            self.pickup_date
+        )
+```
 
-**🚚 apps/logistics/ - Delivery Coordination**
+**API Integration:** Pricing accessed through booking endpoints, no separate API endpoints.
 
-**Updated Integration:** Links to Django User for customer tracking and staff task management
+### apps/payments/ - Financial Operations (IMPLEMENTED - MOCKED)
 
-**📄 apps/documents/ - File Storage & Management**
+**Purpose:** Payment processing, refund workflows, and financial audit trails.
 
-**Updated Integration:** Associates files with Django Users for customer document access
+**Key Models:**
+```python
+# Payment records linked to bookings and customers
+Payment(models.Model):
+    booking = ForeignKey(Booking, related_name='payments')
+    customer = ForeignKey(User, related_name='payments', null=True)
+    amount_cents, stripe_payment_intent_id, stripe_charge_id
+    status = CharField(choices=[('pending', 'Pending'), ('succeeded', 'Succeeded'), ...])
 
-**📧 apps/notifications/ - Communication Hub**
+# Refund workflow with approval process
+Refund(models.Model):
+    payment = ForeignKey(Payment, related_name='refunds')
+    amount_cents, reason
+    requested_by = ForeignKey(User, related_name='requested_refunds')
+    approved_by = ForeignKey(User, related_name='approved_refunds', null=True)
+    status = CharField(choices=[('requested', 'Requested'), ('approved', 'Approved'), ...])
 
-**Updated Integration:** Uses Django User email and CustomerProfile preferences for notification targeting
+# Financial audit logging
+PaymentAudit(models.Model):
+    action = CharField(choices=[('payment_created', 'Payment Created'), ...])
+    payment, refund, user, description
+```
 
-**📊 apps/crm/ - Administrative Command Center**
+**API Endpoints (Implemented):**
+- `POST /api/payments/create-intent/` - Create Stripe PaymentIntent (no auth)
+- `GET /api/payments/status/<booking_number>/` - Payment status lookup (no auth)
+- `POST /api/payments/webhook/` - Stripe webhook handler (no auth)
+- `POST /api/payments/mock-confirm/` - Mock payment confirmation for testing (no auth)
 
-**Updated Integration:** Staff dashboard shows Django User + CustomerProfile data for comprehensive customer management
+**Mock Implementation Details:**
+```python
+# Mock Stripe service for development
+class StripePaymentService:
+    @staticmethod
+    def create_payment_intent(booking, customer_email=None):
+        mock_intent = {
+            'id': f'pi_mock_{booking.id.hex[:16]}',
+            'client_secret': f'pi_mock_{booking.id.hex[:16]}_secret_mock',
+            'amount': int(booking.total_price_cents),
+            'status': 'requires_payment_method'
+        }
+        # Creates Payment record with mock data
+```
 
-## API Architecture Design
+**Refund Workflow:**
+- Staff can request refunds
+- Admin role required for approval
+- Complete audit trail maintained
+- Integration ready for real Stripe implementation
 
-**Endpoint Architecture with Django User Integration:**
+### Stub Applications (STRUCTURE ONLY)
+
+**apps/logistics/ - Delivery Coordination (EMPTY)**
+- Models: Empty models.py
+- Purpose: Driver management, delivery tracking, route optimization
+- Integration Points: Links to bookings for delivery tasks
+
+**apps/documents/ - File Management (EMPTY)**
+- Models: Empty models.py  
+- Purpose: COI file storage, document lifecycle management
+- Integration Points: COI files associated with bookings
+
+**apps/notifications/ - Communication Hub (EMPTY)**
+- Models: Empty models.py
+- Purpose: Email templates, SMS notifications, customer communications
+- Integration Points: Booking status updates, customer notifications
+
+**apps/crm/ - Administrative Interface (EMPTY)**
+- Models: Empty models.py
+- Purpose: Advanced staff dashboard, reporting, business intelligence
+- Integration Points: Aggregated data from all applications
+
+## API Architecture (COMPREHENSIVE MAPPING)
 
 **Public APIs (No Authentication Required):**
 ```
 /api/public/
-├── pricing-preview/ → Real-time pricing calculations (rate limited)
-├── services/ → Service catalog and availability
-├── guest-booking/ → Guest checkout booking creation (rate limited)
-└── booking-status/ → Status lookup by booking number
+├── services/ [GET] → Service catalog with pricing
+├── pricing-preview/ [POST] → Real-time pricing calculations
+├── availability/ [GET] → Calendar availability with surcharges
+├── guest-booking/ [POST] → Guest checkout booking creation
+└── booking-status/<booking_number>/ [GET] → Status lookup
+
+/api/payments/
+├── create-intent/ [POST] → Stripe PaymentIntent creation
+├── status/<booking_number>/ [GET] → Payment status lookup
+├── webhook/ [POST] → Stripe webhook handler
+└── mock-confirm/ [POST] → Mock payment confirmation (testing)
 ```
 
-**Customer APIs (Django User Authentication Required):**
+**Customer APIs (Django User Session Authentication):**
 ```
 /api/customer/
-├── auth/ → Django User registration, login, logout, password reset (rate limited)
-├── profile/ → CustomerProfile management via authenticated User
-├── addresses/ → SavedAddress CRUD via User.saved_addresses
-├── payment-methods/ → CustomerPaymentMethod + Stripe via User.payment_methods
-├── bookings/ → User.bookings for history and creation
-└── dashboard/ → Account overview via User + CustomerProfile data
+├── csrf-token/ [GET] → CSRF token for authenticated requests
+├── auth/
+│   ├── register/ [POST] → Customer account creation
+│   ├── login/ [POST] → Email/password authentication
+│   ├── logout/ [POST] → Session termination
+│   └── user/ [GET] → Current user information
+├── profile/ [GET, PUT] → CustomerProfile management
+├── addresses/
+│   ├── [GET, POST] → SavedAddress list and creation
+│   └── <uuid:pk>/ [GET, PUT, DELETE] → SavedAddress CRUD
+├── dashboard/ [GET] → Account overview with statistics
+├── preferences/ [GET] → Booking preferences and defaults
+└── bookings/
+    ├── [GET] → Booking history with filtering
+    ├── create/ [POST] → Authenticated booking creation
+    ├── <uuid:booking_id>/ [GET] → Booking detail view
+    └── <uuid:booking_id>/rebook/ [POST] → Quick rebooking
 ```
 
-**Staff APIs (Django User + StaffProfile Authentication Required):**
+**Staff APIs (Django User + StaffProfile Authentication):**
 ```
 /api/staff/
-├── auth/ → Django User staff login, logout, session management (rate limited)
-├── dashboard/ → KPIs, business metrics, operational overview
-├── bookings/ → All booking management and modification
-├── customers/ → Django User + CustomerProfile management for support (admin audit logged)
-├── refunds/ → Refund processing via StaffProfile.can_approve_refunds (admin only)
-└── reports/ → Business intelligence and data export
+├── auth/
+│   ├── login/ [POST] → Username/password staff authentication
+│   └── logout/ [POST] → Staff logout with action logging
+├── dashboard/ [GET] → Business KPIs and urgent bookings
+├── bookings/
+│   ├── [GET] → All bookings with search and filters
+│   └── <uuid:booking_id>/ [GET, PATCH] → Booking management
+└── (Additional staff endpoints planned)
 ```
 
-**Authentication Security Implementation:**
-- **Django Session Authentication** for both customer and staff workflows
-- **Profile-based permissions** within staff APIs (StaffProfile.role-based access)
-- **User data isolation** - customers only see their own User-related data
-- **Staff audit logging** - all actions tracked via StaffAction model
-- **Rate limiting** on all authentication and creation endpoints
+**Authentication Patterns:**
+- **Session-based authentication** for all authenticated endpoints
+- **CSRF protection** enabled for all state-changing operations
+- **Rate limiting** configured on authentication and creation endpoints
+- **Permission checking** via profile models (CustomerProfile, StaffProfile)
 
-## Data Migration Strategy
+## Data Flow Patterns
 
-**Django User Model Benefits:**
-- **No complex authentication migrations** - uses Django's stable User model
-- **Standard user management** - leverage Django admin for user creation
-- **Profile data separation** - business logic in profiles, authentication in User
-- **Email-based customer experience** - customers use email as username
+**Guest Booking Flow:**
+```
+1. Service Selection → /api/public/services/
+2. Pricing Preview → /api/public/pricing-preview/
+3. Booking Creation → /api/public/guest-booking/
+   ├── Creates GuestCheckout record
+   ├── Creates Address records
+   ├── Creates Booking with pricing calculation
+4. Payment Processing → /api/payments/create-intent/
+5. Status Tracking → /api/public/booking-status/
+```
 
-**CSV Import Approach:**
-- Create Django User accounts from customer data
-- Auto-create CustomerProfile for each customer User
-- Link existing guest bookings via email matching
-- Import saved addresses and associate with Users
-- Flexible import mapping via Django management commands
+**Authenticated Customer Booking Flow:**
+```
+1. Authentication → /api/customer/auth/login/
+2. Dashboard Access → /api/customer/dashboard/
+3. Enhanced Booking → /api/customer/bookings/create/
+   ├── Uses SavedAddress records
+   ├── Links to User via customer ForeignKey
+   ├── Pre-fills from CustomerProfile preferences
+4. Payment Processing → Enhanced with saved payment methods
+5. Booking History → /api/customer/bookings/
+```
 
-**COI File Management:** TBD - Pending client discussion on workflow requirements
+**Staff Operations Flow:**
+```
+1. Staff Authentication → /api/staff/auth/login/
+   ├── Validates StaffProfile exists
+   ├── Checks account lock status
+   ├── Logs login action
+2. Dashboard Access → /api/staff/dashboard/
+   ├── Real-time business metrics
+   ├── Permission-based data
+3. Booking Management → /api/staff/bookings/
+   ├── Search and filter capabilities
+   ├── Status update functionality
+   ├── Complete audit logging
+```
 
-## Security Implementation
+## Development Roadmap & Integration Points
 
-**Critical Security Requirements (MVP):**
+### Immediate Development Priorities
 
-**Authentication Security Advantages:**
+**1. COI File Management Integration**
+- Implement document models in apps/documents/
+- Connect COI requirements to booking workflow
+- S3 storage integration for file uploads
+- Staff interface for COI validation
+
+**2. Real Payment Processing**
+- Replace mock Stripe service with real integration
+- Implement webhook signature verification
+- Enhanced error handling and retry logic
+- Customer payment method management
+
+**3. Logistics Workflow**
+- Driver assignment and tracking models
+- Delivery status updates
+- Integration with booking lifecycle
+- Customer tracking interface
+
+### Architectural Extension Patterns
+
+**Adding New Service Types:**
 ```python
-# settings.py - Leverages Django's built-in security
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+# 1. Add to services/models.py
+class NewServiceType(models.Model):
+    # Service-specific fields
+    
+# 2. Update Booking model choices
+SERVICE_TYPE_CHOICES = [
+    ('mini_move', 'Mini Move'),
+    ('standard_delivery', 'Standard Delivery'), 
+    ('specialty_item', 'Specialty Item'),
+    ('new_service', 'New Service'),  # Add here
 ]
+
+# 3. Update calculate_pricing() method
+def calculate_pricing(self):
+    if self.service_type == 'new_service':
+        # New pricing logic
 ```
 
-**Profile-Based Security Separation:**
-- **Customer isolation** - customers access only their User.bookings, User.saved_addresses, etc.
-- **Staff permissions** - StaffProfile.can_approve_refunds, StaffProfile.role-based access
-- **Audit logging** - StaffAction tracks all administrative User actions
-- **Session management** - Django's built-in secure session handling
+**Adding Staff Permissions:**
+```python
+# 1. Update StaffProfile model
+@property
+def can_new_permission(self):
+    return self.role in ['admin', 'supervisor']
 
-**API Security with Django User:**
-- **User-based rate limiting** - track attempts per User instance
-- **Profile-based authorization** - CustomerProfile vs StaffProfile access patterns
-- **Standard Django middleware** - CSRF, XSS, security headers
-- **User permission integration** - leverage Django's permission system
+# 2. Use in views
+if request.user.staff_profile.can_new_permission:
+    # Allow action
+    
+# 3. Log action
+StaffAction.log_action(
+    staff_user=request.user,
+    action_type='new_action',
+    description='Description of new action',
+    request=request
+)
+```
 
-## Technical Architecture Decisions
+**Customer Profile Extensions:**
+```python
+# Follow existing pattern in customers/models.py
+class NewCustomerData(models.Model):
+    user = models.OneToOneField(User, related_name='new_data')
+    # Additional customer-specific fields
+    
+# Access pattern
+user.customer_profile  # Existing profile
+user.new_data  # New extension
+```
 
-**Authentication Architecture Choice:**
-- **Django User Model Foundation:** Proven, secure, well-maintained authentication system
-- **Profile Extension Pattern:** Industry-standard approach for extending User with business data
-- **Single Authentication Source:** Eliminates custom authentication complexity and edge cases
-- **Role Separation via Profiles:** CustomerProfile vs StaffProfile for clean business logic separation
+### Integration Points Ready for Development
 
-**Database Design Principles:**
-- **UUID Primary Keys:** Enhanced security, distributed system compatibility (profiles and business models)
-- **Django User Integration:** Leverage foreign key relationships to User model throughout system
-- **Profile Pattern:** Separate authentication concerns from business logic concerns
-- **Optimized Indexes:** Query performance on User relationships and profile lookups
-- **JSON Fields:** Flexible data storage for configurations and metadata (in profile models)
+**Notification System:**
+- Booking status change triggers ready in booking model
+- Customer communication preferences in CustomerProfile
+- Staff action logging ready for notification triggers
+- Email template system architecture planned
 
-**API Design Standards:**
-- **User-Centric Endpoints:** All customer APIs work with authenticated User + CustomerProfile
-- **Profile-Based Permissions:** Staff APIs use StaffProfile role checking
-- **Django Authentication Integration:** Leverage rest_framework authentication classes
-- **Consistent User Patterns:** user.bookings.all(), user.customer_profile, user.staff_profile
-- **Standard Django Patterns:** Follow Django REST Framework conventions throughout
+**Advanced CRM Features:**
+- Customer analytics data available via CustomerProfile
+- Booking trend analysis via services integration
+- Financial reporting via payments integration
+- Staff productivity metrics via StaffAction logging
 
-**Security Implementation:**
-- **Django Security Foundation:** Built-in password hashing, session security, CSRF protection
-- **Profile-Based Authorization:** Customer vs staff access through profile model permissions
-- **User Data Protection:** Customers access only their own User-related data
-- **Comprehensive Audit Logging:** StaffAction model tracks all administrative User actions
-- **Standard Middleware Stack:** Django security middleware for headers, XSS, CSRF protection
+**Mobile API Extensions:**
+- Existing API endpoints mobile-ready
+- Authentication patterns support mobile sessions
+- Real-time booking status ready for push notifications
+- Offline-first booking creation patterns planned
 
-**Performance Optimization:**
-- **User Model Efficiency:** Django's optimized User model for authentication queries
-- **Profile Prefetching:** select_related and prefetch_related for User + profile queries
-- **Caching Strategy:** Cache User authentication state and profile data
-- **Database Query Optimization:** Efficient joins on User foreign key relationships
-- **Background Job Processing:** Async operations for user experience
+### Technical Debt & Enhancement Opportunities
 
+**Performance Optimizations:**
+- Database query optimization for large datasets
+- Caching strategy for pricing calculations
+- Background job processing for heavy operations
+- API response pagination and filtering
+
+**Security Enhancements:**
+- Rate limiting on all endpoints
+- Enhanced audit logging for sensitive operations
+- API key authentication for mobile applications
+- Advanced permission granularity
+
+**Business Logic Extensions:**
+- Dynamic pricing based on demand
+- Advanced surcharge rules (time-based, route-based)
+- Customer loyalty program integration
+- Multi-language support preparation
+
+This living documentation provides both complete operational understanding and clear development direction, enabling immediate productive development while maintaining architectural consistency and business logic integrity.
