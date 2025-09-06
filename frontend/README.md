@@ -25,6 +25,25 @@ This documentation enables immediate technical conversations by providing comple
 # ToteTaxi Frontend Living Documentation & Roadmap
 
 **Strategic Technical Architecture - Next.js 14 + TypeScript + Tailwind CSS + AI-Optimized Stack**
+**ToteTaxi Frontend Dependencies - React 19 Compatible Versions**
+
+- @tanstack/react-query@^5.51.1
+- @tanstack/react-query-devtools@^5.51.1
+- axios@^1.6.2
+- zustand@^4.4.7
+- @headlessui/react@^2.0.4
+- @heroicons/react@^2.0.18
+- react-hook-form@^7.48.2
+- @hookform/resolvers@^3.3.2
+- zod@^3.22.4
+- clsx@^2.0.0
+- tailwind-merge@^2.2.0
+
+**Existing Stack:**
+- Next.js 14
+- React 19.1.0
+- TypeScript
+- Tailwind CSS
 
 ## System Architecture Overview
 
