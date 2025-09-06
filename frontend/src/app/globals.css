@@ -1,15 +1,10 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +17,16 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/* Custom utility classes for luxury design */
+@layer components {
+  .luxury-card-shadow {
+    @apply shadow-lg shadow-navy-900/10 hover:shadow-xl hover:shadow-navy-900/20 transition-shadow duration-300;
+  }
+  
+  .gradient-gold {
+    @apply bg-gradient-to-r from-gold-400 to-gold-600;
+  }
 }
