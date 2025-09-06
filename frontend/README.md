@@ -1,7 +1,3 @@
-Here's the updated frontend living documentation reflecting the Django User + Profile architecture:
-
----
-
 # ToteTaxi Living Documentation
 
 ## About This Documentation
@@ -28,7 +24,7 @@ This documentation enables immediate technical conversations by providing comple
 
 # ToteTaxi Frontend Living Documentation & Roadmap
 
-**Strategic Technical Architecture - Next.js 14 + TypeScript + Tailwind CSS**
+**Strategic Technical Architecture - Next.js 14 + TypeScript + Tailwind CSS + AI-Optimized Stack**
 
 ## System Architecture Overview
 
@@ -61,7 +57,10 @@ This documentation enables immediate technical conversations by providing comple
     ├── Next.js 14 App Router
     ├── TypeScript & Zod validation
     ├── Zustand state management
-    └── API integration with Django User + Profile backend
+    ├── TanStack Query + Axios API layer
+    ├── React Hook Form + Zod validation
+    ├── Custom Tailwind + Headless UI components
+    └── Session-based auth integration with Django User + Profile backend
 ```
 
 **Backend Integration Points:**
@@ -72,28 +71,100 @@ This documentation enables immediate technical conversations by providing comple
 - Real-time Updates: WebSocket connections for live booking status
 - File Management: S3 direct uploads with presigned URLs
 
+## Technology Stack Decisions
+
+**AI-Optimized Technology Selection:**
+All frontend technologies chosen for maturity, stability, and AI development compatibility. No bleeding-edge technologies that could create syntax or pattern confusion during AI-assisted development.
+
+**State Management: Zustand**
+- **Choice Reasoning:** Simple, lightweight, minimal boilerplate
+- **AI Compatibility:** Well-established patterns, clear syntax
+- **Integration:** Perfect for ToteTaxi's complexity level
+- **Alternative Considered:** Redux (rejected due to complexity)
+
+**API Client: TanStack Query + Axios**
+- **TanStack Query:** Caching, background refetching, error handling, optimistic updates
+- **Axios:** HTTP requests with interceptors for authentication and error handling
+- **Choice Reasoning:** Both mature, well-documented, AI-familiar
+- **Performance Benefits:** Automatic caching, request deduplication, background sync
+
+**Form Handling: React Hook Form + Zod**
+- **React Hook Form:** Performance-optimized forms with minimal re-renders
+- **Zod:** Runtime validation matching Django backend patterns
+- **Choice Reasoning:** Industry standard, excellent TypeScript integration
+- **Integration:** Seamless validation with Django REST error responses
+
+**UI Components: Custom Tailwind + Headless UI**
+- **Tailwind CSS:** Utility-first styling with complete AI familiarity
+- **Headless UI:** Accessible primitives for complex components (modals, dropdowns)
+- **Choice Reasoning:** Maximum control, no heavy component library dependencies
+- **Brand Integration:** Custom luxury design system built on Tailwind utilities
+
+**Authentication: Custom Session-Based**
+- **Strategy:** Cookie-based authentication matching Django sessions
+- **Integration:** Direct compatibility with Django User authentication
+- **Security:** CSRF protection, secure session handling
+- **Alternative Considered:** Next-Auth (deferred for OAuth future requirements)
+
+**Development Constraints:**
+- **AI-Familiar Only:** All technologies must be well-established and AI-workable
+- **No Experimental Features:** Avoid bleeding-edge syntax or patterns
+- **Mature Ecosystem:** Prioritize technologies with extensive documentation and community
+
 ## Authentication Architecture
 
 **Django User Model Integration (Simplified Frontend Auth):**
 
 **Customer Authentication:**
-```
-Frontend Customer Auth
-├── Standard email/password login to Django User endpoints
-├── Session-based authentication with /api/customer/ access
-├── CustomerProfile data loaded after User authentication
-├── User.bookings, User.saved_addresses, User.payment_methods access
-└── No custom user model complexity in frontend state
+```typescript
+// Frontend Customer Auth State
+interface CustomerAuthState {
+  user: DjangoUser | null;
+  customerProfile: CustomerProfile | null;
+  isAuthenticated: boolean;
+  savedAddresses: SavedAddress[];
+  paymentMethods: CustomerPaymentMethod[];
+  isLoading: boolean;
+}
+
+// Authentication Flow
+const useCustomerAuth = () => {
+  const { data: authData, isLoading } = useQuery({
+    queryKey: ['auth', 'customer'],
+    queryFn: () => axios.get('/api/customer/auth/user/'),
+    retry: false
+  });
+  
+  return {
+    user: authData?.user,
+    customerProfile: authData?.customer_profile,
+    isAuthenticated: !!authData?.user,
+    isLoading
+  };
+};
 ```
 
 **Staff Authentication:**
-```
-Frontend Staff Auth
-├── Username/password login to Django User staff endpoints
-├── Session-based authentication with /api/staff/ access
-├── StaffProfile role-based UI rendering (admin vs staff)
-├── StaffAction audit logging for all admin actions
-└── Completely separate authentication flow from customers
+```typescript
+// Separate Staff Auth State
+interface StaffAuthState {
+  user: DjangoUser | null;
+  staffProfile: StaffProfile | null;
+  isAuthenticated: boolean;
+  permissions: StaffPermissions;
+  isLoading: boolean;
+}
+
+// Role-based UI rendering
+const useStaffPermissions = () => {
+  const { staffProfile } = useStaffAuth();
+  
+  return {
+    canApproveRefunds: staffProfile?.can_approve_refunds,
+    canManageStaff: staffProfile?.can_manage_staff,
+    canViewReports: staffProfile?.can_view_financial_reports
+  };
+};
 ```
 
 **Frontend Authentication Benefits:**
@@ -108,17 +179,60 @@ Frontend Staff Auth
 
 **Primary Responsibility:** Convert high-value visitors into booking conversions through premium positioning
 
+**Technology Integration:**
+- **Next.js SSR:** SEO optimization for service pages and pricing information
+- **TanStack Query:** Real-time pricing displays from /api/public/services/
+- **Tailwind:** Custom luxury design system with brand-specific utilities
+- **Headless UI:** Accessible navigation and modal components
+
 **Updated Integration Patterns:**
-- Service Data: Real-time pricing displays from /api/public/services/
-- User Journey: Clear paths to Django User registration/login
-- Trust Signals: Dynamic testimonial rotation, real booking count displays
-- Authentication CTAs: Separate customer registration (creates Django User + CustomerProfile)
+```typescript
+// Real-time service data integration
+const useServiceCatalog = () => {
+  return useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: () => axios.get('/api/public/services/'),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 30, // 30 minutes
+  });
+};
+
+// Dynamic pricing preview
+const usePricingPreview = (serviceConfig: ServiceConfig) => {
+  return useQuery({
+    queryKey: ['pricing', 'preview', serviceConfig],
+    queryFn: () => axios.post('/api/public/pricing-preview/', serviceConfig),
+    enabled: !!serviceConfig.service_type,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+};
+```
 
 **User Journey Optimization:**
 - **Guest users:** Direct path to booking wizard via /api/public/ endpoints
-- **Returning customers:** Django User login with CustomerProfile benefits (saved addresses, payment methods)
+- **Returning customers:** Django User login with CustomerProfile benefits display
 - **New customers:** User registration creates Django User + auto-generated CustomerProfile
 - **Mobile experience:** 70% of luxury customers browse on mobile
+
+**Component Architecture:**
+```typescript
+// Service selection cards with real-time pricing
+const ServiceCard = ({ serviceType }: { serviceType: string }) => {
+  const { data: pricing } = usePricingPreview({ service_type: serviceType });
+  
+  return (
+    <Card className="luxury-card-shadow border-gold-200">
+      <CardHeader>
+        <h3 className="text-2xl font-serif text-navy-900">{serviceType}</h3>
+      </CardHeader>
+      <CardContent>
+        <PriceDisplay pricing={pricing} />
+        <FeatureList features={getServiceFeatures(serviceType)} />
+      </CardContent>
+    </Card>
+  );
+};
+```
 
 **Key External Relationships:**
 - → Booking Wizard: Primary conversion path from all CTAs
@@ -133,103 +247,164 @@ Frontend Staff Auth
 
 **Primary Responsibility:** Guide customers through complex service selection with minimal friction while supporting both guest and Django User authenticated booking flows
 
-**Simplified Authentication Integration:**
-- **Django User detection:** Simple check for user authentication state
-- **Guest checkout flow:** via /api/public/guest-booking/ endpoints
-- **Authenticated flow:** via /api/customer/bookings/ with User + CustomerProfile data
-- **No role complexity:** single authentication type to handle
+**Technology Integration:**
+- **React Hook Form:** Multi-step form management with validation
+- **Zod:** Schema validation matching Django REST serializers
+- **Zustand:** Wizard state persistence across steps
+- **TanStack Query:** Real-time pricing updates and availability checking
 
-**Updated State Management:**
+**Simplified Authentication Integration:**
 ```typescript
-// Simplified user state - no custom user model complexity
-interface UserState {
-  user: DjangoUser | null;
-  customerProfile: CustomerProfile | null;
+// Dual-mode booking state management
+interface BookingWizardState {
+  // Service selection
+  serviceType: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  selectedPackage?: MiniMovePackage;
+  itemCount?: number;
+  specialtyItems?: SpecialtyItem[];
+  
+  // User context
   isAuthenticated: boolean;
+  customerProfile?: CustomerProfile;
   savedAddresses: SavedAddress[];
   paymentMethods: CustomerPaymentMethod[];
+  
+  // Form data
+  pickupDate: Date;
+  pickupTime: string;
+  addresses: {
+    pickup: Address | SavedAddress;
+    delivery: Address | SavedAddress;
+  };
+  
+  // Pricing
+  pricingBreakdown?: PricingBreakdown;
+  
+  // Flow control
+  currentStep: number;
+  isSubmitting: boolean;
+  paymentIntentId?: string;
 }
 
-// Booking wizard state integrates with User model
-interface BookingState {
-  // Pre-fill from authenticated user
-  customerEmail: string; // user.email
-  customerName: string;  // user.first_name + user.last_name
-  selectedAddress?: SavedAddress; // from user.saved_addresses
-  selectedPaymentMethod?: CustomerPaymentMethod; // from user.payment_methods
-}
+// Zustand store for wizard state
+const useBookingWizard = create<BookingWizardState>((set, get) => ({
+  // State initialization
+  serviceType: 'mini_move',
+  isAuthenticated: false,
+  savedAddresses: [],
+  paymentMethods: [],
+  currentStep: 1,
+  isSubmitting: false,
+  
+  // Actions
+  setServiceType: (type) => set({ serviceType: type }),
+  setAuthentication: (auth) => set({ 
+    isAuthenticated: auth.isAuthenticated,
+    customerProfile: auth.customerProfile,
+    savedAddresses: auth.savedAddresses,
+    paymentMethods: auth.paymentMethods
+  }),
+  nextStep: () => set((state) => ({ currentStep: state.currentStep + 1 })),
+  // ... other actions
+}));
 ```
 
-**Core Wizard Flow:**
-1. **Django User Check:** Detect if user is logged in, show CustomerProfile benefits
-2. **Service Selection:** Guide between Mini Move packages, Standard Delivery, Specialty Items
-3. **Calendar & Availability:** Date selection with surcharge indicators
-4. **Details Collection:** Address input (pre-filled from SavedAddress for authenticated users)
-5. **Customer Information:** Auto-filled from Django User fields for authenticated users
-6. **Review & Pricing:** Final price breakdown with transparent surcharge explanation
-7. **Payment:** Stripe checkout with saved CustomerPaymentMethod options
-8. **Confirmation:** Booking details, tracking information, next steps
+**Core Wizard Flow Implementation:**
+```typescript
+// Step 1: Service Selection with real-time pricing
+const ServiceSelectionStep = () => {
+  const { register, watch } = useForm<ServiceSelectionForm>({
+    resolver: zodResolver(serviceSelectionSchema)
+  });
+  
+  const watchedValues = watch();
+  const { data: pricing } = usePricingPreview(watchedValues);
+  
+  return (
+    <StepContainer>
+      <ServiceTypeSelector register={register} />
+      <PricingPreview pricing={pricing} />
+      <NavigationButtons onNext={() => wizardStore.nextStep()} />
+    </StepContainer>
+  );
+};
+
+// Step 2: Authentication check and profile integration
+const CustomerInfoStep = () => {
+  const { isAuthenticated, customerProfile } = useCustomerAuth();
+  const { savedAddresses } = useBookingWizard();
+  
+  if (isAuthenticated) {
+    return <AuthenticatedCustomerForm 
+      profile={customerProfile} 
+      savedAddresses={savedAddresses} 
+    />;
+  }
+  
+  return <GuestCustomerForm />;
+};
+
+// Step 3: Address selection with saved address integration
+const AddressSelectionStep = () => {
+  const { savedAddresses, isAuthenticated } = useBookingWizard();
+  const { register, control } = useForm<AddressForm>();
+  
+  return (
+    <AddressStepContainer>
+      {isAuthenticated && savedAddresses.length > 0 && (
+        <SavedAddressSelector addresses={savedAddresses} />
+      )}
+      <AddressFormFields register={register} control={control} />
+      <AddressSaveOption show={isAuthenticated} />
+    </AddressStepContainer>
+  );
+};
+```
 
 **Dual-Mode Experience Design:**
 
 **Guest Checkout Flow:**
-- Clean, simple form experience via /api/public/ endpoints
-- Option to "create Django User account to save time next time"
-- All information collected step-by-step
-- Option to save payment method (creates Django User + CustomerProfile + CustomerPaymentMethod)
+```typescript
+const guestBookingMutation = useMutation({
+  mutationFn: (bookingData: GuestBookingData) => 
+    axios.post('/api/public/guest-booking/', bookingData),
+  onSuccess: (response) => {
+    // Create payment intent
+    createPaymentIntent(response.data.booking.id);
+  }
+});
+```
 
 **Authenticated User Flow:**
-- Welcome message with user.first_name
-- Pre-filled addresses from user.saved_addresses.all()
-- Saved payment methods available from user.payment_methods.filter(is_active=True)
-- Streamlined checkout experience via /api/customer/bookings/
-- One-click address and payment selection
-
-**Frontend Integration Needs:**
-- **Django User Authentication State:** Simple user.is_authenticated boolean
-- **CustomerProfile Data:** user.customer_profile for preferences and statistics
-- **Real-time Pricing:** Dynamic price updates via /api/public/pricing-preview/
-- **Availability Checking:** Calendar integration via /api/public/services/
-- **Booking Creation:** Submit to /api/public/guest-booking/ or /api/customer/bookings/
-- **Payment Processing:** Stripe PaymentIntent with user.payment_methods integration
-
-**Updated TypeScript Interfaces:**
 ```typescript
-// Django User model interface
-interface DjangoUser {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  is_active: boolean;
-  date_joined: string;
-}
+const authenticatedBookingMutation = useMutation({
+  mutationFn: (bookingData: AuthenticatedBookingData) =>
+    axios.post('/api/customer/bookings/create/', bookingData),
+  onSuccess: (response) => {
+    // Payment with saved methods
+    handleAuthenticatedPayment(response.data);
+  }
+});
+```
 
-// CustomerProfile interface (extends User)
-interface CustomerProfile {
-  id: string;
-  user: DjangoUser;
-  phone: string;
-  stripe_customer_id: string;
-  total_bookings: number;
-  total_spent_cents: number;
-  preferred_pickup_time: 'morning' | 'afternoon' | 'evening';
-  is_vip: boolean;
-}
+**Form Validation Integration:**
+```typescript
+// Zod schemas matching Django serializers
+const serviceSelectionSchema = z.object({
+  service_type: z.enum(['mini_move', 'standard_delivery', 'specialty_item']),
+  mini_move_package_id: z.string().uuid().optional(),
+  standard_delivery_item_count: z.number().min(1).optional(),
+  specialty_item_ids: z.array(z.string().uuid()).optional(),
+  pickup_date: z.date().min(new Date()),
+  coi_required: z.boolean().default(false)
+});
 
-// SavedAddress interface
-interface SavedAddress {
-  id: string;
-  user: DjangoUser['id'];
-  nickname: string;
-  address_line_1: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  delivery_instructions?: string;
-  times_used: number;
-}
+const addressSchema = z.object({
+  address_line_1: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.enum(['NY', 'CT', 'NJ']),
+  zip_code: z.string().regex(/^\d{5}(-\d{4})?$/, "Invalid ZIP code")
+});
 ```
 
 **Key External Relationships:**
@@ -238,7 +413,7 @@ interface SavedAddress {
 - → Backend /api/public/: Pricing calculations, availability data
 - → Backend /api/customer/: Django User profile data, SavedAddress, CustomerPaymentMethod
 - → Stripe API: Payment processing and webhook handling
-- State Persistence: Local storage, session recovery
+- State Persistence: Zustand with localStorage persistence
 
 ---
 
@@ -246,74 +421,125 @@ interface SavedAddress {
 
 **Primary Responsibility:** Comprehensive customer self-service interface for Django User + CustomerProfile management
 
+**Technology Integration:**
+- **TanStack Query:** Real-time booking data with background sync
+- **React Hook Form:** Profile and address management forms
+- **Headless UI:** Complex dashboard navigation and modal components
+- **Tailwind:** Professional dashboard design with luxury touches
+
 **Django User Integration Architecture:**
-- **Standard Django authentication** - user login/logout via /api/customer/auth/
-- **Profile data management** - CustomerProfile CRUD via /api/customer/profile/
-- **Related data access** - SavedAddress, CustomerPaymentMethod via User relationships
-- **Booking history** - user.bookings.all() via /api/customer/bookings/
-
-**Updated Dashboard Architecture:**
-- **Account Overview:** Django User info + CustomerProfile statistics and recent activity
-- **Booking History:** user.bookings with search, filter, and tracking capabilities
-- **Active Bookings:** Live tracking of current deliveries with real-time updates
-- **Address Book:** user.saved_addresses management with CRUD operations
-- **Payment Methods:** user.payment_methods via Stripe integration
-- **Profile Settings:** Django User fields + CustomerProfile preferences
-- **Support Center:** Help articles, contact options, booking-specific support
-
-**Customer Experience Features:**
-
-**Dashboard Homepage:**
-- Welcome message with user.first_name
-- Overview of user.bookings recent activity
-- Quick actions (book again, track delivery, update CustomerProfile)
-- CustomerProfile.total_bookings and spending statistics
-
-**Booking Management:**
-- **Booking History:** user.bookings.all() with status, dates, and amounts
-- **Booking Details:** Deep-dive view with all booking information
-- **Live Tracking:** Real-time delivery status for active bookings
-- **Booking Actions:** Reschedule (if applicable), contact support, download receipts
-
-**Profile Management:**
-- **Personal Information:** Django User fields (first_name, last_name, email) + CustomerProfile.phone
-- **Address Book:** user.saved_addresses CRUD with nickname management
-- **Payment Methods:** user.payment_methods via Stripe with default selection
-- **Account Security:** Django User password change, session management
-
-**Frontend Integration Needs:**
-- **Authentication:** Django User session management via /api/customer/auth/
-- **Profile APIs:** CustomerProfile management via /api/customer/profile/
-- **Address APIs:** SavedAddress CRUD via /api/customer/addresses/
-- **Payment APIs:** CustomerPaymentMethod + Stripe integration via /api/customer/payment-methods/
-- **Booking APIs:** user.bookings access via /api/customer/bookings/
-- **Real-time Updates:** Live booking status via WebSocket integration
-
-**Updated Data Access Patterns:**
 ```typescript
-// Customer dashboard data loading
-const loadCustomerData = async () => {
-  const user = await api.get('/api/customer/auth/user/');
-  const profile = await api.get('/api/customer/profile/');
-  const addresses = await api.get('/api/customer/addresses/');
-  const paymentMethods = await api.get('/api/customer/payment-methods/');
-  const bookings = await api.get('/api/customer/bookings/');
+// Customer dashboard data management
+const useCustomerDashboard = () => {
+  const userQuery = useQuery({
+    queryKey: ['customer', 'auth', 'user'],
+    queryFn: () => axios.get('/api/customer/auth/user/')
+  });
+  
+  const profileQuery = useQuery({
+    queryKey: ['customer', 'profile'],
+    queryFn: () => axios.get('/api/customer/profile/'),
+    enabled: !!userQuery.data
+  });
+  
+  const bookingsQuery = useQuery({
+    queryKey: ['customer', 'bookings'],
+    queryFn: () => axios.get('/api/customer/bookings/'),
+    enabled: !!userQuery.data
+  });
+  
+  const addressesQuery = useQuery({
+    queryKey: ['customer', 'addresses'],
+    queryFn: () => axios.get('/api/customer/addresses/'),
+    enabled: !!userQuery.data
+  });
   
   return {
-    user: user.data,
-    customerProfile: profile.data,
-    savedAddresses: addresses.data,
-    paymentMethods: paymentMethods.data,
-    bookings: bookings.data
+    user: userQuery.data?.user,
+    profile: profileQuery.data,
+    bookings: bookingsQuery.data,
+    addresses: addressesQuery.data,
+    isLoading: userQuery.isLoading || profileQuery.isLoading
   };
 };
 ```
 
-**Security & Privacy:**
-- **User data isolation:** customers only access their own Django User-related data
-- **Session security:** Django's built-in session timeout and security
+**Dashboard Component Architecture:**
+```typescript
+// Dashboard overview with real-time data
+const DashboardOverview = () => {
+  const { profile, bookings } = useCustomerDashboard();
+  const { data: dashboardData } = useQuery({
+    queryKey: ['customer', 'dashboard'],
+    queryFn: () => axios.get('/api/customer/dashboard/'),
+    refetchInterval: 1000 * 60 * 5 // Refresh every 5 minutes
+  });
+  
+  return (
+    <DashboardGrid>
+      <WelcomeCard profile={profile} />
+      <BookingStatsCard stats={dashboardData?.booking_summary} />
+      <RecentBookingsCard bookings={dashboardData?.recent_bookings} />
+      <QuickActionsCard />
+    </DashboardGrid>
+  );
+};
+
+// Booking history with search and filtering
+const BookingHistory = () => {
+  const [filters, setFilters] = useState<BookingFilters>({});
+  const { data: bookings, isLoading } = useQuery({
+    queryKey: ['customer', 'bookings', filters],
+    queryFn: () => axios.get('/api/customer/bookings/', { params: filters }),
+    keepPreviousData: true
+  });
+  
+  return (
+    <BookingHistoryContainer>
+      <BookingFilters filters={filters} onChange={setFilters} />
+      <BookingTable bookings={bookings} isLoading={isLoading} />
+    </BookingHistoryContainer>
+  );
+};
+```
+
+**Address Book Management:**
+```typescript
+// Address CRUD with optimistic updates
+const useAddressManagement = () => {
+  const queryClient = useQueryClient();
+  
+  const createAddress = useMutation({
+    mutationFn: (address: CreateAddressData) =>
+      axios.post('/api/customer/addresses/', address),
+    onMutate: async (newAddress) => {
+      await queryClient.cancelQueries(['customer', 'addresses']);
+      const previousAddresses = queryClient.getQueryData(['customer', 'addresses']);
+      
+      queryClient.setQueryData(['customer', 'addresses'], (old: SavedAddress[]) => [
+        ...old,
+        { ...newAddress, id: 'temp-' + Date.now() }
+      ]);
+      
+      return { previousAddresses };
+    },
+    onError: (err, newAddress, context) => {
+      queryClient.setQueryData(['customer', 'addresses'], context?.previousAddresses);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries(['customer', 'addresses']);
+    }
+  });
+  
+  return { createAddress };
+};
+```
+
+**Security & Privacy Implementation:**
+- **User data isolation:** React Query keys scoped to customer data only
+- **Session security:** Automatic logout on 401 responses
 - **Payment security:** PCI compliance through Stripe integration
-- **Privacy controls:** Clear data usage and CustomerProfile settings
+- **Privacy controls:** Clear data usage displays and CustomerProfile settings
 
 **Key External Relationships:**
 - ← Django User Authentication: Required for all dashboard features
@@ -326,24 +552,177 @@ const loadCustomerData = async () => {
 
 **🎨 Design System - BLADE-Inspired Luxury Interface**
 
-**Updated Authentication UI Patterns:**
-- **Django User state:** Clear visual distinction between unauthenticated and authenticated states
-- **CustomerProfile integration:** Personalized UI with user.first_name, CustomerProfile.is_vip status
-- **No role complexity:** Customer authentication UI patterns only (staff separate)
-- **Standard login flows:** Django User email/password authentication
+**Technology Integration:**
+- **Tailwind CSS:** Custom utility classes for luxury brand aesthetics
+- **Headless UI:** Accessible component primitives
+- **Custom Components:** Brand-specific design system built on Tailwind
+- **TypeScript:** Strict typing for component props and design tokens
 
-**Component Architecture Updates:**
-- **Base Components:** Button variants, Input fields, Cards, Modal overlays
-- **Booking Components:** Service cards, Calendar picker, Price displays, Progress indicators
-- **Customer Components:** UserProfile forms, SavedAddress cards, CustomerPaymentMethod management
-- **Authentication Components:** Django User login forms, registration, password reset
-- **Layout Components:** Responsive containers, Navigation, Headers, Footers
+**Design Token System:**
+```typescript
+// Custom Tailwind configuration for luxury branding
+const designTokens = {
+  colors: {
+    navy: {
+      50: '#f0f4f8',
+      900: '#1a365d'
+    },
+    gold: {
+      50: '#fffdf7',
+      500: '#d69e2e',
+      900: '#744210'
+    },
+    cream: {
+      50: '#fefcf3',
+      100: '#fef7e0'
+    }
+  },
+  fontFamily: {
+    'serif': ['Playfair Display', 'serif'],
+    'sans': ['Inter', 'sans-serif']
+  },
+  spacing: {
+    '18': '4.5rem',
+    '88': '22rem'
+  }
+};
+
+// Component variant system
+const buttonVariants = {
+  primary: 'bg-navy-900 text-white hover:bg-navy-800 font-medium',
+  secondary: 'bg-gold-500 text-navy-900 hover:bg-gold-600 font-medium',
+  outline: 'border-2 border-navy-900 text-navy-900 hover:bg-navy-50'
+};
+```
+
+**Component Architecture:**
+```typescript
+// Base Button component with variants
+interface ButtonProps {
+  variant: 'primary' | 'secondary' | 'outline';
+  size: 'sm' | 'md' | 'lg';
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+  variant, 
+  size, 
+  children, 
+  ...props 
+}) => {
+  const baseClasses = 'inline-flex items-center justify-center rounded-md transition-colors';
+  const variantClasses = buttonVariants[variant];
+  const sizeClasses = {
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-4 py-2 text-base',
+    lg: 'px-6 py-3 text-lg'
+  };
+  
+  return (
+    <button 
+      className={cn(baseClasses, variantClasses, sizeClasses[size])}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+// Form components with validation integration
+interface InputProps {
+  label: string;
+  error?: string;
+  register: UseFormRegister<any>;
+  name: string;
+  type?: string;
+}
+
+const Input: React.FC<InputProps> = ({ 
+  label, 
+  error, 
+  register, 
+  name, 
+  type = 'text' 
+}) => {
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-navy-900">
+        {label}
+      </label>
+      <input
+        {...register(name)}
+        type={type}
+        className={cn(
+          "block w-full rounded-md border-gray-300 shadow-sm",
+          "focus:border-navy-500 focus:ring-navy-500",
+          error && "border-red-300 focus:border-red-500 focus:ring-red-500"
+        )}
+      />
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+};
+```
 
 **Authentication UI Patterns:**
-- **Guest State:** Clean, minimal UI focused on conversion
-- **Authenticated State:** Personalized UI with user.first_name, CustomerProfile benefits display
-- **Login Prompts:** Strategic authentication encouragement with clear value proposition
-- **Account Management:** Professional, trustworthy UI for Django User + CustomerProfile operations
+```typescript
+// Login form with validation
+const LoginForm = () => {
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginData>({
+    resolver: zodResolver(loginSchema)
+  });
+  
+  const loginMutation = useMutation({
+    mutationFn: (data: LoginData) => 
+      axios.post('/api/customer/auth/login/', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['auth']);
+      router.push('/dashboard');
+    }
+  });
+  
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <h2 className="text-2xl font-serif text-center text-navy-900">
+          Welcome Back
+        </h2>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(loginMutation.mutate)} className="space-y-4">
+          <Input 
+            label="Email" 
+            name="email" 
+            type="email"
+            register={register}
+            error={errors.email?.message}
+          />
+          <Input 
+            label="Password" 
+            name="password" 
+            type="password"
+            register={register}
+            error={errors.password?.message}
+          />
+          <Button 
+            type="submit" 
+            variant="primary" 
+            size="lg" 
+            disabled={loginMutation.isLoading}
+            className="w-full"
+          >
+            {loginMutation.isLoading ? 'Signing In...' : 'Sign In'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
+```
 
 ---
 
@@ -351,226 +730,324 @@ const loadCustomerData = async () => {
 
 **Primary Responsibility:** Type-safe, reliable communication with Django User + Profile backend
 
-**Simplified Authentication Integration:**
-- **Django User session management** for customer authentication
-- **Staff User session management** for admin authentication (separate)
-- **No custom user model complexity** in API layer
-- **Standard Django REST patterns** throughout
+**Technology Integration:**
+- **Axios:** HTTP client with interceptors and error handling
+- **TanStack Query:** Caching, background sync, optimistic updates
+- **TypeScript:** Complete type safety for API responses
+- **Zod:** Runtime validation for API responses
 
-**Updated Integration Architecture:**
-- **Customer Booking Flow:** /api/customer/ for Django User auth, /api/public/ for pricing, /api/customer/bookings/ for creation
-- **Customer Dashboard:** /api/customer/ for all User + CustomerProfile data management
-- **Admin Dashboard:** /api/staff/ for Django User + StaffProfile operations (separate app)
-- **Real-time Updates:** WebSocket integration for live booking status
-- **File Operations:** S3 direct upload with presigned URL patterns
-
-**Authentication Strategy:**
-- **Customer Authentication:** Django session-based auth with /api/customer/ endpoints
-- **Staff Authentication:** Separate Django session-based auth with /api/staff/ endpoints
-- **Guest Operations:** Unauthenticated /api/public/ access for guest checkout
-- **Token Management:** Django's built-in session management (no JWT complexity)
-
-**Updated API Client Patterns:**
+**API Client Architecture:**
 ```typescript
-// Django User + Profile API patterns
+// Axios instance with authentication and error handling
+const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
+  withCredentials: true, // Include cookies for Django sessions
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// Request interceptor for CSRF token
+apiClient.interceptors.request.use(async (config) => {
+  // Get CSRF token for state-changing operations
+  if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
+    const csrfResponse = await axios.get('/api/customer/csrf-token/');
+    config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
+  }
+  return config;
+});
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear auth state and redirect to login
+      queryClient.setQueryData(['auth'], null);
+      router.push('/login');
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+**Type-Safe API Patterns:**
+```typescript
+// Django User + Profile API patterns with full typing
 class CustomerAPI {
-  async login(email: string, password: string): Promise<DjangoUser> {
-    return this.post('/api/customer/auth/login/', { email, password });
+  static async login(data: LoginData): Promise<AuthResponse> {
+    const response = await apiClient.post('/api/customer/auth/login/', data);
+    return authResponseSchema.parse(response.data);
   }
   
-  async getProfile(): Promise<CustomerProfile> {
-    return this.get('/api/customer/profile/');
+  static async getProfile(): Promise<CustomerProfile> {
+    const response = await apiClient.get('/api/customer/profile/');
+    return customerProfileSchema.parse(response.data);
   }
   
-  async getSavedAddresses(): Promise<SavedAddress[]> {
-    return this.get('/api/customer/addresses/');
+  static async getSavedAddresses(): Promise<SavedAddress[]> {
+    const response = await apiClient.get('/api/customer/addresses/');
+    return savedAddressArraySchema.parse(response.data);
   }
   
-  async getBookings(): Promise<UserBooking[]> {
-    return this.get('/api/customer/bookings/');
+  static async createBooking(data: AuthenticatedBookingData): Promise<Booking> {
+    const response = await apiClient.post('/api/customer/bookings/create/', data);
+    return bookingSchema.parse(response.data.booking);
   }
 }
 
-// Staff API (separate)
-class StaffAPI {
-  async login(username: string, password: string): Promise<DjangoUser> {
-    return this.post('/api/staff/auth/login/', { username, password });
+// Public API for guest operations
+class PublicAPI {
+  static async getServices(): Promise<ServiceCatalog> {
+    const response = await apiClient.get('/api/public/services/');
+    return serviceCatalogSchema.parse(response.data);
   }
   
-  async getCustomers(): Promise<CustomerProfile[]> {
-    return this.get('/api/staff/customers/');
+  static async getPricingPreview(data: PricingPreviewData): Promise<PricingBreakdown> {
+    const response = await apiClient.post('/api/public/pricing-preview/', data);
+    return pricingBreakdownSchema.parse(response.data);
+  }
+  
+  static async createGuestBooking(data: GuestBookingData): Promise<Booking> {
+    const response = await apiClient.post('/api/public/guest-booking/', data);
+    return bookingSchema.parse(response.data.booking);
   }
 }
 ```
 
-**Type Safety Strategy:**
-- **Django User interfaces:** Standard Django User model fields
-- **Profile interfaces:** CustomerProfile, StaffProfile separate type definitions
-- **Booking interfaces:** Updated to reference User ID instead of custom customer fields
-- **Zod schemas:** Runtime validation for Django model data structures
-- **Consistent error handling:** Standard Django REST error response patterns
-
-**Performance Optimization:**
-- **Django User caching:** Cache authenticated user state and profile data
-- **Profile prefetching:** Load related SavedAddress, CustomerPaymentMethod data efficiently
-- **Request deduplication:** For frequent user profile and booking data operations
-- **Background prefetching:** CustomerProfile and related data after authentication
-
----
-
-**⚙️ Admin Dashboard - Staff Operations Interface**
-
-**Primary Responsibility:** Comprehensive staff interface using Django User + StaffProfile architecture
-
-**Django User + StaffProfile Integration:**
-- **Staff authentication:** Django User login with StaffProfile role checking
-- **Customer management:** Access to Django User + CustomerProfile data for support
-- **Booking management:** Full CRUD with Django User relationship tracking
-- **Audit logging:** StaffAction tracking for all administrative User actions
-
-**Updated Dashboard Architecture:**
-- **Operations Overview:** Real-time KPIs, upcoming bookings, pending actions dashboard
-- **Booking Management:** Comprehensive table with Django User customer relationships
-- **Customer Management:** Django User + CustomerProfile management interface for staff
-- **Customer Profiles:** Complete customer view with User.bookings history and CustomerProfile data
-- **Financial Interface:** Payment tracking, refund processing with StaffProfile.can_approve_refunds
-- **Task Management:** COI validation, delivery coordination
-- **Reporting:** Business intelligence with Django User analytics
-
-**Staff Workflow Optimization:**
-- **Single-click actions:** Create delivery task, upload COI, send notifications (with StaffAction logging)
-- **Customer support:** Quick access to Django User + CustomerProfile data from bookings
-- **Bulk operations:** Batch refunds, mass communications with audit trails
-- **Smart filtering:** Search across User.email, CustomerProfile fields
-- **Audit integration:** StaffAction logging for compliance
-
-**Frontend Integration Needs:**
-- **Staff Authentication:** Django User + StaffProfile login via /api/staff/auth/
-- **Real-time Updates:** Live booking status changes via WebSocket
-- **Customer Management:** Django User + CustomerProfile management via /api/staff/customers/
-- **Booking Management:** Full booking CRUD via /api/staff/bookings/
-- **Audit Interface:** StaffAction logging and review via /api/staff/actions/
-- **Permission-based UI:** StaffProfile.role determines available actions
-
-**Permission Architecture:**
-- **Admin Role:** Full system access, refund processing, Django User management
-- **Staff Role:** Booking management, customer service, CustomerProfile access
-- **Audit Trail:** Complete StaffAction logging with Django User attribution
-
-**Updated Data Access Patterns:**
+**TanStack Query Integration:**
 ```typescript
-// Staff dashboard customer management
-const getCustomerDetails = async (userId: number) => {
-  const user = await api.get(`/api/staff/customers/${userId}/`);
-  const profile = user.data.customer_profile;
-  const bookings = user.data.bookings;
-  const addresses = user.data.saved_addresses;
-  
-  return {
-    user: user.data,
-    profile: profile,
-    bookings: bookings,
-    addresses: addresses
-  };
+// Query hooks with caching and error handling
+export const useCustomerAuth = () => {
+  return useQuery({
+    queryKey: ['auth', 'customer'],
+    queryFn: CustomerAPI.getAuthUser,
+    retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 30, // 30 minutes
+  });
 };
 
-// Staff action logging
-const logStaffAction = async (action: string, customerId?: number) => {
-  await api.post('/api/staff/actions/', {
-    action_type: action,
-    customer_id: customerId,
-    description: `Staff action: ${action}`
+export const useServiceCatalog = () => {
+  return useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: PublicAPI.getServices,
+    staleTime: 1000 * 60 * 10, // 10 minutes (services change rarely)
+    cacheTime: 1000 * 60 * 60, // 1 hour
+  });
+};
+
+export const usePricingPreview = (config: PricingConfig) => {
+  return useQuery({
+    queryKey: ['pricing', 'preview', config],
+    queryFn: () => PublicAPI.getPricingPreview(config),
+    enabled: !!config.service_type,
+    staleTime: 1000 * 60 * 2, // 2 minutes (pricing may change)
+  });
+};
+
+// Mutation hooks with optimistic updates
+export const useCreateBooking = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: CustomerAPI.createBooking,
+    onSuccess: (newBooking) => {
+      // Update booking list cache
+      queryClient.setQueryData(['customer', 'bookings'], (old: Booking[]) => 
+        [newBooking, ...(old || [])]
+      );
+      
+      // Update dashboard data
+      queryClient.invalidateQueries(['customer', 'dashboard']);
+    }
   });
 };
 ```
 
-**Key External Relationships:**
-- ← Django User Authentication: Staff login required for all admin features
-- → Backend /api/staff/: All administrative operations
-- → Django User + CustomerProfile: Customer account management for support
-- Authentication: Role-based access control via StaffProfile
-- Real-time: WebSocket updates for live operational awareness
+**Error Handling Strategy:**
+```typescript
+// Centralized error handling for API responses
+const handleApiError = (error: AxiosError) => {
+  if (error.response?.status === 400) {
+    // Validation errors from Django REST
+    const validationErrors = error.response.data;
+    return formatValidationErrors(validationErrors);
+  }
+  
+  if (error.response?.status === 401) {
+    // Authentication required
+    return 'Please log in to continue';
+  }
+  
+  if (error.response?.status === 403) {
+    // Permission denied
+    return 'You do not have permission to perform this action';
+  }
+  
+  if (error.response?.status >= 500) {
+    // Server errors
+    return 'Service temporarily unavailable. Please try again later.';
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+};
+
+// Error boundary component for API errors
+const APIErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <ErrorBoundary
+      fallback={<ErrorFallback />}
+      onError={(error) => {
+        console.error('API Error:', error);
+        // Optional: Send to error tracking service
+      }}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+};
+```
+
+**Performance Optimization:**
+- **Request deduplication:** TanStack Query automatically deduplicates identical requests
+- **Background refetching:** Keep data fresh with background updates
+- **Optimistic updates:** Immediate UI updates for better user experience
+- **Intelligent caching:** Different cache times based on data volatility
+- **Error recovery:** Automatic retry with exponential backoff
 
 ## Data Flow Architecture
 
 **Customer Booking Journey (Guest):**
 ```
-Marketing Site (SEO/Conversion)
-    ↓
-Booking Wizard (Guest Checkout)
-    ↓ Real-time pricing via /api/public/
-Services API ← → Frontend State Management
-    ↓ Booking creation via /api/public/guest-booking/
-Bookings API → Payment Processing (Stripe)
+Marketing Site (Next.js SSR)
+    ↓ Service selection
+Booking Wizard (Zustand state + React Hook Form)
+    ↓ Real-time pricing via TanStack Query
+Services API ← → TanStack Query Cache
+    ↓ Form submission via Axios
+Guest Booking API → Payment Processing (Stripe)
     ↓ Payment confirmation
-Email Notifications ← Logistics API
-    ↓
-Confirmation & Tracking (email-based)
+Confirmation Page + Email Notifications
 ```
 
-**Customer Booking Journey (Django User Authenticated):**
+**Customer Booking Journey (Authenticated):**
 ```
-Marketing Site → Django User Login/Dashboard
-    ↓
-Customer Dashboard → Booking Wizard (Pre-filled)
-    ↓ Django User + CustomerProfile integration via /api/customer/
-User + Profile APIs ← → Services API ← → Frontend State
-    ↓ Booking creation via /api/customer/bookings/
-Bookings API → Payment Processing (saved CustomerPaymentMethod)
-    ↓ Payment confirmation
-Dashboard Updates + Email ← Logistics API
-    ↓
-Customer Dashboard Tracking + Email confirmations
+Marketing Site → Customer Dashboard (TanStack Query auth)
+    ↓ Pre-filled from CustomerProfile
+Booking Wizard (Enhanced with saved data)
+    ↓ Django User + CustomerProfile integration
+User Profile APIs ← → TanStack Query Cache
+    ↓ Authenticated booking creation
+Customer Booking API → Enhanced Payment (saved methods)
+    ↓ Optimistic UI updates
+Dashboard Updates + Real-time Tracking
 ```
 
 **Staff Operations Flow:**
 ```
-Staff Authentication (Django User + StaffProfile)
-    ↓ /api/staff/auth/
-Dashboard Overview (Real-time KPIs)
-    ↓ /api/staff/dashboard/
-Booking + Customer Management (Django User + CustomerProfile access)
-    ↓ Staff actions via /api/staff/ with StaffAction logging
-All Backend Apps ← CRM API
-    ↓ Real-time updates
-WebSocket → Live Dashboard Updates
+Staff Authentication (Separate auth context)
+    ↓ Role-based permission loading
+Staff Dashboard (TanStack Query with admin scope)
+    ↓ Permission-based UI rendering
+Booking + Customer Management
+    ↓ CRUD operations with audit logging
+Staff APIs ← → Admin Query Cache
+    ↓ Real-time operational updates
+WebSocket Integration → Live Dashboard Updates
 ```
 
 ## State Management Strategy
 
-**Simplified Authentication State (Django User Model):**
+**Zustand Store Architecture:**
 ```typescript
-// Customer authentication state
-interface CustomerAuthState {
+// Authentication store (customer)
+interface CustomerAuthStore {
   user: DjangoUser | null;
   customerProfile: CustomerProfile | null;
   isAuthenticated: boolean;
-  savedAddresses: SavedAddress[];
-  paymentMethods: CustomerPaymentMethod[];
-  bookings: UserBooking[];
+  login: (credentials: LoginData) => Promise<void>;
+  logout: () => void;
+  updateProfile: (updates: Partial<CustomerProfile>) => void;
 }
 
-// Staff authentication state (separate)
-interface StaffAuthState {
-  user: DjangoUser | null;
-  staffProfile: StaffProfile | null;
-  isAuthenticated: boolean;
-  permissions: StaffPermission[];
+// Booking wizard store
+interface BookingWizardStore {
+  currentStep: number;
+  serviceType: ServiceType;
+  selectedOptions: BookingOptions;
+  customerInfo: CustomerInfo;
+  addresses: {
+    pickup: Address | SavedAddress;
+    delivery: Address | SavedAddress;
+  };
+  pricing: PricingBreakdown | null;
+  
+  // Actions
+  setServiceType: (type: ServiceType) => void;
+  setAddresses: (addresses: AddressData) => void;
+  nextStep: () => void;
+  previousStep: () => void;
+  reset: () => void;
+}
+
+// UI state store
+interface UIStore {
+  theme: 'light' | 'dark';
+  sidebarOpen: boolean;
+  notifications: Notification[];
+  modals: {
+    login: boolean;
+    addressForm: boolean;
+    paymentMethod: boolean;
+  };
+  
+  // Actions
+  toggleSidebar: () => void;
+  openModal: (modal: keyof UIStore['modals']) => void;
+  closeModal: (modal: keyof UIStore['modals']) => void;
+  addNotification: (notification: Notification) => void;
 }
 ```
 
-**Booking Flow State:**
-- **Zustand store** with persistence for wizard progress
-- **Django User integration** - simple user.is_authenticated check
-- **CustomerProfile pre-fill** - use saved addresses and preferences
-- **Real-time pricing** updates from /api/public/pricing-preview/
-- **Form validation** state with Zod schemas matching Django models
+**TanStack Query Integration:**
+```typescript
+// Query client configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes default
+      cacheTime: 1000 * 60 * 30, // 30 minutes default
+      retry: (failureCount, error) => {
+        if (error.response?.status === 401) return false;
+        return failureCount < 3;
+      },
+    },
+    mutations: {
+      retry: 1,
+      onError: (error) => {
+        const message = handleApiError(error as AxiosError);
+        useUIStore.getState().addNotification({
+          type: 'error',
+          message,
+          duration: 5000
+        });
+      }
+    }
+  }
+});
 
-**Customer Dashboard State:**
-- **Django User profile** and authentication status
-- **CustomerProfile data** - booking statistics, preferences, VIP status
-- **SavedAddress management** - CRUD operations with optimistic updates
-- **CustomerPaymentMethod** - Stripe integration with default selection
-- **Real-time booking** status updates via WebSocket
+// Provider setup
+const App = ({ Component, pageProps }: AppProps) => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-cream-50">
+        <Component {...pageProps} />
+      </div>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+};
+```
 
-This updated frontend documentation reflects the simplified yet secure architecture using Django's User model with profile extensions, eliminating custom authentication complexity while maintaining all sophisticated customer experience and staff operational functionality.
+This comprehensive frontend documentation reflects the mature, AI-optimized technology stack while maintaining all the sophisticated customer experience and staff operational functionality. The technology choices prioritize development velocity, maintainability, and AI-assisted development compatibility.
