@@ -10,9 +10,9 @@ This living documentation serves as a **context-preservation system** for AI-ass
 Complex software projects require maintaining intricate relationships between business requirements, technical architecture, and implementation details. In AI-assisted development, this context must be explicitly captured because AI cannot retain project understanding across sessions. This documentation eliminates the need to re-explain ToteTaxi's business complexity, technical decisions, and architectural patterns every time development work resumes.
 
 **Evolution Pattern:**
-- **Phase 1 (Current):** Strategic architecture and business requirements focused
-- **Phase 2 (Development):** Comprehensive file-by-file documentation with component interactions
-- **Phase 3 (Maintenance):** Complete system mapping with frontend-backend integration patterns
+- **Phase 1 (Complete):** Strategic architecture and business requirements focused
+- **Phase 2 (Current):** Implementation documentation with working foundation and step-by-step building guides
+- **Phase 3 (Planned):** Complete system mapping with frontend-backend integration patterns
 
 **Project Context:**
 ToteTaxi is a luxury delivery service replacement system with significant business and technical complexity: multiple service types (Mini Moves, Standard Delivery, Specialty Items), sophisticated pricing engines with surcharges, Django User model with profile-based customer/staff separation, payment processing integration, and operational management workflows. This complexity requires detailed documentation to maintain development consistency and architectural integrity.
@@ -22,394 +22,635 @@ This documentation enables immediate technical conversations by providing comple
 
 ---
 
-# ToteTaxi Frontend Living Documentation & Roadmap
+# ToteTaxi Frontend Living Documentation & Implementation Guide
 
-**Strategic Technical Architecture - Next.js 14 + TypeScript + Tailwind CSS + AI-Optimized Stack**
-**ToteTaxi Frontend Dependencies - React 19 Compatible Versions**
+**Current Technical Architecture - Next.js 14 + TypeScript + Tailwind v3 + AI-Optimized Stack**
 
-- @tanstack/react-query@^5.51.1
-- @tanstack/react-query-devtools@^5.51.1
-- axios@^1.6.2
-- zustand@^4.4.7
-- @headlessui/react@^2.0.4
-- @heroicons/react@^2.0.18
-- react-hook-form@^7.48.2
-- @hookform/resolvers@^3.3.2
-- zod@^3.22.4
-- clsx@^2.0.0
-- tailwind-merge@^2.2.0
+## Implementation Status & Technology Stack
 
-**Existing Stack:**
-- Next.js 14
-- React 19.1.0
-- TypeScript
-- Tailwind CSS
+**Phase 2 Status - Foundation Complete:**
+- ✅ **Dependencies Installed:** All React 19 compatible versions resolved
+- ✅ **Foundation Layer:** API client with Django CSRF integration, TanStack Query provider, Zustand stores
+- ✅ **Design System:** Variant-based components (Button, Input, Card, Modal) for easy client modifications
+- ✅ **Backend Integration:** Working connection to Django APIs with type safety
+- ✅ **Development Environment:** Tailwind v3 stable, TypeScript path aliases, file structure
+- 🔄 **Current Phase:** Building marketing homepage with real backend data
+- ⏳ **Next Phase:** Authentication implementation and booking wizard development
 
-## System Architecture Overview
+**Final Technology Stack (Implemented):**
+```json
+{
+  "@tanstack/react-query": "^5.51.1",
+  "@tanstack/react-query-devtools": "^5.51.1",
+  "axios": "^1.6.2", 
+  "zustand": "^4.4.7",
+  "@headlessui/react": "^2.0.4",
+  "@heroicons/react": "^2.0.18",
+  "react-hook-form": "^7.48.2",
+  "@hookform/resolvers": "^3.3.2",
+  "zod": "^3.22.4",
+  "clsx": "^2.0.0",
+  "tailwind-merge": "^2.2.0",
+  "tailwindcss": "^3.4.0",
+  "postcss": "^8.4.0",
+  "autoprefixer": "^10.4.0"
+}
+```
+
+**Technology Decision Context:**
+- **React 19 Compatibility Issue:** TanStack Query v4 incompatible, required v5 upgrade
+- **Tailwind v4 Beta Rejected:** Downgraded to v3 stable following AI-familiar technology principle
+- **Mature Technology Principle:** All choices prioritize stability and AI development compatibility
+- **No Bleeding-Edge Technologies:** Ensures reliable development patterns and debugging
+
+## System Architecture Overview (Implemented + Planned)
 
 **ToteTaxi Frontend Ecosystem**
 ```
-├── Marketing Site (SSR for SEO)
-│   ├── Brand positioning & service education
-│   ├── SEO optimization & lead capture
-│   └── Trust building & conversion focus
-├── Booking Wizard (Client-Side SPA)
-│   ├── Dual-mode: Guest checkout + Django User authenticated booking
-│   ├── Real-time pricing & availability
-│   ├── Form management & validation
+├── Foundation Layer (✅ IMPLEMENTED)
+│   ├── Next.js 14 App Router with TypeScript
+│   ├── TanStack Query v5 + Axios API integration  
+│   ├── Zustand state management with persistence
+│   ├── Tailwind v3 + custom luxury design tokens
+│   └── Component variant system for client flexibility
+├── Design System (✅ IMPLEMENTED)
+│   ├── Button, Input, Card, Modal components
+│   ├── Luxury brand aesthetics (navy/gold/cream)
+│   ├── Headless UI accessibility primitives
+│   └── Easy client modification patterns
+├── Marketing Site (🔄 IN PROGRESS)
+│   ├── Homepage with hero section and component testing
+│   ├── Service showcase with real Django backend data
+│   ├── Trust signals and conversion optimization  
+│   └── SEO optimization and lead capture
+├── Booking Wizard (⏳ PLANNED)
+│   ├── Multi-step form with React Hook Form + Zod
+│   ├── Dual-mode: Guest checkout + authenticated booking
+│   ├── Real-time pricing via TanStack Query
 │   └── Stripe payment integration
-├── Customer Dashboard (Customer Portal)
-│   ├── Django User authentication (standard login/logout)
+├── Customer Dashboard (⏳ PLANNED)
+│   ├── Django User authentication integration
 │   ├── CustomerProfile data management
 │   ├── SavedAddress and PaymentMethod management
-│   └── User booking history and account settings
-├── Admin Dashboard (Staff Interface)
-│   ├── Django User + StaffProfile authentication
-│   ├── User + CustomerProfile management for support
-│   ├── Booking management & operations
-│   └── StaffAction audit logging integration
-├── Design System (BLADE-Inspired)
-│   ├── Luxury brand aesthetics
-│   ├── Mobile-first responsive design
-│   └── Accessibility compliance
-└── Infrastructure Layer
-    ├── Next.js 14 App Router
-    ├── TypeScript & Zod validation
-    ├── Zustand state management
-    ├── TanStack Query + Axios API layer
-    ├── React Hook Form + Zod validation
-    ├── Custom Tailwind + Headless UI components
-    └── Session-based auth integration with Django User + Profile backend
+│   └── Booking history and account settings
+└── Admin Dashboard (⏳ PLANNED)
+    ├── Staff authentication with StaffProfile roles
+    ├── Booking management and customer support
+    ├── Audit logging integration
+    └── Business intelligence and reporting
 ```
 
-**Backend Integration Points:**
-- Customer Flow: React → /api/customer/ (Django User + CustomerProfile endpoints)
-- Customer Dashboard: React → /api/customer/ for User profile and booking data
-- Admin Operations: React → /api/staff/ (Django User + StaffProfile endpoints)
-- Public Operations: React → /api/public/ for guest checkout and pricing
-- Real-time Updates: WebSocket connections for live booking status
-- File Management: S3 direct uploads with presigned URLs
+## Current File Structure (Implemented)
 
-## Technology Stack Decisions
+```
+frontend/src/
+├── lib/                          ✅ Core utilities
+│   ├── query-client.ts          ✅ TanStack Query v5 configuration
+│   └── api-client.ts            ✅ Axios + Django CSRF integration
+├── types/
+│   └── index.ts                 ✅ Django User/Profile TypeScript interfaces
+├── stores/
+│   ├── auth-store.ts            ✅ Zustand customer auth with persistence
+│   └── ui-store.ts              ✅ UI state (modals, notifications, sidebar)
+├── utils/
+│   └── cn.ts                    ✅ Tailwind class merging utility
+├── components/
+│   ├── providers/
+│   │   └── query-provider.tsx   ✅ TanStack Query provider wrapper
+│   ├── layout/
+│   │   └── main-layout.tsx      ✅ Base layout with header/footer
+│   ├── ui/                      ✅ Design system components
+│   │   ├── button.tsx           ✅ Variant-based button component
+│   │   ├── input.tsx            ✅ Form input with validation styling
+│   │   ├── card.tsx             ✅ Content container variants
+│   │   ├── modal.tsx            ✅ Headless UI modal wrapper
+│   │   └── index.ts             ✅ Component exports
+│   └── test-api-connection.tsx  ✅ Backend connection test component
+└── app/
+    ├── layout.tsx               ✅ Root layout with providers
+    ├── page.tsx                 ✅ Homepage with component testing
+    ├── globals.css              ✅ Tailwind v3 + luxury design tokens
+    └── (additional pages)       ⏳ Future application pages
 
-**AI-Optimized Technology Selection:**
-All frontend technologies chosen for maturity, stability, and AI development compatibility. No bleeding-edge technologies that could create syntax or pattern confusion during AI-assisted development.
+Configuration Files:
+├── tailwind.config.js           ✅ Custom luxury color scheme
+├── postcss.config.js            ✅ Tailwind v3 PostCSS setup
+├── tsconfig.json                ✅ TypeScript with @ path alias
+└── package.json                 ✅ Dependencies with exact versions
+```
 
-**State Management: Zustand**
-- **Choice Reasoning:** Simple, lightweight, minimal boilerplate
-- **AI Compatibility:** Well-established patterns, clear syntax
-- **Integration:** Perfect for ToteTaxi's complexity level
-- **Alternative Considered:** Redux (rejected due to complexity)
+## Technology Integration Patterns (Implemented)
 
-**API Client: TanStack Query + Axios**
-- **TanStack Query:** Caching, background refetching, error handling, optimistic updates
-- **Axios:** HTTP requests with interceptors for authentication and error handling
-- **Choice Reasoning:** Both mature, well-documented, AI-familiar
-- **Performance Benefits:** Automatic caching, request deduplication, background sync
-
-**Form Handling: React Hook Form + Zod**
-- **React Hook Form:** Performance-optimized forms with minimal re-renders
-- **Zod:** Runtime validation matching Django backend patterns
-- **Choice Reasoning:** Industry standard, excellent TypeScript integration
-- **Integration:** Seamless validation with Django REST error responses
-
-**UI Components: Custom Tailwind + Headless UI**
-- **Tailwind CSS:** Utility-first styling with complete AI familiarity
-- **Headless UI:** Accessible primitives for complex components (modals, dropdowns)
-- **Choice Reasoning:** Maximum control, no heavy component library dependencies
-- **Brand Integration:** Custom luxury design system built on Tailwind utilities
-
-**Authentication: Custom Session-Based**
-- **Strategy:** Cookie-based authentication matching Django sessions
-- **Integration:** Direct compatibility with Django User authentication
-- **Security:** CSRF protection, secure session handling
-- **Alternative Considered:** Next-Auth (deferred for OAuth future requirements)
-
-**Development Constraints:**
-- **AI-Familiar Only:** All technologies must be well-established and AI-workable
-- **No Experimental Features:** Avoid bleeding-edge syntax or patterns
-- **Mature Ecosystem:** Prioritize technologies with extensive documentation and community
-
-## Authentication Architecture
-
-**Django User Model Integration (Simplified Frontend Auth):**
-
-**Customer Authentication:**
+**API Client with Django Integration:**
 ```typescript
-// Frontend Customer Auth State
-interface CustomerAuthState {
+// src/lib/api-client.ts (WORKING IMPLEMENTATION)
+import axios from 'axios';
+
+export const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
+  withCredentials: true, // Essential for Django session cookies
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Django CSRF token integration
+apiClient.interceptors.request.use(async (config) => {
+  if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
+    try {
+      const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
+        withCredentials: true
+      });
+      config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
+    } catch (error) {
+      console.warn('Could not fetch CSRF token:', error);
+    }
+  }
+  return config;
+});
+
+// Authentication error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear auth state and redirect to login
+      console.log('Auth error detected');
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+**TanStack Query v5 Configuration:**
+```typescript
+// src/lib/query-client.ts (WORKING IMPLEMENTATION)
+import { QueryClient } from '@tanstack/react-query';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30,   // v5 syntax (was cacheTime in v4)
+      retry: (failureCount, error: any) => {
+        if (error?.response?.status === 401) return false;
+        return failureCount < 3;
+      },
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    }
+  }
+});
+```
+
+**Component Variant System for Client Flexibility:**
+```typescript
+// src/components/ui/button.tsx (IMPLEMENTED)
+import { cn } from '@/utils/cn';
+import { ButtonHTMLAttributes, forwardRef } from 'react';
+
+// Easy client modification - all styling in config objects
+const buttonVariants = {
+  variant: {
+    primary: 'bg-navy-900 text-white hover:bg-navy-800 focus:ring-navy-500',
+    secondary: 'bg-gold-500 text-navy-900 hover:bg-gold-600 focus:ring-gold-400',
+    outline: 'border-2 border-navy-900 text-navy-900 hover:bg-navy-50 focus:ring-navy-300',
+    ghost: 'text-navy-900 hover:bg-navy-100 focus:ring-navy-300',
+  },
+  size: {
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-4 py-2 text-base',
+    lg: 'px-6 py-3 text-lg',
+    xl: 'px-8 py-4 text-xl',
+  },
+  rounded: {
+    none: 'rounded-none',
+    sm: 'rounded',
+    md: 'rounded-md',
+    lg: 'rounded-lg',
+    full: 'rounded-full',
+  }
+};
+
+const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: keyof typeof buttonVariants.variant;
+  size?: keyof typeof buttonVariants.size;
+  rounded?: keyof typeof buttonVariants.rounded;
+  children: React.ReactNode;
+}
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
+  variant = 'primary',
+  size = 'md', 
+  rounded = 'md',
+  className,
+  children,
+  ...props
+}, ref) => {
+  return (
+    <button
+      ref={ref}
+      className={cn(
+        baseStyles,
+        buttonVariants.variant[variant],
+        buttonVariants.size[size], 
+        buttonVariants.rounded[rounded],
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+});
+
+Button.displayName = 'Button';
+```
+
+## State Management Architecture (Implemented)
+
+**Zustand Stores with Persistence:**
+```typescript
+// src/stores/auth-store.ts (IMPLEMENTED)
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { DjangoUser, CustomerProfile } from '@/types';
+
+interface AuthState {
   user: DjangoUser | null;
   customerProfile: CustomerProfile | null;
   isAuthenticated: boolean;
-  savedAddresses: SavedAddress[];
-  paymentMethods: CustomerPaymentMethod[];
   isLoading: boolean;
 }
 
-// Authentication Flow
-const useCustomerAuth = () => {
-  const { data: authData, isLoading } = useQuery({
-    queryKey: ['auth', 'customer'],
-    queryFn: () => axios.get('/api/customer/auth/user/'),
-    retry: false
-  });
-  
-  return {
-    user: authData?.user,
-    customerProfile: authData?.customer_profile,
-    isAuthenticated: !!authData?.user,
-    isLoading
-  };
-};
-```
-
-**Staff Authentication:**
-```typescript
-// Separate Staff Auth State
-interface StaffAuthState {
-  user: DjangoUser | null;
-  staffProfile: StaffProfile | null;
-  isAuthenticated: boolean;
-  permissions: StaffPermissions;
-  isLoading: boolean;
+interface AuthActions {
+  setAuth: (user: DjangoUser, profile: CustomerProfile) => void;
+  clearAuth: () => void;
+  setLoading: (loading: boolean) => void;
+  updateProfile: (updates: Partial<CustomerProfile>) => void;
 }
 
-// Role-based UI rendering
-const useStaffPermissions = () => {
-  const { staffProfile } = useStaffAuth();
-  
-  return {
-    canApproveRefunds: staffProfile?.can_approve_refunds,
-    canManageStaff: staffProfile?.can_manage_staff,
-    canViewReports: staffProfile?.can_view_financial_reports
-  };
+export const useAuthStore = create<AuthState & AuthActions>()(
+  persist(
+    (set, get) => ({
+      // State
+      user: null,
+      customerProfile: null,
+      isAuthenticated: false,
+      isLoading: false,
+
+      // Actions
+      setAuth: (user, profile) => set({
+        user,
+        customerProfile: profile,
+        isAuthenticated: true,
+        isLoading: false
+      }),
+
+      clearAuth: () => set({
+        user: null,
+        customerProfile: null,
+        isAuthenticated: false,
+        isLoading: false
+      }),
+
+      setLoading: (loading) => set({ isLoading: loading }),
+
+      updateProfile: (updates) => set((state) => ({
+        customerProfile: state.customerProfile 
+          ? { ...state.customerProfile, ...updates }
+          : null
+      }))
+    }),
+    {
+      name: 'totetaxi-auth',
+      partialize: (state) => ({
+        user: state.user,
+        customerProfile: state.customerProfile,
+        isAuthenticated: state.isAuthenticated
+      })
+    }
+  )
+);
+```
+
+## Client Modification Strategy (Implemented)
+
+**Easy Styling Changes (Configuration Level):**
+```javascript
+// tailwind.config.js - Update colors here for brand changes
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        // CLIENT: Change these values for brand updates
+        navy: {
+          50: '#f0f4f8',   // Light navy
+          900: '#1a365d'   // Dark navy
+        },
+        gold: {
+          50: '#fffdf7',   // Light gold
+          500: '#d69e2e',  // Medium gold
+          900: '#5f370e'   // Dark gold
+        },
+        cream: {
+          50: '#fefcf3',   // Light cream
+          100: '#fef7e0'   // Medium cream
+        }
+      }
+    }
+  }
+}
+
+// Component variant changes - Update in individual component files
+const buttonVariants = {
+  variant: {
+    // CLIENT: Modify these classes for design changes
+    primary: 'bg-navy-900 text-white hover:bg-navy-800',
+    secondary: 'bg-gold-500 text-navy-900 hover:bg-gold-600'
+  }
 };
 ```
 
-**Frontend Authentication Benefits:**
-- **Standard Django patterns** - no custom authentication state complexity
-- **Simplified type definitions** - User + Profile interfaces instead of complex unified models
-- **Clear separation** - customer vs staff auth handled through different endpoints
-- **Session reliability** - Django's battle-tested session management
+## Step-by-Step Development Guide
 
-## Core Frontend Applications
+### Adding New Components
 
-**🏠 Marketing Site - Luxury Positioning & SEO**
-
-**Primary Responsibility:** Convert high-value visitors into booking conversions through premium positioning
-
-**Technology Integration:**
-- **Next.js SSR:** SEO optimization for service pages and pricing information
-- **TanStack Query:** Real-time pricing displays from /api/public/services/
-- **Tailwind:** Custom luxury design system with brand-specific utilities
-- **Headless UI:** Accessible navigation and modal components
-
-**Updated Integration Patterns:**
+**Template for New UI Components:**
 ```typescript
-// Real-time service data integration
-const useServiceCatalog = () => {
-  return useQuery({
-    queryKey: ['services', 'catalog'],
-    queryFn: () => axios.get('/api/public/services/'),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 30, // 30 minutes
-  });
+// Pattern: src/components/ui/[component-name].tsx
+import { cn } from '@/utils/cn';
+import { forwardRef } from 'react';
+
+// 1. Define variant configurations for easy client changes
+const componentVariants = {
+  variant: {
+    default: 'bg-white border border-gray-200',
+    elevated: 'bg-white shadow-lg',
+    luxury: 'bg-white border border-gold-200 shadow-xl'
+  },
+  size: {
+    sm: 'p-4',
+    md: 'p-6', 
+    lg: 'p-8'
+  }
 };
 
-// Dynamic pricing preview
-const usePricingPreview = (serviceConfig: ServiceConfig) => {
-  return useQuery({
-    queryKey: ['pricing', 'preview', serviceConfig],
-    queryFn: () => axios.post('/api/public/pricing-preview/', serviceConfig),
-    enabled: !!serviceConfig.service_type,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-};
-```
+// 2. Create TypeScript interface
+interface ComponentProps {
+  variant?: keyof typeof componentVariants.variant;
+  size?: keyof typeof componentVariants.size;
+  children: React.ReactNode;
+  className?: string;
+}
 
-**User Journey Optimization:**
-- **Guest users:** Direct path to booking wizard via /api/public/ endpoints
-- **Returning customers:** Django User login with CustomerProfile benefits display
-- **New customers:** User registration creates Django User + auto-generated CustomerProfile
-- **Mobile experience:** 70% of luxury customers browse on mobile
-
-**Component Architecture:**
-```typescript
-// Service selection cards with real-time pricing
-const ServiceCard = ({ serviceType }: { serviceType: string }) => {
-  const { data: pricing } = usePricingPreview({ service_type: serviceType });
-  
+// 3. Implement with forwardRef for flexibility
+export const Component = forwardRef<HTMLDivElement, ComponentProps>(({
+  variant = 'default',
+  size = 'md',
+  className,
+  children,
+  ...props
+}, ref) => {
   return (
-    <Card className="luxury-card-shadow border-gold-200">
-      <CardHeader>
-        <h3 className="text-2xl font-serif text-navy-900">{serviceType}</h3>
-      </CardHeader>
+    <div
+      ref={ref}
+      className={cn(
+        'transition-all duration-200', // Base styles
+        componentVariants.variant[variant],
+        componentVariants.size[size],
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+});
+
+Component.displayName = 'Component';
+
+// 4. Export from src/components/ui/index.ts
+export { Component } from './component';
+```
+
+### Adding New Pages
+
+**Template for New Application Pages:**
+```typescript
+// Pattern: src/app/[page-name]/page.tsx
+'use client';
+
+import { MainLayout } from '@/components/layout/main-layout';
+import { Button, Card, CardHeader, CardContent } from '@/components/ui';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+
+export default function PageName() {
+  // 1. Data fetching with TanStack Query
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['page-data'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/endpoint/');
+      return response.data;
+    }
+  });
+
+  // 2. Loading and error states
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading data</div>;
+
+  // 3. Page layout with consistent structure
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-16">
+        <h1 className="text-3xl font-serif font-bold text-navy-900 mb-8">
+          Page Title
+        </h1>
+        
+        <Card variant="elevated">
+          <CardHeader>
+            <h2 className="text-xl font-medium text-navy-900">Section Title</h2>
+          </CardHeader>
+          <CardContent>
+            {/* Page content */}
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
+  );
+}
+```
+
+### Adding API Integration
+
+**Template for New API Hooks:**
+```typescript
+// Pattern: src/hooks/use-[feature-name].ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import type { DataType } from '@/types';
+
+// 1. Query hook for data fetching
+export const useFeatureData = (id?: string) => {
+  return useQuery({
+    queryKey: ['feature', id],
+    queryFn: async (): Promise<DataType> => {
+      const response = await apiClient.get(`/api/feature/${id}/`);
+      return response.data;
+    },
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30    // 30 minutes
+  });
+};
+
+// 2. Mutation hook for data updates
+export const useUpdateFeature = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: UpdateDataType): Promise<DataType> => {
+      const response = await apiClient.put(`/api/feature/${data.id}/`, data);
+      return response.data;
+    },
+    onSuccess: (updatedData) => {
+      // Update cached data
+      queryClient.setQueryData(['feature', updatedData.id], updatedData);
+      // Invalidate related queries
+      queryClient.invalidateQueries(['feature-list']);
+    }
+  });
+};
+```
+
+## Core Frontend Applications (Implementation Guide)
+
+### 🏠 Marketing Site (🔄 IN PROGRESS)
+
+**Current Implementation Status:**
+- ✅ Basic homepage with hero section
+- ✅ Component testing interface
+- ✅ Working Django backend connection
+- 🔄 Service showcase with real data
+- ⏳ Trust signals and testimonials
+- ⏳ SEO optimization
+
+**Next Development Steps:**
+```typescript
+// 1. Create service showcase component
+// src/components/marketing/service-showcase.tsx
+export const ServiceShowcase = () => {
+  const { data: services, isLoading } = useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/public/services/');
+      return response.data;
+    }
+  });
+
+  if (isLoading) return <ServiceSkeletonLoader />;
+
+  return (
+    <section className="py-16 bg-cream-50">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-serif font-bold text-center text-navy-900 mb-12">
+          Our Services
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {services.mini_move_packages.map((pkg) => (
+            <ServiceCard key={pkg.id} service={pkg} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+```
+
+**Real-time Pricing Integration:**
+```typescript
+// src/components/marketing/pricing-preview.tsx
+export const PricingPreview = ({ serviceType }: { serviceType: string }) => {
+  const { data: pricing } = useQuery({
+    queryKey: ['pricing', 'preview', serviceType],
+    queryFn: () => apiClient.post('/api/public/pricing-preview/', {
+      service_type: serviceType,
+      pickup_date: new Date().toISOString().split('T')[0]
+    }),
+    enabled: !!serviceType,
+    staleTime: 1000 * 60 * 2 // 2 minutes
+  });
+
+  return (
+    <Card variant="luxury" className="text-center">
       <CardContent>
-        <PriceDisplay pricing={pricing} />
-        <FeatureList features={getServiceFeatures(serviceType)} />
+        <div className="text-2xl font-bold text-navy-900 mb-2">
+          ${pricing?.pricing?.total_price_dollars || '---'}
+        </div>
+        <p className="text-navy-600 text-sm">Starting price</p>
       </CardContent>
     </Card>
   );
 };
 ```
 
-**Key External Relationships:**
-- → Booking Wizard: Primary conversion path from all CTAs
-- → Customer Dashboard: Django User login/signup flows
-- ← Backend /api/public/: Current pricing, availability windows
-- SEO Tools: Google Analytics, Search Console, structured data
-- Performance: Next.js optimization, CDN
+### 📝 Booking Wizard (⏳ PLANNED - Ready for Implementation)
 
----
-
-**📝 Booking Wizard - Dual-Mode Conversion Optimization**
-
-**Primary Responsibility:** Guide customers through complex service selection with minimal friction while supporting both guest and Django User authenticated booking flows
-
-**Technology Integration:**
-- **React Hook Form:** Multi-step form management with validation
-- **Zod:** Schema validation matching Django REST serializers
-- **Zustand:** Wizard state persistence across steps
-- **TanStack Query:** Real-time pricing updates and availability checking
-
-**Simplified Authentication Integration:**
+**Development Roadmap:**
 ```typescript
-// Dual-mode booking state management
+// Implementation sequence using our foundation:
+
+// 1. Create wizard state management
+// src/stores/booking-wizard-store.ts
 interface BookingWizardState {
-  // Service selection
+  currentStep: number;
   serviceType: 'mini_move' | 'standard_delivery' | 'specialty_item';
-  selectedPackage?: MiniMovePackage;
-  itemCount?: number;
-  specialtyItems?: SpecialtyItem[];
-  
-  // User context
-  isAuthenticated: boolean;
-  customerProfile?: CustomerProfile;
-  savedAddresses: SavedAddress[];
-  paymentMethods: CustomerPaymentMethod[];
-  
-  // Form data
-  pickupDate: Date;
-  pickupTime: string;
+  selectedOptions: BookingOptions;
+  customerInfo: CustomerInfo;
   addresses: {
     pickup: Address | SavedAddress;
     delivery: Address | SavedAddress;
   };
-  
-  // Pricing
-  pricingBreakdown?: PricingBreakdown;
-  
-  // Flow control
-  currentStep: number;
+  pricing: PricingBreakdown | null;
   isSubmitting: boolean;
-  paymentIntentId?: string;
 }
 
-// Zustand store for wizard state
-const useBookingWizard = create<BookingWizardState>((set, get) => ({
-  // State initialization
-  serviceType: 'mini_move',
-  isAuthenticated: false,
-  savedAddresses: [],
-  paymentMethods: [],
+export const useBookingWizard = create<BookingWizardState>((set, get) => ({
   currentStep: 1,
+  serviceType: 'mini_move',
+  selectedOptions: {},
+  customerInfo: {},
+  addresses: { pickup: null, delivery: null },
+  pricing: null,
   isSubmitting: false,
   
-  // Actions
+  nextStep: () => set((state) => ({ 
+    currentStep: Math.min(state.currentStep + 1, 5) 
+  })),
   setServiceType: (type) => set({ serviceType: type }),
-  setAuthentication: (auth) => set({ 
-    isAuthenticated: auth.isAuthenticated,
-    customerProfile: auth.customerProfile,
-    savedAddresses: auth.savedAddresses,
-    paymentMethods: auth.paymentMethods
-  }),
-  nextStep: () => set((state) => ({ currentStep: state.currentStep + 1 })),
-  // ... other actions
+  updatePricing: (pricing) => set({ pricing }),
+  reset: () => set({
+    currentStep: 1,
+    serviceType: 'mini_move',
+    selectedOptions: {},
+    // ... reset other fields
+  })
 }));
-```
 
-**Core Wizard Flow Implementation:**
-```typescript
-// Step 1: Service Selection with real-time pricing
-const ServiceSelectionStep = () => {
-  const { register, watch } = useForm<ServiceSelectionForm>({
-    resolver: zodResolver(serviceSelectionSchema)
-  });
-  
-  const watchedValues = watch();
-  const { data: pricing } = usePricingPreview(watchedValues);
-  
-  return (
-    <StepContainer>
-      <ServiceTypeSelector register={register} />
-      <PricingPreview pricing={pricing} />
-      <NavigationButtons onNext={() => wizardStore.nextStep()} />
-    </StepContainer>
-  );
-};
+// 2. Multi-step form components
+// src/components/booking/wizard-steps/
+// - service-selection-step.tsx
+// - date-time-step.tsx  
+// - address-step.tsx
+// - customer-info-step.tsx
+// - review-payment-step.tsx
 
-// Step 2: Authentication check and profile integration
-const CustomerInfoStep = () => {
-  const { isAuthenticated, customerProfile } = useCustomerAuth();
-  const { savedAddresses } = useBookingWizard();
-  
-  if (isAuthenticated) {
-    return <AuthenticatedCustomerForm 
-      profile={customerProfile} 
-      savedAddresses={savedAddresses} 
-    />;
-  }
-  
-  return <GuestCustomerForm />;
-};
-
-// Step 3: Address selection with saved address integration
-const AddressSelectionStep = () => {
-  const { savedAddresses, isAuthenticated } = useBookingWizard();
-  const { register, control } = useForm<AddressForm>();
-  
-  return (
-    <AddressStepContainer>
-      {isAuthenticated && savedAddresses.length > 0 && (
-        <SavedAddressSelector addresses={savedAddresses} />
-      )}
-      <AddressFormFields register={register} control={control} />
-      <AddressSaveOption show={isAuthenticated} />
-    </AddressStepContainer>
-  );
-};
-```
-
-**Dual-Mode Experience Design:**
-
-**Guest Checkout Flow:**
-```typescript
-const guestBookingMutation = useMutation({
-  mutationFn: (bookingData: GuestBookingData) => 
-    axios.post('/api/public/guest-booking/', bookingData),
-  onSuccess: (response) => {
-    // Create payment intent
-    createPaymentIntent(response.data.booking.id);
-  }
-});
-```
-
-**Authenticated User Flow:**
-```typescript
-const authenticatedBookingMutation = useMutation({
-  mutationFn: (bookingData: AuthenticatedBookingData) =>
-    axios.post('/api/customer/bookings/create/', bookingData),
-  onSuccess: (response) => {
-    // Payment with saved methods
-    handleAuthenticatedPayment(response.data);
-  }
-});
-```
-
-**Form Validation Integration:**
-```typescript
-// Zod schemas matching Django serializers
-const serviceSelectionSchema = z.object({
+// 3. Form validation with Zod
+// src/lib/booking-validation.ts
+export const serviceSelectionSchema = z.object({
   service_type: z.enum(['mini_move', 'standard_delivery', 'specialty_item']),
   mini_move_package_id: z.string().uuid().optional(),
   standard_delivery_item_count: z.number().min(1).optional(),
@@ -417,120 +658,85 @@ const serviceSelectionSchema = z.object({
   pickup_date: z.date().min(new Date()),
   coi_required: z.boolean().default(false)
 });
-
-const addressSchema = z.object({
-  address_line_1: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  state: z.enum(['NY', 'CT', 'NJ']),
-  zip_code: z.string().regex(/^\d{5}(-\d{4})?$/, "Invalid ZIP code")
-});
 ```
 
-**Key External Relationships:**
-- ← Marketing Site: Entry point with service pre-selection
-- ← Customer Dashboard: Authenticated entry point for existing Django Users
-- → Backend /api/public/: Pricing calculations, availability data
-- → Backend /api/customer/: Django User profile data, SavedAddress, CustomerPaymentMethod
-- → Stripe API: Payment processing and webhook handling
-- State Persistence: Zustand with localStorage persistence
-
----
-
-**👤 Customer Dashboard - Self-Service Portal**
-
-**Primary Responsibility:** Comprehensive customer self-service interface for Django User + CustomerProfile management
-
-**Technology Integration:**
-- **TanStack Query:** Real-time booking data with background sync
-- **React Hook Form:** Profile and address management forms
-- **Headless UI:** Complex dashboard navigation and modal components
-- **Tailwind:** Professional dashboard design with luxury touches
-
-**Django User Integration Architecture:**
+**Dual-Mode Customer Handling:**
 ```typescript
-// Customer dashboard data management
-const useCustomerDashboard = () => {
+// Guest vs Authenticated User Flow
+export const CustomerInfoStep = () => {
+  const { isAuthenticated, customerProfile } = useAuthStore();
+  const { register, control } = useForm<CustomerInfoForm>({
+    resolver: zodResolver(customerInfoSchema)
+  });
+
+  if (isAuthenticated) {
+    return (
+      <AuthenticatedCustomerForm 
+        profile={customerProfile}
+        onSubmit={handleAuthenticatedSubmit}
+      />
+    );
+  }
+
+  return (
+    <GuestCustomerForm 
+      register={register}
+      control={control}
+      onSubmit={handleGuestSubmit}
+    />
+  );
+};
+```
+
+### 👤 Customer Dashboard (⏳ PLANNED - Foundation Ready)
+
+**Implementation Using Current Architecture:**
+```typescript
+// 1. Dashboard data management with TanStack Query
+export const useCustomerDashboard = () => {
   const userQuery = useQuery({
     queryKey: ['customer', 'auth', 'user'],
-    queryFn: () => axios.get('/api/customer/auth/user/')
+    queryFn: () => apiClient.get('/api/customer/auth/user/')
   });
   
   const profileQuery = useQuery({
     queryKey: ['customer', 'profile'],
-    queryFn: () => axios.get('/api/customer/profile/'),
+    queryFn: () => apiClient.get('/api/customer/profile/'),
     enabled: !!userQuery.data
   });
   
   const bookingsQuery = useQuery({
     queryKey: ['customer', 'bookings'],
-    queryFn: () => axios.get('/api/customer/bookings/'),
+    queryFn: () => apiClient.get('/api/customer/bookings/'),
     enabled: !!userQuery.data
   });
-  
-  const addressesQuery = useQuery({
-    queryKey: ['customer', 'addresses'],
-    queryFn: () => axios.get('/api/customer/addresses/'),
-    enabled: !!userQuery.data
-  });
-  
+
   return {
     user: userQuery.data?.user,
     profile: profileQuery.data,
     bookings: bookingsQuery.data,
-    addresses: addressesQuery.data,
     isLoading: userQuery.isLoading || profileQuery.isLoading
   };
 };
+
+// 2. Dashboard components using our design system
+// src/components/dashboard/
+// - dashboard-overview.tsx
+// - booking-history.tsx
+// - address-book.tsx
+// - payment-methods.tsx
+// - profile-settings.tsx
 ```
 
-**Dashboard Component Architecture:**
+**Address Management with Optimistic Updates:**
 ```typescript
-// Dashboard overview with real-time data
-const DashboardOverview = () => {
-  const { profile, bookings } = useCustomerDashboard();
-  const { data: dashboardData } = useQuery({
-    queryKey: ['customer', 'dashboard'],
-    queryFn: () => axios.get('/api/customer/dashboard/'),
-    refetchInterval: 1000 * 60 * 5 // Refresh every 5 minutes
-  });
-  
-  return (
-    <DashboardGrid>
-      <WelcomeCard profile={profile} />
-      <BookingStatsCard stats={dashboardData?.booking_summary} />
-      <RecentBookingsCard bookings={dashboardData?.recent_bookings} />
-      <QuickActionsCard />
-    </DashboardGrid>
-  );
-};
-
-// Booking history with search and filtering
-const BookingHistory = () => {
-  const [filters, setFilters] = useState<BookingFilters>({});
-  const { data: bookings, isLoading } = useQuery({
-    queryKey: ['customer', 'bookings', filters],
-    queryFn: () => axios.get('/api/customer/bookings/', { params: filters }),
-    keepPreviousData: true
-  });
-  
-  return (
-    <BookingHistoryContainer>
-      <BookingFilters filters={filters} onChange={setFilters} />
-      <BookingTable bookings={bookings} isLoading={isLoading} />
-    </BookingHistoryContainer>
-  );
-};
-```
-
-**Address Book Management:**
-```typescript
-// Address CRUD with optimistic updates
-const useAddressManagement = () => {
+// Address CRUD operations
+export const useAddressManagement = () => {
   const queryClient = useQueryClient();
   
   const createAddress = useMutation({
     mutationFn: (address: CreateAddressData) =>
-      axios.post('/api/customer/addresses/', address),
+      apiClient.post('/api/customer/addresses/', address),
     onMutate: async (newAddress) => {
       await queryClient.cancelQueries(['customer', 'addresses']);
       const previousAddresses = queryClient.getQueryData(['customer', 'addresses']);
@@ -554,152 +760,46 @@ const useAddressManagement = () => {
 };
 ```
 
-**Security & Privacy Implementation:**
-- **User data isolation:** React Query keys scoped to customer data only
-- **Session security:** Automatic logout on 401 responses
-- **Payment security:** PCI compliance through Stripe integration
-- **Privacy controls:** Clear data usage displays and CustomerProfile settings
+### ⚙️ Admin Dashboard (⏳ PLANNED)
 
-**Key External Relationships:**
-- ← Django User Authentication: Required for all dashboard features
-- → Backend /api/customer/: All customer-specific data and operations
-- ← Booking Wizard: Authenticated booking entry point from dashboard
-- → Stripe API: Payment method management and billing
-- Real-time: WebSocket updates for live booking tracking
-
----
-
-**🎨 Design System - BLADE-Inspired Luxury Interface**
-
-**Technology Integration:**
-- **Tailwind CSS:** Custom utility classes for luxury brand aesthetics
-- **Headless UI:** Accessible component primitives
-- **Custom Components:** Brand-specific design system built on Tailwind
-- **TypeScript:** Strict typing for component props and design tokens
-
-**Design Token System:**
+**Staff Authentication Integration:**
 ```typescript
-// Custom Tailwind configuration for luxury branding
-const designTokens = {
-  colors: {
-    navy: {
-      50: '#f0f4f8',
-      900: '#1a365d'
-    },
-    gold: {
-      50: '#fffdf7',
-      500: '#d69e2e',
-      900: '#744210'
-    },
-    cream: {
-      50: '#fefcf3',
-      100: '#fef7e0'
-    }
-  },
-  fontFamily: {
-    'serif': ['Playfair Display', 'serif'],
-    'sans': ['Inter', 'sans-serif']
-  },
-  spacing: {
-    '18': '4.5rem',
-    '88': '22rem'
-  }
-};
-
-// Component variant system
-const buttonVariants = {
-  primary: 'bg-navy-900 text-white hover:bg-navy-800 font-medium',
-  secondary: 'bg-gold-500 text-navy-900 hover:bg-gold-600 font-medium',
-  outline: 'border-2 border-navy-900 text-navy-900 hover:bg-navy-50'
-};
-```
-
-**Component Architecture:**
-```typescript
-// Base Button component with variants
-interface ButtonProps {
-  variant: 'primary' | 'secondary' | 'outline';
-  size: 'sm' | 'md' | 'lg';
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
+// Separate staff auth store
+interface StaffAuthState {
+  user: DjangoUser | null;
+  staffProfile: StaffProfile | null;
+  isAuthenticated: boolean;
+  permissions: StaffPermissions;
+  isLoading: boolean;
 }
 
-const Button: React.FC<ButtonProps> = ({ 
-  variant, 
-  size, 
-  children, 
-  ...props 
-}) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-md transition-colors';
-  const variantClasses = buttonVariants[variant];
-  const sizeClasses = {
-    sm: 'px-3 py-2 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg'
-  };
+// Role-based UI rendering
+export const useStaffPermissions = () => {
+  const { staffProfile } = useStaffAuth();
   
-  return (
-    <button 
-      className={cn(baseClasses, variantClasses, sizeClasses[size])}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-};
-
-// Form components with validation integration
-interface InputProps {
-  label: string;
-  error?: string;
-  register: UseFormRegister<any>;
-  name: string;
-  type?: string;
-}
-
-const Input: React.FC<InputProps> = ({ 
-  label, 
-  error, 
-  register, 
-  name, 
-  type = 'text' 
-}) => {
-  return (
-    <div className="space-y-1">
-      <label className="block text-sm font-medium text-navy-900">
-        {label}
-      </label>
-      <input
-        {...register(name)}
-        type={type}
-        className={cn(
-          "block w-full rounded-md border-gray-300 shadow-sm",
-          "focus:border-navy-500 focus:ring-navy-500",
-          error && "border-red-300 focus:border-red-500 focus:ring-red-500"
-        )}
-      />
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
-    </div>
-  );
+  return {
+    canApproveRefunds: staffProfile?.can_approve_refunds,
+    canManageStaff: staffProfile?.can_manage_staff,
+    canViewReports: staffProfile?.can_view_financial_reports
+  };
 };
 ```
 
-**Authentication UI Patterns:**
+## Authentication Implementation Guide
+
+**Step 1: Authentication Components**
 ```typescript
-// Login form with validation
-const LoginForm = () => {
+// src/components/auth/login-form.tsx
+export const LoginForm = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<LoginData>({
     resolver: zodResolver(loginSchema)
   });
   
   const loginMutation = useMutation({
     mutationFn: (data: LoginData) => 
-      axios.post('/api/customer/auth/login/', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['auth']);
+      apiClient.post('/api/customer/auth/login/', data),
+    onSuccess: (response) => {
+      useAuthStore.getState().setAuth(response.data.user, response.data.customer_profile);
       router.push('/dashboard');
     }
   });
@@ -743,330 +843,176 @@ const LoginForm = () => {
 };
 ```
 
----
-
-**🔗 API Integration Layer - Backend Communication**
-
-**Primary Responsibility:** Type-safe, reliable communication with Django User + Profile backend
-
-**Technology Integration:**
-- **Axios:** HTTP client with interceptors and error handling
-- **TanStack Query:** Caching, background sync, optimistic updates
-- **TypeScript:** Complete type safety for API responses
-- **Zod:** Runtime validation for API responses
-
-**API Client Architecture:**
+**Step 2: Protected Route Pattern**
 ```typescript
-// Axios instance with authentication and error handling
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
-  withCredentials: true, // Include cookies for Django sessions
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Request interceptor for CSRF token
-apiClient.interceptors.request.use(async (config) => {
-  // Get CSRF token for state-changing operations
-  if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
-    const csrfResponse = await axios.get('/api/customer/csrf-token/');
-    config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
-  }
-  return config;
-});
-
-// Response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear auth state and redirect to login
-      queryClient.setQueryData(['auth'], null);
-      router.push('/login');
-    }
-    return Promise.reject(error);
-  }
-);
-```
-
-**Type-Safe API Patterns:**
-```typescript
-// Django User + Profile API patterns with full typing
-class CustomerAPI {
-  static async login(data: LoginData): Promise<AuthResponse> {
-    const response = await apiClient.post('/api/customer/auth/login/', data);
-    return authResponseSchema.parse(response.data);
+// src/components/auth/protected-route.tsx
+export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuthStore();
+  
+  if (isLoading) return <div>Loading...</div>;
+  
+  if (!isAuthenticated) {
+    return <LoginForm />;
   }
   
-  static async getProfile(): Promise<CustomerProfile> {
-    const response = await apiClient.get('/api/customer/profile/');
-    return customerProfileSchema.parse(response.data);
-  }
-  
-  static async getSavedAddresses(): Promise<SavedAddress[]> {
-    const response = await apiClient.get('/api/customer/addresses/');
-    return savedAddressArraySchema.parse(response.data);
-  }
-  
-  static async createBooking(data: AuthenticatedBookingData): Promise<Booking> {
-    const response = await apiClient.post('/api/customer/bookings/create/', data);
-    return bookingSchema.parse(response.data.booking);
-  }
-}
-
-// Public API for guest operations
-class PublicAPI {
-  static async getServices(): Promise<ServiceCatalog> {
-    const response = await apiClient.get('/api/public/services/');
-    return serviceCatalogSchema.parse(response.data);
-  }
-  
-  static async getPricingPreview(data: PricingPreviewData): Promise<PricingBreakdown> {
-    const response = await apiClient.post('/api/public/pricing-preview/', data);
-    return pricingBreakdownSchema.parse(response.data);
-  }
-  
-  static async createGuestBooking(data: GuestBookingData): Promise<Booking> {
-    const response = await apiClient.post('/api/public/guest-booking/', data);
-    return bookingSchema.parse(response.data.booking);
-  }
-}
-```
-
-**TanStack Query Integration:**
-```typescript
-// Query hooks with caching and error handling
-export const useCustomerAuth = () => {
-  return useQuery({
-    queryKey: ['auth', 'customer'],
-    queryFn: CustomerAPI.getAuthUser,
-    retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 30, // 30 minutes
-  });
+  return <>{children}</>;
 };
+```
 
+## TypeScript Integration (Implemented)
+
+**Complete Django Model Interfaces:**
+```typescript
+// src/types/index.ts (IMPLEMENTED)
+export interface DjangoUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  date_joined: string;
+}
+
+export interface CustomerProfile {
+  id: string;
+  user: DjangoUser;
+  phone: string;
+  stripe_customer_id: string;
+  total_bookings: number;
+  total_spent_cents: number;
+  total_spent_dollars: number;
+  preferred_pickup_time: 'morning' | 'afternoon' | 'evening';
+  email_notifications: boolean;
+  sms_notifications: boolean;
+  is_vip: boolean;
+  last_booking_at: string | null;
+}
+
+export interface SavedAddress {
+  id: string;
+  user: number;
+  nickname: string;
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  state: 'NY' | 'CT' | 'NJ';
+  zip_code: string;
+  delivery_instructions?: string;
+  times_used: number;
+  last_used_at: string | null;
+  is_active: boolean;
+}
+
+export interface MiniMovePackage {
+  id: string;
+  package_type: 'petite' | 'standard' | 'full';
+  name: string;
+  description: string;
+  base_price_dollars: number;
+  max_items: number | null;
+  coi_included: boolean;
+  coi_fee_dollars: number;
+  is_most_popular: boolean;
+  features: {
+    priority_scheduling: boolean;
+    protective_wrapping: boolean;
+  };
+}
+
+export interface ServiceCatalog {
+  mini_move_packages: MiniMovePackage[];
+  standard_delivery: {
+    price_per_item_dollars: number;
+    minimum_items: number;
+    minimum_charge_dollars: number;
+    same_day_flat_rate_dollars: number;
+    max_weight_per_item_lbs: number;
+  } | null;
+  specialty_items: SpecialtyItem[];
+}
+
+export interface AuthResponse {
+  message: string;
+  user: DjangoUser;
+  customer_profile: CustomerProfile;
+  csrf_token: string;
+}
+```
+
+## Error Handling & Performance
+
+**Centralized Error Handling:**
+```typescript
+// src/lib/error-handling.ts
+import { AxiosError } from 'axios';
+
+export const handleApiError = (error: AxiosError) => {
+  if (error.response?.status === 400) {
+    const validationErrors = error.response.data;
+    return formatValidationErrors(validationErrors);
+  }
+  
+  if (error.response?.status === 401) {
+    return 'Please log in to continue';
+  }
+  
+  if (error.response?.status === 403) {
+    return 'You do not have permission to perform this action';
+  }
+  
+  if (error.response?.status >= 500) {
+    return 'Service temporarily unavailable. Please try again later.';
+  }
+  
+  return 'An unexpected error occurred. Please try again.';
+};
+```
+
+**Performance Optimization Patterns:**
+```typescript
+// Intelligent caching based on data volatility
 export const useServiceCatalog = () => {
   return useQuery({
     queryKey: ['services', 'catalog'],
-    queryFn: PublicAPI.getServices,
-    staleTime: 1000 * 60 * 10, // 10 minutes (services change rarely)
-    cacheTime: 1000 * 60 * 60, // 1 hour
+    queryFn: () => apiClient.get('/api/public/services/'),
+    staleTime: 1000 * 60 * 10, // 10 minutes (services rarely change)
+    gcTime: 1000 * 60 * 60     // 1 hour
   });
 };
 
 export const usePricingPreview = (config: PricingConfig) => {
   return useQuery({
     queryKey: ['pricing', 'preview', config],
-    queryFn: () => PublicAPI.getPricingPreview(config),
+    queryFn: () => apiClient.post('/api/public/pricing-preview/', config),
     enabled: !!config.service_type,
-    staleTime: 1000 * 60 * 2, // 2 minutes (pricing may change)
-  });
-};
-
-// Mutation hooks with optimistic updates
-export const useCreateBooking = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: CustomerAPI.createBooking,
-    onSuccess: (newBooking) => {
-      // Update booking list cache
-      queryClient.setQueryData(['customer', 'bookings'], (old: Booking[]) => 
-        [newBooking, ...(old || [])]
-      );
-      
-      // Update dashboard data
-      queryClient.invalidateQueries(['customer', 'dashboard']);
-    }
+    staleTime: 1000 * 60 * 2   // 2 minutes (pricing may change)
   });
 };
 ```
 
-**Error Handling Strategy:**
-```typescript
-// Centralized error handling for API responses
-const handleApiError = (error: AxiosError) => {
-  if (error.response?.status === 400) {
-    // Validation errors from Django REST
-    const validationErrors = error.response.data;
-    return formatValidationErrors(validationErrors);
-  }
-  
-  if (error.response?.status === 401) {
-    // Authentication required
-    return 'Please log in to continue';
-  }
-  
-  if (error.response?.status === 403) {
-    // Permission denied
-    return 'You do not have permission to perform this action';
-  }
-  
-  if (error.response?.status >= 500) {
-    // Server errors
-    return 'Service temporarily unavailable. Please try again later.';
-  }
-  
-  return 'An unexpected error occurred. Please try again.';
-};
+## Development Workflow
 
-// Error boundary component for API errors
-const APIErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <ErrorBoundary
-      fallback={<ErrorFallback />}
-      onError={(error) => {
-        console.error('API Error:', error);
-        // Optional: Send to error tracking service
-      }}
-    >
-      {children}
-    </ErrorBoundary>
-  );
-};
-```
+**Adding New Features (Step-by-Step):**
 
-**Performance Optimization:**
-- **Request deduplication:** TanStack Query automatically deduplicates identical requests
-- **Background refetching:** Keep data fresh with background updates
-- **Optimistic updates:** Immediate UI updates for better user experience
-- **Intelligent caching:** Different cache times based on data volatility
-- **Error recovery:** Automatic retry with exponential backoff
+1. **Plan the Component Structure**
+   - Identify reusable patterns from existing components
+   - Plan data flow using TanStack Query hooks
+   - Design variant system for client flexibility
 
-## Data Flow Architecture
+2. **Implement with Type Safety**
+   - Add TypeScript interfaces to `src/types/index.ts`
+   - Create API integration hooks in `src/hooks/`
+   - Build components using design system patterns
 
-**Customer Booking Journey (Guest):**
-```
-Marketing Site (Next.js SSR)
-    ↓ Service selection
-Booking Wizard (Zustand state + React Hook Form)
-    ↓ Real-time pricing via TanStack Query
-Services API ← → TanStack Query Cache
-    ↓ Form submission via Axios
-Guest Booking API → Payment Processing (Stripe)
-    ↓ Payment confirmation
-Confirmation Page + Email Notifications
-```
+3. **Test Integration**
+   - Verify backend API connection
+   - Test component variants and responsiveness
+   - Validate form handling and error states
 
-**Customer Booking Journey (Authenticated):**
-```
-Marketing Site → Customer Dashboard (TanStack Query auth)
-    ↓ Pre-filled from CustomerProfile
-Booking Wizard (Enhanced with saved data)
-    ↓ Django User + CustomerProfile integration
-User Profile APIs ← → TanStack Query Cache
-    ↓ Authenticated booking creation
-Customer Booking API → Enhanced Payment (saved methods)
-    ↓ Optimistic UI updates
-Dashboard Updates + Real-time Tracking
-```
+4. **Document Patterns**
+   - Update living documentation with new patterns
+   - Add implementation examples for future reference
+   - Note any new client modification points
 
-**Staff Operations Flow:**
-```
-Staff Authentication (Separate auth context)
-    ↓ Role-based permission loading
-Staff Dashboard (TanStack Query with admin scope)
-    ↓ Permission-based UI rendering
-Booking + Customer Management
-    ↓ CRUD operations with audit logging
-Staff APIs ← → Admin Query Cache
-    ↓ Real-time operational updates
-WebSocket Integration → Live Dashboard Updates
-```
-
-## State Management Strategy
-
-**Zustand Store Architecture:**
-```typescript
-// Authentication store (customer)
-interface CustomerAuthStore {
-  user: DjangoUser | null;
-  customerProfile: CustomerProfile | null;
-  isAuthenticated: boolean;
-  login: (credentials: LoginData) => Promise<void>;
-  logout: () => void;
-  updateProfile: (updates: Partial<CustomerProfile>) => void;
-}
-
-// Booking wizard store
-interface BookingWizardStore {
-  currentStep: number;
-  serviceType: ServiceType;
-  selectedOptions: BookingOptions;
-  customerInfo: CustomerInfo;
-  addresses: {
-    pickup: Address | SavedAddress;
-    delivery: Address | SavedAddress;
-  };
-  pricing: PricingBreakdown | null;
-  
-  // Actions
-  setServiceType: (type: ServiceType) => void;
-  setAddresses: (addresses: AddressData) => void;
-  nextStep: () => void;
-  previousStep: () => void;
-  reset: () => void;
-}
-
-// UI state store
-interface UIStore {
-  theme: 'light' | 'dark';
-  sidebarOpen: boolean;
-  notifications: Notification[];
-  modals: {
-    login: boolean;
-    addressForm: boolean;
-    paymentMethod: boolean;
-  };
-  
-  // Actions
-  toggleSidebar: () => void;
-  openModal: (modal: keyof UIStore['modals']) => void;
-  closeModal: (modal: keyof UIStore['modals']) => void;
-  addNotification: (notification: Notification) => void;
-}
-```
-
-**TanStack Query Integration:**
-```typescript
-// Query client configuration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes default
-      cacheTime: 1000 * 60 * 30, // 30 minutes default
-      retry: (failureCount, error) => {
-        if (error.response?.status === 401) return false;
-        return failureCount < 3;
-      },
-    },
-    mutations: {
-      retry: 1,
-      onError: (error) => {
-        const message = handleApiError(error as AxiosError);
-        useUIStore.getState().addNotification({
-          type: 'error',
-          message,
-          duration: 5000
-        });
-      }
-    }
-  }
-});
-
-// Provider setup
-const App = ({ Component, pageProps }: AppProps) => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-cream-50">
-        <Component {...pageProps} />
-      </div>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  );
-};
-```
-
-This comprehensive frontend documentation reflects the mature, AI-optimized technology stack while maintaining all the sophisticated customer experience and staff operational functionality. The technology choices prioritize development velocity, maintainability, and AI-assisted development compatibility.
+This comprehensive documentation serves as both implementation reference and step-by-step building guide, ensuring consistent development patterns while maintaining the flexibility for easy client modifications. The foundation is complete and ready for rapid application development using established patterns.

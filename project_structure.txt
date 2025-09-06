@@ -1,23 +1,31 @@
 .
+├── .github
+│   └── workflows
 ├── backend
 │   ├── apps
 │   │   ├── accounts
 │   │   │   ├── migrations
-│   │   │   │   └── __init__.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── 0001_initial.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
+│   │   │   ├── serializers.py
 │   │   │   ├── tests.py
+│   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── bookings
 │   │   │   ├── migrations
-│   │   │   │   └── __init__.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── 0001_initial.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
+│   │   │   ├── serializers.py
 │   │   │   ├── tests.py
+│   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── crm
 │   │   │   ├── migrations
@@ -30,12 +38,17 @@
 │   │   │   └── views.py
 │   │   ├── customers
 │   │   │   ├── migrations
-│   │   │   │   └── __init__.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── 0001_initial.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
+│   │   │   ├── booking_serializers.py
+│   │   │   ├── booking_views.py
 │   │   │   ├── models.py
+│   │   │   ├── serializers.py
 │   │   │   ├── tests.py
+│   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── documents
 │   │   │   ├── migrations
@@ -66,16 +79,21 @@
 │   │   │   └── views.py
 │   │   ├── payments
 │   │   │   ├── migrations
-│   │   │   │   └── __init__.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── 0001_initial.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   ├── services.py
 │   │   │   ├── tests.py
+│   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── services
 │   │   │   ├── migrations
-│   │   │   │   └── __init__.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── 0001_initial.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -90,21 +108,15 @@
 │   │   ├── settings.py
 │   │   ├── urls.py
 │   │   └── wsgi.py
-│   ├── customers
-│   │   ├── migrations
-│   │   │   └── __init__.py
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── apps.py
-│   │   ├── models.py
-│   │   ├── tests.py
-│   │   └── views.py
 │   ├── logs
 │   ├── scripts
 │   │   ├── back_export.py
 │   │   ├── back_export.txt
 │   │   └── entrypoint.sh
 │   ├── static
+│   ├── .dockerignore
+│   ├── .env.example
+│   ├── cookies.txt
 │   ├── docker-compose.yml
 │   ├── Dockerfile
 │   ├── gunicorn.conf.py
@@ -112,7 +124,8 @@
 │   ├── pyproject.toml
 │   ├── pytest.ini
 │   ├── README.md
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── staff_cookies.txt
 ├── frontend
 │   ├── public
 │   │   ├── file.svg
@@ -121,19 +134,48 @@
 │   │   ├── vercel.svg
 │   │   └── window.svg
 │   ├── src
-│   │   └── app
-│   │       ├── favicon.ico
-│   │       ├── globals.css
-│   │       ├── layout.tsx
-│   │       └── page.tsx
+│   │   ├── app
+│   │   │   ├── favicon.ico
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── layout.tsx.backup
+│   │   │   └── page.tsx
+│   │   ├── components
+│   │   │   ├── layout
+│   │   │   │   └── main-layout.tsx
+│   │   │   ├── providers
+│   │   │   │   └── query-provider.tsx
+│   │   │   ├── ui
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── input.tsx
+│   │   │   │   └── modal.tsx
+│   │   │   └── test-api-connection.tsx
+│   │   ├── hooks
+│   │   ├── lib
+│   │   │   ├── api-client.ts
+│   │   │   └── query-client.ts
+│   │   ├── stores
+│   │   │   ├── auth-store.ts
+│   │   │   └── ui-store.ts
+│   │   ├── types
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       └── cn.ts
+│   ├── .gitignore
 │   ├── eslint.config.mjs
 │   ├── next.config.ts
 │   ├── package.json
+│   ├── postcss.config.js
 │   ├── postcss.config.mjs
+│   ├── project_structure.txt
 │   ├── README.md
+│   ├── tailwind.config.js
 │   └── tsconfig.json
+├── .gitignore
 ├── docker-compose.prod.yml
 ├── project_structure.txt
 └── README.md
 
-31 directories, 106 files
+40 directories, 139 files
