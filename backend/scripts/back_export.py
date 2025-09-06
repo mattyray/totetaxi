@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ToteTaxi Backend Auto-Discovery Export
+ToteTaxi Backend Export - Code Files Only
 """
 import os
 from pathlib import Path
@@ -14,7 +14,7 @@ def get_file_content(file_path):
         return f"# Error reading file: {e}"
 
 def should_include_file(file_path, base_dir):
-    """Smart file inclusion rules for ToteTaxi"""
+    """Smart file inclusion rules for ToteTaxi Backend - Code Only"""
     rel_path = file_path.relative_to(base_dir)
     path_str = str(rel_path)
     
@@ -22,8 +22,9 @@ def should_include_file(file_path, base_dir):
     skip_patterns = [
         '__pycache__', '.pyc', '.git/', '.pytest_cache/', 'htmlcov/',
         'staticfiles/', 'media/', 'logs/', '.coverage', 'db.sqlite3',
-        'totetaxi_backend_snapshot.txt', 'back_export.txt',
-        '.DS_Store', '*.swp', '*.swo'
+        'back_export.txt', 'totetaxi_backend_snapshot.txt',
+        '.DS_Store', '*.swp', '*.swo',
+        'README.md', 'CHANGELOG.md'  # Skip documentation files
     ]
     
     if any(pattern in path_str for pattern in skip_patterns):
@@ -33,15 +34,12 @@ def should_include_file(file_path, base_dir):
     if file_path.name.startswith('.env'):
         return False
     
-    # Include all migration files for reference
-    # (Including customer app migrations)
-    
-    # Include patterns
-    include_extensions = {'.py', '.txt', '.yml', '.yaml', '.toml', '.md', '.sh', '.ini', '.conf'}
+    # Include patterns - Code files only
+    include_extensions = {'.py', '.txt', '.yml', '.yaml', '.toml', '.sh', '.ini', '.conf'}
     include_files = {
         'Dockerfile', 'Dockerfile.dev', '.dockerignore', '.gitignore', 
         'manage.py', 'docker-compose.yml', 'docker-compose.prod.yml',
-        'gunicorn.conf.py', 'pytest.ini'
+        'gunicorn.conf.py', 'pytest.ini', 'requirements.txt'
     }
     
     return (
@@ -59,7 +57,7 @@ def categorize_file(file_path, base_dir):
         file_path.name in ['manage.py', 'requirements.txt', 'gunicorn.conf.py', 'pytest.ini']):
         return 'config'
     
-    # ToteTaxi Django apps (including NEW customers app)
+    # ToteTaxi Django apps
     totetaxi_apps = [
         'accounts/', 'bookings/', 'crm/', 'customers/', 'documents/', 
         'logistics/', 'notifications/', 'payments/', 'services/'
@@ -115,13 +113,12 @@ def main():
     # Generate snapshot
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("# TOTETAXI - BACKEND CODE SNAPSHOT\n")
-        f.write("# AUTO-GENERATED - SECURE VERSION\n")
+        f.write("# AUTO-GENERATED - CODE FILES ONLY\n")
         f.write(f"# Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"# Total files: {len(all_files)}\n")
         f.write("# 🔒 SECURITY: .env files excluded (contain secrets)\n")
         f.write("# 📋 INCLUDES: All Django apps, migrations, configuration\n")
-        f.write("# Apps: accounts (STAFF), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services\n")
-        f.write("# NEW FEATURES: Customer authentication, guest checkout, customer dashboard\n")
+        f.write("# Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services\n")
         f.write("# Tech Stack: Django 5.2.5, DRF 3.16.1, PostgreSQL, Redis, Celery\n")
         f.write("# Integration: S3 storage, SES email, mocked Stripe/Onfleet\n\n\n")
         
@@ -129,7 +126,7 @@ def main():
         section_names = {
             'config': 'CONFIGURATION & ROOT FILES',
             'project': 'DJANGO PROJECT SETTINGS (config/)',
-            'apps': 'DJANGO APPLICATIONS (apps/) - Including NEW customers/ app',
+            'apps': 'DJANGO APPLICATIONS (apps/)',
             'scripts': 'SCRIPTS & UTILITIES',
             'other': 'OTHER FILES'
         }
@@ -149,8 +146,6 @@ def main():
                         f.write("```yaml\n")
                     elif file_path.suffix == '.toml':
                         f.write("```toml\n")
-                    elif file_path.suffix == '.md':
-                        f.write("```markdown\n")
                     elif file_path.suffix == '.sh':
                         f.write("```bash\n")
                     elif file_path.name in ['Dockerfile', 'Dockerfile.dev']:
@@ -168,10 +163,10 @@ def main():
     
     print(f"✅ Auto-generated ToteTaxi backend snapshot: {output_file}")
     print("🔒 SECURITY: .env files excluded (contain secrets)")
-    print("📋 INCLUDES: All 9 Django apps with migrations (including NEW customers/ app)")
-    print("🏗️  STRUCTURE: accounts (staff), bookings, crm, customers (NEW), documents, logistics, notifications, payments, services")
-    print("👤 NEW FEATURES: Customer authentication, guest checkout, customer dashboard")
+    print("📋 INCLUDES: All 9 Django apps with migrations")
+    print("🏗️  STRUCTURE: accounts (staff), bookings, crm, customers, documents, logistics, notifications, payments, services")
     print("🐳 DOCKER: Configuration and compose files included")
+    print("📁 CODE ONLY: Documentation files excluded")
 
 if __name__ == "__main__":
     main()
