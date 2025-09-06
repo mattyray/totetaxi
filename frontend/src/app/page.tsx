@@ -1,108 +1,68 @@
 'use client';
 
 import { MainLayout } from '@/components/layout/main-layout';
+import { ServiceShowcase } from '@/components/marketing/service-showcase';
 import { TestAPIConnection } from '@/components/test-api-connection';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { Modal } from '@/components/ui/modal';
-import { useState } from 'react';
 
 export default function Home() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-16">
-        {/* API Connection Test */}
-        <div className="mb-8">
-          <TestAPIConnection />
-        </div>
-        
-        {/* Component Testing */}
-        <div className="mb-12 space-y-6">
-          <h2 className="text-2xl font-serif font-bold text-navy-900">Component Testing</h2>
-          
-          {/* Button Variants */}
-          <Card variant="elevated" className="space-y-4">
-            <CardHeader>
-              <h3 className="text-lg font-medium text-navy-900">Button Variants</h3>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-4">
-                <Button variant="primary" size="sm">Primary Small</Button>
-                <Button variant="secondary" size="md">Secondary Medium</Button>
-                <Button variant="outline" size="lg">Outline Large</Button>
-                <Button variant="ghost" size="xl">Ghost XL</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Card Variants */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card variant="default">
-              <CardContent>
-                <h4 className="font-medium text-navy-900 mb-2">Default Card</h4>
-                <p className="text-navy-600 text-sm">Standard card styling</p>
-              </CardContent>
-            </Card>
-            
-            <Card variant="elevated">
-              <CardContent>
-                <h4 className="font-medium text-navy-900 mb-2">Elevated Card</h4>
-                <p className="text-navy-600 text-sm">With shadow elevation</p>
-              </CardContent>
-            </Card>
-            
-            <Card variant="luxury">
-              <CardContent>
-                <h4 className="font-medium text-navy-900 mb-2">Luxury Card</h4>
-                <p className="text-navy-600 text-sm">Premium styling with gold border</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Modal Test */}
-          <Card variant="default">
-            <CardContent>
-              <Button onClick={() => setIsModalOpen(true)}>Open Modal Test</Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Original Hero */}
-        <div className="text-center">
-          <h1 className="text-5xl font-serif font-bold text-navy-900 mb-6">
+      {/* Hero Section */}
+      <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
             Luxury Delivery to the Hamptons
           </h1>
-          <p className="text-xl text-navy-700 mb-8 max-w-2xl mx-auto">
-            From suitcases to surfboards, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
+          <p className="text-xl text-navy-700 mb-8 max-w-3xl mx-auto">
+            From suitcases to surfboards, strollers to pop-up props, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
           </p>
-          <Button variant="primary" size="lg">
-            Book Your Move
-          </Button>
-        </div>
-      </div>
-
-      {/* Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Test Modal"
-        description="This is a test of the modal component"
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-navy-700">Modal content goes here. You can put forms, information, or any other content.</p>
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button variant="primary" size="lg">
+              Book Your Move
             </Button>
-            <Button variant="primary" onClick={() => setIsModalOpen(false)}>
-              Confirm
+            <Button variant="outline" size="lg">
+              View Pricing
             </Button>
           </div>
         </div>
-      </Modal>
+      </section>
+
+      {/* API Connection Status - Remove this in production */}
+      <div className="container mx-auto px-4 py-8">
+        <TestAPIConnection />
+      </div>
+
+      {/* Service Showcase */}
+      <ServiceShowcase />
+
+      {/* Trust Signals Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+              Trusted by Premium Brands
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🚁</div>
+              <h3 className="font-medium text-navy-900 mb-2">Blade Integration</h3>
+              <p className="text-navy-600 text-sm">Official luggage partner for helicopter transfers</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">📚</div>
+              <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
+              <p className="text-navy-600 text-sm">Trusted distribution partner</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">🏃‍♀️</div>
+              <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
+              <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </MainLayout>
   );
 }
