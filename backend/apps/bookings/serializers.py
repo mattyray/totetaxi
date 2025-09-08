@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Booking, Address, GuestCheckout
-from apps.services.models import MiniMovePackage, SpecialtyItem
+from apps.services.models import MiniMovePackage, SpecialtyItem, OrganizingService
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -19,6 +19,20 @@ class GuestCheckoutSerializer(serializers.ModelSerializer):
         fields = ('first_name', 'last_name', 'email', 'phone')
 
 
+class OrganizingServiceDetailSerializer(serializers.ModelSerializer):
+    """Detailed organizing service info for booking responses"""
+    price_dollars = serializers.ReadOnlyField()
+    supplies_allowance_dollars = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = OrganizingService
+        fields = (
+            'id', 'service_type', 'name', 'description',
+            'price_dollars', 'duration_hours', 'organizer_count',
+            'supplies_allowance_dollars', 'is_packing_service'
+        )
+
+
 class BookingSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     customer_email = serializers.SerializerMethodField()
@@ -26,7 +40,9 @@ class BookingSerializer(serializers.ModelSerializer):
     delivery_address = AddressSerializer(read_only=True)
     guest_checkout = GuestCheckoutSerializer(read_only=True)
     total_price_dollars = serializers.ReadOnlyField()
+    organizing_total_dollars = serializers.ReadOnlyField()
     pricing_breakdown = serializers.SerializerMethodField()
+    organizing_services_breakdown = serializers.SerializerMethodField()
     
     class Meta:
         model = Booking
@@ -35,7 +51,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'service_type', 'pickup_date', 'pickup_time', 'status',
             'pickup_address', 'delivery_address', 'guest_checkout',
             'special_instructions', 'coi_required',
-            'total_price_dollars', 'pricing_breakdown', 'created_at'
+            'include_packing', 'include_unpacking',
+            'total_price_dollars', 'organizing_total_dollars',
+            'pricing_breakdown', 'organizing_services_breakdown', 'created_at'
         )
     
     def get_customer_name(self, obj):
@@ -46,6 +64,9 @@ class BookingSerializer(serializers.ModelSerializer):
     
     def get_pricing_breakdown(self, obj):
         return obj.get_pricing_breakdown()
+    
+    def get_organizing_services_breakdown(self, obj):
+        return obj.get_organizing_services_breakdown()
 
 
 class BookingStatusSerializer(serializers.ModelSerializer):
@@ -53,6 +74,7 @@ class BookingStatusSerializer(serializers.ModelSerializer):
     pickup_address = AddressSerializer(read_only=True)
     delivery_address = AddressSerializer(read_only=True)
     total_price_dollars = serializers.ReadOnlyField()
+    organizing_total_dollars = serializers.ReadOnlyField()
     
     class Meta:
         model = Booking
@@ -60,7 +82,8 @@ class BookingStatusSerializer(serializers.ModelSerializer):
             'booking_number', 'customer_name', 'service_type', 
             'pickup_date', 'pickup_time', 'status',
             'pickup_address', 'delivery_address',
-            'total_price_dollars', 'created_at'
+            'include_packing', 'include_unpacking',
+            'total_price_dollars', 'organizing_total_dollars', 'created_at'
         )
     
     def get_customer_name(self, obj):
@@ -78,6 +101,10 @@ class PricingPreviewSerializer(serializers.Serializer):
     # Mini Move fields
     mini_move_package_id = serializers.UUIDField(required=False)
     coi_required = serializers.BooleanField(required=False, default=False)
+    
+    # NEW: Organizing service fields
+    include_packing = serializers.BooleanField(required=False, default=False)
+    include_unpacking = serializers.BooleanField(required=False, default=False)
     
     # Standard Delivery fields
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
@@ -114,6 +141,10 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         required=False,
         allow_empty=True
     )
+    
+    # NEW: Organizing services for Mini Moves
+    include_packing = serializers.BooleanField(default=False)
+    include_unpacking = serializers.BooleanField(default=False)
     
     # Booking details
     pickup_date = serializers.DateField()
@@ -152,8 +183,41 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         if service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("mini_move_package_id is required for mini move service")
+            
+            # Validate organizing services only apply to mini moves
+            include_packing = attrs.get('include_packing', False)
+            include_unpacking = attrs.get('include_unpacking', False)
+            
+            if include_packing or include_unpacking:
+                # Verify the mini move package exists and organizing services are available
+                try:
+                    package = MiniMovePackage.objects.get(id=attrs['mini_move_package_id'])
+                    tier = package.package_type
+                    
+                    if include_packing:
+                        if not OrganizingService.objects.filter(
+                            mini_move_tier=tier,
+                            is_packing_service=True,
+                            is_active=True
+                        ).exists():
+                            raise serializers.ValidationError(f"Packing service not available for {tier} tier")
+                    
+                    if include_unpacking:
+                        if not OrganizingService.objects.filter(
+                            mini_move_tier=tier,
+                            is_packing_service=False,
+                            is_active=True
+                        ).exists():
+                            raise serializers.ValidationError(f"Unpacking service not available for {tier} tier")
+                            
+                except MiniMovePackage.DoesNotExist:
+                    raise serializers.ValidationError("Invalid mini move package")
+        else:
+            # Organizing services only available for Mini Moves
+            if attrs.get('include_packing') or attrs.get('include_unpacking'):
+                raise serializers.ValidationError("Organizing services are only available for Mini Move bookings")
         
-        elif service_type == 'standard_delivery':
+        if service_type == 'standard_delivery':
             if not attrs.get('standard_delivery_item_count'):
                 raise serializers.ValidationError("standard_delivery_item_count is required for standard delivery")
         
@@ -190,7 +254,10 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             special_instructions=validated_data.get('special_instructions', ''),
             coi_required=validated_data.get('coi_required', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
-            is_same_day_delivery=validated_data.get('is_same_day_delivery', False)
+            is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
+            # NEW: Organizing service fields
+            include_packing=validated_data.get('include_packing', False),
+            include_unpacking=validated_data.get('include_unpacking', False)
         )
         
         # Handle service-specific relationships
@@ -208,5 +275,5 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             booking.save()  # Save first to get ID for M2M relationship
             booking.specialty_items.set(specialty_items)
         
-        booking.save()  # This will trigger pricing calculation
+        booking.save()  # This will trigger pricing calculation including organizing
         return booking

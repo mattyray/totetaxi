@@ -126,6 +126,16 @@ class Booking(models.Model):
         help_text="Selected specialty items (Peloton, Surfboard, etc.)"
     )
     
+    # NEW: ORGANIZING SERVICES (tied to Mini Move packages)
+    include_packing = models.BooleanField(
+        default=False,
+        help_text="Include professional packing service for this Mini Move tier"
+    )
+    include_unpacking = models.BooleanField(
+        default=False,
+        help_text="Include professional unpacking service for this Mini Move tier"
+    )
+    
     # Addresses
     pickup_address = models.ForeignKey(
         Address, 
@@ -154,10 +164,14 @@ class Booking(models.Model):
     special_instructions = models.TextField(blank=True)
     coi_required = models.BooleanField(default=False)
     
-    # CALCULATED PRICING
+    # CALCULATED PRICING - Updated to include organizing
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
+    organizing_total_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Total cost for packing and unpacking services"
+    )
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
     # Status
@@ -230,14 +244,55 @@ class Booking(models.Model):
     def coi_fee_dollars(self):
         return self.coi_fee_cents / 100
     
+    @property
+    def organizing_total_dollars(self):
+        return self.organizing_total_cents / 100
+    
+    def calculate_organizing_costs(self):
+        """Calculate organizing service costs based on Mini Move tier"""
+        if self.service_type != 'mini_move' or not self.mini_move_package:
+            return 0
+        
+        from apps.services.models import OrganizingService
+        
+        total_organizing_cents = 0
+        tier = self.mini_move_package.package_type
+        
+        # Add packing service cost
+        if self.include_packing:
+            try:
+                packing_service = OrganizingService.objects.get(
+                    mini_move_tier=tier,
+                    is_packing_service=True,
+                    is_active=True
+                )
+                total_organizing_cents += packing_service.price_cents
+            except OrganizingService.DoesNotExist:
+                pass
+        
+        # Add unpacking service cost
+        if self.include_unpacking:
+            try:
+                unpacking_service = OrganizingService.objects.get(
+                    mini_move_tier=tier,
+                    is_packing_service=False,
+                    is_active=True
+                )
+                total_organizing_cents += unpacking_service.price_cents
+            except OrganizingService.DoesNotExist:
+                pass
+        
+        return total_organizing_cents
+    
     def calculate_pricing(self):
-        """Calculate total pricing using services pricing engine"""
+        """Calculate total pricing using services pricing engine + organizing"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
         # Reset pricing
         self.base_price_cents = 0
         self.surcharge_cents = 0
         self.coi_fee_cents = 0
+        self.organizing_total_cents = 0
         
         # Calculate base price by service type
         if self.service_type == 'mini_move' and self.mini_move_package:
@@ -246,6 +301,9 @@ class Booking(models.Model):
             # COI handling for Mini Moves
             if self.coi_required and not self.mini_move_package.coi_included:
                 self.coi_fee_cents = self.mini_move_package.coi_fee_cents
+            
+            # Calculate organizing services
+            self.organizing_total_cents = self.calculate_organizing_costs()
             
         elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
             try:
@@ -275,15 +333,73 @@ class Booking(models.Model):
                 )
                 self.surcharge_cents += surcharge_amount
         
-        # Calculate total
-        self.total_price_cents = self.base_price_cents + self.surcharge_cents + self.coi_fee_cents
+        # Calculate total (base + surcharges + COI + organizing)
+        self.total_price_cents = (
+            self.base_price_cents + 
+            self.surcharge_cents + 
+            self.coi_fee_cents + 
+            self.organizing_total_cents
+        )
     
     def get_pricing_breakdown(self):
         """Return detailed pricing breakdown for display"""
-        return {
+        breakdown = {
             'base_price': self.base_price_dollars,
             'surcharges': self.surcharge_dollars,
             'coi_fee': self.coi_fee_dollars,
+            'organizing_total': self.organizing_total_dollars,
             'total': self.total_price_dollars,
             'service_type': self.get_service_type_display(),
         }
+        
+        # Add organizing service details if applicable
+        if self.organizing_total_cents > 0:
+            breakdown['organizing_services'] = self.get_organizing_services_breakdown()
+        
+        return breakdown
+    
+    def get_organizing_services_breakdown(self):
+        """Get detailed breakdown of organizing services"""
+        if self.service_type != 'mini_move' or not self.mini_move_package:
+            return {}
+        
+        from apps.services.models import OrganizingService
+        
+        services = []
+        tier = self.mini_move_package.package_type
+        
+        if self.include_packing:
+            try:
+                packing_service = OrganizingService.objects.get(
+                    mini_move_tier=tier,
+                    is_packing_service=True,
+                    is_active=True
+                )
+                services.append({
+                    'name': packing_service.name,
+                    'price_dollars': packing_service.price_dollars,
+                    'duration_hours': packing_service.duration_hours,
+                    'organizer_count': packing_service.organizer_count,
+                    'supplies_allowance': packing_service.supplies_allowance_dollars
+                })
+            except OrganizingService.DoesNotExist:
+                pass
+        
+        if self.include_unpacking:
+            try:
+                unpacking_service = OrganizingService.objects.get(
+                    mini_move_tier=tier,
+                    is_packing_service=False,
+                    is_active=True
+                )
+                services.append({
+                    'name': unpacking_service.name,
+                    'price_dollars': unpacking_service.price_dollars,
+                    'duration_hours': unpacking_service.duration_hours,
+                    'organizer_count': unpacking_service.organizer_count,
+                    'supplies_allowance': 0  # Unpacking doesn't include supplies
+                })
+            except OrganizingService.DoesNotExist:
+                pass
+        
+        return services

@@ -65,6 +65,72 @@ class MiniMovePackage(models.Model):
         return self.coi_fee_cents / 100
 
 
+class OrganizingService(models.Model):
+    """Professional packing/unpacking services tied to Mini Move tiers"""
+    
+    ORGANIZING_TYPES = [
+        ('petite_packing', 'Petite Packing'),
+        ('standard_packing', 'Standard Packing'),
+        ('full_packing', 'Full Packing'),
+        ('petite_unpacking', 'Petite Unpacking'),
+        ('standard_unpacking', 'Standard Unpacking'),
+        ('full_unpacking', 'Full Unpacking'),
+    ]
+    
+    MINI_MOVE_TIERS = [
+        ('petite', 'Petite'),
+        ('standard', 'Standard'),
+        ('full', 'Full'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Service details
+    service_type = models.CharField(max_length=30, choices=ORGANIZING_TYPES, unique=True)
+    mini_move_tier = models.CharField(max_length=20, choices=MINI_MOVE_TIERS)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    
+    # Pricing
+    price_cents = models.PositiveBigIntegerField()
+    
+    # Service specs
+    duration_hours = models.PositiveIntegerField()
+    organizer_count = models.PositiveIntegerField()
+    supplies_allowance_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Supplies allowance in cents (packing services only)"
+    )
+    
+    # Service type classification
+    is_packing_service = models.BooleanField(
+        help_text="True for packing services (with supplies), False for unpacking (organizing only)"
+    )
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'services_organizing_service'
+        ordering = ['mini_move_tier', 'is_packing_service', 'price_cents']
+    
+    def __str__(self):
+        return f"{self.name} - ${self.price_dollars}"
+    
+    @property
+    def price_dollars(self):
+        return self.price_cents / 100
+    
+    @property
+    def supplies_allowance_dollars(self):
+        return self.supplies_allowance_cents / 100
+    
+    def can_be_added_to_mini_move(self, mini_move_package_type):
+        """Check if this organizing service can be added to a specific mini move tier"""
+        return self.mini_move_tier == mini_move_package_type
+
+
 class StandardDeliveryConfig(models.Model):
     """Configuration for Standard Delivery pricing from homework"""
     
