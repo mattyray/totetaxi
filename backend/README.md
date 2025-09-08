@@ -495,7 +495,7 @@ class StripePaymentService:
 
 **Guest Booking Flow:**
 ```
-1. Service Selection → /api/public/services/
+1. Service Selection → /api/public/services/                
 2. Pricing Preview → /api/public/pricing-preview/
 3. Booking Creation → /api/public/guest-booking/
    ├── Creates GuestCheckout record
