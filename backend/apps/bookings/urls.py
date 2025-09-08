@@ -8,6 +8,11 @@ urlpatterns = [
     path('pricing-preview/', views.PricingPreviewView.as_view(), name='pricing-preview'),
     path('availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
     
+    # NEW: Organizing service endpoints
+    path('services/mini-moves-with-organizing/', views.ServiceCatalogWithOrganizingView.as_view(), name='mini-moves-with-organizing'),
+    path('services/organizing-by-tier/', views.OrganizingServicesByTierView.as_view(), name='organizing-by-tier'),
+    path('services/organizing/<uuid:service_id>/', views.OrganizingServiceDetailView.as_view(), name='organizing-service-detail'),
+    
     # Guest booking
     path('guest-booking/', views.GuestBookingCreateView.as_view(), name='guest-booking-create'),
     
