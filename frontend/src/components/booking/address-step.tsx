@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,47 +11,14 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-const POPULAR_ADDRESSES = {
-  pickup: [
-    { name: 'Upper East Side', address: 'Upper East Side, New York, NY' },
-    { name: 'Upper West Side', address: 'Upper West Side, New York, NY' },
-    { name: 'Midtown East', address: 'Midtown East, New York, NY' },
-    { name: 'SoHo', address: 'SoHo, New York, NY' },
-    { name: 'Tribeca', address: 'Tribeca, New York, NY' },
-  ],
-  delivery: [
-    { name: 'East Hampton', address: 'East Hampton, NY' },
-    { name: 'Southampton', address: 'Southampton, NY' },
-    { name: 'Bridgehampton', address: 'Bridgehampton, NY' },
-    { name: 'Westhampton Beach', address: 'Westhampton Beach, NY' },
-    { name: 'Sag Harbor', address: 'Sag Harbor, NY' },
-  ]
-};
-
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
   onAddressChange: (address: BookingAddress) => void;
-  popularAddresses: Array<{ name: string; address: string }>;
   errors: Record<string, string>;
 }
 
-function AddressForm({ title, address, onAddressChange, popularAddresses, errors }: AddressFormProps) {
-  const [showQuickSelect, setShowQuickSelect] = useState(!address?.address_line_1);
-
-  const handleQuickSelect = (selectedAddress: string) => {
-    // Parse the quick-select address
-    const parts = selectedAddress.split(', ');
-    onAddressChange({
-      address_line_1: parts[0],
-      city: parts[1] || '',
-      state: (parts[2] || 'NY') as 'NY' | 'CT' | 'NJ',
-      zip_code: '',
-      address_line_2: ''
-    });
-    setShowQuickSelect(false);
-  };
-
+function AddressForm({ title, address, onAddressChange, errors }: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
     onAddressChange({
       ...address,
@@ -63,97 +29,66 @@ function AddressForm({ title, address, onAddressChange, popularAddresses, errors
   return (
     <Card variant="elevated">
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-navy-900">{title}</h3>
-          {address?.address_line_1 && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setShowQuickSelect(!showQuickSelect)}
-            >
-              {showQuickSelect ? 'Manual Entry' : 'Quick Select'}
-            </Button>
-          )}
-        </div>
+        <h3 className="text-lg font-medium text-navy-900">{title}</h3>
       </CardHeader>
       
       <CardContent>
-        {showQuickSelect ? (
-          <div className="space-y-2">
-            <p className="text-sm text-navy-600 mb-3">Popular {title.toLowerCase()} locations:</p>
-            {popularAddresses.map((addr, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuickSelect(addr.address)}
-                className="w-full text-left p-3 rounded-md border border-gray-200 hover:border-navy-300 hover:bg-navy-50 transition-all"
-              >
-                <span className="font-medium text-navy-900">{addr.name}</span>
-                <span className="block text-sm text-navy-600">{addr.address}</span>
-              </button>
-            ))}
-            <button
-              onClick={() => setShowQuickSelect(false)}
-              className="w-full p-3 text-center border-2 border-dashed border-gray-300 rounded-md text-navy-600 hover:border-navy-400 transition-all"
-            >
-              + Enter Custom Address
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
+          <Input
+            label="Street Address"
+            value={address?.address_line_1 || ''}
+            onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
+            error={errors.address_line_1}
+            placeholder="123 Main Street"
+            required
+          />
+          
+          <Input
+            label="Apartment, Suite, etc. (Optional)"
+            value={address?.address_line_2 || ''}
+            onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
+            placeholder="Apt 4B, Suite 200"
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Street Address"
-              value={address?.address_line_1 || ''}
-              onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
-              error={errors.address_line_1}
-              placeholder="123 Main Street"
+              label="City"
+              value={address?.city || ''}
+              onChange={(e) => handleFieldChange('city', e.target.value)}
+              error={errors.city}
+              placeholder="New York"
               required
             />
             
-            <Input
-              label="Apartment, Suite, etc. (Optional)"
-              value={address?.address_line_2 || ''}
-              onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
-              placeholder="Apt 4B, Suite 200"
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="City"
-                value={address?.city || ''}
-                onChange={(e) => handleFieldChange('city', e.target.value)}
-                error={errors.city}
-                placeholder="New York"
+            <div>
+              <label className="block text-sm font-medium text-navy-900 mb-1">
+                State <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={address?.state || ''}
+                onChange={(e) => handleFieldChange('state', e.target.value as 'NY' | 'CT' | 'NJ')}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                 required
-              />
-              
-              <div>
-                <label className="block text-sm font-medium text-navy-900 mb-1">
-                  State
-                </label>
-                <select
-                  value={address?.state || 'NY'}
-                  onChange={(e) => handleFieldChange('state', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
-                >
-                  {STATES.map(state => (
-                    <option key={state.value} value={state.value}>
-                      {state.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              >
+                <option value="" className="text-gray-400">Select State</option>
+                {STATES.map(state => (
+                  <option key={state.value} value={state.value} className="text-gray-900">
+                    {state.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            
-            <Input
-              label="ZIP Code"
-              value={address?.zip_code || ''}
-              onChange={(e) => handleFieldChange('zip_code', e.target.value)}
-              error={errors.zip_code}
-              placeholder="10001"
-              required
-            />
           </div>
-        )}
+          
+          <Input
+            label="ZIP Code"
+            value={address?.zip_code || ''}
+            onChange={(e) => handleFieldChange('zip_code', e.target.value)}
+            error={errors.zip_code}
+            placeholder="10001"
+            required
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -164,15 +99,21 @@ export function AddressStep() {
 
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
-    clearError('pickup_address');
+    // Clear errors when user starts typing
+    if (address.address_line_1) clearError('pickup_address');
+    if (address.city) clearError('pickup_city');
+    if (address.zip_code) clearError('pickup_zip');
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
     updateBookingData({ delivery_address: address });
-    clearError('delivery_address');
+    // Clear errors when user starts typing
+    if (address.address_line_1) clearError('delivery_address');
+    if (address.city) clearError('delivery_city');
+    if (address.zip_code) clearError('delivery_zip');
   };
 
-  const validateAndContinue = () => {
+  const handleContinue = () => {
     let hasErrors = false;
 
     // Validate pickup address
@@ -182,6 +123,10 @@ export function AddressStep() {
     }
     if (!bookingData.pickup_address?.city) {
       setError('pickup_city', 'City is required');
+      hasErrors = true;
+    }
+    if (!bookingData.pickup_address?.state) {
+      setError('pickup_state', 'State is required');
       hasErrors = true;
     }
     if (!bookingData.pickup_address?.zip_code) {
@@ -198,6 +143,10 @@ export function AddressStep() {
       setError('delivery_city', 'City is required');
       hasErrors = true;
     }
+    if (!bookingData.delivery_address?.state) {
+      setError('delivery_state', 'State is required');
+      hasErrors = true;
+    }
     if (!bookingData.delivery_address?.zip_code) {
       setError('delivery_zip', 'ZIP code is required');
       hasErrors = true;
@@ -211,9 +160,11 @@ export function AddressStep() {
   const canContinue = 
     bookingData.pickup_address?.address_line_1 &&
     bookingData.pickup_address?.city &&
+    bookingData.pickup_address?.state &&
     bookingData.pickup_address?.zip_code &&
     bookingData.delivery_address?.address_line_1 &&
     bookingData.delivery_address?.city &&
+    bookingData.delivery_address?.state &&
     bookingData.delivery_address?.zip_code;
 
   return (
@@ -233,10 +184,10 @@ export function AddressStep() {
         title="Pickup Address"
         address={bookingData.pickup_address}
         onAddressChange={handlePickupChange}
-        popularAddresses={POPULAR_ADDRESSES.pickup}
         errors={{
           address_line_1: errors.pickup_address || '',
           city: errors.pickup_city || '',
+          state: errors.pickup_state || '',
           zip_code: errors.pickup_zip || ''
         }}
       />
@@ -246,10 +197,10 @@ export function AddressStep() {
         title="Delivery Address"
         address={bookingData.delivery_address}
         onAddressChange={handleDeliveryChange}
-        popularAddresses={POPULAR_ADDRESSES.delivery}
         errors={{
           address_line_1: errors.delivery_address || '',
           city: errors.delivery_city || '',
+          state: errors.delivery_state || '',
           zip_code: errors.delivery_zip || ''
         }}
       />
@@ -265,7 +216,7 @@ export function AddressStep() {
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
             placeholder="Any special delivery instructions, building access codes, or notes for our team..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
           <p className="text-sm text-navy-600 mt-1">
             Include building access codes, doorman instructions, or any special handling requests.
@@ -274,11 +225,11 @@ export function AddressStep() {
       </Card>
 
       {/* Continue Button */}
-      <div className="flex justify-end">
-        <Button 
-          variant="primary" 
-          onClick={validateAndContinue}
+      <div className="flex justify-end pt-4">
+        <Button
+          onClick={handleContinue}
           disabled={!canContinue}
+          size="lg"
         >
           Continue to Your Info →
         </Button>

@@ -15,8 +15,8 @@ const inputVariants = {
   }
 };
 
-// Add text-gray-900 for dark, readable text
-const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400';
+// Fixed: Added text-gray-900 for dark, readable text and placeholder styling
+const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400 bg-white';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof inputVariants.variant;
@@ -42,6 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       {label && (
         <label className="block text-sm font-medium text-navy-900">
           {label}
+          {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <input
