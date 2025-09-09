@@ -99,13 +99,13 @@ export function ServiceShowcase() {
                         COI Included
                       </li>
                     )}
-                    {pkg.features.priority_scheduling && (
+                    {pkg.priority_scheduling && (
                       <li className="flex items-center text-sm text-navy-700">
                         <span className="text-green-500 mr-2">✓</span>
                         Priority Scheduling
                       </li>
                     )}
-                    {pkg.features.protective_wrapping && (
+                    {pkg.protective_wrapping && (
                       <li className="flex items-center text-sm text-navy-700">
                         <span className="text-green-500 mr-2">✓</span>
                         Protective Wrapping

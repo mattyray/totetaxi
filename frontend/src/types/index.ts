@@ -33,7 +33,6 @@ export interface AuthResponse {
   csrf_token: string;
 }
 
-// Service types
 export interface MiniMovePackage {
   id: string;
   package_type: 'petite' | 'standard' | 'full';
@@ -44,12 +43,9 @@ export interface MiniMovePackage {
   coi_included: boolean;
   coi_fee_dollars: number;
   is_most_popular: boolean;
-  features: {
-    priority_scheduling: boolean;
-    protective_wrapping: boolean;
-  };
+  priority_scheduling: boolean;  // Changed: moved out of features
+  protective_wrapping: boolean;  // Changed: moved out of features
 }
-
 export interface SpecialtyItem {
   id: string;
   item_type: string;

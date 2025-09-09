@@ -34,10 +34,12 @@ interface PricingPreview {
   pickup_date: string;
 }
 
+type PickupTime = 'morning' | 'afternoon' | 'evening';
+
 export function DateTimeStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
-  const [selectedTime, setSelectedTime] = useState<string>(bookingData.pickup_time || 'morning');
+  const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
 
   // Get calendar availability
   const { data: availability, isLoading: availabilityLoading } = useQuery({
@@ -89,7 +91,7 @@ export function DateTimeStep() {
     updateBookingData({ pickup_date: date });
   };
 
-  const handleTimeSelect = (time: 'morning' | 'afternoon' | 'evening') => {
+  const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
     updateBookingData({ pickup_time: time });
   };
@@ -124,7 +126,7 @@ export function DateTimeStep() {
     return acc;
   }, {} as Record<string, AvailabilityDay>) || {};
 
-  const timeSlots = [
+  const timeSlots: Array<{ value: PickupTime; label: string; description: string }> = [
     { value: 'morning', label: '8 AM - 11 AM', description: 'Best availability' },
     { value: 'afternoon', label: '12 PM - 3 PM', description: 'Popular choice' },
     { value: 'evening', label: '4 PM - 7 PM', description: 'Limited availability' },
@@ -256,7 +258,7 @@ export function DateTimeStep() {
             {timeSlots.map((slot) => (
               <button
                 key={slot.value}
-                onClick={() => handleTimeSelect(slot.value as any)}
+                onClick={() => handleTimeSelect(slot.value)}
                 className={`
                   p-4 rounded-lg border-2 text-left transition-all
                   ${selectedTime === slot.value
