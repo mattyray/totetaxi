@@ -11,6 +11,10 @@ export function CustomerInfoStep() {
   const handleFieldChange = (field: string, value: string) => {
     updateBookingData({
       customer_info: {
+        first_name: bookingData.customer_info?.first_name || '',
+        last_name: bookingData.customer_info?.last_name || '',
+        email: bookingData.customer_info?.email || '',
+        phone: bookingData.customer_info?.phone || '',
         ...bookingData.customer_info,
         [field]: value
       }
