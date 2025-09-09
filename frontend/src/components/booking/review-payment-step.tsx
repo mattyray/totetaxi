@@ -223,35 +223,41 @@ export function ReviewPaymentStep() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
-                <p className="text-navy-700 text-sm">
-                  {bookingData.pickup_address?.address_line_1}
+                <div className="text-navy-700 text-sm">
+                  <div>{bookingData.pickup_address?.address_line_1}</div>
                   {bookingData.pickup_address?.address_line_2 && (
-                    <br />{bookingData.pickup_address.address_line_2}
+                    <div>{bookingData.pickup_address.address_line_2}</div>
                   )}
-                  <br />{bookingData.pickup_address?.city}, {bookingData.pickup_address?.state} {bookingData.pickup_address?.zip_code}
-                </p>
+                  <div>
+                    {bookingData.pickup_address?.city}, {bookingData.pickup_address?.state} {bookingData.pickup_address?.zip_code}
+                  </div>
+                </div>
               </div>
               
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
-                <p className="text-navy-700 text-sm">
-                  {bookingData.delivery_address?.address_line_1}
+                <div className="text-navy-700 text-sm">
+                  <div>{bookingData.delivery_address?.address_line_1}</div>
                   {bookingData.delivery_address?.address_line_2 && (
-                    <br />{bookingData.delivery_address.address_line_2}
+                    <div>{bookingData.delivery_address.address_line_2}</div>
                   )}
-                  <br />{bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
-                </p>
+                  <div>
+                    {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Customer Info */}
             <div>
               <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
-              <p className="text-navy-700">
-                {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
-                <br />{bookingData.customer_info?.email}
-                <br />{bookingData.customer_info?.phone}
-              </p>
+              <div className="text-navy-700">
+                <div>
+                  {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
+                </div>
+                <div>{bookingData.customer_info?.email}</div>
+                <div>{bookingData.customer_info?.phone}</div>
+              </div>
             </div>
 
             {/* Special Instructions */}
