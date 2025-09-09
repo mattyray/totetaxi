@@ -42,49 +42,38 @@ export function DateTimeStep() {
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
 
   // Get calendar availability
-  const { data: availability, isLoading: availabilityLoading } = useQuery({
-    queryKey: ['calendar', 'availability'],
-    queryFn: async (): Promise<{ availability: AvailabilityDay[] }> => {
+  const { data: availability } = useQuery({
+    queryKey: ['availability', 'calendar'],
+    queryFn: async () => {
       const response = await apiClient.get('/api/public/availability/');
-      return response.data;
+      return response.data.availability as AvailabilityDay[];
     }
   });
 
-  // Get pricing preview when date/service changes
+  // Get pricing preview
   const pricingMutation = useMutation({
-    mutationFn: async (pricingData: any): Promise<PricingPreview> => {
-      const response = await apiClient.post('/api/public/pricing-preview/', pricingData);
+    mutationFn: async (): Promise<PricingPreview> => {
+      const response = await apiClient.post('/api/public/pricing-preview/', {
+        service_type: bookingData.service_type,
+        mini_move_package_id: bookingData.mini_move_package_id,
+        include_packing: bookingData.include_packing,
+        include_unpacking: bookingData.include_unpacking,
+        standard_delivery_item_count: bookingData.standard_delivery_item_count,
+        is_same_day_delivery: bookingData.is_same_day_delivery,
+        specialty_item_ids: bookingData.specialty_item_ids,
+        pickup_date: selectedDate,
+        coi_required: bookingData.coi_required || false
+      });
       return response.data;
-    },
-    onSuccess: (data) => {
-      updateBookingData({ pricing_data: data.pricing });
     }
   });
 
-  // Update pricing when date or service selection changes
+  // Update pricing when date/service changes
   useEffect(() => {
     if (selectedDate && bookingData.service_type) {
-      const pricingRequest: any = {
-        service_type: bookingData.service_type,
-        pickup_date: selectedDate,
-      };
-
-      // Add service-specific data
-      if (bookingData.service_type === 'mini_move') {
-        pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
-        pricingRequest.coi_required = bookingData.coi_required;
-        pricingRequest.include_packing = bookingData.include_packing;
-        pricingRequest.include_unpacking = bookingData.include_unpacking;
-      } else if (bookingData.service_type === 'standard_delivery') {
-        pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
-        pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-      } else if (bookingData.service_type === 'specialty_item') {
-        pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
-      }
-
-      pricingMutation.mutate(pricingRequest);
+      pricingMutation.mutate();
     }
-  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking]);
+  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking, bookingData.standard_delivery_item_count, bookingData.is_same_day_delivery]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -97,267 +86,242 @@ export function DateTimeStep() {
   };
 
   const handleContinue = () => {
-    updateBookingData({
-      pickup_date: selectedDate,
-      pickup_time: selectedTime
-    });
+    // Store pricing data
+    if (pricingMutation.data?.pricing) {
+      updateBookingData({ pricing_data: pricingMutation.data.pricing });
+    }
     nextStep();
   };
 
-  const canContinue = selectedDate && selectedTime;
-
-  // Generate calendar days (next 60 days)
-  const generateCalendarDays = () => {
+  // Simple calendar view - next 30 days
+  const getNext30Days = () => {
     const days = [];
     const today = new Date();
-    
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      days.push(date.toISOString().split('T')[0]);
+      days.push(date);
     }
-    
     return days;
   };
 
-  const calendarDays = generateCalendarDays();
-  const availabilityMap = availability?.availability.reduce((acc, day) => {
-    acc[day.date] = day;
-    return acc;
-  }, {} as Record<string, AvailabilityDay>) || {};
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
 
-  const timeSlots: Array<{ value: PickupTime; label: string; description: string }> = [
-    { value: 'morning', label: '8 AM - 11 AM', description: 'Best availability' },
-    { value: 'afternoon', label: '12 PM - 3 PM', description: 'Popular choice' },
-    { value: 'evening', label: '4 PM - 7 PM', description: 'Limited availability' },
-  ];
+  const getDayInfo = (date: Date) => {
+    const dateStr = formatDate(date);
+    return availability?.find(day => day.date === dateStr);
+  };
 
-  if (availabilityLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-8 bg-navy-200 rounded w-48 mb-4"></div>
-          <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: 21 }).map((_, i) => (
-              <div key={i} className="h-12 bg-navy-100 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const canContinue = selectedDate && selectedTime;
 
   return (
     <div className="space-y-6">
       {/* Calendar */}
       <div>
-        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Your Pickup Date</h3>
-        <Card variant="elevated">
+        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
+        <div className="grid grid-cols-7 gap-2">
+          {getNext30Days().map((date) => {
+            const dateStr = formatDate(date);
+            const dayInfo = getDayInfo(date);
+            const isSelected = selectedDate === dateStr;
+            const isAvailable = dayInfo?.available !== false;
+            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+
+            return (
+              <button
+                key={dateStr}
+                onClick={() => isAvailable && handleDateSelect(dateStr)}
+                disabled={!isAvailable}
+                className={`
+                  p-2 text-sm rounded-md border transition-all min-h-[60px] flex flex-col items-center justify-center
+                  ${isSelected 
+                    ? 'bg-navy-900 text-white border-navy-900' 
+                    : isAvailable
+                    ? 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  }
+                `}
+              >
+                <div className="font-medium">{date.getDate()}</div>
+                <div className="text-xs opacity-75">
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                </div>
+                {hasSurcharge && (
+                  <div className="text-xs text-orange-600 mt-1">•</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Legend */}
+        <div className="flex items-center justify-center space-x-4 mt-3 text-sm">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-white border border-gray-200 rounded mr-2"></div>
+            <span className="text-navy-600">Available</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-gray-100 rounded mr-2"></div>
+            <span className="text-navy-600">Unavailable</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
+            <span className="text-navy-600">Surcharge applies</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected Date Info */}
+      {selectedDate && (
+        <Card variant="default">
           <CardContent>
-            <div className="grid grid-cols-7 gap-2 mb-4">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-navy-600 py-2">
-                  {day}
+            <div className="text-center">
+              <h4 className="font-medium text-navy-900 mb-2">
+                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </h4>
+              <p className="text-sm text-navy-600">
+                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.capacity_used || 0}/
+                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.max_capacity || 10} booked
+              </p>
+              
+              {/* Surcharge notices */}
+              {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges?.map((surcharge, index) => (
+                <div key={index} className="mt-2 text-sm text-orange-600">
+                  <strong>Additional charges apply:</strong>
+                  <br />• {surcharge.description}
                 </div>
               ))}
             </div>
-            
-            <div className="grid grid-cols-7 gap-2">
-              {calendarDays.slice(0, 42).map(date => {
-                const dayInfo = availabilityMap[date];
-                const isSelected = selectedDate === date;
-                const isAvailable = dayInfo?.available !== false;
-                const hasSurcharges = dayInfo?.surcharges?.length > 0;
-                const dateObj = new Date(date);
-                const isToday = date === new Date().toISOString().split('T')[0];
-                
-                return (
-                  <button
-                    key={date}
-                    onClick={() => isAvailable && handleDateSelect(date)}
-                    disabled={!isAvailable}
-                    className={`
-                      h-12 text-sm rounded-md relative transition-all
-                      ${isSelected 
-                        ? 'bg-navy-900 text-white' 
-                        : isAvailable
-                        ? 'bg-white border border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }
-                      ${isToday ? 'ring-2 ring-gold-500' : ''}
-                      ${hasSurcharges && isAvailable ? 'border-orange-300 bg-orange-50' : ''}
-                    `}
-                  >
-                    <span className="block">{dateObj.getDate()}</span>
-                    {hasSurcharges && isAvailable && (
-                      <span className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full"></span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            
-            {/* Legend */}
-            <div className="flex items-center justify-center space-x-6 mt-4 text-xs text-navy-600">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-orange-50 border border-orange-300 rounded mr-1"></div>
-                <span>Surcharge applies</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-gray-100 rounded mr-1"></div>
-                <span>Unavailable</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
-
-        {/* Selected Date Info */}
-        {selectedDate && availabilityMap[selectedDate] && (
-          <div className="mt-4">
-            <Card variant="default" className="border-gold-200 bg-gold-50">
-              <CardContent>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-medium text-navy-900">
-                      {new Date(selectedDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </h4>
-                    {availabilityMap[selectedDate].surcharges?.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm text-orange-700 font-medium">Additional charges apply:</p>
-                        <ul className="text-sm text-orange-600">
-                          {availabilityMap[selectedDate].surcharges.map((surcharge, index) => (
-                            <li key={index}>• {surcharge.description}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="text-right">
-                    <span className="text-sm text-navy-600">
-                      {availabilityMap[selectedDate].capacity_used}/{availabilityMap[selectedDate].max_capacity} booked
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Time Selection */}
       {selectedDate && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {timeSlots.map((slot) => (
-              <button
-                key={slot.value}
-                onClick={() => handleTimeSelect(slot.value)}
-                className={`
-                  p-4 rounded-lg border-2 text-left transition-all
-                  ${selectedTime === slot.value
-                    ? 'border-navy-900 bg-navy-50'
-                    : 'border-gray-200 hover:border-navy-300'
-                  }
-                `}
-              >
-                <h4 className="font-medium text-navy-900">{slot.label}</h4>
-                <p className="text-sm text-navy-600">{slot.description}</p>
-              </button>
-            ))}
+            <button
+              onClick={() => handleTimeSelect('morning')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'morning'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">8 AM - 11 AM</div>
+              <div className="text-sm text-navy-600">Best availability</div>
+            </button>
+
+            <button
+              onClick={() => handleTimeSelect('afternoon')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'afternoon'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">12 PM - 3 PM</div>
+              <div className="text-sm text-navy-600">Popular choice</div>
+            </button>
+
+            <button
+              onClick={() => handleTimeSelect('evening')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'evening'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">4 PM - 7 PM</div>
+              <div className="text-sm text-navy-600">Limited availability</div>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Pricing Preview */}
-      {bookingData.pricing_data && (
-        <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
-          <Card variant="luxury">
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Base Price:</span>
-                  <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
+      {/* FIXED: Pricing Summary with dark text */}
+      {pricingMutation.data?.pricing && (
+        <Card variant="luxury">
+          <CardContent>
+            <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-navy-900 font-medium">Base Price:</span>
+                <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+              </div>
+
+              {pricingMutation.data.pricing.surcharge_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Date Surcharges:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
                 </div>
-                
-                {bookingData.pricing_data.surcharge_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">Date Surcharges:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
-                  </div>
-                )}
-                
-                {bookingData.pricing_data.coi_fee_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">COI Fee:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.coi_fee_dollars}</span>
-                  </div>
-                )}
-                
-                {bookingData.pricing_data.organizing_total_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">Organizing Services:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
-                  </div>
-                )}
-                
-                <hr className="border-gray-200" />
-                
-                <div className="flex justify-between text-lg font-bold">
-                  <span className="text-navy-900">Total:</span>
-                  <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+              )}
+
+              {pricingMutation.data.pricing.coi_fee_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                </div>
+              )}
+
+              {pricingMutation.data.pricing.organizing_total_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold text-navy-900">Total:</span>
+                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* COI Option */}
-      {bookingData.service_type === 'mini_move' && (
-        <div>
-          <Card variant="default">
-            <CardContent>
-              <label className="flex items-start">
-                <input
-                  type="checkbox"
-                  checked={bookingData.coi_required || false}
-                  onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
-                  className="mt-1 mr-3"
-                />
-                <div>
-                  <span className="font-medium text-navy-900">
-                    Certificate of Insurance (COI) Required
-                  </span>
-                  <p className="text-sm text-navy-600 mt-1">
-                    Required by some buildings. We'll handle the paperwork for you.
-                  </p>
-                </div>
-              </label>
-            </CardContent>
-          </Card>
-        </div>
+      {selectedDate && (
+        <Card variant="default">
+          <CardContent>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={bookingData.coi_required || false}
+                onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
+                className="mr-3"
+              />
+              <div>
+                <span className="font-medium text-navy-900">Certificate of Insurance (COI) Required</span>
+                <p className="text-sm text-navy-600">
+                  Required by some buildings. We'll handle the paperwork for you.
+                </p>
+              </div>
+            </label>
+          </CardContent>
+        </Card>
       )}
 
       {/* Continue Button */}
-      {canContinue && (
-        <div className="flex justify-end">
-          <Button 
-            variant="primary" 
-            onClick={handleContinue}
-            disabled={pricingMutation.isPending}
-          >
-            {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end pt-4">
+        <Button
+          onClick={handleContinue}
+          disabled={!canContinue || pricingMutation.isPending}
+          size="lg"
+        >
+          {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+        </Button>
+      </div>
     </div>
   );
 }
