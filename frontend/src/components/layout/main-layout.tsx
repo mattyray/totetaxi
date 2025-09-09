@@ -3,15 +3,16 @@ import { cn } from '@/utils/cn';
 interface MainLayoutProps {
   children: React.ReactNode;
   className?: string;
+  onBookNowClick?: () => void;
 }
 
-export function MainLayout({ children, className }: MainLayoutProps) {
+export function MainLayout({ children, className, onBookNowClick }: MainLayoutProps) {
   return (
     <div className={cn(
       'min-h-screen bg-gradient-to-br from-cream-50 to-cream-100',
       className
     )}>
-      {/* Header will go here */}
+      {/* Header */}
       <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -28,7 +29,10 @@ export function MainLayout({ children, className }: MainLayoutProps) {
               <a href="#contact" className="text-navy-700 hover:text-navy-900 transition-colors">
                 Contact
               </a>
-              <button className="bg-navy-900 text-white px-4 py-2 rounded-md hover:bg-navy-800 transition-colors">
+              <button 
+                onClick={onBookNowClick}
+                className="bg-navy-900 text-white px-4 py-2 rounded-md hover:bg-navy-800 transition-colors"
+              >
                 Book Now
               </button>
             </nav>
@@ -41,7 +45,7 @@ export function MainLayout({ children, className }: MainLayoutProps) {
         {children}
       </main>
 
-      {/* Footer will go here */}
+      {/* Footer */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="text-center">
