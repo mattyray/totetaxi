@@ -18,7 +18,8 @@
 │   │   ├── bookings
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── 0001_initial.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_booking_include_packing_booking_include_unpacking_and_more.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -93,11 +94,14 @@
 │   │   ├── services
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── 0001_initial.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   ├── 0002_organizingservice.py
+│   │   │   │   └── 0003_populate_organizing_services.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
+│   │   │   ├── serializers.py
 │   │   │   ├── tests.py
 │   │   │   └── views.py
 │   │   └── __init__.py
@@ -133,6 +137,9 @@
 │   │   ├── next.svg
 │   │   ├── vercel.svg
 │   │   └── window.svg
+│   ├── scripts
+│   │   ├── front_export.py
+│   │   └── frontend_snapshot.txt
 │   ├── src
 │   │   ├── app
 │   │   │   ├── favicon.ico
@@ -143,6 +150,8 @@
 │   │   ├── components
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
+│   │   │   ├── marketing
+│   │   │   │   └── service-showcase.tsx
 │   │   │   ├── providers
 │   │   │   │   └── query-provider.tsx
 │   │   │   ├── ui
@@ -169,13 +178,16 @@
 │   ├── package.json
 │   ├── postcss.config.js
 │   ├── postcss.config.mjs
-│   ├── project_structure.txt
 │   ├── README.md
 │   ├── tailwind.config.js
 │   └── tsconfig.json
+├── src
+│   └── components
+│       └── marketing
 ├── .gitignore
 ├── docker-compose.prod.yml
+├── invoice.html
 ├── project_structure.txt
 └── README.md
 
-40 directories, 139 files
+45 directories, 146 files

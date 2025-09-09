@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice - ToteTaxi Project</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #1a365d;
+        }
+        .invoice-title {
+            font-size: 36px;
+            font-weight: bold;
+            color: #1a365d;
+            margin-bottom: 10px;
+        }
+        .invoice-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+        }
+        .from, .to {
+            flex: 1;
+        }
+        .from {
+            margin-right: 40px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a365d;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .invoice-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .invoice-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .invoice-info td {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .invoice-info td:first-child {
+            font-weight: bold;
+            width: 30%;
+        }
+        .services-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .services-table th,
+        .services-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .services-table th {
+            background-color: #1a365d;
+            color: white;
+            font-weight: bold;
+        }
+        .total {
+            text-align: right;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a365d;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="invoice-title">INVOICE</div>
+    </div>
+
+    <div class="invoice-details">
+        <div class="from">
+            <div class="section-title">From</div>
+            <strong>Matthew Raynor</strong><br>
+            Developer & Consultant
+        </div>
+        <div class="to">
+            <div class="section-title">Bill To</div>
+            <strong>ToteTaxi</strong><br>
+            Luxury Delivery Service
+        </div>
+    </div>
+
+    <div class="invoice-info">
+        <table>
+            <tr>
+                <td>Invoice Number:</td>
+                <td>TT-001</td>
+            </tr>
+            <tr>
+                <td>Invoice Date:</td>
+                <td>September 9, 2025</td>
+            </tr>
+            <tr>
+                <td>Due Date:</td>
+                <td>October 9, 2025</td>
+            </tr>
+            <tr>
+                <td>Payment Terms:</td>
+                <td>Net 30</td>
+            </tr>
+            <tr>
+                <td>Project:</td>
+                <td>ToteTaxi Development - Getting Started</td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="services-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="text-align: right; width: 150px;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>Initial Project Setup and Development</strong><br>
+                    <span style="color: #666; font-size: 14px;">
+                        • Project architecture and planning<br>
+                        • Backend development setup (Django + PostgreSQL)<br>
+                        • Frontend foundation implementation (Next.js + TypeScript)<br>
+                        • Documentation and system design<br>
+                        • Development environment configuration
+                    </span>
+                </td>
+                <td style="text-align: right; font-weight: bold;">$500.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="total">
+        Total Due: $500.00
+    </div>
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+        <p style="font-size: 12px; color: #999;">
+            This invoice covers initial development work for the ToteTaxi luxury delivery platform.
+        </p>
+    </div>
+</body>
+</html>

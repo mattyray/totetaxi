@@ -92,42 +92,22 @@ class ServiceCatalogSerializer(serializers.Serializer):
 class OrganizingServicesByTierSerializer(serializers.Serializer):
     """Organizing services grouped by Mini Move tier for easy frontend consumption"""
     
-    petite = serializers.SerializerMethodField()
-    standard = serializers.SerializerMethodField()
-    full = serializers.SerializerMethodField()
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Cache organizing services to avoid repeated queries
-        self._organizing_services = OrganizingService.objects.filter(is_active=True)
-    
-    def get_petite(self, obj):
-        petite_services = self._organizing_services.filter(mini_move_tier='petite')
-        return {
-            'packing': self._get_service_data(petite_services, is_packing=True),
-            'unpacking': self._get_service_data(petite_services, is_packing=False)
-        }
-    
-    def get_standard(self, obj):
-        standard_services = self._organizing_services.filter(mini_move_tier='standard')
-        return {
-            'packing': self._get_service_data(standard_services, is_packing=True),
-            'unpacking': self._get_service_data(standard_services, is_packing=False)
-        }
-    
-    def get_full(self, obj):
-        full_services = self._organizing_services.filter(mini_move_tier='full')
-        return {
-            'packing': self._get_service_data(full_services, is_packing=True),
-            'unpacking': self._get_service_data(full_services, is_packing=False)
-        }
-    
-    def _get_service_data(self, services, is_packing):
-        """Helper to get service data for packing or unpacking"""
-        service = services.filter(is_packing_service=is_packing).first()
-        if service:
-            return OrganizingServiceSerializer(service).data
-        return None
+    def to_representation(self, instance):
+        # Get all organizing services
+        organizing_services = OrganizingService.objects.filter(is_active=True)
+        
+        result = {}
+        for tier in ['petite', 'standard', 'full']:
+            tier_services = organizing_services.filter(mini_move_tier=tier)
+            packing_service = tier_services.filter(is_packing_service=True).first()
+            unpacking_service = tier_services.filter(is_packing_service=False).first()
+            
+            result[tier] = {
+                'packing': OrganizingServiceSerializer(packing_service).data if packing_service else None,
+                'unpacking': OrganizingServiceSerializer(unpacking_service).data if unpacking_service else None
+            }
+        
+        return result
 
 
 class MiniMoveWithOrganizingSerializer(serializers.Serializer):
