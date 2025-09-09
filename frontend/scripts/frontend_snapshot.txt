@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND - CODE FILES ONLY
-# Generated: 2025-09-09 17:01:00
-# Files: 25 essential code files
+# Generated: 2025-09-09 18:26:07
+# Files: 33 essential code files
 # Stack: Next.js 14 + TypeScript + Tailwind v3 + TanStack Query v5
 
 # ==== next-env.d.ts ====
@@ -166,70 +166,1769 @@ export default function RootLayout({
 ```typescript
 'use client';
 
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
 import { TestAPIConnection } from '@/components/test-api-connection';
+import { BookingWizard } from '@/components/booking';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 
 export default function Home() {
+  const [showBookingWizard, setShowBookingWizard] = useState(false);
+
+  const openBookingWizard = () => {
+    setShowBookingWizard(true);
+  };
+
+  const closeBookingWizard = () => {
+    setShowBookingWizard(false);
+  };
+
   return (
-    <MainLayout>
-      {/* Hero Section */}
-      <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
-            Luxury Delivery to the Hamptons
-          </h1>
-          <p className="text-xl text-navy-700 mb-8 max-w-3xl mx-auto">
-            From suitcases to surfboards, strollers to pop-up props, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="primary" size="lg">
-              Book Your Move
-            </Button>
-            <Button variant="outline" size="lg">
-              View Pricing
+    <>
+      <MainLayout>
+        {/* Hero Section */}
+        <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
+              Luxury Delivery to the Hamptons
+            </h1>
+            <p className="text-xl text-navy-700 mb-8 max-w-3xl mx-auto">
+              From suitcases to surfboards, strollers to pop-up props, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button variant="primary" size="lg" onClick={openBookingWizard}>
+                Book Your Move
+              </Button>
+              <Button variant="outline" size="lg">
+                View Pricing
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* API Connection Status - Remove this in production */}
+        <div className="container mx-auto px-4 py-8">
+          <TestAPIConnection />
+        </div>
+
+        {/* Service Showcase */}
+        <ServiceShowcase />
+
+        {/* Trust Signals Section */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+                Trusted by Premium Brands
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🚁</div>
+                <h3 className="font-medium text-navy-900 mb-2">Blade Integration</h3>
+                <p className="text-navy-600 text-sm">Official luggage partner for helicopter transfers</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">📚</div>
+                <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
+                <p className="text-navy-600 text-sm">Trusted distribution partner</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏃‍♀️</div>
+                <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
+                <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Call-to-Action Section */}
+        <section className="py-16 bg-navy-900 text-white">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl font-serif font-bold mb-4">
+              Ready for White-Glove Service?
+            </h2>
+            <p className="text-xl text-navy-200 mb-8 max-w-2xl mx-auto">
+              Join hundreds of satisfied customers who trust ToteTaxi for their Hamptons moves.
+            </p>
+            <Button 
+              variant="secondary" 
+              size="lg"
+              onClick={openBookingWizard}
+            >
+              Start Your Booking
             </Button>
           </div>
-        </div>
-      </section>
+        </section>
+      </MainLayout>
 
-      {/* API Connection Status - Remove this in production */}
-      <div className="container mx-auto px-4 py-8">
-        <TestAPIConnection />
+      {/* Booking Wizard Modal */}
+      <Modal
+        isOpen={showBookingWizard}
+        onClose={closeBookingWizard}
+        size="full"
+        className="max-w-6xl"
+        showCloseButton={true}
+      >
+        <BookingWizard />
+      </Modal>
+    </>
+  );
+}
+```
+
+# ==== src/components/booking/address-step.tsx ====
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+const STATES = [
+  { value: 'NY', label: 'New York' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'NJ', label: 'New Jersey' },
+];
+
+const POPULAR_ADDRESSES = {
+  pickup: [
+    { name: 'Upper East Side', address: 'Upper East Side, New York, NY' },
+    { name: 'Upper West Side', address: 'Upper West Side, New York, NY' },
+    { name: 'Midtown East', address: 'Midtown East, New York, NY' },
+    { name: 'SoHo', address: 'SoHo, New York, NY' },
+    { name: 'Tribeca', address: 'Tribeca, New York, NY' },
+  ],
+  delivery: [
+    { name: 'East Hampton', address: 'East Hampton, NY' },
+    { name: 'Southampton', address: 'Southampton, NY' },
+    { name: 'Bridgehampton', address: 'Bridgehampton, NY' },
+    { name: 'Westhampton Beach', address: 'Westhampton Beach, NY' },
+    { name: 'Sag Harbor', address: 'Sag Harbor, NY' },
+  ]
+};
+
+interface AddressFormProps {
+  title: string;
+  address: BookingAddress | undefined;
+  onAddressChange: (address: BookingAddress) => void;
+  popularAddresses: Array<{ name: string; address: string }>;
+  errors: Record<string, string>;
+}
+
+function AddressForm({ title, address, onAddressChange, popularAddresses, errors }: AddressFormProps) {
+  const [showQuickSelect, setShowQuickSelect] = useState(!address?.address_line_1);
+
+  const handleQuickSelect = (selectedAddress: string) => {
+    // Parse the quick-select address
+    const parts = selectedAddress.split(', ');
+    onAddressChange({
+      address_line_1: parts[0],
+      city: parts[1] || '',
+      state: (parts[2] || 'NY') as 'NY' | 'CT' | 'NJ',
+      zip_code: '',
+      address_line_2: ''
+    });
+    setShowQuickSelect(false);
+  };
+
+  const handleFieldChange = (field: keyof BookingAddress, value: string) => {
+    onAddressChange({
+      ...address,
+      [field]: value
+    } as BookingAddress);
+  };
+
+  return (
+    <Card variant="elevated">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-navy-900">{title}</h3>
+          {address?.address_line_1 && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowQuickSelect(!showQuickSelect)}
+            >
+              {showQuickSelect ? 'Manual Entry' : 'Quick Select'}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent>
+        {showQuickSelect ? (
+          <div className="space-y-2">
+            <p className="text-sm text-navy-600 mb-3">Popular {title.toLowerCase()} locations:</p>
+            {popularAddresses.map((addr, index) => (
+              <button
+                key={index}
+                onClick={() => handleQuickSelect(addr.address)}
+                className="w-full text-left p-3 rounded-md border border-gray-200 hover:border-navy-300 hover:bg-navy-50 transition-all"
+              >
+                <span className="font-medium text-navy-900">{addr.name}</span>
+                <span className="block text-sm text-navy-600">{addr.address}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => setShowQuickSelect(false)}
+              className="w-full p-3 text-center border-2 border-dashed border-gray-300 rounded-md text-navy-600 hover:border-navy-400 transition-all"
+            >
+              + Enter Custom Address
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Input
+              label="Street Address"
+              value={address?.address_line_1 || ''}
+              onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
+              error={errors.address_line_1}
+              placeholder="123 Main Street"
+              required
+            />
+            
+            <Input
+              label="Apartment, Suite, etc. (Optional)"
+              value={address?.address_line_2 || ''}
+              onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
+              placeholder="Apt 4B, Suite 200"
+            />
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="City"
+                value={address?.city || ''}
+                onChange={(e) => handleFieldChange('city', e.target.value)}
+                error={errors.city}
+                placeholder="New York"
+                required
+              />
+              
+              <div>
+                <label className="block text-sm font-medium text-navy-900 mb-1">
+                  State
+                </label>
+                <select
+                  value={address?.state || 'NY'}
+                  onChange={(e) => handleFieldChange('state', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
+                >
+                  {STATES.map(state => (
+                    <option key={state.value} value={state.value}>
+                      {state.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <Input
+              label="ZIP Code"
+              value={address?.zip_code || ''}
+              onChange={(e) => handleFieldChange('zip_code', e.target.value)}
+              error={errors.zip_code}
+              placeholder="10001"
+              required
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AddressStep() {
+  const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+
+  const handlePickupChange = (address: BookingAddress) => {
+    updateBookingData({ pickup_address: address });
+    clearError('pickup_address');
+  };
+
+  const handleDeliveryChange = (address: BookingAddress) => {
+    updateBookingData({ delivery_address: address });
+    clearError('delivery_address');
+  };
+
+  const validateAndContinue = () => {
+    let hasErrors = false;
+
+    // Validate pickup address
+    if (!bookingData.pickup_address?.address_line_1) {
+      setError('pickup_address', 'Pickup address is required');
+      hasErrors = true;
+    }
+    if (!bookingData.pickup_address?.city) {
+      setError('pickup_city', 'City is required');
+      hasErrors = true;
+    }
+    if (!bookingData.pickup_address?.zip_code) {
+      setError('pickup_zip', 'ZIP code is required');
+      hasErrors = true;
+    }
+
+    // Validate delivery address
+    if (!bookingData.delivery_address?.address_line_1) {
+      setError('delivery_address', 'Delivery address is required');
+      hasErrors = true;
+    }
+    if (!bookingData.delivery_address?.city) {
+      setError('delivery_city', 'City is required');
+      hasErrors = true;
+    }
+    if (!bookingData.delivery_address?.zip_code) {
+      setError('delivery_zip', 'ZIP code is required');
+      hasErrors = true;
+    }
+
+    if (!hasErrors) {
+      nextStep();
+    }
+  };
+
+  const canContinue = 
+    bookingData.pickup_address?.address_line_1 &&
+    bookingData.pickup_address?.city &&
+    bookingData.pickup_address?.zip_code &&
+    bookingData.delivery_address?.address_line_1 &&
+    bookingData.delivery_address?.city &&
+    bookingData.delivery_address?.zip_code;
+
+  return (
+    <div className="space-y-6">
+      {/* Instructions */}
+      <div className="text-center py-4">
+        <p className="text-navy-700">
+          Where should we pick up and deliver your items?
+        </p>
+        <p className="text-sm text-navy-600 mt-1">
+          We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
+        </p>
       </div>
 
-      {/* Service Showcase */}
-      <ServiceShowcase />
+      {/* Pickup Address */}
+      <AddressForm
+        title="Pickup Address"
+        address={bookingData.pickup_address}
+        onAddressChange={handlePickupChange}
+        popularAddresses={POPULAR_ADDRESSES.pickup}
+        errors={{
+          address_line_1: errors.pickup_address || '',
+          city: errors.pickup_city || '',
+          zip_code: errors.pickup_zip || ''
+        }}
+      />
 
-      {/* Trust Signals Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
-              Trusted by Premium Brands
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🚁</div>
-              <h3 className="font-medium text-navy-900 mb-2">Blade Integration</h3>
-              <p className="text-navy-600 text-sm">Official luggage partner for helicopter transfers</p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">📚</div>
-              <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
-              <p className="text-navy-600 text-sm">Trusted distribution partner</p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">🏃‍♀️</div>
-              <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
-              <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
-            </div>
+      {/* Delivery Address */}
+      <AddressForm
+        title="Delivery Address"
+        address={bookingData.delivery_address}
+        onAddressChange={handleDeliveryChange}
+        popularAddresses={POPULAR_ADDRESSES.delivery}
+        errors={{
+          address_line_1: errors.delivery_address || '',
+          city: errors.delivery_city || '',
+          zip_code: errors.delivery_zip || ''
+        }}
+      />
+
+      {/* Special Instructions */}
+      <Card variant="default">
+        <CardContent>
+          <label className="block text-sm font-medium text-navy-900 mb-2">
+            Special Instructions (Optional)
+          </label>
+          <textarea
+            value={bookingData.special_instructions || ''}
+            onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
+            placeholder="Any special delivery instructions, building access codes, or notes for our team..."
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
+          />
+          <p className="text-sm text-navy-600 mt-1">
+            Include building access codes, doorman instructions, or any special handling requests.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Continue Button */}
+      <div className="flex justify-end">
+        <Button 
+          variant="primary" 
+          onClick={validateAndContinue}
+          disabled={!canContinue}
+        >
+          Continue to Your Info →
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/booking-wizard.tsx ====
+
+```typescript
+'use client';
+
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ServiceSelectionStep } from './service-selection-step';
+import { DateTimeStep } from './date-time-step';
+import { AddressStep } from './address-step';
+import { CustomerInfoStep } from './customer-info-step';
+import { ReviewPaymentStep } from './review-payment-step';
+
+const STEPS = [
+  { number: 1, title: 'Select Service', component: ServiceSelectionStep },
+  { number: 2, title: 'Date & Time', component: DateTimeStep },
+  { number: 3, title: 'Addresses', component: AddressStep },
+  { number: 4, title: 'Your Info', component: CustomerInfoStep },
+  { number: 5, title: 'Review & Pay', component: ReviewPaymentStep },
+];
+
+export function BookingWizard() {
+  const {
+    currentStep,
+    nextStep,
+    previousStep,
+    canProceedToStep,
+    resetWizard
+  } = useBookingWizard();
+
+  const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
+      <div className="container mx-auto px-4 max-w-4xl">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
+            Book Your Luxury Move
+          </h1>
+          <p className="text-navy-700">
+            From Manhattan to the Hamptons with premium care
+          </p>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            {STEPS.map((step, index) => (
+              <div key={step.number} className="flex items-center">
+                {/* Step Circle */}
+                <div className={`
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  ${currentStep === step.number 
+                    ? 'bg-navy-900 text-white' 
+                    : currentStep > step.number
+                    ? 'bg-green-500 text-white'
+                    : canProceedToStep(step.number)
+                    ? 'bg-navy-200 text-navy-900 cursor-pointer hover:bg-navy-300'
+                    : 'bg-gray-200 text-gray-500'
+                  }
+                `}>
+                  {currentStep > step.number ? '✓' : step.number}
+                </div>
+                
+                {/* Step Title */}
+                <span className={`
+                  ml-2 text-sm font-medium
+                  ${currentStep === step.number ? 'text-navy-900' : 'text-navy-600'}
+                `}>
+                  {step.title}
+                </span>
+                
+                {/* Connector Line */}
+                {index < STEPS.length - 1 && (
+                  <div className={`
+                    h-0.5 w-12 mx-4
+                    ${currentStep > step.number ? 'bg-green-500' : 'bg-gray-200'}
+                  `} />
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      </section>
-    </MainLayout>
+
+        {/* Main Content */}
+        <Card variant="elevated" className="mb-8">
+          <CardHeader>
+            <h2 className="text-xl font-serif font-bold text-navy-900">
+              Step {currentStep}: {STEPS.find(s => s.number === currentStep)?.title}
+            </h2>
+          </CardHeader>
+          <CardContent>
+            {CurrentStepComponent && <CurrentStepComponent />}
+          </CardContent>
+        </Card>
+
+        {/* Navigation */}
+        <div className="flex justify-between items-center">
+          <div>
+            {currentStep > 1 && (
+              <Button 
+                variant="outline" 
+                onClick={previousStep}
+                className="mr-4"
+              >
+                ← Previous
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              onClick={resetWizard}
+              className="text-navy-600"
+            >
+              Start Over
+            </Button>
+          </div>
+          
+          <div>
+            {currentStep < 5 && canProceedToStep(currentStep + 1) && (
+              <Button 
+                variant="primary" 
+                onClick={nextStep}
+              >
+                Continue →
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/customer-info-step.tsx ====
+
+```typescript
+'use client';
+
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+export function CustomerInfoStep() {
+  const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+
+  const handleFieldChange = (field: string, value: string) => {
+    updateBookingData({
+      customer_info: {
+        first_name: bookingData.customer_info?.first_name || '',
+        last_name: bookingData.customer_info?.last_name || '',
+        email: bookingData.customer_info?.email || '',
+        phone: bookingData.customer_info?.phone || '',
+        ...bookingData.customer_info,
+        [field]: value
+      }
+    });
+    clearError(field);
+  };
+
+  const validateAndContinue = () => {
+    let hasErrors = false;
+
+    // Validate required fields
+    if (!bookingData.customer_info?.first_name) {
+      setError('first_name', 'First name is required');
+      hasErrors = true;
+    }
+    if (!bookingData.customer_info?.last_name) {
+      setError('last_name', 'Last name is required');
+      hasErrors = true;
+    }
+    if (!bookingData.customer_info?.email) {
+      setError('email', 'Email is required');
+      hasErrors = true;
+    } else if (!/\S+@\S+\.\S+/.test(bookingData.customer_info.email)) {
+      setError('email', 'Please enter a valid email address');
+      hasErrors = true;
+    }
+    if (!bookingData.customer_info?.phone) {
+      setError('phone', 'Phone number is required');
+      hasErrors = true;
+    } else if (!/^[\+]?[1]?[-\s\.]?[\(]?[0-9]{3}[\)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4}$/.test(bookingData.customer_info.phone)) {
+      setError('phone', 'Please enter a valid phone number');
+      hasErrors = true;
+    }
+
+    if (!hasErrors) {
+      nextStep();
+    }
+  };
+
+  const canContinue = 
+    bookingData.customer_info?.first_name &&
+    bookingData.customer_info?.last_name &&
+    bookingData.customer_info?.email &&
+    bookingData.customer_info?.phone;
+
+  return (
+    <div className="space-y-6">
+      {/* Information Card */}
+      <div className="text-center py-4">
+        <h3 className="text-lg font-medium text-navy-900 mb-2">Contact Information</h3>
+        <p className="text-navy-700">
+          We'll use this information to coordinate your pickup and delivery.
+        </p>
+      </div>
+
+      {/* Customer Info Form */}
+      <Card variant="elevated">
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                value={bookingData.customer_info?.first_name || ''}
+                onChange={(e) => handleFieldChange('first_name', e.target.value)}
+                error={errors.first_name}
+                placeholder="John"
+                required
+              />
+              
+              <Input
+                label="Last Name"
+                value={bookingData.customer_info?.last_name || ''}
+                onChange={(e) => handleFieldChange('last_name', e.target.value)}
+                error={errors.last_name}
+                placeholder="Smith"
+                required
+              />
+            </div>
+            
+            <Input
+              label="Email Address"
+              type="email"
+              value={bookingData.customer_info?.email || ''}
+              onChange={(e) => handleFieldChange('email', e.target.value)}
+              error={errors.email}
+              placeholder="john.smith@email.com"
+              helper="We'll send confirmation and tracking updates to this email"
+              required
+            />
+            
+            <Input
+              label="Phone Number"
+              type="tel"
+              value={bookingData.customer_info?.phone || ''}
+              onChange={(e) => handleFieldChange('phone', e.target.value)}
+              error={errors.phone}
+              placeholder="(555) 123-4567"
+              helper="For pickup and delivery coordination"
+              required
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Privacy Notice */}
+      <Card variant="default" className="border-gold-200 bg-gold-50">
+        <CardContent>
+          <div className="flex items-start">
+            <div className="text-gold-600 mr-3 mt-1">🔒</div>
+            <div>
+              <h4 className="font-medium text-navy-900 mb-1">Privacy & Security</h4>
+              <p className="text-sm text-navy-700">
+                Your information is encrypted and secure. We'll only use it to provide your ToteTaxi service 
+                and send important updates about your booking. We never sell or share your personal data.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* VIP Program Signup */}
+      <Card variant="luxury">
+        <CardContent>
+          <div className="text-center">
+            <h4 className="font-serif text-lg font-bold text-navy-900 mb-2">
+              Join ToteTaxi VIP
+            </h4>
+            <p className="text-navy-700 text-sm mb-4">
+              Get priority scheduling, exclusive pricing, and seasonal storage benefits.
+            </p>
+            <label className="flex items-center justify-center">
+              <input
+                type="checkbox"
+                className="mr-2"
+                // This could be stored in booking data if you want to track VIP signups
+              />
+              <span className="text-sm text-navy-900">
+                Yes, I want to join ToteTaxi VIP (free to join)
+              </span>
+            </label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Account Creation Notice */}
+      <div className="text-center text-sm text-navy-600">
+        <p>
+          Already have an account? 
+          <button className="text-navy-900 hover:underline ml-1">
+            Sign in for faster checkout
+          </button>
+        </p>
+      </div>
+
+      {/* Continue Button */}
+      <div className="flex justify-end">
+        <Button 
+          variant="primary" 
+          onClick={validateAndContinue}
+          disabled={!canContinue}
+        >
+          Continue to Review & Payment →
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/date-time-step.tsx ====
+
+```typescript
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+interface AvailabilityDay {
+  date: string;
+  available: boolean;
+  is_weekend: boolean;
+  specialty_items_allowed: boolean;
+  capacity_used: number;
+  max_capacity: number;
+  surcharges: Array<{
+    name: string;
+    type: string;
+    description: string;
+  }>;
+}
+
+interface PricingPreview {
+  service_type: string;
+  pricing: {
+    base_price_dollars: number;
+    surcharge_dollars: number;
+    coi_fee_dollars: number;
+    organizing_total_dollars: number;
+    total_price_dollars: number;
+  };
+  details: any;
+  pickup_date: string;
+}
+
+type PickupTime = 'morning' | 'afternoon' | 'evening';
+
+export function DateTimeStep() {
+  const { bookingData, updateBookingData, nextStep } = useBookingWizard();
+  const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
+  const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
+
+  // Get calendar availability
+  const { data: availability, isLoading: availabilityLoading } = useQuery({
+    queryKey: ['calendar', 'availability'],
+    queryFn: async (): Promise<{ availability: AvailabilityDay[] }> => {
+      const response = await apiClient.get('/api/public/availability/');
+      return response.data;
+    }
+  });
+
+  // Get pricing preview when date/service changes
+  const pricingMutation = useMutation({
+    mutationFn: async (pricingData: any): Promise<PricingPreview> => {
+      const response = await apiClient.post('/api/public/pricing-preview/', pricingData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      updateBookingData({ pricing_data: data.pricing });
+    }
+  });
+
+  // Update pricing when date or service selection changes
+  useEffect(() => {
+    if (selectedDate && bookingData.service_type) {
+      const pricingRequest: any = {
+        service_type: bookingData.service_type,
+        pickup_date: selectedDate,
+      };
+
+      // Add service-specific data
+      if (bookingData.service_type === 'mini_move') {
+        pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+        pricingRequest.coi_required = bookingData.coi_required;
+        pricingRequest.include_packing = bookingData.include_packing;
+        pricingRequest.include_unpacking = bookingData.include_unpacking;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+      } else if (bookingData.service_type === 'specialty_item') {
+        pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+      }
+
+      pricingMutation.mutate(pricingRequest);
+    }
+  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking]);
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    updateBookingData({ pickup_date: date });
+  };
+
+  const handleTimeSelect = (time: PickupTime) => {
+    setSelectedTime(time);
+    updateBookingData({ pickup_time: time });
+  };
+
+  const handleContinue = () => {
+    updateBookingData({
+      pickup_date: selectedDate,
+      pickup_time: selectedTime
+    });
+    nextStep();
+  };
+
+  const canContinue = selectedDate && selectedTime;
+
+  // Generate calendar days (next 60 days)
+  const generateCalendarDays = () => {
+    const days = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 60; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      days.push(date.toISOString().split('T')[0]);
+    }
+    
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+  const availabilityMap = availability?.availability.reduce((acc, day) => {
+    acc[day.date] = day;
+    return acc;
+  }, {} as Record<string, AvailabilityDay>) || {};
+
+  const timeSlots: Array<{ value: PickupTime; label: string; description: string }> = [
+    { value: 'morning', label: '8 AM - 11 AM', description: 'Best availability' },
+    { value: 'afternoon', label: '12 PM - 3 PM', description: 'Popular choice' },
+    { value: 'evening', label: '4 PM - 7 PM', description: 'Limited availability' },
+  ];
+
+  if (availabilityLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-8 bg-navy-200 rounded w-48 mb-4"></div>
+          <div className="grid grid-cols-7 gap-2">
+            {Array.from({ length: 21 }).map((_, i) => (
+              <div key={i} className="h-12 bg-navy-100 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Calendar */}
+      <div>
+        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Your Pickup Date</h3>
+        <Card variant="elevated">
+          <CardContent>
+            <div className="grid grid-cols-7 gap-2 mb-4">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="text-center text-sm font-medium text-navy-600 py-2">
+                  {day}
+                </div>
+              ))}
+            </div>
+            
+            <div className="grid grid-cols-7 gap-2">
+              {calendarDays.slice(0, 42).map(date => {
+                const dayInfo = availabilityMap[date];
+                const isSelected = selectedDate === date;
+                const isAvailable = dayInfo?.available !== false;
+                const hasSurcharges = dayInfo?.surcharges?.length > 0;
+                const dateObj = new Date(date);
+                const isToday = date === new Date().toISOString().split('T')[0];
+                
+                return (
+                  <button
+                    key={date}
+                    onClick={() => isAvailable && handleDateSelect(date)}
+                    disabled={!isAvailable}
+                    className={`
+                      h-12 text-sm rounded-md relative transition-all
+                      ${isSelected 
+                        ? 'bg-navy-900 text-white' 
+                        : isAvailable
+                        ? 'bg-white border border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }
+                      ${isToday ? 'ring-2 ring-gold-500' : ''}
+                      ${hasSurcharges && isAvailable ? 'border-orange-300 bg-orange-50' : ''}
+                    `}
+                  >
+                    <span className="block">{dateObj.getDate()}</span>
+                    {hasSurcharges && isAvailable && (
+                      <span className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* Legend */}
+            <div className="flex items-center justify-center space-x-6 mt-4 text-xs text-navy-600">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-orange-50 border border-orange-300 rounded mr-1"></div>
+                <span>Surcharge applies</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-gray-100 rounded mr-1"></div>
+                <span>Unavailable</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Selected Date Info */}
+        {selectedDate && availabilityMap[selectedDate] && (
+          <div className="mt-4">
+            <Card variant="default" className="border-gold-200 bg-gold-50">
+              <CardContent>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium text-navy-900">
+                      {new Date(selectedDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </h4>
+                    {availabilityMap[selectedDate].surcharges?.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-sm text-orange-700 font-medium">Additional charges apply:</p>
+                        <ul className="text-sm text-orange-600">
+                          {availabilityMap[selectedDate].surcharges.map((surcharge, index) => (
+                            <li key={index}>• {surcharge.description}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="text-right">
+                    <span className="text-sm text-navy-600">
+                      {availabilityMap[selectedDate].capacity_used}/{availabilityMap[selectedDate].max_capacity} booked
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Time Selection */}
+      {selectedDate && (
+        <div>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {timeSlots.map((slot) => (
+              <button
+                key={slot.value}
+                onClick={() => handleTimeSelect(slot.value)}
+                className={`
+                  p-4 rounded-lg border-2 text-left transition-all
+                  ${selectedTime === slot.value
+                    ? 'border-navy-900 bg-navy-50'
+                    : 'border-gray-200 hover:border-navy-300'
+                  }
+                `}
+              >
+                <h4 className="font-medium text-navy-900">{slot.label}</h4>
+                <p className="text-sm text-navy-600">{slot.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Preview */}
+      {bookingData.pricing_data && (
+        <div>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
+          <Card variant="luxury">
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-navy-700">Base Price:</span>
+                  <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
+                </div>
+                
+                {bookingData.pricing_data.surcharge_dollars > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-navy-700">Date Surcharges:</span>
+                    <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
+                  </div>
+                )}
+                
+                {bookingData.pricing_data.coi_fee_dollars > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-navy-700">COI Fee:</span>
+                    <span className="font-medium">+${bookingData.pricing_data.coi_fee_dollars}</span>
+                  </div>
+                )}
+                
+                {bookingData.pricing_data.organizing_total_dollars > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-navy-700">Organizing Services:</span>
+                    <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
+                  </div>
+                )}
+                
+                <hr className="border-gray-200" />
+                
+                <div className="flex justify-between text-lg font-bold">
+                  <span className="text-navy-900">Total:</span>
+                  <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* COI Option */}
+      {bookingData.service_type === 'mini_move' && (
+        <div>
+          <Card variant="default">
+            <CardContent>
+              <label className="flex items-start">
+                <input
+                  type="checkbox"
+                  checked={bookingData.coi_required || false}
+                  onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
+                  className="mt-1 mr-3"
+                />
+                <div>
+                  <span className="font-medium text-navy-900">
+                    Certificate of Insurance (COI) Required
+                  </span>
+                  <p className="text-sm text-navy-600 mt-1">
+                    Required by some buildings. We'll handle the paperwork for you.
+                  </p>
+                </div>
+              </label>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Continue Button */}
+      {canContinue && (
+        <div className="flex justify-end">
+          <Button 
+            variant="primary" 
+            onClick={handleContinue}
+            disabled={pricingMutation.isPending}
+          >
+            {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/index.ts ====
+
+```typescript
+export { BookingWizard } from './booking-wizard';
+export { ServiceSelectionStep } from './service-selection-step';
+export { DateTimeStep } from './date-time-step';
+export { AddressStep } from './address-step';
+export { CustomerInfoStep } from './customer-info-step';
+export { ReviewPaymentStep } from './review-payment-step';
+```
+
+# ==== src/components/booking/review-payment-step.tsx ====
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+interface BookingResponse {
+  message: string;
+  booking: {
+    id: string;
+    booking_number: string;
+    total_price_dollars: number;
+  };
+}
+
+export function ReviewPaymentStep() {
+  const { bookingData, resetWizard, setLoading, isLoading } = useBookingWizard();
+  const [bookingComplete, setBookingComplete] = useState(false);
+  const [bookingNumber, setBookingNumber] = useState<string>('');
+
+  // Create booking mutation
+  const createBookingMutation = useMutation({
+    mutationFn: async (): Promise<BookingResponse> => {
+      const bookingRequest = {
+        // Customer info
+        first_name: bookingData.customer_info?.first_name,
+        last_name: bookingData.customer_info?.last_name,
+        email: bookingData.customer_info?.email,
+        phone: bookingData.customer_info?.phone,
+        
+        // Service selection
+        service_type: bookingData.service_type,
+        mini_move_package_id: bookingData.mini_move_package_id,
+        include_packing: bookingData.include_packing,
+        include_unpacking: bookingData.include_unpacking,
+        standard_delivery_item_count: bookingData.standard_delivery_item_count,
+        is_same_day_delivery: bookingData.is_same_day_delivery,
+        specialty_item_ids: bookingData.specialty_item_ids,
+        
+        // Date and time
+        pickup_date: bookingData.pickup_date,
+        pickup_time: bookingData.pickup_time,
+        
+        // Addresses
+        pickup_address: bookingData.pickup_address,
+        delivery_address: bookingData.delivery_address,
+        
+        // Additional info
+        special_instructions: bookingData.special_instructions,
+        coi_required: bookingData.coi_required,
+      };
+
+      const response = await apiClient.post('/api/public/guest-booking/', bookingRequest);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setBookingNumber(data.booking.booking_number);
+      setBookingComplete(true);
+      setLoading(false);
+      
+      // In a real app, you'd redirect to payment processing here
+      // For now, we'll just show success
+    },
+    onError: (error) => {
+      setLoading(false);
+      console.error('Booking creation failed:', error);
+    }
+  });
+
+  const handleSubmitBooking = () => {
+    setLoading(true);
+    createBookingMutation.mutate();
+  };
+
+  const handleStartOver = () => {
+    resetWizard();
+    setBookingComplete(false);
+    setBookingNumber('');
+  };
+
+  if (bookingComplete) {
+    return (
+      <div className="text-center space-y-6">
+        <div className="text-6xl mb-4">✅</div>
+        
+        <Card variant="luxury">
+          <CardContent>
+            <h3 className="text-2xl font-serif font-bold text-navy-900 mb-4">
+              Booking Confirmed!
+            </h3>
+            
+            <div className="space-y-3">
+              <div className="bg-gold-50 border border-gold-200 rounded-lg p-4">
+                <span className="text-sm text-gold-700">Your Booking Number</span>
+                <div className="text-2xl font-bold text-navy-900">{bookingNumber}</div>
+              </div>
+              
+              <p className="text-navy-700">
+                Your luxury move is confirmed. We'll send a confirmation email to{' '}
+                <strong>{bookingData.customer_info?.email}</strong> with all the details.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="text-left">
+                  <span className="font-medium text-navy-900">Pickup:</span>
+                  <p className="text-navy-700">
+                    {new Date(bookingData.pickup_date!).toLocaleDateString()} at{' '}
+                    {bookingData.pickup_time === 'morning' ? '8-11 AM' : 
+                     bookingData.pickup_time === 'afternoon' ? '12-3 PM' : '4-7 PM'}
+                  </p>
+                  <p className="text-navy-600">
+                    {bookingData.pickup_address?.address_line_1}, {bookingData.pickup_address?.city}
+                  </p>
+                </div>
+                
+                <div className="text-left">
+                  <span className="font-medium text-navy-900">Total:</span>
+                  <p className="text-2xl font-bold text-navy-900">
+                    ${bookingData.pricing_data?.total_price_dollars}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <h4 className="text-lg font-medium text-navy-900">What's Next?</h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <Card variant="default">
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-2xl mb-2">📧</div>
+                  <h5 className="font-medium text-navy-900 mb-1">Confirmation Email</h5>
+                  <p className="text-navy-600">Check your email for booking details and our team contact info.</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card variant="default">
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-2xl mb-2">📞</div>
+                  <h5 className="font-medium text-navy-900 mb-1">Coordination Call</h5>
+                  <p className="text-navy-600">We'll call 24 hours before pickup to confirm timing.</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card variant="default">
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-2xl mb-2">🚛</div>
+                  <h5 className="font-medium text-navy-900 mb-1">White Glove Service</h5>
+                  <p className="text-navy-600">Our professional team handles everything with care.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="flex justify-center space-x-4">
+          <Button variant="outline" onClick={handleStartOver}>
+            Book Another Move
+          </Button>
+          <Button variant="primary" onClick={() => window.location.href = '/'}>
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Booking Summary */}
+      <Card variant="luxury">
+        <CardHeader>
+          <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Service Details */}
+            <div>
+              <h4 className="font-medium text-navy-900 mb-2">Service</h4>
+              <p className="text-navy-700">
+                {bookingData.service_type === 'mini_move' && 'Mini Move'}
+                {bookingData.service_type === 'standard_delivery' && 'Standard Delivery'}
+                {bookingData.service_type === 'specialty_item' && 'Specialty Items'}
+              </p>
+              
+              {bookingData.include_packing && (
+                <p className="text-sm text-navy-600">+ Professional Packing</p>
+              )}
+              {bookingData.include_unpacking && (
+                <p className="text-sm text-navy-600">+ Professional Unpacking</p>
+              )}
+            </div>
+
+            {/* Date & Time */}
+            <div>
+              <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
+              <p className="text-navy-700">
+                {new Date(bookingData.pickup_date!).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </p>
+              <p className="text-navy-600">
+                {bookingData.pickup_time === 'morning' && '8:00 AM - 11:00 AM'}
+                {bookingData.pickup_time === 'afternoon' && '12:00 PM - 3:00 PM'}
+                {bookingData.pickup_time === 'evening' && '4:00 PM - 7:00 PM'}
+              </p>
+            </div>
+
+            {/* Addresses */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                <div className="text-navy-700 text-sm">
+                  <div>{bookingData.pickup_address?.address_line_1}</div>
+                  {bookingData.pickup_address?.address_line_2 && (
+                    <div>{bookingData.pickup_address.address_line_2}</div>
+                  )}
+                  <div>
+                    {bookingData.pickup_address?.city}, {bookingData.pickup_address?.state} {bookingData.pickup_address?.zip_code}
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                <div className="text-navy-700 text-sm">
+                  <div>{bookingData.delivery_address?.address_line_1}</div>
+                  {bookingData.delivery_address?.address_line_2 && (
+                    <div>{bookingData.delivery_address.address_line_2}</div>
+                  )}
+                  <div>
+                    {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Info */}
+            <div>
+              <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
+              <div className="text-navy-700">
+                <div>
+                  {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
+                </div>
+                <div>{bookingData.customer_info?.email}</div>
+                <div>{bookingData.customer_info?.phone}</div>
+              </div>
+            </div>
+
+            {/* Special Instructions */}
+            {bookingData.special_instructions && (
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Special Instructions</h4>
+                <p className="text-navy-700 text-sm bg-gray-50 p-3 rounded">
+                  {bookingData.special_instructions}
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Pricing Breakdown */}
+      {bookingData.pricing_data && (
+        <Card variant="elevated">
+          <CardHeader>
+            <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-navy-700">Base Price:</span>
+                <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
+              </div>
+              
+              {bookingData.pricing_data.surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">Date Surcharges:</span>
+                  <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.coi_fee_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">COI Fee:</span>
+                  <span className="font-medium">+${bookingData.pricing_data.coi_fee_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.organizing_total_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">Organizing Services:</span>
+                  <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
+                </div>
+              )}
+              
+              <hr className="border-gray-200" />
+              
+              <div className="flex justify-between text-xl font-bold">
+                <span className="text-navy-900">Total:</span>
+                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Notice */}
+      <Card variant="default" className="border-gold-200 bg-gold-50">
+        <CardContent>
+          <div className="text-center">
+            <h4 className="font-medium text-navy-900 mb-2">Payment</h4>
+            <p className="text-navy-700 text-sm">
+              For this demo, we'll create your booking without payment processing. 
+              In production, this would integrate with Stripe for secure payment.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Submit Button */}
+      <div className="flex justify-center">
+        <Button 
+          variant="primary" 
+          size="lg"
+          onClick={handleSubmitBooking}
+          disabled={isLoading || createBookingMutation.isPending}
+        >
+          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/service-selection-step.tsx ====
+
+```typescript
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import type { ServiceCatalog } from '@/types';
+
+export function ServiceSelectionStep() {
+  const { bookingData, updateBookingData, nextStep } = useBookingWizard();
+
+  const { data: services, isLoading } = useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: async (): Promise<ServiceCatalog> => {
+      const response = await apiClient.get('/api/public/services/');
+      return response.data;
+    }
+  });
+
+  const handleMiniMoveSelect = (packageId: string, packageData: any) => {
+    updateBookingData({
+      service_type: 'mini_move',
+      mini_move_package_id: packageId,
+      // Clear other service selections
+      standard_delivery_item_count: undefined,
+      specialty_item_ids: undefined,
+    });
+  };
+
+  const handleOrganizingServiceToggle = (serviceType: 'packing' | 'unpacking', enabled: boolean) => {
+    updateBookingData({
+      [serviceType === 'packing' ? 'include_packing' : 'include_unpacking']: enabled
+    });
+  };
+
+  const canContinue = () => {
+    return (
+      (bookingData.service_type === 'mini_move' && bookingData.mini_move_package_id) ||
+      (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count) ||
+      (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length)
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="animate-pulse">
+            <div className="h-32 bg-navy-200 rounded-lg"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Service Type Selector */}
+      <div>
+        <h3 className="text-lg font-medium text-navy-900 mb-4">Choose Your Service</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => updateBookingData({ service_type: 'mini_move' })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'mini_move'
+                ? 'border-navy-900 bg-navy-50'
+                : 'border-gray-200 hover:border-navy-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-1">Mini Moves</h4>
+            <p className="text-sm text-navy-600">Complete packages for seasonal relocation</p>
+          </button>
+          
+          <button
+            onClick={() => updateBookingData({ service_type: 'standard_delivery' })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'standard_delivery'
+                ? 'border-navy-900 bg-navy-50'
+                : 'border-gray-200 hover:border-navy-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-1">Standard Delivery</h4>
+            <p className="text-sm text-navy-600">Individual items, priced per piece</p>
+          </button>
+          
+          <button
+            onClick={() => updateBookingData({ service_type: 'specialty_item' })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'specialty_item'
+                ? 'border-navy-900 bg-navy-50'
+                : 'border-gray-200 hover:border-navy-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-1">Specialty Items</h4>
+            <p className="text-sm text-navy-600">Pelotons, surfboards, and more</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Mini Move Packages */}
+      {bookingData.service_type === 'mini_move' && services?.mini_move_packages && (
+        <div>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Your Package</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {services.mini_move_packages.map((pkg) => (
+              <Card 
+                key={pkg.id}
+                variant={pkg.is_most_popular ? "luxury" : "elevated"}
+                className={`cursor-pointer transition-all relative ${
+                  bookingData.mini_move_package_id === pkg.id 
+                    ? 'ring-2 ring-navy-900' 
+                    : 'hover:shadow-xl'
+                }`}
+                onClick={() => handleMiniMoveSelect(pkg.id, pkg)}
+              >
+                {pkg.is_most_popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gold-500 text-navy-900 px-4 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                <CardHeader>
+                  <div className="text-center">
+                    <h4 className="text-xl font-serif font-bold text-navy-900 mb-2">
+                      {pkg.name}
+                    </h4>
+                    <div className="text-3xl font-bold text-navy-900 mb-2">
+                      ${pkg.base_price_dollars}
+                    </div>
+                    {pkg.max_items && (
+                      <p className="text-navy-600 text-sm">
+                        Up to {pkg.max_items} items
+                      </p>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <p className="text-navy-700 text-sm mb-4">{pkg.description}</p>
+                  
+                  <ul className="space-y-2">
+                    {pkg.coi_included && (
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-2">✓</span>
+                        COI Included
+                      </li>
+                    )}
+                    {pkg.priority_scheduling && (
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-2">✓</span>
+                        Priority Scheduling
+                      </li>
+                    )}
+                    {pkg.protective_wrapping && (
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-2">✓</span>
+                        Protective Wrapping
+                      </li>
+                    )}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Organizing Services Add-ons */}
+          {bookingData.mini_move_package_id && (
+            <div className="mt-6 p-6 bg-gold-50 border border-gold-200 rounded-lg">
+              <h4 className="text-lg font-medium text-navy-900 mb-4">
+                Add Professional Organizing Services
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="flex items-center p-4 border border-gold-300 rounded-lg cursor-pointer hover:bg-gold-100">
+                  <input
+                    type="checkbox"
+                    checked={bookingData.include_packing || false}
+                    onChange={(e) => handleOrganizingServiceToggle('packing', e.target.checked)}
+                    className="mr-3"
+                  />
+                  <div>
+                    <h5 className="font-medium text-navy-900">Professional Packing</h5>
+                    <p className="text-sm text-navy-600">Includes supplies and expert packing</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center p-4 border border-gold-300 rounded-lg cursor-pointer hover:bg-gold-100">
+                  <input
+                    type="checkbox"
+                    checked={bookingData.include_unpacking || false}
+                    onChange={(e) => handleOrganizingServiceToggle('unpacking', e.target.checked)}
+                    className="mr-3"
+                  />
+                  <div>
+                    <h5 className="font-medium text-navy-900">Professional Unpacking</h5>
+                    <p className="text-sm text-navy-600">Expert organizing at destination</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Standard Delivery */}
+      {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
+        <div>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
+          <Card variant="elevated">
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy-900 mb-2">
+                    Number of Items
+                  </label>
+                  <input
+                    type="number"
+                    min={services.standard_delivery.minimum_items}
+                    value={bookingData.standard_delivery_item_count || ''}
+                    onChange={(e) => updateBookingData({ 
+                      standard_delivery_item_count: parseInt(e.target.value) || undefined 
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
+                    placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
+                  />
+                  <p className="text-sm text-navy-600 mt-1">
+                    ${services.standard_delivery.price_per_item_dollars} per item • 
+                    ${services.standard_delivery.minimum_charge_dollars} minimum
+                  </p>
+                </div>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={bookingData.is_same_day_delivery || false}
+                    onChange={(e) => updateBookingData({ is_same_day_delivery: e.target.checked })}
+                    className="mr-3"
+                  />
+                  <span className="text-navy-900">
+                    Same-Day Delivery (+${services.standard_delivery.same_day_flat_rate_dollars})
+                  </span>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Specialty Items */}
+      {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
+        <div>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {services.specialty_items.map((item) => (
+              <label 
+                key={item.id}
+                className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={bookingData.specialty_item_ids?.includes(item.id) || false}
+                  onChange={(e) => {
+                    const currentIds = bookingData.specialty_item_ids || [];
+                    const newIds = e.target.checked
+                      ? [...currentIds, item.id]
+                      : currentIds.filter(id => id !== item.id);
+                    updateBookingData({ specialty_item_ids: newIds });
+                  }}
+                  className="mr-3"
+                />
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h5 className="font-medium text-navy-900">{item.name}</h5>
+                      <p className="text-sm text-navy-600">{item.description}</p>
+                    </div>
+                    <span className="text-lg font-bold text-navy-900">
+                      ${item.price_dollars}
+                    </span>
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Continue Button */}
+      {canContinue() && (
+        <div className="flex justify-end mt-6">
+          <Button variant="primary" onClick={nextStep}>
+            Continue to Date & Time →
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 ```
@@ -242,15 +1941,16 @@ import { cn } from '@/utils/cn';
 interface MainLayoutProps {
   children: React.ReactNode;
   className?: string;
+  onBookNowClick?: () => void;
 }
 
-export function MainLayout({ children, className }: MainLayoutProps) {
+export function MainLayout({ children, className, onBookNowClick }: MainLayoutProps) {
   return (
     <div className={cn(
       'min-h-screen bg-gradient-to-br from-cream-50 to-cream-100',
       className
     )}>
-      {/* Header will go here */}
+      {/* Header */}
       <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -267,7 +1967,10 @@ export function MainLayout({ children, className }: MainLayoutProps) {
               <a href="#contact" className="text-navy-700 hover:text-navy-900 transition-colors">
                 Contact
               </a>
-              <button className="bg-navy-900 text-white px-4 py-2 rounded-md hover:bg-navy-800 transition-colors">
+              <button 
+                onClick={onBookNowClick}
+                className="bg-navy-900 text-white px-4 py-2 rounded-md hover:bg-navy-800 transition-colors"
+              >
                 Book Now
               </button>
             </nav>
@@ -280,7 +1983,7 @@ export function MainLayout({ children, className }: MainLayoutProps) {
         {children}
       </main>
 
-      {/* Footer will go here */}
+      {/* Footer */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="text-center">
@@ -398,13 +2101,13 @@ export function ServiceShowcase() {
                         COI Included
                       </li>
                     )}
-                    {pkg.features.priority_scheduling && (
+                    {pkg.priority_scheduling && (
                       <li className="flex items-center text-sm text-navy-700">
                         <span className="text-green-500 mr-2">✓</span>
                         Priority Scheduling
                       </li>
                     )}
-                    {pkg.features.protective_wrapping && (
+                    {pkg.protective_wrapping && (
                       <li className="flex items-center text-sm text-navy-700">
                         <span className="text-green-500 mr-2">✓</span>
                         Protective Wrapping
@@ -1084,6 +2787,167 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 );
 ```
 
+# ==== src/stores/booking-store.ts ====
+
+```typescript
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export interface BookingAddress {
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  state: 'NY' | 'CT' | 'NJ';
+  zip_code: string;
+}
+
+export interface BookingData {
+  // Service selection
+  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  mini_move_package_id?: string;
+  include_packing?: boolean;
+  include_unpacking?: boolean;
+  standard_delivery_item_count?: number;
+  is_same_day_delivery?: boolean;
+  specialty_item_ids?: string[];
+  
+  // Date and time
+  pickup_date?: string;
+  pickup_time?: 'morning' | 'afternoon' | 'evening';
+  
+  // Addresses
+  pickup_address?: BookingAddress;
+  delivery_address?: BookingAddress;
+  
+  // Customer info (for guest checkout)
+  customer_info?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+  
+  // Additional options
+  special_instructions?: string;
+  coi_required?: boolean;
+  
+  // Pricing
+  pricing_data?: {
+    base_price_dollars: number;
+    surcharge_dollars: number;
+    coi_fee_dollars: number;
+    organizing_total_dollars: number;
+    total_price_dollars: number;
+  };
+}
+
+interface BookingWizardState {
+  currentStep: number;
+  isLoading: boolean;
+  bookingData: BookingData;
+  errors: Record<string, string>;
+}
+
+interface BookingWizardActions {
+  setCurrentStep: (step: number) => void;
+  nextStep: () => void;
+  previousStep: () => void;
+  updateBookingData: (data: Partial<BookingData>) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (field: string, message: string) => void;
+  clearError: (field: string) => void;
+  clearErrors: () => void;
+  resetWizard: () => void;
+  canProceedToStep: (step: number) => boolean;
+}
+
+const initialBookingData: BookingData = {
+  service_type: 'mini_move',
+  pickup_time: 'morning',
+  coi_required: false,
+  include_packing: false,
+  include_unpacking: false,
+  is_same_day_delivery: false,
+};
+
+export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
+  persist(
+    (set, get) => ({
+      // State
+      currentStep: 1,
+      isLoading: false,
+      bookingData: initialBookingData,
+      errors: {},
+
+      // Actions
+      setCurrentStep: (step) => set({ currentStep: step }),
+      
+      nextStep: () => set((state) => ({ 
+        currentStep: Math.min(state.currentStep + 1, 5) 
+      })),
+      
+      previousStep: () => set((state) => ({ 
+        currentStep: Math.max(state.currentStep - 1, 1) 
+      })),
+      
+      updateBookingData: (data) => set((state) => ({
+        bookingData: { ...state.bookingData, ...data }
+      })),
+      
+      setLoading: (loading) => set({ isLoading: loading }),
+      
+      setError: (field, message) => set((state) => ({
+        errors: { ...state.errors, [field]: message }
+      })),
+      
+      clearError: (field) => set((state) => {
+        const newErrors = { ...state.errors };
+        delete newErrors[field];
+        return { errors: newErrors };
+      }),
+      
+      clearErrors: () => set({ errors: {} }),
+      
+      resetWizard: () => set({
+        currentStep: 1,
+        isLoading: false,
+        bookingData: initialBookingData,
+        errors: {}
+      }),
+      
+      canProceedToStep: (step) => {
+        const { bookingData } = get();
+        
+        switch (step) {
+          case 1: return true; // Service selection always available
+          case 2: // Date/time step
+            return !!bookingData.service_type && (
+              (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
+              (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
+              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
+            );
+          case 3: // Address step
+            return !!bookingData.pickup_date;
+          case 4: // Customer info step
+            return !!bookingData.pickup_address && !!bookingData.delivery_address;
+          case 5: // Review/payment step
+            return !!bookingData.customer_info?.email;
+          default:
+            return false;
+        }
+      }
+    }),
+    {
+      name: 'totetaxi-booking-wizard',
+      partialize: (state) => ({
+        bookingData: state.bookingData,
+        currentStep: state.currentStep
+      })
+    }
+  )
+);
+```
+
 # ==== src/stores/ui-store.ts ====
 
 ```typescript
@@ -1197,7 +3061,6 @@ export interface AuthResponse {
   csrf_token: string;
 }
 
-// Service types
 export interface MiniMovePackage {
   id: string;
   package_type: 'petite' | 'standard' | 'full';
@@ -1208,12 +3071,9 @@ export interface MiniMovePackage {
   coi_included: boolean;
   coi_fee_dollars: number;
   is_most_popular: boolean;
-  features: {
-    priority_scheduling: boolean;
-    protective_wrapping: boolean;
-  };
+  priority_scheduling: boolean;  // Changed: moved out of features
+  protective_wrapping: boolean;  // Changed: moved out of features
 }
-
 export interface SpecialtyItem {
   id: string;
   item_type: string;
@@ -1240,6 +3100,52 @@ export interface ServiceCatalog {
 export interface APIError {
   message: string;
   field_errors?: Record<string, string[]>;
+}
+
+// Add these booking-related types to the existing file
+
+export interface BookingWizardState {
+  currentStep: number;
+  isLoading: boolean;
+  bookingData: BookingData;
+  errors: Record<string, string>;
+}
+
+export interface BookingData {
+  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  mini_move_package_id?: string;
+  include_packing?: boolean;
+  include_unpacking?: boolean;
+  standard_delivery_item_count?: number;
+  is_same_day_delivery?: boolean;
+  specialty_item_ids?: string[];
+  pickup_date?: string;
+  pickup_time?: 'morning' | 'afternoon' | 'evening';
+  pickup_address?: BookingAddress;
+  delivery_address?: BookingAddress;
+  customer_info?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+  special_instructions?: string;
+  coi_required?: boolean;
+  pricing_data?: {
+    base_price_dollars: number;
+    surcharge_dollars: number;
+    coi_fee_dollars: number;
+    organizing_total_dollars: number;
+    total_price_dollars: number;
+  };
+}
+
+export interface BookingAddress {
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  state: 'NY' | 'CT' | 'NJ';
+  zip_code: string;
 }
 ```
 

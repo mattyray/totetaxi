@@ -15,7 +15,8 @@ const inputVariants = {
   }
 };
 
-const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+// Add text-gray-900 for dark, readable text
+const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof inputVariants.variant;
