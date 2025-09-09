@@ -77,3 +77,49 @@ export interface APIError {
   message: string;
   field_errors?: Record<string, string[]>;
 }
+
+// Add these booking-related types to the existing file
+
+export interface BookingWizardState {
+  currentStep: number;
+  isLoading: boolean;
+  bookingData: BookingData;
+  errors: Record<string, string>;
+}
+
+export interface BookingData {
+  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  mini_move_package_id?: string;
+  include_packing?: boolean;
+  include_unpacking?: boolean;
+  standard_delivery_item_count?: number;
+  is_same_day_delivery?: boolean;
+  specialty_item_ids?: string[];
+  pickup_date?: string;
+  pickup_time?: 'morning' | 'afternoon' | 'evening';
+  pickup_address?: BookingAddress;
+  delivery_address?: BookingAddress;
+  customer_info?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+  special_instructions?: string;
+  coi_required?: boolean;
+  pricing_data?: {
+    base_price_dollars: number;
+    surcharge_dollars: number;
+    coi_fee_dollars: number;
+    organizing_total_dollars: number;
+    total_price_dollars: number;
+  };
+}
+
+export interface BookingAddress {
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  state: 'NY' | 'CT' | 'NJ';
+  zip_code: string;
+}
