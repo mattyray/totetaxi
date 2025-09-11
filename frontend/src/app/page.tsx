@@ -1,4 +1,4 @@
-// frontend/src/app/page.tsx
+// frontend/src/app/page.tsx - Updated version with better internal linking
 'use client';
 
 import { useState } from 'react';
@@ -8,6 +8,8 @@ import { TestAPIConnection } from '@/components/test-api-connection';
 import { BookingWizard } from '@/components/booking';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
@@ -22,7 +24,7 @@ export default function Home() {
 
   return (
     <>
-      <MainLayout>
+      <MainLayout onBookNowClick={openBookingWizard}>
         {/* Hero Section */}
         <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
           <div className="container mx-auto px-4 text-center">
@@ -36,9 +38,11 @@ export default function Home() {
               <Button variant="primary" size="lg" onClick={openBookingWizard}>
                 Book Your Move
               </Button>
-              <Button variant="outline" size="lg">
-                View Pricing
-              </Button>
+              <Link href="/services">
+                <Button variant="outline" size="lg">
+                  View Services & Pricing
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
@@ -51,8 +55,51 @@ export default function Home() {
         {/* Service Showcase */}
         <ServiceShowcase />
 
-        {/* Trust Signals Section */}
+        {/* Value Propositions */}
         <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+                Why Choose ToteTaxi?
+              </h2>
+              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+                We understand the unique needs of Manhattan-Hamptons seasonal living
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">⏰</div>
+                    <h3 className="font-medium text-navy-900 mb-2">Precise Timing</h3>
+                    <p className="text-navy-600 text-sm">3-hour delivery windows with 30-minute advance notice. No waiting around all day.</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">🛡️</div>
+                    <h3 className="font-medium text-navy-900 mb-2">Zero Damage Record</h3>
+                    <p className="text-navy-600 text-sm">500+ successful moves with comprehensive insurance and careful handling protocols.</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">🏢</div>
+                    <h3 className="font-medium text-navy-900 mb-2">Building Expertise</h3>
+                    <p className="text-navy-600 text-sm">We handle all building coordination, COI requirements, and elevator reservations.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Trust Signals Section */}
+        <section className="py-16 bg-cream-50">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
@@ -75,6 +122,59 @@ export default function Home() {
                 <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
                 <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Links Section */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card variant="luxury">
+                <CardContent>
+                  <h3 className="text-xl font-serif font-bold text-navy-900 mb-4">
+                    First Time Using ToteTaxi?
+                  </h3>
+                  <p className="text-navy-700 mb-6">
+                    Learn about our services, see detailed pricing, and understand our white-glove process.
+                  </p>
+                  <div className="space-y-3">
+                    <Link href="/services" className="block">
+                      <Button variant="outline" className="w-full">
+                        View All Services & Pricing
+                      </Button>
+                    </Link>
+                    <Link href="/about" className="block">
+                      <Button variant="ghost" className="w-full">
+                        Learn About Our Company
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card variant="elevated">
+                <CardContent>
+                  <h3 className="text-xl font-serif font-bold text-navy-900 mb-4">
+                    Have Questions?
+                  </h3>
+                  <p className="text-navy-700 mb-6">
+                    Get answers to common questions or speak directly with our team for personalized assistance.
+                  </p>
+                  <div className="space-y-3">
+                    <Link href="/faq" className="block">
+                      <Button variant="outline" className="w-full">
+                        Read FAQ
+                      </Button>
+                    </Link>
+                    <Link href="/contact" className="block">
+                      <Button variant="ghost" className="w-full">
+                        Contact Our Team
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>
