@@ -1,4 +1,4 @@
-// frontend/src/app/page.tsx - Updated version with better internal linking
+// frontend/src/app/page.tsx - Using real ToteTaxi information
 'use client';
 
 import { useState } from 'react';
@@ -29,20 +29,62 @@ export default function Home() {
         <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
-              Luxury Delivery to the Hamptons
+              Door-to-Door Delivery Service
             </h1>
-            <p className="text-xl text-navy-700 mb-8 max-w-3xl mx-auto">
-              From suitcases to surfboards, strollers to pop-up props, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
+            <p className="text-xl text-navy-700 mb-4 max-w-3xl mx-auto">
+              Tote Taxi will deliver your luggage to and from the city stress-free.
+            </p>
+            <p className="text-lg text-navy-600 mb-8 max-w-2xl mx-auto">
+              From suitcases to surfboards, Pelotons to pop-up props — we handle it all between 
+              NYC, the Hamptons, South Florida, and all major airports.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="primary" size="lg" onClick={openBookingWizard}>
-                Book Your Move
+                Book Now
               </Button>
               <Link href="/services">
                 <Button variant="outline" size="lg">
                   View Services & Pricing
                 </Button>
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works - Simple 3 Step */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+              Same Day Delivery Made Stress-Free
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">📱</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Pickup</h3>
+                    <p className="text-navy-700">Schedule a pickup and we'll come to you.</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">✈️</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Travel</h3>
+                    <p className="text-navy-700">You travel hands-free. Très chic!</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">🚚</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Delivery</h3>
+                    <p className="text-navy-700">We'll deliver to your desired destination.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>
@@ -55,126 +97,108 @@ export default function Home() {
         {/* Service Showcase */}
         <ServiceShowcase />
 
-        {/* Value Propositions */}
-        <section className="py-16 bg-white">
+        {/* Customer Testimonials */}
+        <section className="py-16 bg-cream-50">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
-                Why Choose ToteTaxi?
-              </h2>
-              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
-                We understand the unique needs of Manhattan-Hamptons seasonal living
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+              What Our Customers Say
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card variant="elevated">
                 <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">⏰</div>
-                    <h3 className="font-medium text-navy-900 mb-2">Precise Timing</h3>
-                    <p className="text-navy-600 text-sm">3-hour delivery windows with 30-minute advance notice. No waiting around all day.</p>
-                  </div>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "I've heard amazing things about Tote Taxi for awhile now and finally used it for 
+                    the first time today when I took Blade from JFK to Manhattan and LOVED it! 
+                    It was so easy and seamless!"
+                  </p>
+                  <p className="font-medium text-navy-900">- Natalie M.</p>
                 </CardContent>
               </Card>
+              
               <Card variant="elevated">
                 <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">🛡️</div>
-                    <h3 className="font-medium text-navy-900 mb-2">Zero Damage Record</h3>
-                    <p className="text-navy-600 text-sm">500+ successful moves with comprehensive insurance and careful handling protocols.</p>
-                  </div>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "We have been using Tote Taxi for the last three years when we come out to 
+                    East Hampton and when we head back to the city. They've always been wonderful! 
+                    Makes moving bikes and extras easy and stress free!"
+                  </p>
+                  <p className="font-medium text-navy-900">- Kimberly R.</p>
                 </CardContent>
               </Card>
+              
               <Card variant="elevated">
                 <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">🏢</div>
-                    <h3 className="font-medium text-navy-900 mb-2">Building Expertise</h3>
-                    <p className="text-navy-600 text-sm">We handle all building coordination, COI requirements, and elevator reservations.</p>
-                  </div>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up 
+                    exactly on time, communicated well. I highly recommend their services."
+                  </p>
+                  <p className="font-medium text-navy-900">- Robyn M.</p>
                 </CardContent>
               </Card>
             </div>
           </div>
         </section>
 
-        {/* Trust Signals Section */}
+        {/* Service Areas */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+                Where We Deliver
+              </h2>
+              <p className="text-lg text-navy-700">
+                Comprehensive delivery service across multiple locations
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏙️</div>
+                <h3 className="font-medium text-navy-900 mb-2">NYC</h3>
+                <p className="text-navy-600 text-sm">Manhattan, Brooklyn, and surrounding areas</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏖️</div>
+                <h3 className="font-medium text-navy-900 mb-2">The Hamptons</h3>
+                <p className="text-navy-600 text-sm">East Hampton, Southampton, Montauk, and more</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">✈️</div>
+                <h3 className="font-medium text-navy-900 mb-2">NYC Airports</h3>
+                <p className="text-navy-600 text-sm">JFK, LaGuardia, Newark</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🌴</div>
+                <h3 className="font-medium text-navy-900 mb-2">South Florida</h3>
+                <p className="text-navy-600 text-sm">Palm Beach, Miami, Boca Raton, Jupiter</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Partnerships */}
         <section className="py-16 bg-cream-50">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
-                Trusted by Premium Brands
+                Trusted Partners
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
                 <div className="text-4xl mb-4">🚁</div>
-                <h3 className="font-medium text-navy-900 mb-2">Blade Integration</h3>
-                <p className="text-navy-600 text-sm">Official luggage partner for helicopter transfers</p>
+                <h3 className="font-medium text-navy-900 mb-2">BLADE</h3>
+                <p className="text-navy-600 text-sm">Official luggage delivery partner for helicopter transfers</p>
               </div>
               <div className="text-center">
                 <div className="text-4xl mb-4">📚</div>
                 <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
-                <p className="text-navy-600 text-sm">Trusted distribution partner</p>
+                <p className="text-navy-600 text-sm">Trusted delivery partner</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl mb-4">🏃‍♀️</div>
-                <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
-                <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
+                <div className="text-4xl mb-4">🧳</div>
+                <h3 className="font-medium text-navy-900 mb-2">Luggage Free</h3>
+                <p className="text-navy-600 text-sm">Partner in luggage logistics</p>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Links Section */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Card variant="luxury">
-                <CardContent>
-                  <h3 className="text-xl font-serif font-bold text-navy-900 mb-4">
-                    First Time Using ToteTaxi?
-                  </h3>
-                  <p className="text-navy-700 mb-6">
-                    Learn about our services, see detailed pricing, and understand our white-glove process.
-                  </p>
-                  <div className="space-y-3">
-                    <Link href="/services" className="block">
-                      <Button variant="outline" className="w-full">
-                        View All Services & Pricing
-                      </Button>
-                    </Link>
-                    <Link href="/about" className="block">
-                      <Button variant="ghost" className="w-full">
-                        Learn About Our Company
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card variant="elevated">
-                <CardContent>
-                  <h3 className="text-xl font-serif font-bold text-navy-900 mb-4">
-                    Have Questions?
-                  </h3>
-                  <p className="text-navy-700 mb-6">
-                    Get answers to common questions or speak directly with our team for personalized assistance.
-                  </p>
-                  <div className="space-y-3">
-                    <Link href="/faq" className="block">
-                      <Button variant="outline" className="w-full">
-                        Read FAQ
-                      </Button>
-                    </Link>
-                    <Link href="/contact" className="block">
-                      <Button variant="ghost" className="w-full">
-                        Contact Our Team
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </section>
@@ -183,17 +207,17 @@ export default function Home() {
         <section className="py-16 bg-navy-900 text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-serif font-bold mb-4">
-              Ready for White-Glove Service?
+              Ready to Travel Hands-Free?
             </h2>
             <p className="text-xl text-navy-200 mb-8 max-w-2xl mx-auto">
-              Join hundreds of satisfied customers who trust ToteTaxi for their Hamptons moves.
+              Join thousands of satisfied customers who trust Tote Taxi for stress-free delivery service.
             </p>
             <Button 
               variant="secondary" 
               size="lg"
               onClick={openBookingWizard}
             >
-              Start Your Booking
+              Book Now
             </Button>
           </div>
         </section>

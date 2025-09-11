@@ -1,4 +1,4 @@
-// frontend/src/app/contact/page.tsx
+// frontend/src/app/contact/page.tsx - Real Tote Taxi contact info
 'use client';
 
 import { useState } from 'react';
@@ -13,9 +13,8 @@ export default function ContactPage() {
     name: '',
     email: '',
     phone: '',
-    subject: '',
+    service: '',
     message: '',
-    preferredContact: 'email'
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,20 +43,20 @@ export default function ContactPage() {
       <MainLayout>
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="text-6xl mb-6">✨</div>
+            <div className="text-6xl mb-6">📦</div>
             <h1 className="text-3xl font-serif font-bold text-navy-900 mb-6">
-              Thank You for Reaching Out
+              We'll Get Back to You ASAP!
             </h1>
             <Card variant="luxury">
               <CardContent>
                 <p className="text-navy-700 mb-6">
-                  We've received your message and will respond within 2 hours during business hours. 
-                  For urgent requests, please call us directly.
+                  Your message has been received. Our team will respond as quickly as possible 
+                  to help with your delivery needs.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/book">
                     <Button variant="primary">
-                      Book Your Move
+                      Book a Delivery
                     </Button>
                   </Link>
                   <Link href="/">
@@ -80,11 +79,13 @@ export default function ContactPage() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
-            Get in Touch
+            Contact Us Now
           </h1>
-          <p className="text-xl text-navy-700 max-w-3xl mx-auto">
-            Ready to experience white-glove service? Have questions about your move? 
-            Our team is here to help make your Hamptons transport seamless.
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto mb-4">
+            Can't find what you are looking for? Our Customer Service Team is available to help with any questions.
+          </p>
+          <p className="text-lg text-navy-600">
+            Be sure to check out our <Link href="/faq" className="text-navy-900 hover:underline">FAQ here</Link>.
           </p>
         </div>
 
@@ -94,8 +95,11 @@ export default function ContactPage() {
             <Card variant="elevated">
               <CardHeader>
                 <h2 className="text-2xl font-serif font-bold text-navy-900">
-                  Send Us a Message
+                  Get Started Here
                 </h2>
+                <p className="text-navy-700">
+                  Please fill out our <strong>brief survey</strong> and we'll get back to you ASAP.
+                </p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -106,7 +110,7 @@ export default function ContactPage() {
                       value={formData.name}
                       onChange={handleChange}
                       required
-                      placeholder="John Smith"
+                      placeholder="Your Name"
                     />
                     <Input
                       label="Email Address"
@@ -115,7 +119,7 @@ export default function ContactPage() {
                       value={formData.email}
                       onChange={handleChange}
                       required
-                      placeholder="john@email.com"
+                      placeholder="you@email.com"
                     />
                   </div>
 
@@ -130,30 +134,29 @@ export default function ContactPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-navy-900 mb-1">
-                      Subject <span className="text-red-500">*</span>
+                      Service Needed <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="subject"
-                      value={formData.subject}
+                      name="service"
+                      value={formData.service}
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                     >
-                      <option value="">Select a subject</option>
-                      <option value="booking-inquiry">Booking Inquiry</option>
-                      <option value="pricing-question">Pricing Question</option>
-                      <option value="service-areas">Service Areas</option>
-                      <option value="organizing-services">Organizing Services</option>
-                      <option value="building-requirements">Building Requirements</option>
-                      <option value="partnership">Partnership Opportunity</option>
-                      <option value="feedback">Feedback</option>
+                      <option value="">Select a service</option>
+                      <option value="mini-move">Mini Move</option>
+                      <option value="standard-delivery">Standard Delivery</option>
+                      <option value="blade-luggage">BLADE Luggage</option>
+                      <option value="storage">Storage</option>
+                      <option value="south-florida">South Florida Delivery</option>
+                      <option value="custom">Custom Service</option>
                       <option value="other">Other</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-navy-900 mb-1">
-                      Message <span className="text-red-500">*</span>
+                      Tell Us About Your Needs <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       name="message"
@@ -161,39 +164,9 @@ export default function ContactPage() {
                       onChange={handleChange}
                       required
                       rows={5}
-                      placeholder="Tell us about your move or ask any questions..."
+                      placeholder="Describe what you need delivered, pickup/delivery locations, dates, etc."
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white resize-vertical"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-navy-900 mb-3">
-                      Preferred Contact Method
-                    </label>
-                    <div className="space-y-2">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="preferredContact"
-                          value="email"
-                          checked={formData.preferredContact === 'email'}
-                          onChange={handleChange}
-                          className="mr-2"
-                        />
-                        <span className="text-navy-700">Email</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="preferredContact"
-                          value="phone"
-                          checked={formData.preferredContact === 'phone'}
-                          onChange={handleChange}
-                          className="mr-2"
-                        />
-                        <span className="text-navy-700">Phone</span>
-                      </label>
-                    </div>
                   </div>
 
                   <Button
@@ -203,7 +176,7 @@ export default function ContactPage() {
                     disabled={isSubmitting}
                     className="w-full"
                   >
-                    {isSubmitting ? 'Sending Message...' : 'Send Message'}
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </Button>
                 </form>
               </CardContent>
@@ -216,45 +189,29 @@ export default function ContactPage() {
             <Card variant="luxury">
               <CardHeader>
                 <h3 className="text-xl font-serif font-bold text-navy-900">
-                  Speak with Our Team
+                  Get in Touch Directly
                 </h3>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Phone</h4>
-                    <p className="text-navy-700">
-                      <a href="tel:+1-555-TOTE-TAXI" className="hover:underline">
-                        (555) TOTE-TAXI
-                      </a>
-                    </p>
-                    <p className="text-sm text-navy-600">
-                      Monday - Friday: 8 AM - 8 PM<br />
-                      Saturday - Sunday: 9 AM - 6 PM
-                    </p>
-                  </div>
-
+                <div className="space-y-6">
                   <div>
                     <h4 className="font-medium text-navy-900 mb-2">Email</h4>
                     <p className="text-navy-700">
-                      <a href="mailto:hello@totetaxi.com" className="hover:underline">
-                        hello@totetaxi.com
+                      <a href="mailto:info@totetaxi.com" className="hover:underline text-lg">
+                        info@totetaxi.com
                       </a>
-                    </p>
-                    <p className="text-sm text-navy-600">
-                      We respond within 2 hours during business hours
                     </p>
                   </div>
 
                   <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Emergency</h4>
+                    <h4 className="font-medium text-navy-900 mb-2">Phone</h4>
                     <p className="text-navy-700">
-                      <a href="tel:+1-555-URGENT-99" className="hover:underline">
-                        (555) URGENT-99
+                      <a href="tel:631-595-5100" className="hover:underline text-lg">
+                        631-595-5100
                       </a>
                     </p>
-                    <p className="text-sm text-navy-600">
-                      For time-sensitive delivery issues
+                    <p className="text-sm text-navy-600 mt-1">
+                      <em>For Courier Service – Priority Delivery, please call us.</em>
                     </p>
                   </div>
                 </div>
@@ -265,48 +222,58 @@ export default function ContactPage() {
             <Card variant="elevated">
               <CardHeader>
                 <h3 className="text-xl font-serif font-bold text-navy-900">
-                  Service Areas
+                  Our Service Areas
                 </h3>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Pickup Locations</h4>
-                    <ul className="text-sm text-navy-700 space-y-1">
-                      <li>• Manhattan (All neighborhoods)</li>
-                      <li>• Brooklyn (Select areas)</li>
-                      <li>• Long Island City</li>
-                      <li>• Hoboken & Jersey City</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Delivery Areas</h4>
-                    <ul className="text-sm text-navy-700 space-y-1">
-                      <li>• East Hampton</li>
-                      <li>• Southampton</li>
-                      <li>• Bridgehampton</li>
-                      <li>• Westhampton Beach</li>
-                      <li>• Sag Harbor & Montauk</li>
-                    </ul>
-                  </div>
+                <p className="text-navy-700 mb-4">
+                  <strong>Tote Taxi is a same-day door-to-door delivery service</strong> covering:
+                </p>
+                <ul className="space-y-2 text-navy-700">
+                  <li>• <strong>The Hamptons</strong> (all areas)</li>
+                  <li>• <strong>NYC</strong> (Manhattan, Brooklyn, and more)</li>
+                  <li>• <strong>All Major NY Airports</strong> (JFK, LGA, EWR)</li>
+                  <li>• <strong>Connecticut</strong></li>
+                  <li>• <strong>South Florida</strong> (Palm Beach, Miami, Boca Raton, Jupiter, Fort Lauderdale)</li>
+                </ul>
+                <p className="text-sm text-navy-600 mt-4">
+                  <strong>Custom deliveries and services are available upon request.</strong>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Special Inquiries */}
+            <Card variant="default" className="border-gold-200 bg-gold-50">
+              <CardContent>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-navy-900 mb-3">
+                    Marketing & PR Inquiries
+                  </h3>
+                  <p className="text-navy-700 text-sm mb-4">
+                    For partnership opportunities and media inquiries, please contact us directly.
+                  </p>
+                  <Link href="mailto:info@totetaxi.com?subject=Marketing%20Inquiry">
+                    <Button variant="outline" size="sm">
+                      Contact for Partnerships
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
 
             {/* Quick Booking CTA */}
-            <Card variant="default" className="border-gold-200 bg-gold-50">
+            <Card variant="luxury">
               <CardContent>
                 <div className="text-center">
                   <h3 className="text-lg font-medium text-navy-900 mb-3">
                     Ready to Book?
                   </h3>
                   <p className="text-navy-700 text-sm mb-4">
-                    Skip the contact form and start your booking directly. 
-                    Get instant pricing and schedule your luxury move.
+                    Skip the contact form and start your delivery booking directly.
                   </p>
                   <Link href="/book">
                     <Button variant="primary" className="w-full">
-                      Start Your Booking
+                      Book Now
                     </Button>
                   </Link>
                 </div>
