@@ -1,4 +1,4 @@
-// frontend/src/components/layout/main-layout.tsx
+// frontend/src/components/layout/main-layout.tsx - Complete updated version
 import { cn } from '@/utils/cn';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,20 +16,25 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       className
     )}>
       {/* Header */}
-      <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm">
+      <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-serif font-bold text-navy-900">
+            <Link href="/" className="text-2xl font-serif font-bold text-navy-900 hover:text-navy-700 transition-colors">
               ToteTaxi
             </Link>
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/#services" className="text-navy-700 hover:text-navy-900 transition-colors">
+            
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center space-x-8">
+              <Link href="/services" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Services
               </Link>
-              <Link href="/#about" className="text-navy-700 hover:text-navy-900 transition-colors">
+              <Link href="/about" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 About
               </Link>
-              <Link href="/#contact" className="text-navy-700 hover:text-navy-900 transition-colors">
+              <Link href="/faq" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                FAQ
+              </Link>
+              <Link href="/contact" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Contact
               </Link>
               {onBookNowClick ? (
@@ -44,6 +49,21 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                 </Link>
               )}
             </nav>
+
+            {/* Mobile Menu Button */}
+            <div className="lg:hidden">
+              {onBookNowClick ? (
+                <Button variant="primary" size="sm" onClick={onBookNowClick}>
+                  Book Now
+                </Button>
+              ) : (
+                <Link href="/book">
+                  <Button variant="primary" size="sm">
+                    Book Now
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -56,27 +76,41 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       {/* Footer */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="text-xl font-serif mb-4">ToteTaxi</div>
-              <p className="text-navy-300">Luxury delivery service for the Hamptons</p>
+              <p className="text-navy-300 text-sm">
+                Luxury delivery service for Manhattan to Hamptons transport
+              </p>
             </div>
             <div>
               <h4 className="font-medium mb-4">Services</h4>
-              <ul className="space-y-2 text-navy-300">
-                <li>Mini Moves</li>
-                <li>Standard Delivery</li>
-                <li>Specialty Items</li>
-                <li>Organizing Services</li>
+              <ul className="space-y-2 text-navy-300 text-sm">
+                <li><Link href="/services#mini-moves" className="hover:text-white transition-colors">Mini Moves</Link></li>
+                <li><Link href="/services#standard-delivery" className="hover:text-white transition-colors">Standard Delivery</Link></li>
+                <li><Link href="/services#specialty-items" className="hover:text-white transition-colors">Specialty Items</Link></li>
+                <li><Link href="/services#organizing" className="hover:text-white transition-colors">Organizing Services</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-4">Company</h4>
+              <ul className="space-y-2 text-navy-300 text-sm">
+                <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-medium mb-4">Contact</h4>
-              <div className="text-navy-300">
+              <div className="text-navy-300 text-sm space-y-1">
+                <p>(555) TOTE-TAXI</p>
+                <p>hello@totetaxi.com</p>
                 <p>Manhattan to Hamptons</p>
-                <p>Premium white-glove service</p>
               </div>
             </div>
+          </div>
+          <div className="border-t border-navy-800 mt-8 pt-8 text-center text-navy-400 text-sm">
+            <p>&copy; 2024 ToteTaxi. All rights reserved. | Premium delivery service for discerning clients.</p>
           </div>
         </div>
       </footer>
