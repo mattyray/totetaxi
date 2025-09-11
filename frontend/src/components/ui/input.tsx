@@ -1,3 +1,4 @@
+// frontend/src/components/ui/input.tsx
 import { cn } from '@/utils/cn';
 import { InputHTMLAttributes, forwardRef } from 'react';
 

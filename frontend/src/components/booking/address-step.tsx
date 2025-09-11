@@ -1,3 +1,4 @@
+// frontend/src/components/booking/address-step.tsx
 'use client';
 
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';

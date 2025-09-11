@@ -1,3 +1,4 @@
+// frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
 import { useBookingWizard } from '@/stores/booking-store';

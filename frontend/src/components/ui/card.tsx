@@ -1,3 +1,4 @@
+// frontend/src/components/ui/card.tsx
 import { cn } from '@/utils/cn';
 import { HTMLAttributes, forwardRef } from 'react';
 

@@ -1,3 +1,4 @@
+// frontend/src/components/ui/modal.tsx
 'use client';
 
 import { cn } from '@/utils/cn';

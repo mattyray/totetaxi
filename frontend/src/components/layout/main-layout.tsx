@@ -1,3 +1,4 @@
+// frontend/src/components/layout/main-layout.tsx
 import { cn } from '@/utils/cn';
 
 interface MainLayoutProps {

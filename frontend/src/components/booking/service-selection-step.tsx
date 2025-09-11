@@ -1,3 +1,4 @@
+// frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
 import { useQuery, useMutation } from '@tanstack/react-query';

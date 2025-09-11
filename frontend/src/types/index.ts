@@ -1,3 +1,4 @@
+// frontend/src/types/index.ts
 // Django User model interface
 export interface DjangoUser {
   id: number;

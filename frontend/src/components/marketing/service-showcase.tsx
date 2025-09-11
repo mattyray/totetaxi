@@ -1,3 +1,4 @@
+// frontend/src/components/marketing/service-showcase.tsx
 'use client';
 
 import { useQuery } from '@tanstack/react-query';

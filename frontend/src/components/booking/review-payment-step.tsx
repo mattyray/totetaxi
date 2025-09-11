@@ -1,3 +1,4 @@
+// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
