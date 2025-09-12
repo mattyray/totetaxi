@@ -8,6 +8,7 @@ import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AxiosError } from 'axios';
 
 interface BookingResponse {
   message: string;
@@ -38,6 +39,10 @@ export function ReviewPaymentStep() {
       let bookingRequest;
 
       if (isAuthenticated) {
+        // Generate unique nicknames with timestamp
+        const timestamp = new Date().toISOString().slice(11, 16); // HH:MM format
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
         // Authenticated booking format - different structure
         bookingRequest = {
           // Service selection
@@ -58,8 +63,8 @@ export function ReviewPaymentStep() {
           new_delivery_address: bookingData.delivery_address,
           save_pickup_address: true,  // Save addresses for future use
           save_delivery_address: true,
-          pickup_address_nickname: "Recent Pickup",
-          delivery_address_nickname: "Recent Delivery",
+          pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`,  // Unique nickname
+          delivery_address_nickname: `Delivery ${dateStr} ${timestamp}`, // Unique nickname
           
           // Additional info
           special_instructions: bookingData.special_instructions,
@@ -112,10 +117,14 @@ export function ReviewPaymentStep() {
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
       }
     },
-    onError: (error) => {
+    onError: (error: AxiosError | Error) => {
       setLoading(false);
       console.error('Booking creation failed:', error);
-      console.error('Error response:', (error as any).response?.data);
+      
+      // Check if it's an AxiosError before accessing response
+      if ('response' in error && error.response) {
+        console.error('Error response:', error.response.data);
+      }
     }
   });
 
@@ -237,7 +246,6 @@ export function ReviewPaymentStep() {
     );
   }
 
-  // ... rest of the component stays exactly the same (the booking summary and pricing display)
   return (
     <div className="space-y-6">
       {/* Booking Summary */}
