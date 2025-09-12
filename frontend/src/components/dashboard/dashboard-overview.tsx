@@ -1,4 +1,4 @@
-// frontend/src/components/dashboard/dashboard-overview.tsx
+// src/components/dashboard/dashboard-overview.tsx
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,37 +8,50 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
-interface DashboardStats {
-  customer_stats: {
+interface DashboardData {
+  customer_profile: {
+    name: string;
+    email: string;
+    phone: string;
+    is_vip: boolean;
     total_bookings: number;
     total_spent_dollars: number;
-    vip_status: boolean;
-    last_booking_date: string | null;
+    last_booking_at: string | null;
+  };
+  booking_summary: {
+    pending_bookings: number;
+    completed_bookings: number;
+    total_bookings: number;
   };
   recent_bookings: Array<{
     id: string;
     booking_number: string;
+    customer_name: string;
     service_type: string;
     status: string;
     pickup_date: string;
+    pickup_time: string;
     total_price_dollars: number;
+    can_rebook: boolean;
+    created_at: string;
   }>;
+  saved_addresses_count: number;
+  payment_methods_count: number;
 }
 
 export function DashboardOverview() {
-  const { user, customerProfile } = useAuthStore();
+  const { user } = useAuthStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
     queryKey: ['customer', 'dashboard'],
-    queryFn: async (): Promise<DashboardStats> => {
+    queryFn: async (): Promise<DashboardData> => {
       const response = await apiClient.get('/api/customer/dashboard/');
       return response.data;
     },
     enabled: !!user,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0,    // Don't cache
+    staleTime: 0,
+    gcTime: 0,
   });
 
   if (isLoading) {
@@ -73,7 +86,8 @@ export function DashboardOverview() {
     );
   }
 
-  const stats = dashboardData?.customer_stats;
+  const profile = dashboardData?.customer_profile;
+  const bookingSummary = dashboardData?.booking_summary;
 
   return (
     <div className="space-y-6">
@@ -85,11 +99,11 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-navy-900">
-              {stats?.total_bookings || 0}
+              {profile?.total_bookings || 0}
             </div>
             <p className="text-xs text-navy-600">
-              {stats?.last_booking_date 
-                ? `Last booking: ${new Date(stats.last_booking_date).toLocaleDateString()}`
+              {profile?.last_booking_at 
+                ? `Last booking: ${new Date(profile.last_booking_at).toLocaleDateString()}`
                 : 'No bookings yet'
               }
             </p>
@@ -102,7 +116,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-navy-900">
-              ${stats?.total_spent_dollars || 0}
+              ${profile?.total_spent_dollars || 0}
             </div>
             <p className="text-xs text-navy-600">Lifetime value</p>
           </CardContent>
@@ -114,7 +128,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
-              {stats?.vip_status ? (
+              {profile?.is_vip ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold-100 text-gold-800">
                   VIP Member
                 </span>
@@ -125,7 +139,7 @@ export function DashboardOverview() {
               )}
             </div>
             <p className="text-xs text-navy-600 mt-1">
-              {stats?.vip_status 
+              {profile?.is_vip 
                 ? 'Priority scheduling & exclusive benefits'
                 : 'Book 3+ moves to unlock VIP status'
               }
@@ -133,6 +147,30 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Booking Summary */}
+      {bookingSummary && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.pending_bookings}</div>
+              <div className="text-sm text-navy-600">Pending Bookings</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.completed_bookings}</div>
+              <div className="text-sm text-navy-600">Completed Bookings</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.total_bookings}</div>
+              <div className="text-sm text-navy-600">Total Bookings</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Bookings */}
       {dashboardData?.recent_bookings && dashboardData.recent_bookings.length > 0 && (
@@ -175,6 +213,30 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       )}
+
+      {/* Quick Stats Summary */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-xl font-bold text-navy-900">{dashboardData?.saved_addresses_count || 0}</div>
+              <div className="text-sm text-navy-600">Saved Addresses</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{dashboardData?.payment_methods_count || 0}</div>
+              <div className="text-sm text-navy-600">Payment Methods</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{bookingSummary?.pending_bookings || 0}</div>
+              <div className="text-sm text-navy-600">Upcoming</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{bookingSummary?.completed_bookings || 0}</div>
+              <div className="text-sm text-navy-600">Complete</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
