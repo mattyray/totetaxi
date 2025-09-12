@@ -1,27 +1,25 @@
-// frontend/src/app/dashboard/page.tsx
+// frontend/src/app/dashboard/page.tsx  
 'use client';
 
 import { useEffect } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/main-layout';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { DashboardOverview } from '@/components/dashboard/dashboard-overview';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
-  const { user, customerProfile, isAuthenticated, clearAuth } = useAuthStore();
+  const { user, isAuthenticated, clearAuth } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isWelcome = searchParams.get('welcome') === 'true';
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, router]);
-
-  const handleLogout = () => {
-    clearAuth();
-    router.push('/');
-  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -36,8 +34,25 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
-        <div className="container mx-auto px-4 max-w-4xl">
-          {/* Welcome Header */}
+        <div className="container mx-auto px-4 max-w-6xl">
+          {/* Welcome Message for New Users */}
+          {isWelcome && (
+            <Card variant="luxury" className="mb-8 border-gold-200 bg-gold-50">
+              <CardContent className="p-6 text-center">
+                <h2 className="text-xl font-serif font-bold text-navy-900 mb-2">
+                  Welcome to ToteTaxi, {user.first_name}!
+                </h2>
+                <p className="text-navy-700 mb-4">
+                  Your account has been created successfully. Ready to book your first luxury move?
+                </p>
+                <Button variant="primary" onClick={() => router.push('/book')}>
+                  Book Your First Move
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
               Welcome back, {user.first_name}!
@@ -47,47 +62,14 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Account Info Card */}
-          <Card variant="luxury" className="mb-6">
-            <CardHeader>
-              <h2 className="text-xl font-serif font-bold text-navy-900">
-                Account Information
-              </h2>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium text-navy-900 mb-2">Personal Details</h3>
-                  <p className="text-sm text-navy-700">Name: {user.first_name} {user.last_name}</p>
-                  <p className="text-sm text-navy-700">Email: {user.email}</p>
-                  <p className="text-sm text-navy-700">Phone: {customerProfile?.phone || 'Not provided'}</p>
-                  <p className="text-sm text-navy-700">
-                    VIP Status: {customerProfile?.is_vip ? 'Yes' : 'No'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-navy-900 mb-2">Booking Stats</h3>
-                  <p className="text-sm text-navy-700">
-                    Total Bookings: {customerProfile?.total_bookings || 0}
-                  </p>
-                  <p className="text-sm text-navy-700">
-                    Total Spent: ${customerProfile?.total_spent_dollars || 0}
-                  </p>
-                  <p className="text-sm text-navy-700">
-                    Preferred Time: {customerProfile?.preferred_pickup_time || 'Morning'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Dashboard Content */}
+          <DashboardOverview />
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Book a Move</h3>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 text-center">
+                <h3 className="text-lg font-medium text-navy-900 mb-4">Book a Move</h3>
                 <p className="text-sm text-navy-700 mb-4">
                   Schedule your next ToteTaxi delivery or move
                 </p>
@@ -102,46 +84,21 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Booking History</h3>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 text-center">
+                <h3 className="text-lg font-medium text-navy-900 mb-4">Manage Addresses</h3>
                 <p className="text-sm text-navy-700 mb-4">
-                  View your past bookings and receipts
+                  Save addresses for faster future bookings
                 </p>
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => alert('Booking history coming soon!')}
+                  onClick={() => alert('Address management coming soon!')}
                 >
-                  View History
+                  Manage Addresses
                 </Button>
               </CardContent>
             </Card>
           </div>
-
-          {/* Debug Info for Development */}
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-medium text-navy-900">Debug Info</h3>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4">
-                <Button 
-                  variant="outline" 
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => console.log('Auth State:', { user, customerProfile, isAuthenticated })}
-                >
-                  Log Auth State
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </MainLayout>
