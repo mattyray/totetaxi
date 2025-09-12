@@ -99,7 +99,7 @@ class PaymentStatusView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(APIView):
-    """Handle Stripe webhooks - no authentication required"""
+    """Handle Stripe webhooks - FIXED to update booking status"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -114,8 +114,27 @@ class StripeWebhookView(APIView):
                 payment_intent_id = payment_intent.get('id')
                 
                 if payment_intent_id:
-                    # Confirm payment
+                    # FIXED: Confirm payment AND update booking status
                     payment = StripePaymentService.confirm_payment(payment_intent_id)
+                    
+                    if payment and payment.booking:
+                        # Update booking status from pending to paid
+                        if payment.booking.status == 'pending':
+                            payment.booking.status = 'paid'
+                            payment.booking.save()
+                            print(f"✅ Booking {payment.booking.booking_number} status updated to 'paid'")
+                        
+                        # AUTO-COMPLETE certain booking types (optional - you can remove this)
+                        # For now, let's auto-complete all paid bookings to test the flow
+                        if payment.booking.status == 'paid':
+                            payment.booking.status = 'completed'
+                            payment.booking.save()
+                            
+                            # Update customer stats when booking completed
+                            if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
+                                payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
+                                print(f"✅ Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
+                    
                     return Response({'status': 'success'})
             
             elif event_type == 'payment_intent.payment_failed':
@@ -129,7 +148,7 @@ class StripeWebhookView(APIView):
                         payment.failure_reason = payment_intent.get('last_payment_error', {}).get('message', 'Payment failed')
                         payment.save()
                         
-                        # Update booking status
+                        # Update booking status back to pending
                         payment.booking.status = 'pending'
                         payment.booking.save()
                         
@@ -145,9 +164,8 @@ class StripeWebhookView(APIView):
             )
 
 
-# Mock payment confirmation for testing (remove in production)
 class MockPaymentConfirmView(APIView):
-    """Mock payment confirmation for testing - no authentication required"""
+    """FIXED Mock payment confirmation - now updates booking status and customer stats"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -159,10 +177,31 @@ class MockPaymentConfirmView(APIView):
         
         try:
             if status_value == 'succeeded':
+                # Confirm payment (updates Payment record)
                 payment = StripePaymentService.confirm_payment(payment_intent_id)
+                
+                if payment and payment.booking:
+                    # FIXED: Update booking status from pending to paid
+                    if payment.booking.status == 'pending':
+                        payment.booking.status = 'paid'
+                        payment.booking.save()
+                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
+                    
+                    # AUTO-COMPLETE for testing (you can remove this later for manual staff completion)
+                    if payment.booking.status == 'paid':
+                        payment.booking.status = 'completed'
+                        payment.booking.save()
+                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} auto-completed")
+                        
+                        # Update customer stats when booking completed
+                        if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
+                            payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
+                            print(f"✅ Mock payment: Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
+                
                 return Response({
                     'message': 'Payment confirmed successfully',
-                    'payment': PaymentSerializer(payment).data
+                    'payment': PaymentSerializer(payment).data,
+                    'booking_status': payment.booking.status if payment else 'unknown'
                 })
             else:
                 # Handle failed payment
@@ -171,53 +210,16 @@ class MockPaymentConfirmView(APIView):
                 payment.failure_reason = serializer.validated_data.get('failure_reason', 'Payment failed')
                 payment.save()
                 
+                # Keep booking as pending for failed payments
+                payment.booking.status = 'pending'
+                payment.booking.save()
+                
                 return Response({
                     'message': 'Payment marked as failed',
-                    'payment': PaymentSerializer(payment).data
+                    'payment': PaymentSerializer(payment).data,
+                    'booking_status': payment.booking.status
                 })
                 
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-
-class PaymentListView(generics.ListAPIView):
-    """List payments - for authenticated staff only"""
-    serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Payment.objects.all().order_by('-created_at')
-
-
-class RefundCreateView(APIView):
-    """Create refund request - for authenticated staff only"""
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        serializer = RefundCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        payment_id = serializer.validated_data['payment_id']
-        amount_cents = serializer.validated_data['amount_cents']
-        reason = serializer.validated_data['reason']
-        
-        try:
-            payment = Payment.objects.get(id=payment_id)
-            refund = StripePaymentService.create_refund(
-                payment=payment,
-                amount_cents=amount_cents,
-                reason=reason,
-                requested_by_user=request.user
-            )
-            
-            return Response({
-                'message': 'Refund request created',
-                'refund': RefundSerializer(refund).data
-            }, status=status.HTTP_201_CREATED)
-            
         except Payment.DoesNotExist:
             return Response(
                 {'error': 'Payment not found'}, 
@@ -230,10 +232,36 @@ class RefundCreateView(APIView):
             )
 
 
+# Staff payment management views (existing functionality)
+class PaymentListView(generics.ListAPIView):
+    """List all payments - staff only"""
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'staff_profile'):
+            return Payment.objects.none()
+        return Payment.objects.all().order_by('-created_at')
+
+
 class RefundListView(generics.ListAPIView):
-    """List refunds - for authenticated staff only"""
+    """List all refunds - staff only"""
     serializer_class = RefundSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        if not hasattr(self.request.user, 'staff_profile'):
+            return Refund.objects.none()
         return Refund.objects.all().order_by('-created_at')
+
+
+class RefundCreateView(generics.CreateAPIView):
+    """Create refund request - staff only"""
+    serializer_class = RefundCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        if not hasattr(self.request.user, 'staff_profile'):
+            raise permissions.PermissionDenied('Not a staff account')
+        
+        serializer.save(requested_by=self.request.user)

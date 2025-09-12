@@ -166,9 +166,14 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://127.0.0.1:3000',
 ])
 
-# Session Settings
+# Session Settings - FIXED FOR PERSISTENT SESSIONS
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
+SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
+SESSION_COOKIE_NAME = 'totetaxi_sessionid'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
