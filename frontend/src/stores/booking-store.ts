@@ -117,12 +117,16 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       
       clearErrors: () => set({ errors: {} }),
       
-      resetWizard: () => set({
-        currentStep: 1,
-        isLoading: false,
-        bookingData: initialBookingData,
-        errors: {}
-      }),
+      resetWizard: () => {
+        set({
+          currentStep: 1,
+          isLoading: false,
+          bookingData: initialBookingData,
+          errors: {}
+        });
+        // Clear from localStorage completely
+        localStorage.removeItem('totetaxi-booking-wizard');
+      },
       
       canProceedToStep: (step) => {
         const { bookingData } = get();

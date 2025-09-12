@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/dashboard-overview.tsx
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -28,14 +28,17 @@ interface DashboardStats {
 export function DashboardOverview() {
   const { user, customerProfile } = useAuthStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const { data: dashboardData, isLoading, error } = useQuery({
+  const { data: dashboardData, isLoading, error, refetch } = useQuery({
     queryKey: ['customer', 'dashboard'],
     queryFn: async (): Promise<DashboardStats> => {
       const response = await apiClient.get('/api/customer/dashboard/');
       return response.data;
     },
     enabled: !!user,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0,    // Don't cache
   });
 
   if (isLoading) {
@@ -60,7 +63,7 @@ export function DashboardOverview() {
           <p className="text-red-600">Failed to load dashboard data</p>
           <Button 
             variant="outline" 
-            onClick={() => window.location.reload()}
+            onClick={() => refetch()}
             className="mt-4"
           >
             Retry

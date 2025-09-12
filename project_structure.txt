@@ -148,7 +148,15 @@
 │   │   │   │   └── page.tsx
 │   │   │   ├── contact
 │   │   │   │   └── page.tsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── bookings
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
 │   │   │   ├── faq
+│   │   │   │   └── page.tsx
+│   │   │   ├── login
+│   │   │   │   └── page.tsx
+│   │   │   ├── register
 │   │   │   │   └── page.tsx
 │   │   │   ├── services
 │   │   │   │   └── page.tsx
@@ -158,6 +166,11 @@
 │   │   │   ├── layout.tsx.backup
 │   │   │   └── page.tsx
 │   │   ├── components
+│   │   │   ├── auth
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── login-form.tsx
+│   │   │   │   ├── register-form.tsx
+│   │   │   │   └── user-menu.tsx
 │   │   │   ├── booking
 │   │   │   │   ├── address-step.tsx
 │   │   │   │   ├── booking-wizard.tsx
@@ -166,6 +179,10 @@
 │   │   │   │   ├── index.ts
 │   │   │   │   ├── review-payment-step.tsx
 │   │   │   │   └── service-selection-step.tsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── booking-history.tsx
+│   │   │   │   ├── dashboard-overview.tsx
+│   │   │   │   └── quick-actions.tsx
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
 │   │   │   ├── marketing
@@ -181,6 +198,7 @@
 │   │   │   │   └── select.tsx
 │   │   │   └── test-api-connection.tsx
 │   │   ├── hooks
+│   │   │   └── use-click-away.ts
 │   │   ├── lib
 │   │   │   ├── api-client.ts
 │   │   │   └── query-client.ts
@@ -202,6 +220,9 @@
 │   ├── tailwind.config.js
 │   └── tsconfig.json
 ├── src
+│   ├── app
+│   │   └── dashboard
+│   │       └── page.tsx
 │   └── components
 │       └── marketing
 ├── .gitignore
@@ -209,4 +230,4 @@
 ├── project_structure.txt
 └── README.md
 
-51 directories, 159 files
+59 directories, 172 files

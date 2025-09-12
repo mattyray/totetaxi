@@ -2,9 +2,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -19,42 +20,85 @@ interface BookingResponse {
 
 export function ReviewPaymentStep() {
   const { bookingData, resetWizard, setLoading, isLoading } = useBookingWizard();
+  const { isAuthenticated } = useAuthStore();
+  const queryClient = useQueryClient();
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
 
   // Create booking mutation
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
-      const bookingRequest = {
-        // Customer info
-        first_name: bookingData.customer_info?.first_name,
-        last_name: bookingData.customer_info?.last_name,
-        email: bookingData.customer_info?.email,
-        phone: bookingData.customer_info?.phone,
-        
-        // Service selection
-        service_type: bookingData.service_type,
-        mini_move_package_id: bookingData.mini_move_package_id,
-        include_packing: bookingData.include_packing,
-        include_unpacking: bookingData.include_unpacking,
-        standard_delivery_item_count: bookingData.standard_delivery_item_count,
-        is_same_day_delivery: bookingData.is_same_day_delivery,
-        specialty_item_ids: bookingData.specialty_item_ids,
-        
-        // Date and time
-        pickup_date: bookingData.pickup_date,
-        pickup_time: bookingData.pickup_time,
-        
-        // Addresses
-        pickup_address: bookingData.pickup_address,
-        delivery_address: bookingData.delivery_address,
-        
-        // Additional info
-        special_instructions: bookingData.special_instructions,
-        coi_required: bookingData.coi_required,
-      };
+      // Use correct endpoint based on authentication status
+      const endpoint = isAuthenticated 
+        ? '/api/customer/bookings/create/'     // Updates customer stats
+        : '/api/public/guest-booking/';        // Guest booking
 
-      const response = await apiClient.post('/api/public/guest-booking/', bookingRequest);
+      console.log(`Creating ${isAuthenticated ? 'authenticated' : 'guest'} booking at:`, endpoint);
+
+      let bookingRequest;
+
+      if (isAuthenticated) {
+        // Authenticated booking format - different structure
+        bookingRequest = {
+          // Service selection
+          service_type: bookingData.service_type,
+          mini_move_package_id: bookingData.mini_move_package_id,
+          include_packing: bookingData.include_packing,
+          include_unpacking: bookingData.include_unpacking,
+          standard_delivery_item_count: bookingData.standard_delivery_item_count,
+          is_same_day_delivery: bookingData.is_same_day_delivery,
+          specialty_item_ids: bookingData.specialty_item_ids,
+          
+          // Date and time
+          pickup_date: bookingData.pickup_date,
+          pickup_time: bookingData.pickup_time,
+          
+          // Addresses - use new_pickup_address format for authenticated users
+          new_pickup_address: bookingData.pickup_address,
+          new_delivery_address: bookingData.delivery_address,
+          save_pickup_address: true,  // Save addresses for future use
+          save_delivery_address: true,
+          pickup_address_nickname: "Recent Pickup",
+          delivery_address_nickname: "Recent Delivery",
+          
+          // Additional info
+          special_instructions: bookingData.special_instructions,
+          coi_required: bookingData.coi_required,
+          create_payment_intent: false, // Disable for demo
+        };
+      } else {
+        // Guest booking format - original structure
+        bookingRequest = {
+          // Customer info
+          first_name: bookingData.customer_info?.first_name,
+          last_name: bookingData.customer_info?.last_name,
+          email: bookingData.customer_info?.email,
+          phone: bookingData.customer_info?.phone,
+          
+          // Service selection
+          service_type: bookingData.service_type,
+          mini_move_package_id: bookingData.mini_move_package_id,
+          include_packing: bookingData.include_packing,
+          include_unpacking: bookingData.include_unpacking,
+          standard_delivery_item_count: bookingData.standard_delivery_item_count,
+          is_same_day_delivery: bookingData.is_same_day_delivery,
+          specialty_item_ids: bookingData.specialty_item_ids,
+          
+          // Date and time
+          pickup_date: bookingData.pickup_date,
+          pickup_time: bookingData.pickup_time,
+          
+          // Addresses
+          pickup_address: bookingData.pickup_address,
+          delivery_address: bookingData.delivery_address,
+          
+          // Additional info
+          special_instructions: bookingData.special_instructions,
+          coi_required: bookingData.coi_required,
+        };
+      }
+
+      const response = await apiClient.post(endpoint, bookingRequest);
       return response.data;
     },
     onSuccess: (data) => {
@@ -62,12 +106,16 @@ export function ReviewPaymentStep() {
       setBookingComplete(true);
       setLoading(false);
       
-      // In a real app, you'd redirect to payment processing here
-      // For now, we'll just show success
+      // Invalidate dashboard cache for authenticated users
+      if (isAuthenticated) {
+        queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
+      }
     },
     onError: (error) => {
       setLoading(false);
       console.error('Booking creation failed:', error);
+      console.error('Error response:', (error as any).response?.data);
     }
   });
 
@@ -77,7 +125,7 @@ export function ReviewPaymentStep() {
   };
 
   const handleStartOver = () => {
-    resetWizard();
+    resetWizard(); // This now clears localStorage completely
     setBookingComplete(false);
     setBookingNumber('');
   };
@@ -100,8 +148,15 @@ export function ReviewPaymentStep() {
               </div>
               
               <p className="text-navy-700">
-                Your luxury move is confirmed. We'll send a confirmation email to{' '}
-                <strong>{bookingData.customer_info?.email}</strong> with all the details.
+                Your luxury move is confirmed. 
+                {isAuthenticated ? (
+                  ' Check your dashboard for booking details.'
+                ) : (
+                  <>
+                    We'll send a confirmation email to{' '}
+                    <strong>{bookingData.customer_info?.email}</strong> with all the details.
+                  </>
+                )}
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -168,14 +223,21 @@ export function ReviewPaymentStep() {
           <Button variant="outline" onClick={handleStartOver}>
             Book Another Move
           </Button>
-          <Button variant="primary" onClick={() => window.location.href = '/'}>
-            Back to Home
-          </Button>
+          {isAuthenticated ? (
+            <Button variant="primary" onClick={() => window.location.href = '/dashboard'}>
+              Back to Dashboard
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={() => window.location.href = '/'}>
+              Back to Home
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
+  // ... rest of the component stays exactly the same (the booking summary and pricing display)
   return (
     <div className="space-y-6">
       {/* Booking Summary */}
@@ -249,17 +311,19 @@ export function ReviewPaymentStep() {
               </div>
             </div>
 
-            {/* Customer Info */}
-            <div>
-              <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
-              <div className="text-navy-700">
-                <div>
-                  {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
+            {/* Customer Info - only show for guest bookings */}
+            {!isAuthenticated && (
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
+                <div className="text-navy-700">
+                  <div>
+                    {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
+                  </div>
+                  <div>{bookingData.customer_info?.email}</div>
+                  <div>{bookingData.customer_info?.phone}</div>
                 </div>
-                <div>{bookingData.customer_info?.email}</div>
-                <div>{bookingData.customer_info?.phone}</div>
               </div>
-            </div>
+            )}
 
             {/* Special Instructions */}
             {bookingData.special_instructions && (
