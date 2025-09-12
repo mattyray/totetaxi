@@ -142,12 +142,30 @@
 │   │   └── frontend_snapshot.txt
 │   ├── src
 │   │   ├── app
+│   │   │   ├── about
+│   │   │   │   └── page.tsx
+│   │   │   ├── book
+│   │   │   │   └── page.tsx
+│   │   │   ├── contact
+│   │   │   │   └── page.tsx
+│   │   │   ├── faq
+│   │   │   │   └── page.tsx
+│   │   │   ├── services
+│   │   │   │   └── page.tsx
 │   │   │   ├── favicon.ico
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
 │   │   │   ├── layout.tsx.backup
 │   │   │   └── page.tsx
 │   │   ├── components
+│   │   │   ├── booking
+│   │   │   │   ├── address-step.tsx
+│   │   │   │   ├── booking-wizard.tsx
+│   │   │   │   ├── customer-info-step.tsx
+│   │   │   │   ├── date-time-step.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── review-payment-step.tsx
+│   │   │   │   └── service-selection-step.tsx
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
 │   │   │   ├── marketing
@@ -159,7 +177,8 @@
 │   │   │   │   ├── card.tsx
 │   │   │   │   ├── index.ts
 │   │   │   │   ├── input.tsx
-│   │   │   │   └── modal.tsx
+│   │   │   │   ├── modal.tsx
+│   │   │   │   └── select.tsx
 │   │   │   └── test-api-connection.tsx
 │   │   ├── hooks
 │   │   ├── lib
@@ -167,6 +186,7 @@
 │   │   │   └── query-client.ts
 │   │   ├── stores
 │   │   │   ├── auth-store.ts
+│   │   │   ├── booking-store.ts
 │   │   │   └── ui-store.ts
 │   │   ├── types
 │   │   │   └── index.ts
@@ -186,8 +206,7 @@
 │       └── marketing
 ├── .gitignore
 ├── docker-compose.prod.yml
-├── invoice.html
 ├── project_structure.txt
 └── README.md
 
-45 directories, 146 files
+51 directories, 159 files
