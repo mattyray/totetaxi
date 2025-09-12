@@ -16,13 +16,13 @@ interface Booking {
   service_type: string;
   status: string;
   pickup_date: string;
-  pickup_time: string;
-  pickup_address: {
+  pickup_time?: string;
+  pickup_address?: {
     address_line_1: string;
     city: string;
     state: string;
   };
-  delivery_address: {
+  delivery_address?: {
     address_line_1: string;
     city: string;
     state: string;
@@ -69,7 +69,8 @@ export function BookingHistory() {
     }
   };
 
-  const formatAddress = (address: Booking['pickup_address']) => {
+  const formatAddress = (address?: Booking['pickup_address']) => {
+    if (!address) return 'Address not available';
     return `${address.address_line_1}, ${address.city}, ${address.state}`;
   };
 
@@ -116,7 +117,6 @@ export function BookingHistory() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <div className="flex-1">
             <Input
@@ -159,7 +159,6 @@ export function BookingHistory() {
                 className="border border-cream-200 rounded-lg p-6 hover:shadow-md transition-shadow"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  {/* Booking Info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-3">
                       <h3 className="font-semibold text-navy-900">
@@ -178,21 +177,25 @@ export function BookingHistory() {
                       <div>
                         <p className="font-medium text-navy-700">Date & Time</p>
                         <p className="text-navy-600">
-                          {new Date(booking.pickup_date).toLocaleDateString()} - {booking.pickup_time}
+                          {new Date(booking.pickup_date).toLocaleDateString()}
+                          {booking.pickup_time && ` - ${booking.pickup_time}`}
                         </p>
                       </div>
-                      <div>
-                        <p className="font-medium text-navy-700">From</p>
-                        <p className="text-navy-600">{formatAddress(booking.pickup_address)}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-navy-700">To</p>
-                        <p className="text-navy-600">{formatAddress(booking.delivery_address)}</p>
-                      </div>
+                      {booking.pickup_address && (
+                        <div>
+                          <p className="font-medium text-navy-700">From</p>
+                          <p className="text-navy-600">{formatAddress(booking.pickup_address)}</p>
+                        </div>
+                      )}
+                      {booking.delivery_address && (
+                        <div>
+                          <p className="font-medium text-navy-700">To</p>
+                          <p className="text-navy-600">{formatAddress(booking.delivery_address)}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Price & Actions */}
                   <div className="text-right">
                     <div className="text-2xl font-bold text-navy-900 mb-2">
                       ${booking.total_price}
