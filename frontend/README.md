@@ -1,15 +1,17 @@
+
+
 # ToteTaxi Frontend Living Documentation & AI Memory Persistence System
 
 ## About This Documentation
 
 This living documentation serves as **AI memory persistence** for ToteTaxi frontend development, enabling immediate technical context without rebuilding project understanding. It captures both operational reality and development roadmap to maintain continuity across AI development sessions.
 
-**Current Status:** Production-ready booking system with complete Django integration
-**Development Phase:** Phase 1 Complete, Phase 2+ Backend-Ready
+**Current Status:** Production-ready booking system with complete authentication and customer dashboard
+**Development Phase:** Phase 1 & 2 Complete, Phase 3+ Backend-Ready
 
 ---
 
-## Current Implementation Status (Completed This Session)
+## Current Implementation Status (Updated This Session)
 
 **Phase 1 - COMPLETE: Guest Booking System & Marketing Site**
 - Complete 5-step booking wizard with Django integration
@@ -17,6 +19,13 @@ This living documentation serves as **AI memory persistence** for ToteTaxi front
 - Working backend API integration for services, pricing, and booking creation
 - Production-ready state management and form handling
 - Mobile-responsive luxury design system
+
+**Phase 2 - COMPLETE: Customer Authentication & Dashboard**
+- Full authentication system (login/register/logout)
+- Customer dashboard with booking history and account overview
+- Address book management and quick rebooking
+- Enhanced booking wizard for authenticated users
+- Session persistence and protected routes
 
 **Technology Stack (Implemented & Working):**
 ```json
@@ -47,11 +56,19 @@ This living documentation serves as **AI memory persistence** for ToteTaxi front
 ```
 frontend/src/
 ├── app/                                    Next.js 15 App Router Pages
-│   ├── layout.tsx                         Root layout with TanStack Query provider
+│   ├── layout.tsx                         Root layout with TanStack Query provider & auth
 │   ├── page.tsx                           Homepage - real ToteTaxi content, testimonials, booking CTA
 │   ├── globals.css                        Tailwind + luxury design tokens (navy/gold/cream)
 │   ├── book/
 │   │   └── page.tsx                       Dedicated booking page (full-screen wizard)
+│   ├── login/
+│   │   └── page.tsx                       Customer login page with auth integration
+│   ├── register/
+│   │   └── page.tsx                       Customer registration page
+│   ├── dashboard/
+│   │   ├── page.tsx                       Customer dashboard main page
+│   │   └── bookings/
+│   │       └── page.tsx                   Detailed booking history with filters
 │   ├── services/ 
 │   │   └── page.tsx                       Services page - live Django pricing, real descriptions
 │   ├── about/
@@ -62,7 +79,7 @@ frontend/src/
 │       └── page.tsx                       Contact - real info (631-595-5100, info@totetaxi.com)
 ├── components/
 │   ├── layout/
-│   │   └── main-layout.tsx                Site header/footer, navigation with booking CTA
+│   │   └── main-layout.tsx                Site header/footer with authentication state handling
 │   ├── ui/                                Design System Components
 │   │   ├── button.tsx                     Variant-based (primary/secondary/outline/ghost)
 │   │   ├── input.tsx                      Form inputs with validation, dark text styling
@@ -70,31 +87,42 @@ frontend/src/
 │   │   ├── modal.tsx                      Headless UI modal for booking wizard
 │   │   ├── select.tsx                     Dropdown selects with proper styling
 │   │   └── index.ts                       Component exports
+│   ├── auth/                              Complete Authentication System
+│   │   ├── login-form.tsx                 Email/password login with session handling
+│   │   ├── register-form.tsx              Account creation with validation
+│   │   ├── user-menu.tsx                  Authenticated user navigation dropdown
+│   │   └── index.ts                       Auth exports
+│   ├── dashboard/                         Customer Dashboard System
+│   │   ├── dashboard-overview.tsx         Account stats, recent bookings, VIP status
+│   │   ├── booking-history.tsx            Filterable booking list with status tracking
+│   │   ├── quick-actions.tsx              Rebook, modify, support shortcuts
+│   │   └── index.ts                       Dashboard exports
 │   ├── booking/                           Complete Booking Wizard System
 │   │   ├── booking-wizard.tsx             Main container - 5-step progress, navigation
 │   │   ├── service-selection-step.tsx     Step 1: Service types, Mini Move packages, organizing services
 │   │   ├── date-time-step.tsx             Step 2: Calendar, real-time pricing, COI options
 │   │   ├── address-step.tsx               Step 3: Pickup/delivery forms, special instructions
 │   │   ├── customer-info-step.tsx         Step 4: Contact info, VIP signup option
-│   │   ├── review-payment-step.tsx        Step 5: Summary, booking creation, confirmation
+│   │   ├── review-payment-step.tsx        Step 5: Summary, dual-mode booking (guest/auth), confirmation
 │   │   └── index.ts                       Booking exports
 │   ├── marketing/
 │   │   └── service-showcase.tsx           Homepage component - fetches live Django service data
 │   ├── providers/
 │   │   └── query-provider.tsx             TanStack Query setup with React Query Devtools
 │   └── test-api-connection.tsx            Dev tool - tests all API endpoints (remove in production)
+├── hooks/                                 Custom React Hooks
+│   └── use-click-away.ts                  Click outside detection for modals/dropdowns
 ├── stores/                                Zustand State Management
-│   ├── auth-store.ts                      Customer authentication with persistence
+│   ├── auth-store.ts                      Customer authentication with persistence & session handling
 │   ├── ui-store.ts                        UI state (modals, notifications, sidebar)
 │   └── booking-store.ts                   Booking wizard state - multi-step, persistent
 ├── lib/                                   Core Utilities  
-│   ├── api-client.ts                      Axios + Django CSRF integration
+│   ├── api-client.ts                      Axios + Django CSRF integration with auth
 │   └── query-client.ts                    TanStack Query v5 configuration
 ├── types/
-│   └── index.ts                           Django model interfaces, booking types
-├── utils/
-│   └── cn.ts                              Tailwind class merging utility
-└── hooks/ (future)                        Custom React Query hooks
+│   └── index.ts                           Django model interfaces, booking types, auth types
+└── utils/
+    └── cn.ts                              Tailwind class merging utility
 
 Configuration Files:
 ├── tailwind.config.js                     Custom luxury colors (navy/gold/cream)
@@ -104,295 +132,187 @@ Configuration Files:
 └── package.json                           Exact dependency versions
 ```
 
-## Booking Wizard Implementation Details
+## Authentication System Implementation (NEW - Complete)
 
-### Complete 5-Step Booking Process
+### Complete Authentication Flow
 
-**Step 1 - Service Selection:**
+**Login System:**
 ```typescript
-// src/components/booking/service-selection-step.tsx
-// BACKEND INTEGRATION: GET /api/public/services/
+// src/components/auth/login-form.tsx
+// BACKEND INTEGRATION: POST /api/customer/auth/login/
 // FUNCTIONALITY:
-//   - Service type selection (mini_move, standard_delivery, specialty_item)
-//   - Mini Move package selection with popularity indicators
-//   - Organizing service add-ons (packing/unpacking)
-//   - Dynamic form based on service type selected
-// STATE UPDATES: service_type, mini_move_package_id, include_packing/unpacking
+//   - Email/password validation with Zod schema
+//   - Django session handling with CSRF tokens
+//   - Error handling for invalid credentials
+//   - Redirect to dashboard on success
+//   - Remember me functionality
+// STATE UPDATES: authStore with user profile, session persistence
 ```
 
-**Step 2 - Date & Time Selection:**
+**Registration System:**
 ```typescript
-// src/components/booking/date-time-step.tsx  
-// BACKEND INTEGRATION: 
-//   - GET /api/public/availability/ (30-day calendar with surcharges)
-//   - POST /api/public/pricing-preview/ (real-time pricing calculation)
+// src/components/auth/register-form.tsx  
+// BACKEND INTEGRATION: POST /api/customer/auth/register/
 // FUNCTIONALITY:
-//   - Calendar interface with availability indicators
-//   - Real-time pricing updates based on selections
-//   - Surcharge notices (weekend, holiday, location)
-//   - COI requirement toggle with fee calculation
-//   - Time slot selection (morning/afternoon/evening)
-// STATE UPDATES: pickup_date, pickup_time, coi_required, pricing_data
+//   - Complete account creation form
+//   - Email uniqueness validation
+//   - Password strength requirements
+//   - Automatic login after registration
+//   - VIP program opt-in during signup
+// STATE UPDATES: authStore with new user profile
 ```
 
-**Step 3 - Address Collection:**  
+**User Navigation:**
 ```typescript
-// src/components/booking/address-step.tsx
-// BACKEND INTEGRATION: None (form validation only)
+// src/components/auth/user-menu.tsx
+// BACKEND INTEGRATION: POST /api/customer/auth/logout/
 // FUNCTIONALITY:
-//   - Dual address forms (pickup/delivery)
-//   - State validation (NY/CT/NJ service areas)
-//   - ZIP code validation for service coverage
-//   - Special instructions textarea
-//   - Form validation with error display
-// STATE UPDATES: pickup_address, delivery_address, special_instructions
+//   - Authenticated user dropdown menu
+//   - Dashboard navigation shortcuts
+//   - Account settings access
+//   - Secure logout with session cleanup
+//   - Booking shortcuts and quick actions
+// STATE UPDATES: authStore logout, clear user data
 ```
 
-**Step 4 - Customer Information:**
-```typescript
-// src/components/booking/customer-info-step.tsx
-// BACKEND INTEGRATION: None (guest checkout focused)
-// FUNCTIONALITY: 
-//   - Contact form (name, email, phone)
-//   - Email and phone validation
-//   - VIP program signup option
-//   - Privacy notice display
-//   - Authentication state detection (ready for logged-in users)
-// STATE UPDATES: customer_info, VIP signup preference
-```
-
-**Step 5 - Review & Confirmation:**
-```typescript
-// src/components/booking/review-payment-step.tsx
-// BACKEND INTEGRATION: POST /api/public/guest-booking/
-// FUNCTIONALITY:
-//   - Complete booking summary display
-//   - Pricing breakdown with all fees
-//   - Booking submission to Django
-//   - Confirmation screen with booking number
-//   - Payment processing placeholder (Stripe ready)
-// STATE UPDATES: Booking completion, wizard reset
-```
-
-### Booking State Management
+### Authentication State Management
 
 ```typescript
-// src/stores/booking-store.ts
-// FUNCTIONALITY: Complete booking wizard state coordination
-// KEY FEATURES:
-//   - Persistent storage (survives page refresh)
-//   - Multi-step navigation with validation
-//   - Error handling and field validation
-//   - Step completion checking
-//   - Data coordination between steps
-
-interface BookingData {
-  // Service Selection
-  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
-  mini_move_package_id?: string;
-  include_packing?: boolean;
-  include_unpacking?: boolean;
-  standard_delivery_item_count?: number;
-  specialty_item_ids?: string[];
+// src/stores/auth-store.ts - Enhanced with session handling
+interface AuthState {
+  // User Authentication
+  isAuthenticated: boolean;
+  user: CustomerProfile | null;
+  isLoading: boolean;
   
-  // Date/Time
-  pickup_date?: string;
-  pickup_time?: 'morning' | 'afternoon' | 'evening';
-  coi_required?: boolean;
+  // Session Management
+  token: string | null;
+  sessionExpiry: Date | null;
   
-  // Addresses  
-  pickup_address?: BookingAddress;
-  delivery_address?: BookingAddress;
-  special_instructions?: string;
+  // Authentication Actions
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (userData: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<void>;
   
-  // Customer Info
-  customer_info?: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-  };
-  
-  // Calculated Pricing
-  pricing_data?: {
-    base_price_dollars: number;
-    surcharge_dollars: number;
-    coi_fee_dollars: number;
-    organizing_total_dollars: number;
-    total_price_dollars: number;
-  };
+  // Profile Management
+  updateProfile: (updates: Partial<CustomerProfile>) => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 ```
 
-## Backend Integration Architecture (Working)
+## Customer Dashboard Implementation (NEW - Complete)
 
-### Current API Integrations
+### Dashboard Overview System
+
+**Main Dashboard:**
+```typescript
+// src/app/dashboard/page.tsx & src/components/dashboard/dashboard-overview.tsx
+// BACKEND INTEGRATION: GET /api/customer/dashboard/
+// FUNCTIONALITY:
+//   - Account statistics and KPIs
+//   - Recent booking history display
+//   - VIP status and benefits
+//   - Quick action buttons (new booking, rebook, etc.)
+//   - Spending summaries and milestone tracking
+// DISPLAYS: total_bookings, total_spent_dollars, recent activity
+```
+
+**Booking History System:**
+```typescript
+// src/app/dashboard/bookings/page.tsx & src/components/dashboard/booking-history.tsx
+// BACKEND INTEGRATION: GET /api/customer/bookings/
+// FUNCTIONALITY:
+//   - Complete booking history with filtering
+//   - Status-based filtering (pending, confirmed, completed, cancelled)
+//   - Date range filtering and search
+//   - Booking detail expansion
+//   - Rebooking and modification actions
+// FEATURES: Real-time status updates, export capabilities
+```
+
+**Quick Actions System:**
+```typescript
+// src/components/dashboard/quick-actions.tsx
+// BACKEND INTEGRATION: POST /api/customer/bookings/<uuid>/rebook/
+// FUNCTIONALITY:
+//   - One-click rebooking from previous bookings
+//   - Favorite address quick selection
+//   - Emergency booking support contact
+//   - Service upgrade recommendations
+//   - Loyalty program progress display
+```
+
+## Enhanced Booking System (Updated This Session)
+
+### Dual-Mode Booking Experience
+
+**Updated Review & Payment Step:**
+```typescript
+// src/components/booking/review-payment-step.tsx - SIGNIFICANTLY ENHANCED
+// BACKEND INTEGRATION: 
+//   - POST /api/public/guest-booking/ (guest users)
+//   - POST /api/customer/bookings/create/ (authenticated users)
+// NEW FUNCTIONALITY:
+//   - Automatic detection of authentication state
+//   - Dynamic nickname generation (prevents IntegrityError)
+//   - Authenticated user data pre-filling
+//   - SavedAddress creation for future use
+//   - Different confirmation flows based on user type
+//   - Integration with customer dashboard updates
+// ADDRESSES FIXED: Unique constraint violation with address nicknames
+```
+
+**Dynamic Address Nicknames:**
+```typescript
+// Nickname generation pattern implemented:
+const timestamp = new Date().toISOString().slice(11, 16); // HH:MM
+const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`    // "Pickup Sep 12 17:11"
+delivery_address_nickname: `Delivery ${dateStr} ${timestamp}` // "Delivery Sep 12 17:11"
+```
+
+### Backend Integration Architecture (Working & Enhanced)
+
+**Current API Integrations:**
 
 **Public APIs (No Authentication):**
 ```
-GET /api/public/services/
-- Fetches complete service catalog
-- Returns: MiniMovePackage[], StandardDelivery config, SpecialtyItem[]
-- Used by: service-selection-step.tsx, service-showcase.tsx
-
-GET /api/public/availability/  
-- Returns 30-day calendar with availability and surcharges
-- Used by: date-time-step.tsx
-
-POST /api/public/pricing-preview/
-- Real-time pricing calculation including organizing services
-- Accepts: service config + pickup date
-- Returns: complete pricing breakdown
-- Used by: date-time-step.tsx
-
-POST /api/public/guest-booking/
-- Creates complete booking record in Django
-- Accepts: complete BookingData object
-- Returns: booking confirmation with booking_number
-- Used by: review-payment-step.tsx
+GET /api/public/services/ - Service catalog
+GET /api/public/availability/ - Calendar with surcharges
+POST /api/public/pricing-preview/ - Real-time pricing
+POST /api/public/guest-booking/ - Guest booking creation
 ```
 
-**API Client Configuration:**
-```typescript
-// src/lib/api-client.ts - Production-ready Django integration
-export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
-  withCredentials: true, // Essential for Django sessions
-  headers: { 'Content-Type': 'application/json' }
-});
-
-// Automatic CSRF token handling
-apiClient.interceptors.request.use(async (config) => {
-  if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
-    const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`);
-    config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
-  }
-  return config;
-});
+**Authenticated Customer APIs (NEW - Working):**
 ```
-
-## Marketing Website Implementation
-
-**Homepage with Real Content:**
-```typescript
-// src/app/page.tsx  
-// CONTENT: Real ToteTaxi messaging, customer testimonials
-// FEATURES:
-//   - Hero section with authentic value proposition
-//   - Customer testimonials (Natalie M., Kimberly R., etc.)
-//   - Service overview with live pricing data
-//   - Trust signals (BLADE partnership, 500+ moves, zero damage)
-//   - Booking wizard modal trigger
-// BACKEND: ServiceShowcase component fetches live data
-```
-
-**Services Page:**
-```typescript
-// src/app/services/page.tsx
-// CONTENT: Detailed service descriptions with real ToteTaxi pricing
-// BACKEND INTEGRATION: GET /api/public/services/ for live pricing
-// FEATURES:
-//   - Mini Move packages with real descriptions and pricing
-//   - Standard Delivery rates and policies  
-//   - Specialty Items catalog with current prices
-//   - Service areas and restrictions
-//   - Simple 3-step process overview
-```
-
-**About Page:**  
-```typescript
-// src/app/about/page.tsx
-// CONTENT: Real founder story (Danielle Candela)
-// FEATURES:
-//   - Authentic company story ("too many shoes" origin)
-//   - Company timeline (Founded 2016, Launched 2018)
-//   - Partnership information (BLADE, Cultured Magazine, Luggage Free)
-//   - Business metrics and trust indicators
-```
-
-**FAQ Page:**
-```typescript
-// src/app/faq/page.tsx  
-// CONTENT: Real ToteTaxi policies and procedures
-// FEATURES:
-//   - Expandable question categories
-//   - Real liability terms and insurance information
-//   - Prohibited items list (from shipping restrictions)
-//   - Actual pickup times, wait policies, cancellation terms
-//   - Office location (395 County Road 39A, Southampton)
-```
-
-**Contact Page:**
-```typescript
-// src/app/contact/page.tsx
-// CONTENT: Real ToteTaxi contact information
-// FEATURES:
-//   - Actual phone: 631-595-5100
-//   - Real email: info@totetaxi.com  
-//   - Service area details
-//   - Contact form with service type selection
-//   - Marketing inquiry differentiation
-```
-
-## Phase 2: Customer Portal (Backend APIs Complete - Frontend Ready)
-
-### Authentication System (Backend Implemented)
-
-**Available Backend APIs:**
-```
-POST /api/customer/auth/register/ - Customer account creation
-POST /api/customer/auth/login/ - Email/password authentication  
+POST /api/customer/auth/register/ - Account creation
+POST /api/customer/auth/login/ - Session authentication
 POST /api/customer/auth/logout/ - Session termination
-GET /api/customer/auth/user/ - Current user information
-GET /api/customer/csrf-token/ - CSRF token for authenticated requests
-```
-
-**Frontend Implementation Needed:**
-```typescript
-// Phase 2 Components to Build:
-├── components/auth/
-│   ├── login-form.tsx          - Email/password login with session handling
-│   ├── register-form.tsx       - Account creation form
-│   ├── protected-route.tsx     - Authentication guard component
-│   └── user-menu.tsx           - Authenticated user navigation
-├── app/login/page.tsx          - Login page
-├── app/register/page.tsx       - Registration page  
-└── app/dashboard/page.tsx      - Customer dashboard entry point
-```
-
-### Customer Dashboard Features (Backend Complete)
-
-**Available Backend APIs:**
-```
-GET /api/customer/dashboard/ - Account overview with statistics
-GET /api/customer/profile/ - CustomerProfile management
-PUT /api/customer/profile/ - Profile updates
-GET /api/customer/addresses/ - SavedAddress list
-POST /api/customer/addresses/ - Create new address
-GET,PUT,DELETE /api/customer/addresses/<uuid>/ - Address CRUD
-GET /api/customer/bookings/ - Booking history with filtering
-POST /api/customer/bookings/create/ - Authenticated booking creation
+GET /api/customer/auth/user/ - Current user profile
+GET /api/customer/dashboard/ - Account overview with stats
+GET /api/customer/bookings/ - Complete booking history
+POST /api/customer/bookings/create/ - Authenticated booking with SavedAddress
 POST /api/customer/bookings/<uuid>/rebook/ - Quick rebooking
+GET /api/customer/addresses/ - SavedAddress management
 ```
 
-**Frontend Implementation Needed:**
+**Enhanced API Client:**
 ```typescript
-// Customer Dashboard Components:
-├── components/dashboard/
-│   ├── dashboard-overview.tsx   - Account stats, recent bookings, VIP status
-│   ├── booking-history.tsx      - Filterable booking list with details
-│   ├── address-book.tsx         - SavedAddress CRUD interface
-│   ├── profile-settings.tsx     - CustomerProfile management
-│   └── quick-actions.tsx        - Rebook, modify, support shortcuts
+// src/lib/api-client.ts - Enhanced with authentication
+// NEW FEATURES:
+//   - Automatic authentication state detection
+//   - Token refresh handling
+//   - Session expiry management
+//   - Auth-aware request routing
+//   - Enhanced error handling for 401/403 responses
 ```
 
-**Enhanced Booking Experience:**
-- Pre-filled forms using SavedAddress data
-- Quick rebooking from history
-- Booking modification capabilities
-- VIP member benefits display
+## Marketing Website Implementation (Unchanged - Still Complete)
 
-## Phase 3: Staff Dashboard/CRM (Backend Complete - Frontend Needed)
+**Homepage, Services, About, FAQ, Contact pages remain fully implemented with real ToteTaxi content and working Django integrations.**
+
+## Phase 3: Staff Dashboard/CRM (Backend Complete - Frontend Ready)
 
 ### Staff Operations System (Backend Implemented)
 
@@ -404,12 +324,6 @@ GET /api/staff/dashboard/ - Business KPIs and urgent bookings
 GET /api/staff/bookings/ - All bookings with search/filters
 GET,PATCH /api/staff/bookings/<uuid>/ - Booking detail and management
 ```
-
-**Backend Models Available:**
-- StaffProfile with role-based permissions
-- StaffAction comprehensive audit logging  
-- Booking management with status tracking
-- Customer data access with privacy controls
 
 **Frontend Implementation Needed:**
 ```typescript
@@ -425,14 +339,6 @@ GET,PATCH /api/staff/bookings/<uuid>/ - Booking detail and management
 │   ├── dashboard/page.tsx       - Operations dashboard
 │   └── bookings/page.tsx        - Booking management interface
 ```
-
-**Staff Dashboard Features:**
-- Real-time booking pipeline
-- Customer search and profile access
-- Booking status updates and tracking  
-- Refund and modification processing
-- Financial reporting access
-- Audit trail viewing
 
 ## Phase 4: AWS & File Integration (Backend Configured)
 
@@ -460,72 +366,67 @@ GET,PATCH /api/staff/bookings/<uuid>/ - Booking detail and management
 │   └── template-preview.tsx    - Email template display
 ```
 
-## Google API Integration (Planned)
+## Development Patterns & Standards (Updated)
 
-### Available Integrations
+### Authentication Integration Pattern
 
-**Google Places API:**
-- Address autocomplete in booking forms
-- Address validation and standardization
-- Service area verification
-
-**Google SSO (Backend Infrastructure Ready):**
-- OAuth integration for customer authentication
-- Streamlined registration process
-
-## Development Patterns & Standards
-
-### Component Architecture
-
-**Variant-Based Design System:**
+**Protected Route Pattern:**
 ```typescript
-// Easy client modification pattern used throughout
-const buttonVariants = {
-  variant: {
-    primary: 'bg-navy-900 text-white hover:bg-navy-800',
-    secondary: 'bg-gold-500 text-navy-900 hover:bg-gold-600',
-    outline: 'border-2 border-navy-900 text-navy-900 hover:bg-navy-50'
-  }
-};
-```
+// Standard protection pattern used throughout dashboard
+'use client';
+import { useAuthStore } from '@/stores/auth-store';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-**API Integration Pattern:**
-```typescript
-// Standard TanStack Query pattern used throughout
-export const useServiceCatalog = () => {
-  return useQuery({
-    queryKey: ['services', 'catalog'],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/public/services/');
-      return response.data;
-    },
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    gcTime: 1000 * 60 * 30     // 30 minutes
-  });
-};
-```
-
-### Error Handling Standards
-
-**Centralized Error Processing:**
-```typescript
-// src/lib/api-client.ts - Response interceptor
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear auth and redirect to login
+export function useProtectedRoute() {
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const router = useRouter();
+  
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
     }
-    return Promise.reject(error);
-  }
-);
+  }, [isAuthenticated, isLoading, router]);
+  
+  return { isAuthenticated, isLoading };
+}
 ```
 
-### TypeScript Integration
-
-**Complete Django Model Interfaces:**
+**Dual-Mode Component Pattern:**
 ```typescript
-// src/types/index.ts - Full backend model mapping
+// Pattern for components that work for both guest and authenticated users
+const { isAuthenticated } = useAuthStore();
+
+// Conditional API endpoints
+const endpoint = isAuthenticated 
+  ? '/api/customer/bookings/create/'     // Updates customer stats
+  : '/api/public/guest-booking/';        // Guest booking
+
+// Conditional data structures
+const bookingRequest = isAuthenticated ? {
+  // Authenticated format with SavedAddress creation
+} : {
+  // Guest format with customer_info
+};
+```
+
+### Error Resolution Patterns
+
+**IntegrityError Resolution:**
+```typescript
+// Pattern implemented in review-payment-step.tsx
+// Problem: Duplicate SavedAddress nicknames causing unique constraint violations
+// Solution: Dynamic nickname generation with timestamp
+const timestamp = new Date().toISOString().slice(11, 16);
+const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const uniqueNickname = `${type} ${dateStr} ${timestamp}`;
+```
+
+### Enhanced TypeScript Integration
+
+**Complete Authentication Types:**
+```typescript
+// src/types/index.ts - Enhanced with auth types
 export interface CustomerProfile {
   id: string;
   user: DjangoUser;
@@ -534,48 +435,79 @@ export interface CustomerProfile {
   total_spent_dollars: number;
   preferred_pickup_time: 'morning' | 'afternoon' | 'evening';
   is_vip: boolean;
-  // ... complete interface matching Django model
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  phone: string;
+  vip_signup?: boolean;
+}
+
+export interface DashboardData {
+  customer_profile: CustomerProfile;
+  recent_bookings: Booking[];
+  total_bookings: number;
+  total_spent_dollars: number;
+  vip_status: boolean;
+  next_booking?: Booking;
 }
 ```
 
-## Production Deployment Readiness
+## Production Deployment Readiness (Updated)
 
 **Current Status:**
-- Complete booking system working locally
+- Complete booking system working for guest and authenticated users
+- Full authentication flow implemented
+- Customer dashboard with real-time data
 - All API integrations functional
 - Mobile-responsive design implemented
 - Error handling and loading states complete
+- IntegrityError issues resolved
 
 **Production Requirements:**
 - Remove TestAPIConnection component
 - Configure production environment variables
 - Set up Stripe payment processing
 - Deploy to hosting platform
+- Configure domain and SSL
 
-## Development Continuation Guide
-
-### For Authentication Development:
-**Required Files:**
-- `apps/customers/views.py` - Backend auth endpoints
-- `src/stores/auth-store.ts` - Current auth state management
-- `src/lib/api-client.ts` - CSRF and session handling
-
-### For Customer Dashboard Development:  
-**Required Files:**
-- `apps/customers/models.py` - CustomerProfile, SavedAddress models
-- `apps/customers/booking_views.py` - Authenticated booking endpoints
-- `src/components/booking/` - Existing booking wizard to enhance
+## Development Continuation Guide (Updated)
 
 ### For Staff Dashboard Development:
 **Required Files:**
 - `apps/accounts/models.py` - StaffProfile, StaffAction models
-- `apps/accounts/views.py` - Staff endpoints and KPIs
-- `src/stores/auth-store.ts` - Adapt for staff authentication
+- `apps/accounts/views.py` - Staff endpoints and KPIs  
+- `src/stores/auth-store.ts` - Adapt for staff authentication (add role checking)
+- Pattern: Follow customer dashboard implementation in `src/components/dashboard/`
 
 ### For AWS Integration:
 **Required Files:**
 - Backend S3/SES configuration files
 - `apps/documents/` - File handling models
 - `apps/notifications/` - Email system integration
+- Pattern: Follow authentication integration patterns
 
-This documentation serves as complete AI memory for ToteTaxi frontend development, covering operational reality, established patterns, and clear development pathways for all planned features.
+### For Enhanced Features:
+**Address Book Management:**
+- Backend: `apps/customers/models.py` - SavedAddress CRUD
+- Frontend: Build on `src/components/dashboard/` patterns
+
+**Booking Modifications:**
+- Backend: `apps/bookings/views.py` - Booking update endpoints
+- Frontend: Extend `src/components/dashboard/booking-history.tsx`
+
+**Payment Integration:**
+- Backend: `apps/payments/` - Stripe integration
+- Frontend: Enhance `src/components/booking/review-payment-step.tsx`
+
+This documentation serves as complete AI memory for ToteTaxi frontend development, covering both the completed authentication/dashboard system and clear development pathways for remaining features. The project now has a fully functional customer experience from guest booking through authenticated user management.
