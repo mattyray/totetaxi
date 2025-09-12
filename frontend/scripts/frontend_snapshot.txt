@@ -1,22 +1,22 @@
-# TOTETAXI FRONTEND - CODE FILES ONLY
-# Generated: 2025-09-09 18:26:07
-# Files: 33 essential code files
-# Stack: Next.js 14 + TypeScript + Tailwind v3 + TanStack Query v5
+# TOTETAXI FRONTEND EXPORT
+# Generated: 2025-09-11 20:24:47.922725
+# Files: 38
 
 # ==== next-env.d.ts ====
 
-```typescript
+```
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 /// <reference path="./.next/types/routes.d.ts" />
 
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
 ```
 
 # ==== next.config.ts ====
 
-```typescript
+```
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -24,11 +24,12 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
 ```
 
 # ==== package.json ====
 
-```json
+```
 {
   "name": "frontend",
   "version": "0.1.0",
@@ -68,32 +69,903 @@ export default nextConfig;
     "typescript": "^5"
   }
 }
+
 ```
 
 # ==== postcss.config.js ====
 
-```javascript
+```
 module.exports = {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
   },
 }
-```
-
-# ==== postcss.config.mjs ====
 
 ```
-const config = {
-  plugins: ["@tailwindcss/postcss"],
+
+# ==== src/app/about/page.tsx ====
+
+```
+// frontend/src/app/about/page.tsx - Real Tote Taxi story
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+
+export default function AboutPage() {
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
+            Welcome to Tote Taxi
+          </h1>
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto">
+            A door-to-door delivery, storage, courier, and mini moving service serving the Hamptons, 
+            NYC, all major NY airports, Connecticut, and South Florida.
+          </p>
+        </div>
+
+        {/* What We Do */}
+        <section className="mb-20">
+          <Card variant="luxury">
+            <CardHeader>
+              <h2 className="text-3xl font-serif font-bold text-navy-900 text-center">
+                What We Do + Where We Go
+              </h2>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <p className="text-navy-700 text-lg">
+                  Tote Taxi offers a luxury <strong>multi-arm delivery service</strong> with additional{' '}
+                  <strong>custom service offerings</strong> for people traveling to and from{' '}
+                  <strong>New York</strong>, <strong>the Hamptons</strong>, <strong>South Florida</strong>{' '}
+                  (Palm Beach, Boca Raton, Miami, Jupiter, Fort Lauderdale, and more), and{' '}
+                  <strong>all major NYC airports</strong> (JFK, LGA, and EWR).
+                </p>
+                
+                <div className="bg-gold-50 border border-gold-200 rounded-lg p-6">
+                  <h3 className="font-medium text-navy-900 mb-3">We Carry It All</h3>
+                  <p className="text-navy-700">
+                    Same-day, door-to-door service for <strong>luggage, golf clubs, shopping bags, bikes, 
+                    exercise equipment, baby gear, pet supplies, clothing, forgotten items, small furniture, 
+                    accessories, and so much more.</strong>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Our Philosophy */}
+        <section className="mb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div>
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-6">
+                We Are Hands-On... So You Can Be Hands-Off
+              </h2>
+              <div className="space-y-4 text-navy-700">
+                <p>
+                  <strong>Convenience is a luxury.</strong> Don't want to take everything back with you? 
+                  We offer day, weekend, and seasonal storage options – whether it's for a short trip 
+                  or winter storage for your summer gear and essentials.
+                </p>
+                <p>
+                  Every family needs a <strong>Mini Move</strong>. Tote Taxi offers the ability to pack 
+                  whatever you need and get it quickly to your summer home and back to the city at the 
+                  end of the season.
+                </p>
+                <p>
+                  Do you need help packing? We are happy to recommend any one of our packing partners 
+                  to ensure a clutter-free summer vacation. We truly tote it all – treating your items 
+                  as if they were our own.
+                </p>
+              </div>
+            </div>
+            
+            <Card variant="elevated">
+              <CardContent>
+                <div className="text-center">
+                  <h3 className="text-xl font-medium text-navy-900 mb-4">
+                    A Trusted Luxury Delivery Service
+                  </h3>
+                  <p className="text-navy-700 mb-6">
+                    Our professional same-day luxe courier service is perfect for forgotten or 
+                    last-minute items. We also offer an array of <strong>custom services upon request</strong>.
+                  </p>
+                  <p className="text-navy-600 text-sm">
+                    Providing seamless assistance and expert guidance, Tote Taxi elevates the travel experience – the haute courier.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Founder Story */}
+        <section className="mb-20">
+          <Card variant="luxury">
+            <CardHeader>
+              <h2 className="text-3xl font-serif font-bold text-navy-900 text-center">
+                About Our Founder
+              </h2>
+            </CardHeader>
+            <CardContent>
+              <div className="max-w-3xl mx-auto">
+                <h3 className="text-xl font-medium text-navy-900 mb-4 text-center">
+                  Meet Danielle!
+                </h3>
+                
+                <div className="space-y-4 text-navy-700">
+                  <p>
+                    Hello! It's a pleasure to meet you.
+                  </p>
+                  <p>
+                    I started this business because I wanted a seamless way to get my suitcase 
+                    (which was packed with too many shoes) to and from the Hamptons and NYC.
+                  </p>
+                  <p>
+                    Are you flying with BLADE and need your golf bags waiting for you at Sebonack? 
+                    Are you spending a Sunday at Surf Lodge and need a place to store your luggage 
+                    for the day? Or, maybe you are spending the summer in the Hamptons and want to 
+                    bring your Peloton?
+                  </p>
+                  <p>
+                    Are you in the Hamptons and need a dress delivered to you for an event from 
+                    Bergdorf Goodman last minute? Did you leave something small, but absolutely 
+                    essential in the city? Let us help!
+                  </p>
+                  <p>
+                    Whatever the case may be, we are here to help get your things where they need 
+                    to go and with the utmost professional care.
+                  </p>
+                  <p className="text-center font-medium text-navy-900">
+                    Thank you for the opportunity to serve you – see you at the beach!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Company Timeline */}
+        <section className="mb-20">
+          <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+            Our Journey
+          </h2>
+          <div className="space-y-8">
+            <Card variant="elevated">
+              <CardContent>
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-navy-900 text-white rounded-full flex items-center justify-center text-xl font-bold mr-6">
+                    2016
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-navy-900">Founded</h3>
+                    <p className="text-navy-700">Danielle Candela founded Tote Taxi to solve the stress of traveling with cumbersome luggage between Manhattan and the Hamptons.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card variant="elevated">
+              <CardContent>
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-navy-900 text-white rounded-full flex items-center justify-center text-xl font-bold mr-6">
+                    2018
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-navy-900">Official Launch</h3>
+                    <p className="text-navy-700">Tote Taxi officially launched operations, focusing on convenience, style, and peace of mind for luxury travelers.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card variant="elevated">
+              <CardContent>
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-navy-900 text-white rounded-full flex items-center justify-center text-xl font-bold mr-6">
+                    2024
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-navy-900">Expanded Service</h3>
+                    <p className="text-navy-700">Now serving NYC, Hamptons, Connecticut, South Florida, and all major NYC airports with partnerships including BLADE and Cultured Magazine.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <div className="text-center">
+          <h2 className="text-2xl font-serif font-bold text-navy-900 mb-4">
+            Ready to Experience Hands-Free Travel?
+          </h2>
+          <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
+            Join thousands of satisfied clients who trust Tote Taxi for seamless delivery service. 
+            From forgotten essentials to seasonal moves, we handle it all with professional care.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/book">
+              <Button variant="primary" size="lg">
+                Book Your Move
+              </Button>
+            </Link>
+            <Link href="/contact">
+              <Button variant="outline" size="lg">
+                Contact Our Team
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
+```
+
+# ==== src/app/book/page.tsx ====
+
+```
+// frontend/src/app/book/page.tsx
+'use client';
+
+import { BookingWizard } from '@/components/booking';
+import { MainLayout } from '@/components/layout/main-layout';
+
+export default function BookPage() {
+  return (
+    <MainLayout>
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100">
+        <BookingWizard />
+      </div>
+    </MainLayout>
+  );
+}
+```
+
+# ==== src/app/contact/page.tsx ====
+
+```
+// frontend/src/app/contact/page.tsx - Real Tote Taxi contact info
+'use client';
+
+import { useState } from 'react';
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import Link from 'next/link';
+
+export default function ContactPage() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    service: '',
+    message: '',
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    // Simulate form submission
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setSubmitted(true);
+    setIsSubmitting(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  if (submitted) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="text-6xl mb-6">📦</div>
+            <h1 className="text-3xl font-serif font-bold text-navy-900 mb-6">
+              We'll Get Back to You ASAP!
+            </h1>
+            <Card variant="luxury">
+              <CardContent>
+                <p className="text-navy-700 mb-6">
+                  Your message has been received. Our team will respond as quickly as possible 
+                  to help with your delivery needs.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Link href="/book">
+                    <Button variant="primary">
+                      Book a Delivery
+                    </Button>
+                  </Link>
+                  <Link href="/">
+                    <Button variant="outline">
+                      Return Home
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
+            Contact Us Now
+          </h1>
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto mb-4">
+            Can't find what you are looking for? Our Customer Service Team is available to help with any questions.
+          </p>
+          <p className="text-lg text-navy-600">
+            Be sure to check out our <Link href="/faq" className="text-navy-900 hover:underline">FAQ here</Link>.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* Contact Form */}
+          <div>
+            <Card variant="elevated">
+              <CardHeader>
+                <h2 className="text-2xl font-serif font-bold text-navy-900">
+                  Get Started Here
+                </h2>
+                <p className="text-navy-700">
+                  Please fill out our <strong>brief survey</strong> and we'll get back to you ASAP.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Full Name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Your Name"
+                    />
+                    <Input
+                      label="Email Address"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="you@email.com"
+                    />
+                  </div>
+
+                  <Input
+                    label="Phone Number"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="(555) 123-4567"
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-navy-900 mb-1">
+                      Service Needed <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="service"
+                      value={formData.service}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
+                    >
+                      <option value="">Select a service</option>
+                      <option value="mini-move">Mini Move</option>
+                      <option value="standard-delivery">Standard Delivery</option>
+                      <option value="blade-luggage">BLADE Luggage</option>
+                      <option value="storage">Storage</option>
+                      <option value="south-florida">South Florida Delivery</option>
+                      <option value="custom">Custom Service</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-navy-900 mb-1">
+                      Tell Us About Your Needs <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      name="message"
+                      value={formData.message}
+                      onChange={handleChange}
+                      required
+                      rows={5}
+                      placeholder="Describe what you need delivered, pickup/delivery locations, dates, etc."
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white resize-vertical"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  >
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-8">
+            {/* Direct Contact */}
+            <Card variant="luxury">
+              <CardHeader>
+                <h3 className="text-xl font-serif font-bold text-navy-900">
+                  Get in Touch Directly
+                </h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-medium text-navy-900 mb-2">Email</h4>
+                    <p className="text-navy-700">
+                      <a href="mailto:info@totetaxi.com" className="hover:underline text-lg">
+                        info@totetaxi.com
+                      </a>
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-navy-900 mb-2">Phone</h4>
+                    <p className="text-navy-700">
+                      <a href="tel:631-595-5100" className="hover:underline text-lg">
+                        631-595-5100
+                      </a>
+                    </p>
+                    <p className="text-sm text-navy-600 mt-1">
+                      <em>For Courier Service – Priority Delivery, please call us.</em>
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Service Areas */}
+            <Card variant="elevated">
+              <CardHeader>
+                <h3 className="text-xl font-serif font-bold text-navy-900">
+                  Our Service Areas
+                </h3>
+              </CardHeader>
+              <CardContent>
+                <p className="text-navy-700 mb-4">
+                  <strong>Tote Taxi is a same-day door-to-door delivery service</strong> covering:
+                </p>
+                <ul className="space-y-2 text-navy-700">
+                  <li>• <strong>The Hamptons</strong> (all areas)</li>
+                  <li>• <strong>NYC</strong> (Manhattan, Brooklyn, and more)</li>
+                  <li>• <strong>All Major NY Airports</strong> (JFK, LGA, EWR)</li>
+                  <li>• <strong>Connecticut</strong></li>
+                  <li>• <strong>South Florida</strong> (Palm Beach, Miami, Boca Raton, Jupiter, Fort Lauderdale)</li>
+                </ul>
+                <p className="text-sm text-navy-600 mt-4">
+                  <strong>Custom deliveries and services are available upon request.</strong>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Special Inquiries */}
+            <Card variant="default" className="border-gold-200 bg-gold-50">
+              <CardContent>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-navy-900 mb-3">
+                    Marketing & PR Inquiries
+                  </h3>
+                  <p className="text-navy-700 text-sm mb-4">
+                    For partnership opportunities and media inquiries, please contact us directly.
+                  </p>
+                  <Link href="mailto:info@totetaxi.com?subject=Marketing%20Inquiry">
+                    <Button variant="outline" size="sm">
+                      Contact for Partnerships
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Booking CTA */}
+            <Card variant="luxury">
+              <CardContent>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-navy-900 mb-3">
+                    Ready to Book?
+                  </h3>
+                  <p className="text-navy-700 text-sm mb-4">
+                    Skip the contact form and start your delivery booking directly.
+                  </p>
+                  <Link href="/book">
+                    <Button variant="primary" className="w-full">
+                      Book Now
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
+```
+
+# ==== src/app/faq/page.tsx ====
+
+```
+// frontend/src/app/faq/page.tsx - Real Tote Taxi FAQ content
+'use client';
+
+import { useState } from 'react';
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+
+interface FAQItem {
+  question: string;
+  answer: string;
+  category: 'general' | 'service' | 'mini-moves' | 'booking';
+}
+
+const faqData: FAQItem[] = [
+  // General
+  {
+    category: 'general',
+    question: 'What areas do you currently service?',
+    answer: 'We currently service the Hamptons, NYC and surrounding areas (by zipcode), and South Florida (by zipcode). If you don\'t see your zipcode or location listed as an option, you can always contact us for a custom quote. Certain zip codes surrounding our service areas may be an additional fee.'
+  },
+  {
+    category: 'general',
+    question: 'Do you handle airport baggage transportation?',
+    answer: 'Yes. We deliver to JFK, LGA, EWR & Westchester FBO\'s. Please contact us for specific arrangements.'
+  },
+  {
+    category: 'general',
+    question: 'What about insurance coverage?',
+    answer: 'Our total liability for items lost or damaged is half the purchase price of each item up to $150. For additional coverage, $100 extra covers your order for $1,000. TOTE TAXI assumes no responsibility for: money, negotiable papers, securities, business documents, irreplaceable books, manuscripts, photographic or electronic equipment, computers, jewelry, watches, eyeglasses, silverware, china, precious metals, heirlooms, furs, tobacco products, antiques, artifacts, paintings and other works of art, medicines, human organs, commercial items, cosmetics, samples, or any similar valuable or fragile items.'
+  },
+  {
+    category: 'general',
+    question: 'Do I need to tip the driver?',
+    answer: 'Tipping is not required, but is greatly appreciated by the drivers.'
+  },
+  {
+    category: 'general',
+    question: 'Do you offer any discounts?',
+    answer: 'We can offer a discount if you are paying via bank transfer, cash, or if you refer someone who books Tote Taxi. Please call or email for more information.'
+  },
+  {
+    category: 'general',
+    question: 'Do you offer daily luggage storage?',
+    answer: 'Yes, this service is offered at 395 County Road, 39A. It\'s $20/day. Please call or email us to schedule.'
+  },
+  
+  // Service Details
+  {
+    category: 'service',
+    question: 'What happens if I\'m late to give my bag? How long will you wait?',
+    answer: 'If there is a problem we will call/text you directly. Tote Taxi will wait up to 10 minutes to receive the bag. If the delivery is missed you will be charged an additional $20.'
+  },
+  {
+    category: 'service',
+    question: 'Can I leave my bag outside my door if I\'m not home?',
+    answer: 'Yes. If you are not home, please leave the items in a safe place. Use the instruction form to inform us of pickup/delivery instructions.'
+  },
+  {
+    category: 'service',
+    question: 'I\'m staying in a hotel - where should I leave my bag?',
+    answer: 'Go ahead and leave it at the front desk – the hotel will give you a claim ticket. Please respond to your confirmation email with a photo of the claim ticket.'
+  },
+  {
+    category: 'service',
+    question: 'Do you have a drop-off or pick-up location?',
+    answer: 'Everything is delivered door-to-door. If you need this option, our office is at 395 County Road 39A, Southampton, NY 11968. Contact us for details.'
+  },
+  {
+    category: 'service',
+    question: 'Where will the driver meet me?',
+    answer: 'Please have the person handing us the bag meet us on the first floor. We will contact you directly when we have arrived at your address.'
+  },
+  {
+    category: 'service',
+    question: 'Do I have to label my bag?',
+    answer: 'Yes, please label the bag with the name on the order. We also highly recommend that you number your pieces (example: #3 of 5 pieces). Labels are available upon request.'
+  },
+  {
+    category: 'service',
+    question: 'When will my bag arrive in NYC/The Hamptons?',
+    answer: 'Items are picked up in the mornings between 8am-11:30am and delivered before 6pm. When the driver is headed to your pickup/drop-off you will receive tracking information.'
+  },
+  {
+    category: 'service',
+    question: 'Do you offer local Hamptons service from retail stores?',
+    answer: 'As a traditional courier, we can pick up and deliver items for you around the Hamptons.'
+  },
+  
+  // Mini Moves
+  {
+    category: 'mini-moves',
+    question: 'What is a mini move?',
+    answer: 'A mini-move is a luxurious and worry-free solution for transporting a larger amount of luggage and other small items in a carefree way — to and from your destination in NYC, the Hamptons, and South Florida.'
+  },
+  {
+    category: 'mini-moves',
+    question: 'What is the difference between a Mini Move, Petite Move, and a Full Move?',
+    answer: 'We suggest move types based on the number of individuals in a family: • Petite Move: Ideal for a family of 3- with 8-15 pieces • Mini Move (Standard): Our most popular option, ideal for a family of 5- with 15-30 pieces • Full Move: For larger families of 6+ with 50-60 pieces. Note: mini move packages do not include Peloton transport.'
+  },
+  {
+    category: 'mini-moves',
+    question: 'What do I need to know about transporting a Peloton?',
+    answer: 'We ask that you please remove the screen from the bike before transport.'
+  },
+  {
+    category: 'mini-moves',
+    question: 'I have an item that is not listed on the website - how do I know how much it will cost?',
+    answer: 'If you have a custom order please email us at info@totetaxi.com or call 631-595-5100. We work on custom orders and can provide a quote based on your specific needs.'
+  },
+  {
+    category: 'mini-moves',
+    question: 'Are there any additional fees with the Mini Move?',
+    answer: 'There can be additional fees: if you give us more items than originally stated, if your items are not ready for pickup and/or drivers are required to wait more than 30 minutes (on either end) an hourly rate will accrue and be added to the Mini Move.'
+  },
+  {
+    category: 'mini-moves',
+    question: 'Can you provide us with a COI (Certificate of Insurance)?',
+    answer: 'Yes, please send a sample COI for the building to info@totetaxi.com. It is $50 extra. We need to know when the pickup is scheduled if the building requires a COI.'
+  },
+  
+  // Booking
+  {
+    category: 'booking',
+    question: 'If I want to add a bag last minute can I?',
+    answer: 'Tote Taxi can take as many bags as needed/requested by the client. Please inform the messenger of the change - we\'ll be able to properly document the delivery request in our system. The card on file will be billed for any additional items.'
+  },
+  {
+    category: 'booking',
+    question: 'What is your cancellation policy?',
+    answer: 'You must cancel within 48 hours of booking for a full refund. This does not apply for holiday weekends or sold-out dates. Credit will be issued for any cancellations.'
+  },
+  {
+    category: 'booking',
+    question: 'How do I edit my order?',
+    answer: 'Please email us at orders@totetaxi.com. We will gladly assist you with any changes.'
+  }
+];
+
+const categories = {
+  general: 'General Information',
+  service: 'Service Details',
+  'mini-moves': 'Mini Moves',
+  booking: 'Booking & Orders'
 };
 
-export default config;
+export default function FAQPage() {
+  const [activeCategory, setActiveCategory] = useState<string>('general');
+  const [openQuestions, setOpenQuestions] = useState<Set<number>>(new Set());
+
+  const toggleQuestion = (index: number) => {
+    const newOpenQuestions = new Set(openQuestions);
+    if (newOpenQuestions.has(index)) {
+      newOpenQuestions.delete(index);
+    } else {
+      newOpenQuestions.add(index);
+    }
+    setOpenQuestions(newOpenQuestions);
+  };
+
+  const filteredFAQs = faqData.filter(faq => faq.category === activeCategory);
+
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto mb-4">
+            Everything you need to know about Tote Taxi's delivery service.
+          </p>
+          <p className="text-lg text-navy-600">
+            Can't find what you're looking for? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for personalized assistance.
+          </p>
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex flex-wrap justify-center gap-4 mb-12">
+          {Object.entries(categories).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveCategory(key)}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                activeCategory === key
+                  ? 'bg-navy-900 text-white'
+                  : 'bg-white text-navy-700 border border-gray-200 hover:border-navy-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* FAQ Content */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <div className="space-y-4">
+            {filteredFAQs.map((faq, index) => (
+              <Card key={index} variant="elevated">
+                <CardContent>
+                  <button
+                    onClick={() => toggleQuestion(index)}
+                    className="w-full text-left py-4 flex justify-between items-start"
+                  >
+                    <h3 className="text-lg font-medium text-navy-900 pr-4">
+                      {faq.question}
+                    </h3>
+                    <span className={`text-navy-900 transition-transform flex-shrink-0 ${
+                      openQuestions.has(index) ? 'rotate-180' : ''
+                    }`}>
+                      ↓
+                    </span>
+                  </button>
+                  {openQuestions.has(index) && (
+                    <div className="pb-4 pt-2 border-t border-gray-100">
+                      <div className="text-navy-700 leading-relaxed whitespace-pre-line">
+                        {faq.answer}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Important Notes */}
+        <section className="mb-16">
+          <h2 className="text-2xl font-serif font-bold text-navy-900 text-center mb-8">
+            Important Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card variant="default" className="border-red-200 bg-red-50">
+              <CardContent>
+                <h3 className="font-medium text-navy-900 mb-3">Liability Limitations</h3>
+                <p className="text-navy-700 text-sm leading-relaxed">
+                  In consideration of the rate charged, it is agreed that the value of shipments 
+                  is not greater than $150.00 unless a greater value is declared and insurance 
+                  purchased at the time the order is placed. All claims for loss or damage must 
+                  be submitted verbally within 24 hours and in writing by certified mail within 
+                  30 days of pickup or delivery.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card variant="default" className="border-gold-200 bg-gold-50">
+              <CardContent>
+                <h3 className="font-medium text-navy-900 mb-3">Office Location</h3>
+                <div className="text-navy-700 text-sm">
+                  <p className="mb-2"><strong>395 County Road 39A</strong></p>
+                  <p className="mb-2">Southampton, NY 11968</p>
+                  <p className="mb-2">Daily luggage storage available: $20/day</p>
+                  <p>Contact us to arrange pickup/drop-off</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Items We Cannot Transport */}
+        <section className="mb-16">
+          <Card variant="elevated">
+            <CardContent>
+              <h2 className="text-2xl font-serif font-bold text-navy-900 mb-6 text-center">
+                Items We Cannot Transport
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-medium text-navy-900 mb-3">Prohibited Items Include:</h3>
+                  <ul className="space-y-1 text-navy-700 text-sm">
+                    <li>• Dangerous goods or hazardous materials</li>
+                    <li>• Explosives, fireworks, flammable goods</li>
+                    <li>• Cash, coins, currency, negotiable instruments</li>
+                    <li>• Human or animal remains</li>
+                    <li>• Lottery tickets and gambling devices</li>
+                    <li>• Pornographic materials</li>
+                    <li>• Tobacco products and cigarettes</li>
+                    <li>• Prescription drugs (with limited exceptions)</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-medium text-navy-900 mb-3">Additional Restrictions:</h3>
+                  <ul className="space-y-1 text-navy-700 text-sm">
+                    <li>• Perishable foods requiring refrigeration</li>
+                    <li>• Live plants and cut flowers</li>
+                    <li>• Containers of liquids over 8 gallons</li>
+                    <li>• Used gasoline tanks or gasoline-powered devices</li>
+                    <li>• Packages that are wet, leaking, or emit odors</li>
+                    <li>• Items requiring special licenses or permits</li>
+                    <li>• Merchandise from sanctioned countries</li>
+                    <li>• Switchblades and certain knives</li>
+                  </ul>
+                </div>
+              </div>
+              <p className="text-center text-navy-600 text-sm mt-6">
+                If you're unsure about an item, please contact us before booking.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Still Have Questions */}
+        <div className="text-center">
+          <Card variant="luxury">
+            <CardContent>
+              <h2 className="text-2xl font-serif font-bold text-navy-900 mb-4">
+                Still Have Questions?
+              </h2>
+              <p className="text-navy-700 mb-6 max-w-2xl mx-auto">
+                Our Customer Service Team is available to help with any questions. 
+                We're here to make your delivery experience seamless.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/contact">
+                  <Button variant="primary" size="lg">
+                    Contact Us
+                  </Button>
+                </Link>
+                <Link href="mailto:info@totetaxi.com">
+                  <Button variant="outline" size="lg">
+                    Email: info@totetaxi.com
+                  </Button>
+                </Link>
+                <Link href="tel:631-595-5100">
+                  <Button variant="outline" size="lg">
+                    Call: 631-595-5100
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
 ```
 
 # ==== src/app/globals.css ====
 
-```css
+```
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -130,7 +1002,8 @@ body {
 
 # ==== src/app/layout.tsx ====
 
-```typescript
+```
+// frontend/src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
@@ -163,7 +1036,8 @@ export default function RootLayout({
 
 # ==== src/app/page.tsx ====
 
-```typescript
+```
+// frontend/src/app/page.tsx - Using real ToteTaxi information
 'use client';
 
 import { useState } from 'react';
@@ -173,6 +1047,8 @@ import { TestAPIConnection } from '@/components/test-api-connection';
 import { BookingWizard } from '@/components/booking';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
@@ -187,23 +1063,67 @@ export default function Home() {
 
   return (
     <>
-      <MainLayout>
+      <MainLayout onBookNowClick={openBookingWizard}>
         {/* Hero Section */}
         <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
-              Luxury Delivery to the Hamptons
+              Door-to-Door Delivery Service
             </h1>
-            <p className="text-xl text-navy-700 mb-8 max-w-3xl mx-auto">
-              From suitcases to surfboards, strollers to pop-up props, ToteTaxi makes seasonal relocation effortless, polished, and convenient.
+            <p className="text-xl text-navy-700 mb-4 max-w-3xl mx-auto">
+              Tote Taxi will deliver your luggage to and from the city stress-free.
+            </p>
+            <p className="text-lg text-navy-600 mb-8 max-w-2xl mx-auto">
+              From suitcases to surfboards, Pelotons to pop-up props — we handle it all between 
+              NYC, the Hamptons, South Florida, and all major airports.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="primary" size="lg" onClick={openBookingWizard}>
-                Book Your Move
+                Book Now
               </Button>
-              <Button variant="outline" size="lg">
-                View Pricing
-              </Button>
+              <Link href="/services">
+                <Button variant="outline" size="lg">
+                  View Services & Pricing
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works - Simple 3 Step */}
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+              Same Day Delivery Made Stress-Free
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">📱</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Pickup</h3>
+                    <p className="text-navy-700">Schedule a pickup and we'll come to you.</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">✈️</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Travel</h3>
+                    <p className="text-navy-700">You travel hands-free. Très chic!</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">🚚</div>
+                    <h3 className="text-xl font-medium text-navy-900 mb-3">Delivery</h3>
+                    <p className="text-navy-700">We'll deliver to your desired destination.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>
@@ -216,29 +1136,107 @@ export default function Home() {
         {/* Service Showcase */}
         <ServiceShowcase />
 
-        {/* Trust Signals Section */}
+        {/* Customer Testimonials */}
+        <section className="py-16 bg-cream-50">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+              What Our Customers Say
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card variant="elevated">
+                <CardContent>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "I've heard amazing things about Tote Taxi for awhile now and finally used it for 
+                    the first time today when I took Blade from JFK to Manhattan and LOVED it! 
+                    It was so easy and seamless!"
+                  </p>
+                  <p className="font-medium text-navy-900">- Natalie M.</p>
+                </CardContent>
+              </Card>
+              
+              <Card variant="elevated">
+                <CardContent>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "We have been using Tote Taxi for the last three years when we come out to 
+                    East Hampton and when we head back to the city. They've always been wonderful! 
+                    Makes moving bikes and extras easy and stress free!"
+                  </p>
+                  <p className="font-medium text-navy-900">- Kimberly R.</p>
+                </CardContent>
+              </Card>
+              
+              <Card variant="elevated">
+                <CardContent>
+                  <p className="text-navy-700 text-sm mb-4">
+                    "Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up 
+                    exactly on time, communicated well. I highly recommend their services."
+                  </p>
+                  <p className="font-medium text-navy-900">- Robyn M.</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Service Areas */}
         <section className="py-16 bg-white">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
-                Trusted by Premium Brands
+                Where We Deliver
+              </h2>
+              <p className="text-lg text-navy-700">
+                Comprehensive delivery service across multiple locations
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏙️</div>
+                <h3 className="font-medium text-navy-900 mb-2">NYC</h3>
+                <p className="text-navy-600 text-sm">Manhattan, Brooklyn, and surrounding areas</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🏖️</div>
+                <h3 className="font-medium text-navy-900 mb-2">The Hamptons</h3>
+                <p className="text-navy-600 text-sm">East Hampton, Southampton, Montauk, and more</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">✈️</div>
+                <h3 className="font-medium text-navy-900 mb-2">NYC Airports</h3>
+                <p className="text-navy-600 text-sm">JFK, LaGuardia, Newark</p>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl mb-4">🌴</div>
+                <h3 className="font-medium text-navy-900 mb-2">South Florida</h3>
+                <p className="text-navy-600 text-sm">Palm Beach, Miami, Boca Raton, Jupiter</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Partnerships */}
+        <section className="py-16 bg-cream-50">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+                Trusted Partners
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
                 <div className="text-4xl mb-4">🚁</div>
-                <h3 className="font-medium text-navy-900 mb-2">Blade Integration</h3>
-                <p className="text-navy-600 text-sm">Official luggage partner for helicopter transfers</p>
+                <h3 className="font-medium text-navy-900 mb-2">BLADE</h3>
+                <p className="text-navy-600 text-sm">Official luggage delivery partner for helicopter transfers</p>
               </div>
               <div className="text-center">
                 <div className="text-4xl mb-4">📚</div>
                 <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
-                <p className="text-navy-600 text-sm">Trusted distribution partner</p>
+                <p className="text-navy-600 text-sm">Trusted delivery partner</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl mb-4">🏃‍♀️</div>
-                <h3 className="font-medium text-navy-900 mb-2">Tracy Anderson</h3>
-                <p className="text-navy-600 text-sm">Pop-up equipment delivery</p>
+                <div className="text-4xl mb-4">🧳</div>
+                <h3 className="font-medium text-navy-900 mb-2">Luggage Free</h3>
+                <p className="text-navy-600 text-sm">Partner in luggage logistics</p>
               </div>
             </div>
           </div>
@@ -248,17 +1246,17 @@ export default function Home() {
         <section className="py-16 bg-navy-900 text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-serif font-bold mb-4">
-              Ready for White-Glove Service?
+              Ready to Travel Hands-Free?
             </h2>
             <p className="text-xl text-navy-200 mb-8 max-w-2xl mx-auto">
-              Join hundreds of satisfied customers who trust ToteTaxi for their Hamptons moves.
+              Join thousands of satisfied customers who trust Tote Taxi for stress-free delivery service.
             </p>
             <Button 
               variant="secondary" 
               size="lg"
               onClick={openBookingWizard}
             >
-              Start Your Booking
+              Book Now
             </Button>
           </div>
         </section>
@@ -279,12 +1277,350 @@ export default function Home() {
 }
 ```
 
-# ==== src/components/booking/address-step.tsx ====
+# ==== src/app/services/page.tsx ====
 
-```typescript
+```
+// frontend/src/app/services/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import type { ServiceCatalog } from '@/types';
+
+export default function ServicesPage() {
+  const { data: services, isLoading } = useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: async (): Promise<ServiceCatalog> => {
+      const response = await apiClient.get('/api/public/services/');
+      return response.data;
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-16">
+          <div className="animate-pulse space-y-8">
+            <div className="h-12 bg-navy-200 rounded w-1/2 mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-64 bg-navy-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
+            Our Luxury Services
+          </h1>
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto">
+            From weekend essentials to full seasonal relocations, we provide white-glove service 
+            tailored to your Manhattan-to-Hamptons lifestyle.
+          </p>
+        </div>
+
+        {/* Mini Moves - Featured Section */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Mini Moves</h2>
+            <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+              Complete packages designed for seasonal relocation. Everything you need for your Hamptons move, 
+              professionally handled from door to door.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+            {services?.mini_move_packages?.map((pkg) => (
+              <Card 
+                key={pkg.id} 
+                variant={pkg.is_most_popular ? "luxury" : "elevated"}
+                className="relative"
+              >
+                {pkg.is_most_popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gold-500 text-navy-900 px-4 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                <CardHeader>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-serif font-bold text-navy-900 mb-2">
+                      {pkg.name}
+                    </h3>
+                    <div className="text-4xl font-bold text-navy-900 mb-4">
+                      ${pkg.base_price_dollars}
+                    </div>
+                    {pkg.max_items && (
+                      <p className="text-navy-600">Up to {pkg.max_items} items</p>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <p className="text-navy-700 mb-6">{pkg.description}</p>
+                  
+                  <div className="space-y-3 mb-8">
+                    <h4 className="font-medium text-navy-900">What's Included:</h4>
+                    <ul className="space-y-2">
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-3">✓</span>
+                        Door-to-door pickup and delivery
+                      </li>
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-3">✓</span>
+                        Professional handling and care
+                      </li>
+                      {pkg.protective_wrapping && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Premium protective wrapping
+                        </li>
+                      )}
+                      {pkg.coi_included && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Certificate of Insurance included
+                        </li>
+                      )}
+                      {pkg.priority_scheduling && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Priority scheduling
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <Link href="/book">
+                    <Button 
+                      variant={pkg.is_most_popular ? "primary" : "outline"} 
+                      className="w-full"
+                    >
+                      Select {pkg.name}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Organizing Services Add-On */}
+          <Card variant="luxury" className="mb-8">
+            <CardHeader>
+              <h3 className="text-xl font-serif font-bold text-navy-900 text-center">
+                Professional Organizing Services
+              </h3>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-3">Professional Packing</h4>
+                  <p className="text-navy-700 text-sm mb-4">
+                    Our expert team carefully packs your belongings at your Manhattan location 
+                    using premium materials and techniques to ensure everything arrives pristine.
+                  </p>
+                  <ul className="space-y-1 text-sm text-navy-600">
+                    <li>• Premium packing materials included</li>
+                    <li>• Careful handling of delicate items</li>
+                    <li>• Efficient space optimization</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-3">Professional Unpacking</h4>
+                  <p className="text-navy-700 text-sm mb-4">
+                    Arrive to your Hamptons home with everything unpacked and organized exactly 
+                    how you want it. We handle the setup so you can start enjoying your retreat.
+                  </p>
+                  <ul className="space-y-1 text-sm text-navy-600">
+                    <li>• Complete unpacking and setup</li>
+                    <li>• Organized placement of belongings</li>
+                    <li>• Removal of all packing materials</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Standard Delivery */}
+        {services?.standard_delivery && (
+          <section className="mb-20">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Standard Delivery</h2>
+              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+                Individual item delivery for when you need specific items transported quickly and safely.
+              </p>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
+              <Card variant="elevated">
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <div className="text-3xl font-bold text-navy-900 mb-2">
+                        ${services.standard_delivery.price_per_item_dollars} per item
+                      </div>
+                      <p className="text-navy-600 mb-4">
+                        Minimum {services.standard_delivery.minimum_items} items • 
+                        ${services.standard_delivery.minimum_charge_dollars} minimum charge
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-navy-900">Perfect for:</h4>
+                        <ul className="space-y-2 text-sm text-navy-700">
+                          <li>• Individual clothing items</li>
+                          <li>• Documents and files</li>
+                          <li>• Small electronics</li>
+                          <li>• Seasonal items under {services.standard_delivery.max_weight_per_item_lbs} lbs</li>
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="bg-gold-50 border border-gold-200 rounded-lg p-6">
+                        <h4 className="font-medium text-navy-900 mb-3">Same-Day Delivery</h4>
+                        <div className="text-2xl font-bold text-navy-900 mb-2">
+                          ${services.standard_delivery.same_day_flat_rate_dollars}
+                        </div>
+                        <p className="text-sm text-navy-700 mb-4">
+                          Need it today? We offer same-day delivery for urgent items.
+                        </p>
+                        <ul className="space-y-1 text-xs text-navy-600">
+                          <li>• Order by 10 AM for same-day delivery</li>
+                          <li>• Available Thursday through Monday</li>
+                          <li>• Subject to availability</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        )}
+
+        {/* Specialty Items */}
+        {services?.specialty_items && services.specialty_items.length > 0 && (
+          <section className="mb-20">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Specialty Items</h2>
+              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+                Premium handling for your most valuable and unique items. Each specialty item receives 
+                custom care and attention.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {services.specialty_items.map((item) => (
+                <Card key={item.id} variant="default">
+                  <CardContent>
+                    <div className="text-center">
+                      <h4 className="text-lg font-medium text-navy-900 mb-2">{item.name}</h4>
+                      <div className="text-2xl font-bold text-navy-900 mb-3">
+                        ${item.price_dollars}
+                      </div>
+                      <p className="text-navy-600 text-sm mb-4">{item.description}</p>
+                      
+                      {item.special_handling && (
+                        <div className="mb-4">
+                          <span className="inline-block bg-gold-100 text-gold-800 text-xs px-3 py-1 rounded-full">
+                            Special Handling Included
+                          </span>
+                        </div>
+                      )}
+                      
+                      {item.requires_van_schedule && (
+                        <p className="text-xs text-navy-500">
+                          * Requires scheduled van delivery
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Service Areas */}
+        <section className="mb-20">
+          <Card variant="elevated">
+            <CardHeader>
+              <h2 className="text-2xl font-serif font-bold text-navy-900 text-center">Service Areas</h2>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-medium text-navy-900 mb-3">Pickup Locations</h3>
+                  <ul className="space-y-2 text-navy-700">
+                    <li>• Manhattan (All neighborhoods)</li>
+                    <li>• Brooklyn (Select areas)</li>
+                    <li>• Long Island City</li>
+                    <li>• Hoboken & Jersey City</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-medium text-navy-900 mb-3">Delivery Destinations</h3>
+                  <ul className="space-y-2 text-navy-700">
+                    <li>• East Hampton</li>
+                    <li>• Southampton & Water Mill</li>
+                    <li>• Bridgehampton & Sagaponack</li>
+                    <li>• Westhampton Beach</li>
+                    <li>• Sag Harbor & North Haven</li>
+                    <li>• Montauk</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="text-center mt-6">
+                <p className="text-sm text-navy-600">
+                  Don't see your location? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for custom service options.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* CTA Section */}
+        <div className="text-center">
+          <h2 className="text-2xl font-serif font-bold text-navy-900 mb-4">
+            Ready to Experience White-Glove Service?
+          </h2>
+          <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
+            Book your luxury move today and discover why discerning clients trust ToteTaxi 
+            for their Manhattan-to-Hamptons transport needs.
+          </p>
+          <Link href="/book">
+            <Button variant="primary" size="lg">
+              Start Your Booking
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
+```
+
+# ==== src/components/booking/address-step.tsx ====
+
+```
+// frontend/src/components/booking/address-step.tsx
+'use client';
+
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -296,47 +1632,14 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-const POPULAR_ADDRESSES = {
-  pickup: [
-    { name: 'Upper East Side', address: 'Upper East Side, New York, NY' },
-    { name: 'Upper West Side', address: 'Upper West Side, New York, NY' },
-    { name: 'Midtown East', address: 'Midtown East, New York, NY' },
-    { name: 'SoHo', address: 'SoHo, New York, NY' },
-    { name: 'Tribeca', address: 'Tribeca, New York, NY' },
-  ],
-  delivery: [
-    { name: 'East Hampton', address: 'East Hampton, NY' },
-    { name: 'Southampton', address: 'Southampton, NY' },
-    { name: 'Bridgehampton', address: 'Bridgehampton, NY' },
-    { name: 'Westhampton Beach', address: 'Westhampton Beach, NY' },
-    { name: 'Sag Harbor', address: 'Sag Harbor, NY' },
-  ]
-};
-
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
   onAddressChange: (address: BookingAddress) => void;
-  popularAddresses: Array<{ name: string; address: string }>;
   errors: Record<string, string>;
 }
 
-function AddressForm({ title, address, onAddressChange, popularAddresses, errors }: AddressFormProps) {
-  const [showQuickSelect, setShowQuickSelect] = useState(!address?.address_line_1);
-
-  const handleQuickSelect = (selectedAddress: string) => {
-    // Parse the quick-select address
-    const parts = selectedAddress.split(', ');
-    onAddressChange({
-      address_line_1: parts[0],
-      city: parts[1] || '',
-      state: (parts[2] || 'NY') as 'NY' | 'CT' | 'NJ',
-      zip_code: '',
-      address_line_2: ''
-    });
-    setShowQuickSelect(false);
-  };
-
+function AddressForm({ title, address, onAddressChange, errors }: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
     onAddressChange({
       ...address,
@@ -347,97 +1650,66 @@ function AddressForm({ title, address, onAddressChange, popularAddresses, errors
   return (
     <Card variant="elevated">
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-navy-900">{title}</h3>
-          {address?.address_line_1 && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setShowQuickSelect(!showQuickSelect)}
-            >
-              {showQuickSelect ? 'Manual Entry' : 'Quick Select'}
-            </Button>
-          )}
-        </div>
+        <h3 className="text-lg font-medium text-navy-900">{title}</h3>
       </CardHeader>
       
       <CardContent>
-        {showQuickSelect ? (
-          <div className="space-y-2">
-            <p className="text-sm text-navy-600 mb-3">Popular {title.toLowerCase()} locations:</p>
-            {popularAddresses.map((addr, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuickSelect(addr.address)}
-                className="w-full text-left p-3 rounded-md border border-gray-200 hover:border-navy-300 hover:bg-navy-50 transition-all"
-              >
-                <span className="font-medium text-navy-900">{addr.name}</span>
-                <span className="block text-sm text-navy-600">{addr.address}</span>
-              </button>
-            ))}
-            <button
-              onClick={() => setShowQuickSelect(false)}
-              className="w-full p-3 text-center border-2 border-dashed border-gray-300 rounded-md text-navy-600 hover:border-navy-400 transition-all"
-            >
-              + Enter Custom Address
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
+          <Input
+            label="Street Address"
+            value={address?.address_line_1 || ''}
+            onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
+            error={errors.address_line_1}
+            placeholder="123 Main Street"
+            required
+          />
+          
+          <Input
+            label="Apartment, Suite, etc. (Optional)"
+            value={address?.address_line_2 || ''}
+            onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
+            placeholder="Apt 4B, Suite 200"
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Street Address"
-              value={address?.address_line_1 || ''}
-              onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
-              error={errors.address_line_1}
-              placeholder="123 Main Street"
+              label="City"
+              value={address?.city || ''}
+              onChange={(e) => handleFieldChange('city', e.target.value)}
+              error={errors.city}
+              placeholder="New York"
               required
             />
             
-            <Input
-              label="Apartment, Suite, etc. (Optional)"
-              value={address?.address_line_2 || ''}
-              onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
-              placeholder="Apt 4B, Suite 200"
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="City"
-                value={address?.city || ''}
-                onChange={(e) => handleFieldChange('city', e.target.value)}
-                error={errors.city}
-                placeholder="New York"
+            <div>
+              <label className="block text-sm font-medium text-navy-900 mb-1">
+                State <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={address?.state || ''}
+                onChange={(e) => handleFieldChange('state', e.target.value as 'NY' | 'CT' | 'NJ')}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                 required
-              />
-              
-              <div>
-                <label className="block text-sm font-medium text-navy-900 mb-1">
-                  State
-                </label>
-                <select
-                  value={address?.state || 'NY'}
-                  onChange={(e) => handleFieldChange('state', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
-                >
-                  {STATES.map(state => (
-                    <option key={state.value} value={state.value}>
-                      {state.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              >
+                <option value="" className="text-gray-400">Select State</option>
+                {STATES.map(state => (
+                  <option key={state.value} value={state.value} className="text-gray-900">
+                    {state.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            
-            <Input
-              label="ZIP Code"
-              value={address?.zip_code || ''}
-              onChange={(e) => handleFieldChange('zip_code', e.target.value)}
-              error={errors.zip_code}
-              placeholder="10001"
-              required
-            />
           </div>
-        )}
+          
+          <Input
+            label="ZIP Code"
+            value={address?.zip_code || ''}
+            onChange={(e) => handleFieldChange('zip_code', e.target.value)}
+            error={errors.zip_code}
+            placeholder="10001"
+            required
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -448,15 +1720,21 @@ export function AddressStep() {
 
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
-    clearError('pickup_address');
+    // Clear errors when user starts typing
+    if (address.address_line_1) clearError('pickup_address');
+    if (address.city) clearError('pickup_city');
+    if (address.zip_code) clearError('pickup_zip');
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
     updateBookingData({ delivery_address: address });
-    clearError('delivery_address');
+    // Clear errors when user starts typing
+    if (address.address_line_1) clearError('delivery_address');
+    if (address.city) clearError('delivery_city');
+    if (address.zip_code) clearError('delivery_zip');
   };
 
-  const validateAndContinue = () => {
+  const handleContinue = () => {
     let hasErrors = false;
 
     // Validate pickup address
@@ -466,6 +1744,10 @@ export function AddressStep() {
     }
     if (!bookingData.pickup_address?.city) {
       setError('pickup_city', 'City is required');
+      hasErrors = true;
+    }
+    if (!bookingData.pickup_address?.state) {
+      setError('pickup_state', 'State is required');
       hasErrors = true;
     }
     if (!bookingData.pickup_address?.zip_code) {
@@ -482,6 +1764,10 @@ export function AddressStep() {
       setError('delivery_city', 'City is required');
       hasErrors = true;
     }
+    if (!bookingData.delivery_address?.state) {
+      setError('delivery_state', 'State is required');
+      hasErrors = true;
+    }
     if (!bookingData.delivery_address?.zip_code) {
       setError('delivery_zip', 'ZIP code is required');
       hasErrors = true;
@@ -495,9 +1781,11 @@ export function AddressStep() {
   const canContinue = 
     bookingData.pickup_address?.address_line_1 &&
     bookingData.pickup_address?.city &&
+    bookingData.pickup_address?.state &&
     bookingData.pickup_address?.zip_code &&
     bookingData.delivery_address?.address_line_1 &&
     bookingData.delivery_address?.city &&
+    bookingData.delivery_address?.state &&
     bookingData.delivery_address?.zip_code;
 
   return (
@@ -517,10 +1805,10 @@ export function AddressStep() {
         title="Pickup Address"
         address={bookingData.pickup_address}
         onAddressChange={handlePickupChange}
-        popularAddresses={POPULAR_ADDRESSES.pickup}
         errors={{
           address_line_1: errors.pickup_address || '',
           city: errors.pickup_city || '',
+          state: errors.pickup_state || '',
           zip_code: errors.pickup_zip || ''
         }}
       />
@@ -530,10 +1818,10 @@ export function AddressStep() {
         title="Delivery Address"
         address={bookingData.delivery_address}
         onAddressChange={handleDeliveryChange}
-        popularAddresses={POPULAR_ADDRESSES.delivery}
         errors={{
           address_line_1: errors.delivery_address || '',
           city: errors.delivery_city || '',
+          state: errors.delivery_state || '',
           zip_code: errors.delivery_zip || ''
         }}
       />
@@ -549,7 +1837,7 @@ export function AddressStep() {
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
             placeholder="Any special delivery instructions, building access codes, or notes for our team..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
           <p className="text-sm text-navy-600 mt-1">
             Include building access codes, doorman instructions, or any special handling requests.
@@ -558,11 +1846,11 @@ export function AddressStep() {
       </Card>
 
       {/* Continue Button */}
-      <div className="flex justify-end">
-        <Button 
-          variant="primary" 
-          onClick={validateAndContinue}
+      <div className="flex justify-end pt-4">
+        <Button
+          onClick={handleContinue}
           disabled={!canContinue}
+          size="lg"
         >
           Continue to Your Info →
         </Button>
@@ -574,7 +1862,8 @@ export function AddressStep() {
 
 # ==== src/components/booking/booking-wizard.tsx ====
 
-```typescript
+```
+// frontend/src/components/booking/booking-wizard.tsx
 'use client';
 
 import { useBookingWizard } from '@/stores/booking-store';
@@ -710,7 +1999,8 @@ export function BookingWizard() {
 
 # ==== src/components/booking/customer-info-step.tsx ====
 
-```typescript
+```
+// frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
 import { useBookingWizard } from '@/stores/booking-store';
@@ -899,7 +2189,8 @@ export function CustomerInfoStep() {
 
 # ==== src/components/booking/date-time-step.tsx ====
 
-```typescript
+```
+// frontend/src/components/booking/date-time-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -944,49 +2235,38 @@ export function DateTimeStep() {
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
 
   // Get calendar availability
-  const { data: availability, isLoading: availabilityLoading } = useQuery({
-    queryKey: ['calendar', 'availability'],
-    queryFn: async (): Promise<{ availability: AvailabilityDay[] }> => {
+  const { data: availability } = useQuery({
+    queryKey: ['availability', 'calendar'],
+    queryFn: async () => {
       const response = await apiClient.get('/api/public/availability/');
-      return response.data;
+      return response.data.availability as AvailabilityDay[];
     }
   });
 
-  // Get pricing preview when date/service changes
+  // Get pricing preview
   const pricingMutation = useMutation({
-    mutationFn: async (pricingData: any): Promise<PricingPreview> => {
-      const response = await apiClient.post('/api/public/pricing-preview/', pricingData);
+    mutationFn: async (): Promise<PricingPreview> => {
+      const response = await apiClient.post('/api/public/pricing-preview/', {
+        service_type: bookingData.service_type,
+        mini_move_package_id: bookingData.mini_move_package_id,
+        include_packing: bookingData.include_packing,
+        include_unpacking: bookingData.include_unpacking,
+        standard_delivery_item_count: bookingData.standard_delivery_item_count,
+        is_same_day_delivery: bookingData.is_same_day_delivery,
+        specialty_item_ids: bookingData.specialty_item_ids,
+        pickup_date: selectedDate,
+        coi_required: bookingData.coi_required || false
+      });
       return response.data;
-    },
-    onSuccess: (data) => {
-      updateBookingData({ pricing_data: data.pricing });
     }
   });
 
-  // Update pricing when date or service selection changes
+  // Update pricing when date/service changes
   useEffect(() => {
     if (selectedDate && bookingData.service_type) {
-      const pricingRequest: any = {
-        service_type: bookingData.service_type,
-        pickup_date: selectedDate,
-      };
-
-      // Add service-specific data
-      if (bookingData.service_type === 'mini_move') {
-        pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
-        pricingRequest.coi_required = bookingData.coi_required;
-        pricingRequest.include_packing = bookingData.include_packing;
-        pricingRequest.include_unpacking = bookingData.include_unpacking;
-      } else if (bookingData.service_type === 'standard_delivery') {
-        pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
-        pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-      } else if (bookingData.service_type === 'specialty_item') {
-        pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
-      }
-
-      pricingMutation.mutate(pricingRequest);
+      pricingMutation.mutate();
     }
-  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking]);
+  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking, bookingData.standard_delivery_item_count, bookingData.is_same_day_delivery]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -999,267 +2279,242 @@ export function DateTimeStep() {
   };
 
   const handleContinue = () => {
-    updateBookingData({
-      pickup_date: selectedDate,
-      pickup_time: selectedTime
-    });
+    // Store pricing data
+    if (pricingMutation.data?.pricing) {
+      updateBookingData({ pricing_data: pricingMutation.data.pricing });
+    }
     nextStep();
   };
 
-  const canContinue = selectedDate && selectedTime;
-
-  // Generate calendar days (next 60 days)
-  const generateCalendarDays = () => {
+  // Simple calendar view - next 30 days
+  const getNext30Days = () => {
     const days = [];
     const today = new Date();
-    
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      days.push(date.toISOString().split('T')[0]);
+      days.push(date);
     }
-    
     return days;
   };
 
-  const calendarDays = generateCalendarDays();
-  const availabilityMap = availability?.availability.reduce((acc, day) => {
-    acc[day.date] = day;
-    return acc;
-  }, {} as Record<string, AvailabilityDay>) || {};
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
 
-  const timeSlots: Array<{ value: PickupTime; label: string; description: string }> = [
-    { value: 'morning', label: '8 AM - 11 AM', description: 'Best availability' },
-    { value: 'afternoon', label: '12 PM - 3 PM', description: 'Popular choice' },
-    { value: 'evening', label: '4 PM - 7 PM', description: 'Limited availability' },
-  ];
+  const getDayInfo = (date: Date) => {
+    const dateStr = formatDate(date);
+    return availability?.find(day => day.date === dateStr);
+  };
 
-  if (availabilityLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-8 bg-navy-200 rounded w-48 mb-4"></div>
-          <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: 21 }).map((_, i) => (
-              <div key={i} className="h-12 bg-navy-100 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const canContinue = selectedDate && selectedTime;
 
   return (
     <div className="space-y-6">
       {/* Calendar */}
       <div>
-        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Your Pickup Date</h3>
-        <Card variant="elevated">
+        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
+        <div className="grid grid-cols-7 gap-2">
+          {getNext30Days().map((date) => {
+            const dateStr = formatDate(date);
+            const dayInfo = getDayInfo(date);
+            const isSelected = selectedDate === dateStr;
+            const isAvailable = dayInfo?.available !== false;
+            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+
+            return (
+              <button
+                key={dateStr}
+                onClick={() => isAvailable && handleDateSelect(dateStr)}
+                disabled={!isAvailable}
+                className={`
+                  p-2 text-sm rounded-md border transition-all min-h-[60px] flex flex-col items-center justify-center
+                  ${isSelected 
+                    ? 'bg-navy-900 text-white border-navy-900' 
+                    : isAvailable
+                    ? 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  }
+                `}
+              >
+                <div className="font-medium">{date.getDate()}</div>
+                <div className="text-xs opacity-75">
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                </div>
+                {hasSurcharge && (
+                  <div className="text-xs text-orange-600 mt-1">•</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Legend */}
+        <div className="flex items-center justify-center space-x-4 mt-3 text-sm">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-white border border-gray-200 rounded mr-2"></div>
+            <span className="text-navy-600">Available</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-gray-100 rounded mr-2"></div>
+            <span className="text-navy-600">Unavailable</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
+            <span className="text-navy-600">Surcharge applies</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected Date Info */}
+      {selectedDate && (
+        <Card variant="default">
           <CardContent>
-            <div className="grid grid-cols-7 gap-2 mb-4">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-navy-600 py-2">
-                  {day}
+            <div className="text-center">
+              <h4 className="font-medium text-navy-900 mb-2">
+                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </h4>
+              <p className="text-sm text-navy-600">
+                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.capacity_used || 0}/
+                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.max_capacity || 10} booked
+              </p>
+              
+              {/* Surcharge notices */}
+              {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges?.map((surcharge, index) => (
+                <div key={index} className="mt-2 text-sm text-orange-600">
+                  <strong>Additional charges apply:</strong>
+                  <br />• {surcharge.description}
                 </div>
               ))}
             </div>
-            
-            <div className="grid grid-cols-7 gap-2">
-              {calendarDays.slice(0, 42).map(date => {
-                const dayInfo = availabilityMap[date];
-                const isSelected = selectedDate === date;
-                const isAvailable = dayInfo?.available !== false;
-                const hasSurcharges = dayInfo?.surcharges?.length > 0;
-                const dateObj = new Date(date);
-                const isToday = date === new Date().toISOString().split('T')[0];
-                
-                return (
-                  <button
-                    key={date}
-                    onClick={() => isAvailable && handleDateSelect(date)}
-                    disabled={!isAvailable}
-                    className={`
-                      h-12 text-sm rounded-md relative transition-all
-                      ${isSelected 
-                        ? 'bg-navy-900 text-white' 
-                        : isAvailable
-                        ? 'bg-white border border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }
-                      ${isToday ? 'ring-2 ring-gold-500' : ''}
-                      ${hasSurcharges && isAvailable ? 'border-orange-300 bg-orange-50' : ''}
-                    `}
-                  >
-                    <span className="block">{dateObj.getDate()}</span>
-                    {hasSurcharges && isAvailable && (
-                      <span className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full"></span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            
-            {/* Legend */}
-            <div className="flex items-center justify-center space-x-6 mt-4 text-xs text-navy-600">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-orange-50 border border-orange-300 rounded mr-1"></div>
-                <span>Surcharge applies</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-gray-100 rounded mr-1"></div>
-                <span>Unavailable</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
-
-        {/* Selected Date Info */}
-        {selectedDate && availabilityMap[selectedDate] && (
-          <div className="mt-4">
-            <Card variant="default" className="border-gold-200 bg-gold-50">
-              <CardContent>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-medium text-navy-900">
-                      {new Date(selectedDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </h4>
-                    {availabilityMap[selectedDate].surcharges?.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm text-orange-700 font-medium">Additional charges apply:</p>
-                        <ul className="text-sm text-orange-600">
-                          {availabilityMap[selectedDate].surcharges.map((surcharge, index) => (
-                            <li key={index}>• {surcharge.description}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="text-right">
-                    <span className="text-sm text-navy-600">
-                      {availabilityMap[selectedDate].capacity_used}/{availabilityMap[selectedDate].max_capacity} booked
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Time Selection */}
       {selectedDate && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {timeSlots.map((slot) => (
-              <button
-                key={slot.value}
-                onClick={() => handleTimeSelect(slot.value)}
-                className={`
-                  p-4 rounded-lg border-2 text-left transition-all
-                  ${selectedTime === slot.value
-                    ? 'border-navy-900 bg-navy-50'
-                    : 'border-gray-200 hover:border-navy-300'
-                  }
-                `}
-              >
-                <h4 className="font-medium text-navy-900">{slot.label}</h4>
-                <p className="text-sm text-navy-600">{slot.description}</p>
-              </button>
-            ))}
+            <button
+              onClick={() => handleTimeSelect('morning')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'morning'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">8 AM - 11 AM</div>
+              <div className="text-sm text-navy-600">Best availability</div>
+            </button>
+
+            <button
+              onClick={() => handleTimeSelect('afternoon')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'afternoon'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">12 PM - 3 PM</div>
+              <div className="text-sm text-navy-600">Popular choice</div>
+            </button>
+
+            <button
+              onClick={() => handleTimeSelect('evening')}
+              className={`p-4 rounded-lg border-2 text-center transition-all ${
+                selectedTime === 'evening'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="font-medium text-navy-900">4 PM - 7 PM</div>
+              <div className="text-sm text-navy-600">Limited availability</div>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Pricing Preview */}
-      {bookingData.pricing_data && (
-        <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
-          <Card variant="luxury">
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Base Price:</span>
-                  <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
+      {/* FIXED: Pricing Summary with dark text */}
+      {pricingMutation.data?.pricing && (
+        <Card variant="luxury">
+          <CardContent>
+            <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-navy-900 font-medium">Base Price:</span>
+                <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+              </div>
+
+              {pricingMutation.data.pricing.surcharge_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Date Surcharges:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
                 </div>
-                
-                {bookingData.pricing_data.surcharge_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">Date Surcharges:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
-                  </div>
-                )}
-                
-                {bookingData.pricing_data.coi_fee_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">COI Fee:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.coi_fee_dollars}</span>
-                  </div>
-                )}
-                
-                {bookingData.pricing_data.organizing_total_dollars > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">Organizing Services:</span>
-                    <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
-                  </div>
-                )}
-                
-                <hr className="border-gray-200" />
-                
-                <div className="flex justify-between text-lg font-bold">
-                  <span className="text-navy-900">Total:</span>
-                  <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+              )}
+
+              {pricingMutation.data.pricing.coi_fee_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                </div>
+              )}
+
+              {pricingMutation.data.pricing.organizing_total_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold text-navy-900">Total:</span>
+                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* COI Option */}
-      {bookingData.service_type === 'mini_move' && (
-        <div>
-          <Card variant="default">
-            <CardContent>
-              <label className="flex items-start">
-                <input
-                  type="checkbox"
-                  checked={bookingData.coi_required || false}
-                  onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
-                  className="mt-1 mr-3"
-                />
-                <div>
-                  <span className="font-medium text-navy-900">
-                    Certificate of Insurance (COI) Required
-                  </span>
-                  <p className="text-sm text-navy-600 mt-1">
-                    Required by some buildings. We'll handle the paperwork for you.
-                  </p>
-                </div>
-              </label>
-            </CardContent>
-          </Card>
-        </div>
+      {selectedDate && (
+        <Card variant="default">
+          <CardContent>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={bookingData.coi_required || false}
+                onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
+                className="mr-3"
+              />
+              <div>
+                <span className="font-medium text-navy-900">Certificate of Insurance (COI) Required</span>
+                <p className="text-sm text-navy-600">
+                  Required by some buildings. We'll handle the paperwork for you.
+                </p>
+              </div>
+            </label>
+          </CardContent>
+        </Card>
       )}
 
       {/* Continue Button */}
-      {canContinue && (
-        <div className="flex justify-end">
-          <Button 
-            variant="primary" 
-            onClick={handleContinue}
-            disabled={pricingMutation.isPending}
-          >
-            {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end pt-4">
+        <Button
+          onClick={handleContinue}
+          disabled={!canContinue || pricingMutation.isPending}
+          size="lg"
+        >
+          {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1267,7 +2522,8 @@ export function DateTimeStep() {
 
 # ==== src/components/booking/index.ts ====
 
-```typescript
+```
+// frontend/src/components/booking/index.ts
 export { BookingWizard } from './booking-wizard';
 export { ServiceSelectionStep } from './service-selection-step';
 export { DateTimeStep } from './date-time-step';
@@ -1278,7 +2534,8 @@ export { ReviewPaymentStep } from './review-payment-step';
 
 # ==== src/components/booking/review-payment-step.tsx ====
 
-```typescript
+```
+// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
@@ -1630,14 +2887,16 @@ export function ReviewPaymentStep() {
 
 # ==== src/components/booking/service-selection-step.tsx ====
 
-```typescript
+```
+// frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { ServiceCatalog } from '@/types';
 
 export function ServiceSelectionStep() {
@@ -1651,7 +2910,7 @@ export function ServiceSelectionStep() {
     }
   });
 
-  const handleMiniMoveSelect = (packageId: string, packageData: any) => {
+  const handleMiniMoveSelect = (packageId: string) => {
     updateBookingData({
       service_type: 'mini_move',
       mini_move_package_id: packageId,
@@ -1670,7 +2929,7 @@ export function ServiceSelectionStep() {
   const canContinue = () => {
     return (
       (bookingData.service_type === 'mini_move' && bookingData.mini_move_package_id) ||
-      (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count) ||
+      (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count && bookingData.standard_delivery_item_count >= (services?.standard_delivery?.minimum_items || 3)) ||
       (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length)
     );
   };
@@ -1697,116 +2956,83 @@ export function ServiceSelectionStep() {
             onClick={() => updateBookingData({ service_type: 'mini_move' })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'mini_move'
-                ? 'border-navy-900 bg-navy-50'
-                : 'border-gray-200 hover:border-navy-300'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-1">Mini Moves</h4>
+            <h4 className="font-medium text-navy-900 mb-2">Mini Moves</h4>
             <p className="text-sm text-navy-600">Complete packages for seasonal relocation</p>
           </button>
-          
+
           <button
             onClick={() => updateBookingData({ service_type: 'standard_delivery' })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'standard_delivery'
-                ? 'border-navy-900 bg-navy-50'
-                : 'border-gray-200 hover:border-navy-300'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-1">Standard Delivery</h4>
+            <h4 className="font-medium text-navy-900 mb-2">Standard Delivery</h4>
             <p className="text-sm text-navy-600">Individual items, priced per piece</p>
           </button>
-          
+
           <button
             onClick={() => updateBookingData({ service_type: 'specialty_item' })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'specialty_item'
-                ? 'border-navy-900 bg-navy-50'
-                : 'border-gray-200 hover:border-navy-300'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-1">Specialty Items</h4>
+            <h4 className="font-medium text-navy-900 mb-2">Specialty Items</h4>
             <p className="text-sm text-navy-600">Pelotons, surfboards, and more</p>
           </button>
         </div>
       </div>
 
-      {/* Mini Move Packages */}
+      {/* Mini Moves */}
       {bookingData.service_type === 'mini_move' && services?.mini_move_packages && (
         <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Your Package</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Package</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {services.mini_move_packages.map((pkg) => (
               <Card 
-                key={pkg.id}
-                variant={pkg.is_most_popular ? "luxury" : "elevated"}
-                className={`cursor-pointer transition-all relative ${
-                  bookingData.mini_move_package_id === pkg.id 
-                    ? 'ring-2 ring-navy-900' 
-                    : 'hover:shadow-xl'
-                }`}
-                onClick={() => handleMiniMoveSelect(pkg.id, pkg)}
+                key={pkg.id} 
+                variant={bookingData.mini_move_package_id === pkg.id ? "luxury" : "default"}
+                className="cursor-pointer"
+                onClick={() => handleMiniMoveSelect(pkg.id)}
               >
-                {pkg.is_most_popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gold-500 text-navy-900 px-4 py-1 rounded-full text-sm font-medium">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                
                 <CardHeader>
                   <div className="text-center">
-                    <h4 className="text-xl font-serif font-bold text-navy-900 mb-2">
-                      {pkg.name}
-                    </h4>
-                    <div className="text-3xl font-bold text-navy-900 mb-2">
-                      ${pkg.base_price_dollars}
-                    </div>
-                    {pkg.max_items && (
-                      <p className="text-navy-600 text-sm">
-                        Up to {pkg.max_items} items
-                      </p>
+                    <h4 className="font-medium text-navy-900">{pkg.name}</h4>
+                    {pkg.is_most_popular && (
+                      <span className="inline-block bg-gold-100 text-gold-800 text-xs px-2 py-1 rounded-full mt-1">
+                        Most Popular
+                      </span>
                     )}
                   </div>
                 </CardHeader>
-                
                 <CardContent>
-                  <p className="text-navy-700 text-sm mb-4">{pkg.description}</p>
-                  
-                  <ul className="space-y-2">
-                    {pkg.coi_included && (
-                      <li className="flex items-center text-sm text-navy-700">
-                        <span className="text-green-500 mr-2">✓</span>
-                        COI Included
-                      </li>
-                    )}
-                    {pkg.priority_scheduling && (
-                      <li className="flex items-center text-sm text-navy-700">
-                        <span className="text-green-500 mr-2">✓</span>
-                        Priority Scheduling
-                      </li>
-                    )}
-                    {pkg.protective_wrapping && (
-                      <li className="flex items-center text-sm text-navy-700">
-                        <span className="text-green-500 mr-2">✓</span>
-                        Protective Wrapping
-                      </li>
-                    )}
-                  </ul>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-navy-900 mb-2">
+                      ${pkg.base_price_dollars}
+                    </div>
+                    <p className="text-navy-600 text-sm mb-3">{pkg.description}</p>
+                    <p className="text-xs text-navy-500">
+                      {pkg.max_items ? `Up to ${pkg.max_items} items` : 'Unlimited items'}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Organizing Services Add-ons */}
+          {/* Organizing Services */}
           {bookingData.mini_move_package_id && (
-            <div className="mt-6 p-6 bg-gold-50 border border-gold-200 rounded-lg">
-              <h4 className="text-lg font-medium text-navy-900 mb-4">
-                Add Professional Organizing Services
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="flex items-center p-4 border border-gold-300 rounded-lg cursor-pointer hover:bg-gold-100">
+            <div>
+              <h4 className="text-md font-medium text-navy-900 mb-3">Add Organizing Services</h4>
+              <div className="space-y-3">
+                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
                   <input
                     type="checkbox"
                     checked={bookingData.include_packing || false}
@@ -1815,11 +3041,11 @@ export function ServiceSelectionStep() {
                   />
                   <div>
                     <h5 className="font-medium text-navy-900">Professional Packing</h5>
-                    <p className="text-sm text-navy-600">Includes supplies and expert packing</p>
+                    <p className="text-sm text-navy-600">Expert packing at origin</p>
                   </div>
                 </label>
-                
-                <label className="flex items-center p-4 border border-gold-300 rounded-lg cursor-pointer hover:bg-gold-100">
+
+                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
                   <input
                     type="checkbox"
                     checked={bookingData.include_unpacking || false}
@@ -1844,25 +3070,18 @@ export function ServiceSelectionStep() {
           <Card variant="elevated">
             <CardContent>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-navy-900 mb-2">
-                    Number of Items
-                  </label>
-                  <input
-                    type="number"
-                    min={services.standard_delivery.minimum_items}
-                    value={bookingData.standard_delivery_item_count || ''}
-                    onChange={(e) => updateBookingData({ 
-                      standard_delivery_item_count: parseInt(e.target.value) || undefined 
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500"
-                    placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
-                  />
-                  <p className="text-sm text-navy-600 mt-1">
-                    ${services.standard_delivery.price_per_item_dollars} per item • 
-                    ${services.standard_delivery.minimum_charge_dollars} minimum
-                  </p>
-                </div>
+                {/* FIXED: Use Input component with proper dark text styling */}
+                <Input
+                  label="Number of Items"
+                  type="number"
+                  min={services.standard_delivery.minimum_items}
+                  value={bookingData.standard_delivery_item_count?.toString() || ''}
+                  onChange={(e) => updateBookingData({ 
+                    standard_delivery_item_count: parseInt(e.target.value) || undefined 
+                  })}
+                  placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
+                  helper={`$${services.standard_delivery.price_per_item_dollars} per item • $${services.standard_delivery.minimum_charge_dollars} minimum`}
+                />
 
                 <label className="flex items-center">
                   <input
@@ -1871,8 +3090,8 @@ export function ServiceSelectionStep() {
                     onChange={(e) => updateBookingData({ is_same_day_delivery: e.target.checked })}
                     className="mr-3"
                   />
-                  <span className="text-navy-900">
-                    Same-Day Delivery (+${services.standard_delivery.same_day_flat_rate_dollars})
+                  <span className="text-navy-900 font-medium">
+                    Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
                   </span>
                 </label>
               </div>
@@ -1889,7 +3108,7 @@ export function ServiceSelectionStep() {
             {services.specialty_items.map((item) => (
               <label 
                 key={item.id}
-                className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
+                className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 <input
                   type="checkbox"
@@ -1901,18 +3120,12 @@ export function ServiceSelectionStep() {
                       : currentIds.filter(id => id !== item.id);
                     updateBookingData({ specialty_item_ids: newIds });
                   }}
-                  className="mr-3"
+                  className="mr-4"
                 />
                 <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h5 className="font-medium text-navy-900">{item.name}</h5>
-                      <p className="text-sm text-navy-600">{item.description}</p>
-                    </div>
-                    <span className="text-lg font-bold text-navy-900">
-                      ${item.price_dollars}
-                    </span>
-                  </div>
+                  <h4 className="font-medium text-navy-900">{item.name}</h4>
+                  <p className="text-sm text-navy-600 mb-1">{item.description}</p>
+                  <div className="text-lg font-bold text-navy-900">${item.price_dollars}</div>
                 </div>
               </label>
             ))}
@@ -1921,13 +3134,15 @@ export function ServiceSelectionStep() {
       )}
 
       {/* Continue Button */}
-      {canContinue() && (
-        <div className="flex justify-end mt-6">
-          <Button variant="primary" onClick={nextStep}>
-            Continue to Date & Time →
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end pt-4">
+        <Button
+          onClick={nextStep}
+          disabled={!canContinue()}
+          size="lg"
+        >
+          Continue to Date & Time →
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1935,8 +3150,11 @@ export function ServiceSelectionStep() {
 
 # ==== src/components/layout/main-layout.tsx ====
 
-```typescript
+```
+// frontend/src/components/layout/main-layout.tsx - Complete updated version
 import { cn } from '@/utils/cn';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -1951,29 +3169,54 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       className
     )}>
       {/* Header */}
-      <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm">
+      <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-serif font-bold text-navy-900">
+            <Link href="/" className="text-2xl font-serif font-bold text-navy-900 hover:text-navy-700 transition-colors">
               ToteTaxi
-            </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <a href="#services" className="text-navy-700 hover:text-navy-900 transition-colors">
+            </Link>
+            
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center space-x-8">
+              <Link href="/services" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Services
-              </a>
-              <a href="#about" className="text-navy-700 hover:text-navy-900 transition-colors">
+              </Link>
+              <Link href="/about" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 About
-              </a>
-              <a href="#contact" className="text-navy-700 hover:text-navy-900 transition-colors">
+              </Link>
+              <Link href="/faq" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                FAQ
+              </Link>
+              <Link href="/contact" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Contact
-              </a>
-              <button 
-                onClick={onBookNowClick}
-                className="bg-navy-900 text-white px-4 py-2 rounded-md hover:bg-navy-800 transition-colors"
-              >
-                Book Now
-              </button>
+              </Link>
+              {onBookNowClick ? (
+                <Button variant="primary" onClick={onBookNowClick}>
+                  Book Now
+                </Button>
+              ) : (
+                <Link href="/book">
+                  <Button variant="primary">
+                    Book Now
+                  </Button>
+                </Link>
+              )}
             </nav>
+
+            {/* Mobile Menu Button */}
+            <div className="lg:hidden">
+              {onBookNowClick ? (
+                <Button variant="primary" size="sm" onClick={onBookNowClick}>
+                  Book Now
+                </Button>
+              ) : (
+                <Link href="/book">
+                  <Button variant="primary" size="sm">
+                    Book Now
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -1986,9 +3229,41 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       {/* Footer */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="text-center">
-            <div className="text-xl font-serif mb-4">ToteTaxi</div>
-            <p className="text-navy-300">Luxury delivery service for the Hamptons</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <div className="text-xl font-serif mb-4">ToteTaxi</div>
+              <p className="text-navy-300 text-sm">
+                Luxury delivery service for Manhattan to Hamptons transport
+              </p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-4">Services</h4>
+              <ul className="space-y-2 text-navy-300 text-sm">
+                <li><Link href="/services#mini-moves" className="hover:text-white transition-colors">Mini Moves</Link></li>
+                <li><Link href="/services#standard-delivery" className="hover:text-white transition-colors">Standard Delivery</Link></li>
+                <li><Link href="/services#specialty-items" className="hover:text-white transition-colors">Specialty Items</Link></li>
+                <li><Link href="/services#organizing" className="hover:text-white transition-colors">Organizing Services</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-4">Company</h4>
+              <ul className="space-y-2 text-navy-300 text-sm">
+                <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-4">Contact</h4>
+              <div className="text-navy-300 text-sm space-y-1">
+                <p>(555) TOTE-TAXI</p>
+                <p>hello@totetaxi.com</p>
+                <p>Manhattan to Hamptons</p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-navy-800 mt-8 pt-8 text-center text-navy-400 text-sm">
+            <p>&copy; 2024 ToteTaxi. All rights reserved. | Premium delivery service for discerning clients.</p>
           </div>
         </div>
       </footer>
@@ -1999,7 +3274,8 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
 
 # ==== src/components/marketing/service-showcase.tsx ====
 
-```typescript
+```
+// frontend/src/components/marketing/service-showcase.tsx
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
@@ -2197,7 +3473,8 @@ export function ServiceShowcase() {
 
 # ==== src/components/providers/query-provider.tsx ====
 
-```typescript
+```
+// frontend/src/components/providers/query-provider.tsx
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -2224,64 +3501,124 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
 # ==== src/components/test-api-connection.tsx ====
 
-```typescript
+```
+// frontend/src/components/test-api-connection.tsx
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type { ServiceCatalog } from '@/types';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export function TestAPIConnection() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['services', 'catalog'],
-    queryFn: async (): Promise<ServiceCatalog> => {
+  const [testResults, setTestResults] = useState<Record<string, any>>({});
+
+  // Test services endpoint
+  const { data: services, isLoading: servicesLoading, error: servicesError } = useQuery({
+    queryKey: ['test', 'services'],
+    queryFn: async () => {
       const response = await apiClient.get('/api/public/services/');
       return response.data;
-    },
+    }
   });
 
-  if (isLoading) {
-    return (
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-blue-700">Loading services from backend...</p>
-      </div>
-    );
-  }
+  // Test availability endpoint
+  const testAvailability = async () => {
+    try {
+      const response = await apiClient.get('/api/public/availability/');
+      setTestResults(prev => ({ ...prev, availability: { success: true, data: response.data } }));
+    } catch (error) {
+      setTestResults(prev => ({ ...prev, availability: { success: false, error: error.message } }));
+    }
+  };
 
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-        <p className="text-red-700">Error connecting to backend:</p>
-        <pre className="text-sm text-red-600 mt-2">
-          {error instanceof Error ? error.message : 'Unknown error'}
-        </pre>
-      </div>
-    );
+  // Test pricing preview endpoint
+  const testPricing = async () => {
+    try {
+      const response = await apiClient.post('/api/public/pricing-preview/', {
+        service_type: 'mini_move',
+        pickup_date: new Date().toISOString().split('T')[0],
+        mini_move_package_id: services?.mini_move_packages?.[0]?.id,
+        include_packing: false,
+        include_unpacking: false,
+        coi_required: false
+      });
+      setTestResults(prev => ({ ...prev, pricing: { success: true, data: response.data } }));
+    } catch (error) {
+      setTestResults(prev => ({ ...prev, pricing: { success: false, error: error.message } }));
+    }
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    return null; // Hide in production
   }
 
   return (
-    <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-      <h3 className="text-green-800 font-medium mb-2">✅ Backend Connected!</h3>
-      <p className="text-green-700 text-sm">
-        Found {data?.mini_move_packages?.length || 0} mini move packages
-      </p>
-      {data?.mini_move_packages && (
-        <ul className="mt-2 text-sm text-green-600">
-          {data.mini_move_packages.map((pkg) => (
-            <li key={pkg.id}>
-              {pkg.name}: ${pkg.base_price_dollars}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Card variant="elevated" className="mb-8">
+      <CardHeader>
+        <h3 className="text-lg font-medium text-navy-900">API Connection Test</h3>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Services Test */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+            <div>
+              <span className="font-medium">Services Endpoint:</span>
+              <div className="text-sm">
+                {servicesLoading && <span className="text-blue-600">Loading...</span>}
+                {servicesError && <span className="text-red-600">Error: {servicesError.message}</span>}
+                {services && <span className="text-green-600">✓ Connected ({services.mini_move_packages?.length || 0} packages loaded)</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Availability Test */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+            <div>
+              <span className="font-medium">Availability Test:</span>
+              <div className="text-sm">
+                {testResults.availability?.success && <span className="text-green-600">✓ Working</span>}
+                {testResults.availability?.success === false && (
+                  <span className="text-red-600">✗ Failed: {testResults.availability.error}</span>
+                )}
+              </div>
+            </div>
+            <Button size="sm" onClick={testAvailability}>Test</Button>
+          </div>
+
+          {/* Pricing Test */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+            <div>
+              <span className="font-medium">Pricing Test:</span>
+              <div className="text-sm">
+                {testResults.pricing?.success && (
+                  <span className="text-green-600">
+                    ✓ Working (${testResults.pricing.data.pricing.total_price_dollars})
+                  </span>
+                )}
+                {testResults.pricing?.success === false && (
+                  <span className="text-red-600">✗ Failed: {testResults.pricing.error}</span>
+                )}
+              </div>
+            </div>
+            <Button size="sm" onClick={testPricing} disabled={!services}>Test</Button>
+          </div>
+
+          <div className="text-xs text-gray-500 text-center">
+            Backend URL: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005'}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 ```
 
 # ==== src/components/ui/button.tsx ====
 
-```typescript
+```
+// frontend/src/components/ui/button.tsx
 import { cn } from '@/utils/cn';
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 
@@ -2348,7 +3685,8 @@ Button.displayName = 'Button';
 
 # ==== src/components/ui/card.tsx ====
 
-```typescript
+```
+// frontend/src/components/ui/card.tsx
 import { cn } from '@/utils/cn';
 import { HTMLAttributes, forwardRef } from 'react';
 
@@ -2451,16 +3789,19 @@ CardFooter.displayName = 'CardFooter';
 
 # ==== src/components/ui/index.ts ====
 
-```typescript
+```
+// frontend/src/components/ui/index.ts
 export { Button } from './button';
 export { Input } from './input';
 export { Card, CardHeader, CardContent, CardFooter } from './card';
 export { Modal } from './modal';
+export { Select } from './select';
 ```
 
 # ==== src/components/ui/input.tsx ====
 
-```typescript
+```
+// frontend/src/components/ui/input.tsx
 import { cn } from '@/utils/cn';
 import { InputHTMLAttributes, forwardRef } from 'react';
 
@@ -2478,7 +3819,8 @@ const inputVariants = {
   }
 };
 
-const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+// Fixed: Added text-gray-900 for dark, readable text and placeholder styling
+const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400 bg-white';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof inputVariants.variant;
@@ -2504,6 +3846,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       {label && (
         <label className="block text-sm font-medium text-navy-900">
           {label}
+          {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <input
@@ -2531,7 +3874,8 @@ Input.displayName = 'Input';
 
 # ==== src/components/ui/modal.tsx ====
 
-```typescript
+```
+// frontend/src/components/ui/modal.tsx
 'use client';
 
 import { cn } from '@/utils/cn';
@@ -2659,9 +4003,68 @@ export function Modal({
 }
 ```
 
+# ==== src/components/ui/select.tsx ====
+
+```
+// frontend/src/components/ui/select.tsx
+import { cn } from '@/utils/cn';
+import { SelectHTMLAttributes, forwardRef } from 'react';
+
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  error?: string;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(({
+  label,
+  error,
+  options,
+  placeholder = 'Select an option',
+  className,
+  ...props
+}, ref) => {
+  return (
+    <div className="space-y-1">
+      {label && (
+        <label className="block text-sm font-medium text-navy-900">
+          {label}
+          {props.required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
+      <select
+        ref={ref}
+        className={cn(
+          'w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm transition-colors duration-200',
+          'focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          error && 'border-red-300 focus:border-red-500 focus:ring-red-500',
+          className
+        )}
+        {...props}
+      >
+        <option value="" className="text-gray-400">{placeholder}</option>
+        {options.map(option => (
+          <option key={option.value} value={option.value} className="text-gray-900">
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  );
+});
+
+Select.displayName = 'Select';
+```
+
 # ==== src/lib/api-client.ts ====
 
-```typescript
+```
+// frontend/src/lib/api-client.ts
 import axios from 'axios';
 
 export const apiClient = axios.create({
@@ -2701,7 +4104,8 @@ apiClient.interceptors.response.use(
 
 # ==== src/lib/query-client.ts ====
 
-```typescript
+```
+// frontend/src/lib/query-client.ts
 import { QueryClient } from '@tanstack/react-query';
 
 export const queryClient = new QueryClient({
@@ -2724,7 +4128,8 @@ export const queryClient = new QueryClient({
 
 # ==== src/stores/auth-store.ts ====
 
-```typescript
+```
+// frontend/src/stores/auth-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DjangoUser, CustomerProfile } from '@/types';
@@ -2789,7 +4194,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
 # ==== src/stores/booking-store.ts ====
 
-```typescript
+```
+// frontend/src/stores/booking-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -2950,7 +4356,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
 
 # ==== src/stores/ui-store.ts ====
 
-```typescript
+```
+// frontend/src/stores/ui-store.ts
 import { create } from 'zustand';
 
 interface Notification {
@@ -3025,7 +4432,8 @@ export const useUIStore = create<UIState & UIActions>((set, get) => ({
 
 # ==== src/types/index.ts ====
 
-```typescript
+```
+// frontend/src/types/index.ts
 // Django User model interface
 export interface DjangoUser {
   id: number;
@@ -3151,7 +4559,7 @@ export interface BookingAddress {
 
 # ==== src/utils/cn.ts ====
 
-```typescript
+```
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -3162,7 +4570,7 @@ export function cn(...inputs: ClassValue[]) {
 
 # ==== tailwind.config.js ====
 
-```javascript
+```
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -3229,7 +4637,7 @@ module.exports = {
 
 # ==== tsconfig.json ====
 
-```json
+```
 {
   "compilerOptions": {
     "target": "ES2017",
@@ -3257,5 +4665,6 @@ module.exports = {
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
+
 ```
 
