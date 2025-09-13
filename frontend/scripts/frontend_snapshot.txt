@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-12 17:24:29.323833
+# Generated: 2025-09-13 11:25:07.513251
 # Files: 50
 
 # ==== next-env.d.ts ====
@@ -311,13 +311,13 @@ export default function AboutPage() {
 # ==== src/app/book/page.tsx ====
 
 ```
-// frontend/src/app/book/page.tsx
 'use client';
 
 import { BookingWizard } from '@/components/booking';
 import { MainLayout } from '@/components/layout/main-layout';
 
 export default function BookPage() {
+  // NO AUTH PROTECTION - this page works for both guest and authenticated users
   return (
     <MainLayout>
       <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100">
@@ -2386,15 +2386,21 @@ export function RegisterForm() {
 # ==== src/components/auth/user-menu.tsx ====
 
 ```
-// frontend/src/components/auth/user-menu.tsx
 'use client';
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useClickAway } from '@/hooks/use-click-away';
-import { Button } from '@/components/ui/button';
-import { ChevronDownIcon, UserIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { apiClient } from '@/lib/api-client';
+import { 
+  ChevronDownIcon, 
+  UserIcon, 
+  Cog6ToothIcon, 
+  ArrowRightOnRectangleIcon,
+  PlusIcon,
+  BookOpenIcon
+} from '@heroicons/react/24/outline';
 
 interface UserMenuProps {
   variant?: 'header' | 'mobile';
@@ -2411,6 +2417,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
+      await apiClient.post('/api/customer/auth/logout/');
       clearAuth();
       router.push('/');
       setIsOpen(false);
@@ -2423,10 +2430,27 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 
   const menuItems = [
     {
+      label: 'Book a Move',
+      icon: PlusIcon,
+      onClick: () => {
+        router.push('/book');
+        setIsOpen(false);
+      },
+      primary: true
+    },
+    {
       label: 'Dashboard',
       icon: UserIcon,
       onClick: () => {
         router.push('/dashboard');
+        setIsOpen(false);
+      }
+    },
+    {
+      label: 'Booking History',
+      icon: BookOpenIcon,
+      onClick: () => {
+        router.push('/dashboard/bookings');
         setIsOpen(false);
       }
     },
@@ -2442,7 +2466,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       label: 'Sign Out',
       icon: ArrowRightOnRectangleIcon,
       onClick: handleLogout,
-      className: 'text-red-600 hover:text-red-700'
+      danger: true
     }
   ];
 
@@ -2451,22 +2475,38 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
   if (variant === 'mobile') {
     return (
       <div className="space-y-2 pt-4 border-t border-gray-200">
-        <div className="px-4 py-2">
+        {/* User Info */}
+        <div className="px-4 py-3 bg-gray-50 rounded-lg mx-4">
           <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
           <p className="text-sm text-navy-600">{user.email}</p>
-          {customerProfile?.is_vip && (
-            <span className="inline-block mt-1 px-2 py-1 text-xs bg-gold-100 text-gold-800 rounded-full">
-              VIP
-            </span>
-          )}
+          <div className="flex items-center gap-2 mt-2">
+            {customerProfile?.is_vip && (
+              <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                VIP
+              </span>
+            )}
+            {customerProfile && customerProfile.total_bookings > 0 && (
+              <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                {customerProfile.total_bookings} bookings
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Menu Items */}
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.label}
               onClick={item.onClick}
-              className={`w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 ${item.className || 'text-navy-700 hover:text-navy-900'}`}
+              className={`w-full flex items-center px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                item.primary 
+                  ? 'text-blue-600 hover:text-blue-700 font-medium' 
+                  : item.danger 
+                  ? 'text-red-600 hover:text-red-700' 
+                  : 'text-navy-700 hover:text-navy-900'
+              }`}
             >
               <Icon className="h-5 w-5 mr-3" />
               {item.label}
@@ -2481,31 +2521,54 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 text-navy-700 hover:text-navy-900 transition-colors"
+        className="flex items-center space-x-2 text-navy-700 hover:text-navy-900 transition-colors py-2 px-3 rounded-lg hover:bg-gray-50"
       >
         <div className="text-right">
           <div className="text-sm font-medium">{user.first_name}</div>
           {customerProfile?.is_vip && (
-            <div className="text-xs text-gold-600">VIP</div>
+            <div className="text-xs text-yellow-600">VIP</div>
           )}
         </div>
         <ChevronDownIcon className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-gray-200">
           <div className="py-1">
-            <div className="px-4 py-3 border-b border-gray-100">
+            {/* User Header */}
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
               <p className="text-sm text-navy-600">{user.email}</p>
+              {customerProfile && (
+                <div className="flex items-center gap-2 mt-2">
+                  {customerProfile.is_vip && (
+                    <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                      VIP
+                    </span>
+                  )}
+                  {customerProfile.total_spent_dollars > 0 && (
+                    <span className="text-xs text-navy-600">
+                      ${customerProfile.total_spent_dollars} spent
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            {menuItems.map((item) => {
+
+            {/* Menu Items */}
+            {menuItems.map((item, index) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.label}
                   onClick={item.onClick}
-                  className={`w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 transition-colors ${item.className || 'text-navy-700 hover:text-navy-900'}`}
+                  className={`w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 transition-colors ${
+                    item.primary 
+                      ? 'text-blue-600 hover:text-blue-700 font-medium' 
+                      : item.danger 
+                      ? 'text-red-600 hover:text-red-700' 
+                      : 'text-navy-700 hover:text-navy-900'
+                  } ${index === menuItems.length - 1 ? 'border-t border-gray-100 mt-1' : ''}`}
                 >
                   <Icon className="h-5 w-5 mr-3" />
                   {item.label}
@@ -2768,10 +2831,12 @@ export function AddressStep() {
 # ==== src/components/booking/booking-wizard.tsx ====
 
 ```
-// frontend/src/components/booking/booking-wizard.tsx
 'use client';
-
+// frontend/src/components/booking/booking-wizard.tsx
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ServiceSelectionStep } from './service-selection-step';
@@ -2796,8 +2861,39 @@ export function BookingWizard() {
     canProceedToStep,
     resetWizard
   } = useBookingWizard();
+  
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // RESET WIZARD ON FRESH PAGE LOAD OR EXPLICIT RESET
+  useEffect(() => {
+    const shouldReset = searchParams.get('reset') === 'true';
+    
+    if (shouldReset) {
+      resetWizard();
+      // Clean up URL without triggering reload
+      router.replace('/book', { scroll: false });
+    }
+  }, [searchParams, resetWizard, router]);
+
+  // PREVENT AUTH-PROTECTED STEPS FOR UNAUTHENTICATED USERS
+  useEffect(() => {
+    // If user is not authenticated and somehow on step 4+, reset to step 1
+    if (!isAuthenticated && currentStep >= 4) {
+      const hasCustomerInfo = searchParams.get('guest') === 'true';
+      if (!hasCustomerInfo) {
+        resetWizard();
+      }
+    }
+  }, [isAuthenticated, currentStep, resetWizard, searchParams]);
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
+
+  const handleStartOver = () => {
+    resetWizard();
+    router.replace('/book?reset=true', { scroll: false });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
@@ -2878,7 +2974,7 @@ export function BookingWizard() {
             )}
             <Button 
               variant="ghost" 
-              onClick={resetWizard}
+              onClick={handleStartOver}
               className="text-navy-600"
             >
               Start Over
@@ -3440,10 +3536,10 @@ export { ReviewPaymentStep } from './review-payment-step';
 # ==== src/components/booking/review-payment-step.tsx ====
 
 ```
-// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -3462,10 +3558,11 @@ interface BookingResponse {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete } = useBookingWizard();
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
-  const [bookingComplete, setBookingComplete] = useState(false);
+  const router = useRouter();
+  const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
 
   // Create booking mutation
@@ -3550,7 +3647,8 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       setBookingNumber(data.booking.booking_number);
-      setBookingComplete(true);
+      setBookingCompleteLocal(true);
+      setBookingComplete(data.booking.booking_number); // Update store
       setLoading(false);
       
       // Invalidate dashboard cache for authenticated users
@@ -3576,9 +3674,21 @@ export function ReviewPaymentStep() {
   };
 
   const handleStartOver = () => {
-    resetWizard(); // This now clears localStorage completely
-    setBookingComplete(false);
+    console.log('🔄 Starting over - resetting wizard and navigating to fresh booking page');
+    resetWizard();
+    setBookingCompleteLocal(false);
     setBookingNumber('');
+    
+    // Force navigation to fresh booking page with reset flag
+    router.push('/book?reset=true');
+  };
+
+  const handleGoToDashboard = () => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      router.push('/');
+    }
   };
 
   if (bookingComplete) {
@@ -3670,19 +3780,21 @@ export function ReviewPaymentStep() {
           </div>
         </div>
 
-        <div className="flex justify-center space-x-4">
-          <Button variant="outline" onClick={handleStartOver}>
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={handleStartOver}
+            className="w-full sm:w-auto"
+          >
             Book Another Move
           </Button>
-          {isAuthenticated ? (
-            <Button variant="primary" onClick={() => window.location.href = '/dashboard'}>
-              Back to Dashboard
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={() => window.location.href = '/'}>
-              Back to Home
-            </Button>
-          )}
+          <Button 
+            variant="primary" 
+            onClick={handleGoToDashboard}
+            className="w-full sm:w-auto"
+          >
+            {isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
+          </Button>
         </div>
       </div>
     );
@@ -3853,6 +3965,7 @@ export function ReviewPaymentStep() {
           size="lg"
           onClick={handleSubmitBooking}
           disabled={isLoading || createBookingMutation.isPending}
+          className="w-full sm:w-auto"
         >
           {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
         </Button>
@@ -4363,7 +4476,7 @@ export function BookingHistory() {
 # ==== src/components/dashboard/dashboard-overview.tsx ====
 
 ```
-// frontend/src/components/dashboard/dashboard-overview.tsx
+// src/components/dashboard/dashboard-overview.tsx
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -4373,37 +4486,50 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
-interface DashboardStats {
-  customer_stats: {
+interface DashboardData {
+  customer_profile: {
+    name: string;
+    email: string;
+    phone: string;
+    is_vip: boolean;
     total_bookings: number;
     total_spent_dollars: number;
-    vip_status: boolean;
-    last_booking_date: string | null;
+    last_booking_at: string | null;
+  };
+  booking_summary: {
+    pending_bookings: number;
+    completed_bookings: number;
+    total_bookings: number;
   };
   recent_bookings: Array<{
     id: string;
     booking_number: string;
+    customer_name: string;
     service_type: string;
     status: string;
     pickup_date: string;
+    pickup_time: string;
     total_price_dollars: number;
+    can_rebook: boolean;
+    created_at: string;
   }>;
+  saved_addresses_count: number;
+  payment_methods_count: number;
 }
 
 export function DashboardOverview() {
-  const { user, customerProfile } = useAuthStore();
+  const { user } = useAuthStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
     queryKey: ['customer', 'dashboard'],
-    queryFn: async (): Promise<DashboardStats> => {
+    queryFn: async (): Promise<DashboardData> => {
       const response = await apiClient.get('/api/customer/dashboard/');
       return response.data;
     },
     enabled: !!user,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0,    // Don't cache
+    staleTime: 0,
+    gcTime: 0,
   });
 
   if (isLoading) {
@@ -4438,7 +4564,8 @@ export function DashboardOverview() {
     );
   }
 
-  const stats = dashboardData?.customer_stats;
+  const profile = dashboardData?.customer_profile;
+  const bookingSummary = dashboardData?.booking_summary;
 
   return (
     <div className="space-y-6">
@@ -4450,11 +4577,11 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-navy-900">
-              {stats?.total_bookings || 0}
+              {profile?.total_bookings || 0}
             </div>
             <p className="text-xs text-navy-600">
-              {stats?.last_booking_date 
-                ? `Last booking: ${new Date(stats.last_booking_date).toLocaleDateString()}`
+              {profile?.last_booking_at 
+                ? `Last booking: ${new Date(profile.last_booking_at).toLocaleDateString()}`
                 : 'No bookings yet'
               }
             </p>
@@ -4467,7 +4594,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-navy-900">
-              ${stats?.total_spent_dollars || 0}
+              ${profile?.total_spent_dollars || 0}
             </div>
             <p className="text-xs text-navy-600">Lifetime value</p>
           </CardContent>
@@ -4479,7 +4606,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
-              {stats?.vip_status ? (
+              {profile?.is_vip ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold-100 text-gold-800">
                   VIP Member
                 </span>
@@ -4490,7 +4617,7 @@ export function DashboardOverview() {
               )}
             </div>
             <p className="text-xs text-navy-600 mt-1">
-              {stats?.vip_status 
+              {profile?.is_vip 
                 ? 'Priority scheduling & exclusive benefits'
                 : 'Book 3+ moves to unlock VIP status'
               }
@@ -4498,6 +4625,30 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Booking Summary */}
+      {bookingSummary && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.pending_bookings}</div>
+              <div className="text-sm text-navy-600">Pending Bookings</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.completed_bookings}</div>
+              <div className="text-sm text-navy-600">Completed Bookings</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-lg font-semibold text-navy-900">{bookingSummary.total_bookings}</div>
+              <div className="text-sm text-navy-600">Total Bookings</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Bookings */}
       {dashboardData?.recent_bookings && dashboardData.recent_bookings.length > 0 && (
@@ -4540,6 +4691,30 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       )}
+
+      {/* Quick Stats Summary */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-xl font-bold text-navy-900">{dashboardData?.saved_addresses_count || 0}</div>
+              <div className="text-sm text-navy-600">Saved Addresses</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{dashboardData?.payment_methods_count || 0}</div>
+              <div className="text-sm text-navy-600">Payment Methods</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{bookingSummary?.pending_bookings || 0}</div>
+              <div className="text-sm text-navy-600">Upcoming</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-navy-900">{bookingSummary?.completed_bookings || 0}</div>
+              <div className="text-sm text-navy-600">Complete</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -4554,10 +4729,16 @@ export function DashboardOverview() {
 # ==== src/components/layout/main-layout.tsx ====
 
 ```
-// frontend/src/components/layout/main-layout.tsx - Complete updated version
+// frontend/src/components/layout/main-layout.tsx
+'use client';
+
 import { cn } from '@/utils/cn';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { UserMenu } from '@/components/auth/user-menu';
+import { useAuthStore } from '@/stores/auth-store';
+import { useState } from 'react';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -4566,6 +4747,9 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children, className, onBookNowClick }: MainLayoutProps) {
+  const { isAuthenticated, user } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className={cn(
       'min-h-screen bg-gradient-to-br from-cream-50 to-cream-100',
@@ -4575,6 +4759,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo */}
             <Link href="/" className="text-2xl font-serif font-bold text-navy-900 hover:text-navy-700 transition-colors">
               ToteTaxi
             </Link>
@@ -4593,34 +4778,132 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
               <Link href="/contact" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Contact
               </Link>
-              {onBookNowClick ? (
-                <Button variant="primary" onClick={onBookNowClick}>
-                  Book Now
-                </Button>
+              
+              {/* Auth-Aware Navigation */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-4">
+                  <Link href="/dashboard" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                    Dashboard
+                  </Link>
+                  <UserMenu />
+                </div>
               ) : (
-                <Link href="/book">
-                  <Button variant="primary">
-                    Book Now
-                  </Button>
-                </Link>
+                <div className="flex items-center space-x-4">
+                  <Link href="/login">
+                    <Button variant="ghost">
+                      Sign In
+                    </Button>
+                  </Link>
+                  {onBookNowClick ? (
+                    <Button variant="primary" onClick={onBookNowClick}>
+                      Book Now
+                    </Button>
+                  ) : (
+                    <Link href="/book">
+                      <Button variant="primary">
+                        Book Now
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               )}
             </nav>
 
             {/* Mobile Menu Button */}
             <div className="lg:hidden">
-              {onBookNowClick ? (
-                <Button variant="primary" size="sm" onClick={onBookNowClick}>
-                  Book Now
-                </Button>
-              ) : (
-                <Link href="/book">
-                  <Button variant="primary" size="sm">
-                    Book Now
-                  </Button>
-                </Link>
-              )}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-navy-700 hover:text-navy-900"
+              >
+                {mobileMenuOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden mt-4 pb-4 border-t border-cream-200">
+              <nav className="flex flex-col space-y-4 mt-4">
+                <Link 
+                  href="/services" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Services
+                </Link>
+                <Link 
+                  href="/about" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  About
+                </Link>
+                <Link 
+                  href="/faq" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  FAQ
+                </Link>
+                <Link 
+                  href="/contact" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Contact
+                </Link>
+                
+                {/* Mobile Auth Section */}
+                {isAuthenticated ? (
+                  <>
+                    <Link 
+                      href="/dashboard" 
+                      className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <UserMenu variant="mobile" />
+                  </>
+                ) : (
+                  <div className="flex flex-col space-y-2 pt-4 border-t border-cream-200">
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start">
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="w-full justify-start">
+                        Create Account
+                      </Button>
+                    </Link>
+                    {onBookNowClick ? (
+                      <Button 
+                        variant="primary" 
+                        onClick={() => {
+                          onBookNowClick();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full"
+                      >
+                        Book Now
+                      </Button>
+                    ) : (
+                      <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
+                        <Button variant="primary" className="w-full">
+                          Book Now
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
@@ -4629,7 +4912,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
         {children}
       </main>
 
-      {/* Footer */}
+      {/* Footer remains the same */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -5627,10 +5910,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 # ==== src/stores/booking-store.ts ====
 
 ```
-// frontend/src/stores/booking-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
+// frontend/src/stores/booking-store.ts
 export interface BookingAddress {
   address_line_1: string;
   address_line_2?: string;
@@ -5641,7 +5923,7 @@ export interface BookingAddress {
 
 export interface BookingData {
   // Service selection
-  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
   include_packing?: boolean;
   include_unpacking?: boolean;
@@ -5684,6 +5966,8 @@ interface BookingWizardState {
   isLoading: boolean;
   bookingData: BookingData;
   errors: Record<string, string>;
+  isBookingComplete: boolean;
+  completedBookingNumber?: string;
 }
 
 interface BookingWizardActions {
@@ -5697,6 +5981,7 @@ interface BookingWizardActions {
   clearErrors: () => void;
   resetWizard: () => void;
   canProceedToStep: (step: number) => boolean;
+  setBookingComplete: (bookingNumber: string) => void;
 }
 
 const initialBookingData: BookingData = {
@@ -5716,6 +6001,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       isLoading: false,
       bookingData: initialBookingData,
       errors: {},
+      isBookingComplete: false,
+      completedBookingNumber: undefined,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
@@ -5746,15 +6033,34 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       
       clearErrors: () => set({ errors: {} }),
       
+      setBookingComplete: (bookingNumber) => set({
+        isBookingComplete: true,
+        completedBookingNumber: bookingNumber
+      }),
+      
       resetWizard: () => {
-        set({
+        console.log('🔄 Resetting booking wizard');
+        
+        const newState = {
           currentStep: 1,
           isLoading: false,
-          bookingData: initialBookingData,
-          errors: {}
-        });
-        // Clear from localStorage completely
-        localStorage.removeItem('totetaxi-booking-wizard');
+          bookingData: { ...initialBookingData },
+          errors: {},
+          isBookingComplete: false,
+          completedBookingNumber: undefined
+        };
+        
+        set(newState);
+        
+        // Force clear localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('totetaxi-booking-wizard');
+            console.log('🗑️ Cleared booking wizard from localStorage');
+          } catch (e) {
+            console.warn('Could not clear localStorage:', e);
+          }
+        }
       },
       
       canProceedToStep: (step) => {
@@ -5783,7 +6089,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       name: 'totetaxi-booking-wizard',
       partialize: (state) => ({
         bookingData: state.bookingData,
-        currentStep: state.currentStep
+        currentStep: state.currentStep,
+        isBookingComplete: state.isBookingComplete,
+        completedBookingNumber: state.completedBookingNumber
       })
     }
   )
