@@ -1,7 +1,13 @@
-// frontend/src/components/layout/main-layout.tsx - Complete updated version
+// frontend/src/components/layout/main-layout.tsx
+'use client';
+
 import { cn } from '@/utils/cn';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { UserMenu } from '@/components/auth/user-menu';
+import { useAuthStore } from '@/stores/auth-store';
+import { useState } from 'react';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -10,6 +16,9 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children, className, onBookNowClick }: MainLayoutProps) {
+  const { isAuthenticated, user } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className={cn(
       'min-h-screen bg-gradient-to-br from-cream-50 to-cream-100',
@@ -19,6 +28,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       <header className="border-b border-cream-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo */}
             <Link href="/" className="text-2xl font-serif font-bold text-navy-900 hover:text-navy-700 transition-colors">
               ToteTaxi
             </Link>
@@ -37,34 +47,132 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
               <Link href="/contact" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 Contact
               </Link>
-              {onBookNowClick ? (
-                <Button variant="primary" onClick={onBookNowClick}>
-                  Book Now
-                </Button>
+              
+              {/* Auth-Aware Navigation */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-4">
+                  <Link href="/dashboard" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                    Dashboard
+                  </Link>
+                  <UserMenu />
+                </div>
               ) : (
-                <Link href="/book">
-                  <Button variant="primary">
-                    Book Now
-                  </Button>
-                </Link>
+                <div className="flex items-center space-x-4">
+                  <Link href="/login">
+                    <Button variant="ghost">
+                      Sign In
+                    </Button>
+                  </Link>
+                  {onBookNowClick ? (
+                    <Button variant="primary" onClick={onBookNowClick}>
+                      Book Now
+                    </Button>
+                  ) : (
+                    <Link href="/book">
+                      <Button variant="primary">
+                        Book Now
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               )}
             </nav>
 
             {/* Mobile Menu Button */}
             <div className="lg:hidden">
-              {onBookNowClick ? (
-                <Button variant="primary" size="sm" onClick={onBookNowClick}>
-                  Book Now
-                </Button>
-              ) : (
-                <Link href="/book">
-                  <Button variant="primary" size="sm">
-                    Book Now
-                  </Button>
-                </Link>
-              )}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-navy-700 hover:text-navy-900"
+              >
+                {mobileMenuOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden mt-4 pb-4 border-t border-cream-200">
+              <nav className="flex flex-col space-y-4 mt-4">
+                <Link 
+                  href="/services" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Services
+                </Link>
+                <Link 
+                  href="/about" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  About
+                </Link>
+                <Link 
+                  href="/faq" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  FAQ
+                </Link>
+                <Link 
+                  href="/contact" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Contact
+                </Link>
+                
+                {/* Mobile Auth Section */}
+                {isAuthenticated ? (
+                  <>
+                    <Link 
+                      href="/dashboard" 
+                      className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <UserMenu variant="mobile" />
+                  </>
+                ) : (
+                  <div className="flex flex-col space-y-2 pt-4 border-t border-cream-200">
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start">
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="w-full justify-start">
+                        Create Account
+                      </Button>
+                    </Link>
+                    {onBookNowClick ? (
+                      <Button 
+                        variant="primary" 
+                        onClick={() => {
+                          onBookNowClick();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full"
+                      >
+                        Book Now
+                      </Button>
+                    ) : (
+                      <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
+                        <Button variant="primary" className="w-full">
+                          Book Now
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
@@ -73,7 +181,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
         {children}
       </main>
 
-      {/* Footer */}
+      {/* Footer remains the same */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
