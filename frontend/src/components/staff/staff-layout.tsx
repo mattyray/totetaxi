@@ -5,6 +5,7 @@ import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { useRouter, usePathname } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { useMutation } from '@tanstack/react-query';
+import Link from 'next/link';
 
 interface StaffLayoutProps {
   children: React.ReactNode;
@@ -133,7 +134,7 @@ function SidebarContent({ navigation, pathname }: {
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
-              <a
+              <Link
                 key={item.name}
                 href={item.href}
                 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -143,7 +144,7 @@ function SidebarContent({ navigation, pathname }: {
                 }`}
               >
                 {item.name}
-              </a>
+              </Link>
             );
           })}
         </nav>
