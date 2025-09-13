@@ -1,5 +1,5 @@
 'use client';
-
+// frontend/src/components/staff/staff-dashboard-overview.tsx
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';

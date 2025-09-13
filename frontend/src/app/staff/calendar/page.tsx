@@ -4,9 +4,9 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { StaffDashboardOverview } from '@/components/staff/staff-dashboard-overview';
+import { BookingCalendar } from '@/components/staff/booking-calendar';
 
-export default function StaffDashboardPage() {
+export default function StaffCalendarPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
   const router = useRouter();
 
@@ -26,7 +26,7 @@ export default function StaffDashboardPage() {
 
   return (
     <StaffLayout>
-      <StaffDashboardOverview />
+      <BookingCalendar />
     </StaffLayout>
   );
 }

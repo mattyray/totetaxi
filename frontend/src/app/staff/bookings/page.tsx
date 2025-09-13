@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { StaffLayout } from '@/components/staff/staff-layout';
 import { BookingManagement } from '@/components/staff/booking-management';
 
 export default function StaffBookingsPage() {
@@ -24,10 +25,8 @@ export default function StaffBookingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-50">
-      <div className="container mx-auto px-4 py-8">
-        <BookingManagement />
-      </div>
-    </div>
+    <StaffLayout>
+      <BookingManagement />
+    </StaffLayout>
   );
 }
