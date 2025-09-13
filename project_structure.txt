@@ -160,6 +160,21 @@
 │   │   │   │   └── page.tsx
 │   │   │   ├── services
 │   │   │   │   └── page.tsx
+│   │   │   ├── staff
+│   │   │   │   ├── bookings
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── calendar
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── customers
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── dashboard
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── login
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── logistics
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── reports
+│   │   │   │       └── page.tsx
 │   │   │   ├── favicon.ico
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
@@ -189,6 +204,14 @@
 │   │   │   │   └── service-showcase.tsx
 │   │   │   ├── providers
 │   │   │   │   └── query-provider.tsx
+│   │   │   ├── staff
+│   │   │   │   ├── booking-calendar.tsx
+│   │   │   │   ├── booking-management.tsx
+│   │   │   │   ├── customer-management.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── staff-dashboard-overview.tsx
+│   │   │   │   ├── staff-layout.tsx
+│   │   │   │   └── staff-login-form.tsx
 │   │   │   ├── ui
 │   │   │   │   ├── button.tsx
 │   │   │   │   ├── card.tsx
@@ -205,6 +228,7 @@
 │   │   ├── stores
 │   │   │   ├── auth-store.ts
 │   │   │   ├── booking-store.ts
+│   │   │   ├── staff-auth-store.ts
 │   │   │   └── ui-store.ts
 │   │   ├── types
 │   │   │   └── index.ts
@@ -219,15 +243,9 @@
 │   ├── README.md
 │   ├── tailwind.config.js
 │   └── tsconfig.json
-├── src
-│   ├── app
-│   │   └── dashboard
-│   │       └── page.tsx
-│   └── components
-│       └── marketing
 ├── .gitignore
 ├── docker-compose.prod.yml
 ├── project_structure.txt
 └── README.md
 
-59 directories, 172 files
+63 directories, 186 files
