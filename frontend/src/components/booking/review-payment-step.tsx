@@ -1,7 +1,7 @@
-// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -20,10 +20,11 @@ interface BookingResponse {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete } = useBookingWizard();
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
-  const [bookingComplete, setBookingComplete] = useState(false);
+  const router = useRouter();
+  const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
 
   // Create booking mutation
@@ -108,7 +109,8 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       setBookingNumber(data.booking.booking_number);
-      setBookingComplete(true);
+      setBookingCompleteLocal(true);
+      setBookingComplete(data.booking.booking_number); // Update store
       setLoading(false);
       
       // Invalidate dashboard cache for authenticated users
@@ -134,9 +136,21 @@ export function ReviewPaymentStep() {
   };
 
   const handleStartOver = () => {
-    resetWizard(); // This now clears localStorage completely
-    setBookingComplete(false);
+    console.log('🔄 Starting over - resetting wizard and navigating to fresh booking page');
+    resetWizard();
+    setBookingCompleteLocal(false);
     setBookingNumber('');
+    
+    // Force navigation to fresh booking page with reset flag
+    router.push('/book?reset=true');
+  };
+
+  const handleGoToDashboard = () => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      router.push('/');
+    }
   };
 
   if (bookingComplete) {
@@ -228,19 +242,21 @@ export function ReviewPaymentStep() {
           </div>
         </div>
 
-        <div className="flex justify-center space-x-4">
-          <Button variant="outline" onClick={handleStartOver}>
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={handleStartOver}
+            className="w-full sm:w-auto"
+          >
             Book Another Move
           </Button>
-          {isAuthenticated ? (
-            <Button variant="primary" onClick={() => window.location.href = '/dashboard'}>
-              Back to Dashboard
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={() => window.location.href = '/'}>
-              Back to Home
-            </Button>
-          )}
+          <Button 
+            variant="primary" 
+            onClick={handleGoToDashboard}
+            className="w-full sm:w-auto"
+          >
+            {isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
+          </Button>
         </div>
       </div>
     );
@@ -411,6 +427,7 @@ export function ReviewPaymentStep() {
           size="lg"
           onClick={handleSubmitBooking}
           disabled={isLoading || createBookingMutation.isPending}
+          className="w-full sm:w-auto"
         >
           {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
         </Button>

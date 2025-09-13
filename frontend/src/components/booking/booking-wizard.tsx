@@ -1,7 +1,9 @@
-// frontend/src/components/booking/booking-wizard.tsx
 'use client';
-
+// frontend/src/components/booking/booking-wizard.tsx
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ServiceSelectionStep } from './service-selection-step';
@@ -26,8 +28,39 @@ export function BookingWizard() {
     canProceedToStep,
     resetWizard
   } = useBookingWizard();
+  
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // RESET WIZARD ON FRESH PAGE LOAD OR EXPLICIT RESET
+  useEffect(() => {
+    const shouldReset = searchParams.get('reset') === 'true';
+    
+    if (shouldReset) {
+      resetWizard();
+      // Clean up URL without triggering reload
+      router.replace('/book', { scroll: false });
+    }
+  }, [searchParams, resetWizard, router]);
+
+  // PREVENT AUTH-PROTECTED STEPS FOR UNAUTHENTICATED USERS
+  useEffect(() => {
+    // If user is not authenticated and somehow on step 4+, reset to step 1
+    if (!isAuthenticated && currentStep >= 4) {
+      const hasCustomerInfo = searchParams.get('guest') === 'true';
+      if (!hasCustomerInfo) {
+        resetWizard();
+      }
+    }
+  }, [isAuthenticated, currentStep, resetWizard, searchParams]);
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
+
+  const handleStartOver = () => {
+    resetWizard();
+    router.replace('/book?reset=true', { scroll: false });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
@@ -108,7 +141,7 @@ export function BookingWizard() {
             )}
             <Button 
               variant="ghost" 
-              onClick={resetWizard}
+              onClick={handleStartOver}
               className="text-navy-600"
             >
               Start Over

@@ -1,7 +1,6 @@
-// frontend/src/stores/booking-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
+// frontend/src/stores/booking-store.ts
 export interface BookingAddress {
   address_line_1: string;
   address_line_2?: string;
@@ -12,7 +11,7 @@ export interface BookingAddress {
 
 export interface BookingData {
   // Service selection
-  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
   include_packing?: boolean;
   include_unpacking?: boolean;
@@ -55,6 +54,8 @@ interface BookingWizardState {
   isLoading: boolean;
   bookingData: BookingData;
   errors: Record<string, string>;
+  isBookingComplete: boolean;
+  completedBookingNumber?: string;
 }
 
 interface BookingWizardActions {
@@ -68,6 +69,7 @@ interface BookingWizardActions {
   clearErrors: () => void;
   resetWizard: () => void;
   canProceedToStep: (step: number) => boolean;
+  setBookingComplete: (bookingNumber: string) => void;
 }
 
 const initialBookingData: BookingData = {
@@ -87,6 +89,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       isLoading: false,
       bookingData: initialBookingData,
       errors: {},
+      isBookingComplete: false,
+      completedBookingNumber: undefined,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
@@ -117,15 +121,34 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       
       clearErrors: () => set({ errors: {} }),
       
+      setBookingComplete: (bookingNumber) => set({
+        isBookingComplete: true,
+        completedBookingNumber: bookingNumber
+      }),
+      
       resetWizard: () => {
-        set({
+        console.log('🔄 Resetting booking wizard');
+        
+        const newState = {
           currentStep: 1,
           isLoading: false,
-          bookingData: initialBookingData,
-          errors: {}
-        });
-        // Clear from localStorage completely
-        localStorage.removeItem('totetaxi-booking-wizard');
+          bookingData: { ...initialBookingData },
+          errors: {},
+          isBookingComplete: false,
+          completedBookingNumber: undefined
+        };
+        
+        set(newState);
+        
+        // Force clear localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('totetaxi-booking-wizard');
+            console.log('🗑️ Cleared booking wizard from localStorage');
+          } catch (e) {
+            console.warn('Could not clear localStorage:', e);
+          }
+        }
       },
       
       canProceedToStep: (step) => {
@@ -154,7 +177,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       name: 'totetaxi-booking-wizard',
       partialize: (state) => ({
         bookingData: state.bookingData,
-        currentStep: state.currentStep
+        currentStep: state.currentStep,
+        isBookingComplete: state.isBookingComplete,
+        completedBookingNumber: state.completedBookingNumber
       })
     }
   )
