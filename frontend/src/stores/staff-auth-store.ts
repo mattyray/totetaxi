@@ -36,7 +36,7 @@ interface StaffAuthActions {
 
 export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // State
       user: null,
       staffProfile: null,
@@ -66,7 +66,8 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         user: state.user,
         staffProfile: state.staffProfile,
         isAuthenticated: state.isAuthenticated
-      })
+      }),
+      version: 1, // Add version to force refresh if needed
     }
   )
 );

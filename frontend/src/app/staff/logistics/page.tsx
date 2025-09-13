@@ -6,7 +6,7 @@ import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function StaffCustomersPage() {
+export default function StaffLogisticsPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
   const router = useRouter();
 
@@ -28,12 +28,12 @@ export default function StaffCustomersPage() {
     <StaffLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Customer Management
+          Logistics Management
         </h1>
         <Card>
           <CardContent className="p-6">
             <p className="text-navy-600">
-              Customer management functionality will be implemented here.
+              Logistics and delivery coordination will be implemented here.
             </p>
           </CardContent>
         </Card>
