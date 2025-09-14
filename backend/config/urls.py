@@ -7,4 +7,6 @@ urlpatterns = [
     path('api/public/', include('apps.bookings.urls')),
     path('api/payments/', include('apps.payments.urls')),
     path('api/staff/', include('apps.accounts.urls')),  # Add this line
+    # In config/urls.py, add this to urlpatterns:
+    path('api/staff/logistics/', include('apps.logistics.urls')),
 ]
