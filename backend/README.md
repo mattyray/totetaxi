@@ -94,6 +94,15 @@ Need files:
 └── apps/accounts/urls.py → Staff API routing
 ```
 
+### **Logistics Integration & Onfleet**
+```
+Need files:
+├── apps/logistics/models.py → OnfleetTask bridge model
+├── apps/logistics/services.py → Onfleet API wrapper, integration manager
+├── apps/logistics/views.py → Staff logistics endpoints, webhook handler
+└── apps/logistics/urls.py → Logistics API routing
+```
+
 ### **Payment Processing**
 ```
 Need files:
@@ -153,6 +162,12 @@ Need files:
 - `serializers.py` → Staff data formatting
 - `urls.py` → Staff API endpoints (/api/staff/)
 
+### **apps/logistics/ - Onfleet Integration**
+- `models.py` → OnfleetTask bridge model, logistics metrics
+- `services.py` → OnfleetService API wrapper, ToteTaxiOnfleetIntegration manager
+- `views.py` → Staff logistics dashboard, webhook handler, manual task creation
+- `urls.py` → Logistics API endpoints (/api/staff/logistics/)
+
 ### **apps/payments/ - Financial Operations**
 - `models.py` → Payment, Refund, PaymentAudit models
 - `views.py` → Payment intent creation, webhooks, mock confirmation
@@ -183,6 +198,7 @@ Need files:
 - **Add geographic pricing** → `apps/services/models.py` (SurchargeRule)
 - **Customer dashboard features** → `apps/customers/booking_views.py`, `apps/customers/models.py`
 - **Payment integration** → `apps/payments/services.py`, `apps/payments/views.py`
+- **Logistics integration work** → `apps/logistics/services.py`, `apps/logistics/views.py`
 - **Add API endpoints** → Relevant app's `views.py`, `urls.py`, `serializers.py`
 - **Database changes** → Relevant app's `models.py`
 - **Admin interface** → Relevant app's `admin.py`
@@ -200,9 +216,9 @@ This guide ensures efficient file requests - you tell me what you want to build,
 ToteTaxi is a luxury delivery service system built on Django with a sophisticated dual-customer architecture supporting both authenticated users and guest checkout. The system handles complex pricing calculations, staff operations, and financial workflows while maintaining clean separation between customer and staff concerns.
 
 **Current Implementation Status:**
-- **Fully Implemented:** Customer authentication, guest booking, pricing engine with organizing services, staff operations, payment processing (mocked)
+- **Fully Implemented:** Customer authentication, guest booking, pricing engine with organizing services, staff operations, payment processing (mocked), Onfleet logistics integration
 - **Partially Implemented:** Admin dashboard views, basic audit logging
-- **Stub Applications:** Logistics, documents, notifications, CRM (empty but structured)
+- **Stub Applications:** Documents, notifications, CRM (empty but structured)
 
 **ToteTaxi Backend Ecosystem**
 ```
@@ -214,8 +230,9 @@ ToteTaxi is a luxury delivery service system built on Django with a sophisticate
 │   └── accounts/ → Staff profiles with comprehensive audit logging
 ├── Financial Operations (IMPLEMENTED - MOCKED)
 │   └── payments/ → Payment processing, refunds, audit trails
+├── Delivery Operations (IMPLEMENTED - INTEGRATION)
+│   └── logistics/ → Onfleet integration for delivery coordination
 ├── Operational Management (STUB APPLICATIONS)
-│   ├── logistics/ → Delivery coordination (empty)
 │   ├── documents/ → File storage, COI management (empty)
 │   └── notifications/ → Email communications (empty)
 ├── Administrative Interface (PARTIAL)
@@ -445,6 +462,7 @@ booking.specialty_items  # ManyToMany to SpecialtyItem
 **Integration Points:**
 - → services/: Pricing calculation integration including organizing services
 - → payments/: Payment intent creation trigger
+- → logistics/: Automatic Onfleet task creation when booking confirmed
 - ← accounts/: Staff booking management
 - ↔ customers/: Authenticated booking creation
 
@@ -562,6 +580,113 @@ permissions = {
     'can_view_financial_reports': staff_profile.can_view_financial_reports
 }
 ```
+
+### apps/logistics/ - Onfleet Integration (FULLY IMPLEMENTED)
+
+**Purpose:** Integration bridge between ToteTaxi bookings and Onfleet delivery management platform. This is NOT a full logistics management system - it's a focused integration that connects ToteTaxi's booking system with Onfleet's professional delivery infrastructure.
+
+**Integration Philosophy:**
+- **Onfleet handles:** Driver management, route optimization, real-time tracking, delivery coordination, mobile apps
+- **ToteTaxi handles:** Booking management, customer relationships, pricing, payment processing
+- **Integration provides:** Automatic task creation, status synchronization, tracking links for customers
+
+**Key Models:**
+```python
+# Minimal bridge model - connects bookings to Onfleet tasks
+OnfleetTask(models.Model):
+    booking = OneToOneField(Booking, related_name='onfleet_task')
+    onfleet_task_id = CharField(max_length=100, unique=True)  # Onfleet's task ID
+    onfleet_short_id = CharField(max_length=20)  # For tracking URLs
+    tracking_url = URLField()  # Customer-facing tracking link
+    status = CharField(choices=[...])  # Internal status mapping
+    created_at, updated_at, last_synced = DateTimeFields()
+    
+    def sync_status_from_onfleet(self, onfleet_state):
+        # Maps Onfleet state (0-3) to ToteTaxi status
+        # Updates related booking status when delivery completes
+        # Triggers customer profile updates (VIP status, spending totals)
+```
+
+**Integration Service Layer:**
+```python
+# Onfleet API wrapper with mock/real mode support
+class OnfleetService:
+    def __init__(self):
+        self.mock_mode = getattr(settings, 'ONFLEET_MOCK_MODE', True)
+    
+    def create_task_from_booking(self, booking):
+        # Creates Onfleet delivery task from ToteTaxi booking
+        # Handles customer info, addresses, timing constraints
+        # Returns task data with tracking URL
+    
+    def _get_customer_phone(self, booking):
+        # Handles both authenticated customers and guest checkouts
+        # Safely extracts phone numbers for Onfleet recipient data
+
+# High-level integration manager
+class ToteTaxiOnfleetIntegration:
+    def create_delivery_task(self, booking):
+        # Called automatically when booking status = 'confirmed'
+        # Creates Onfleet task and local OnfleetTask record
+        # Returns OnfleetTask instance with tracking URL
+    
+    def handle_webhook(self, webhook_data):
+        # Processes Onfleet status updates
+        # Updates ToteTaxi booking status
+        # Triggers customer profile updates
+    
+    def get_dashboard_summary(self):
+        # Provides logistics metrics for staff dashboard
+        # Combines ToteTaxi booking data with Onfleet stats
+```
+
+**Automatic Integration Workflow:**
+```python
+# Signal handler automatically creates Onfleet tasks
+@receiver(post_save, sender='bookings.Booking')
+def create_onfleet_task(sender, instance, **kwargs):
+    if instance.status == 'confirmed' and not hasattr(instance, 'onfleet_task'):
+        integration = ToteTaxiOnfleetIntegration()
+        integration.create_delivery_task(instance)
+
+# Status synchronization via webhooks
+booking.status = 'confirmed' → Onfleet task created
+Onfleet driver starts delivery → booking.status = 'in_progress'  
+Onfleet delivery completed → booking.status = 'completed' + customer stats updated
+```
+
+**API Endpoints (Implemented):**
+- `GET /api/staff/logistics/summary/` - Logistics dashboard data (staff only)
+- `POST /api/staff/logistics/sync/` - Manual sync with Onfleet (staff only)
+- `GET /api/staff/logistics/tasks/` - View Onfleet task status (staff only)
+- `POST /api/staff/logistics/create-task/` - Manually create task for booking (staff only)
+- `POST /api/staff/logistics/webhook/` - Onfleet webhook handler (no auth)
+
+**Mock vs Real API Modes:**
+```python
+# Development mode (ONFLEET_MOCK_MODE=true)
+- Returns realistic mock responses for all Onfleet API calls
+- Generates mock tracking URLs and task IDs
+- Allows full development without Onfleet account
+
+# Production mode (ONFLEET_MOCK_MODE=false)  
+- Makes real HTTP calls to Onfleet API
+- Requires valid ONFLEET_API_KEY
+- Handles webhook signature verification
+```
+
+**Integration Benefits:**
+- **Customers:** Get professional tracking links like Amazon/Uber
+- **Staff:** See delivery status in ToteTaxi dashboard without learning new system
+- **Business:** Professional delivery coordination without building logistics infrastructure
+
+**Current Implementation Status:**
+- ✅ Mock integration working with realistic data
+- ✅ Webhook handling for status updates
+- ✅ Staff dashboard integration
+- ✅ Automatic task creation workflow
+- 🔄 Ready for real Onfleet API key integration
+- 🔄 Customer dashboard tracking link display (frontend needed)
 
 ### apps/services/ - Pricing Engine with Organizing Services (FULLY IMPLEMENTED)
 
@@ -704,11 +829,6 @@ class StripePaymentService:
 
 ### Stub Applications (STRUCTURE ONLY)
 
-**apps/logistics/ - Delivery Coordination (EMPTY)**
-- Models: Empty models.py
-- Purpose: Driver management, delivery tracking, route optimization
-- Integration Points: Links to bookings for delivery tasks
-
 **apps/documents/ - File Management (EMPTY)**
 - Models: Empty models.py  
 - Purpose: COI file storage, document lifecycle management
@@ -777,7 +897,12 @@ class StripePaymentService:
 ├── bookings/
 │   ├── [GET] → All bookings with search and filters
 │   └── <uuid:booking_id>/ [GET, PATCH] → Booking management
-└── (Additional staff endpoints planned)
+└── logistics/
+    ├── summary/ [GET] → Logistics dashboard with Onfleet integration
+    ├── sync/ [POST] → Manual sync with Onfleet
+    ├── tasks/ [GET] → View Onfleet task status
+    ├── create-task/ [POST] → Manually create task for booking
+    └── webhook/ [POST] → Onfleet webhook handler (no auth)
 ```
 
 **Authentication Patterns:**
@@ -828,41 +953,62 @@ class StripePaymentService:
    ├── Status update functionality
    ├── Complete audit logging
    ├── View organizing service details
+4. Logistics Management → /api/staff/logistics/summary/
+   ├── Onfleet integration metrics
+   ├── Active delivery tracking
+   ├── Manual task creation capabilities
+```
+
+**Logistics Integration Flow (NEW):**
+```
+1. Booking Confirmed → Auto-create Onfleet task
+   ├── ToteTaxiOnfleetIntegration.create_delivery_task()
+   ├── OnfleetTask record created with tracking URL
+   ├── Customer gets tracking link access
+2. Onfleet Status Updates → Webhook to ToteTaxi
+   ├── /api/staff/logistics/webhook/ receives Onfleet updates
+   ├── OnfleetTask.sync_status_from_onfleet() updates local status
+   ├── Booking status updated (in_progress → completed)
+   ├── Customer profile stats updated on completion
+3. Staff Monitoring → /api/staff/logistics/summary/
+   ├── Real-time delivery metrics
+   ├── Integration health monitoring
+   ├── Manual sync capabilities
 ```
 
 ## Development Roadmap & Integration Points
 
 ### Immediate Development Priorities
 
-**1. Frontend Booking Wizard Integration**
-- Build guest booking wizard with organizing service selection
-- Implement real-time pricing preview with organizing costs
-- Integrate Mini Move tier selection with organizing options
-- Develop step-by-step wizard with organizing service explanations
+**1. Frontend Logistics Integration**
+- Add tracking links to customer booking history
+- Display logistics summary in staff dashboard
+- Show Onfleet task status in booking management
+- Customer tracking page integration
 
-**2. Additional Service Types Implementation**
+**2. Real Onfleet API Integration**
+- Add real Onfleet API key to production environment
+- Set up webhook endpoints for production
+- Implement webhook signature verification
+- Test end-to-end integration with real drivers
+
+**3. Additional Service Types Implementation**
 - Implement BLADE Luggage Delivery service model and pricing
 - Build Mini Storage service with monthly billing
 - Create B2B/Pop-Up service with custom quote system
 - Add geographic pricing integration for all service types
 
-**3. COI File Management Integration**
+**4. COI File Management Integration**
 - Implement document models in apps/documents/
 - Connect COI requirements to booking workflow
 - S3 storage integration for file uploads
 - Staff interface for COI validation
 
-**4. Real Payment Processing**
+**5. Real Payment Processing**
 - Replace mock Stripe service with real integration
 - Implement webhook signature verification
 - Enhanced error handling and retry logic
 - Customer payment method management
-
-**5. Logistics Workflow**
-- Driver assignment and tracking models
-- Delivery status updates
-- Integration with booking lifecycle
-- Customer tracking interface
 
 ### Architectural Extension Patterns
 
@@ -893,6 +1039,31 @@ def calculate_pricing(self):
         # Storage pricing logic
 ```
 
+**Logistics Integration Extensions:**
+```python
+# Enhanced tracking features
+class OnfleetTaskExtended(models.Model):
+    onfleet_task = OneToOneField(OnfleetTask)
+    driver_rating = PositiveSmallIntegerField(null=True)
+    delivery_photos = JSONField(default=list)
+    customer_notes = TextField(blank=True)
+    
+# Real-time location updates
+class DeliveryLocation(models.Model):
+    onfleet_task = ForeignKey(OnfleetTask, related_name='locations')
+    latitude = DecimalField(max_digits=9, decimal_places=6)
+    longitude = DecimalField(max_digits=9, decimal_places=6)
+    timestamp = DateTimeField()
+    
+# Customer notification integration
+@receiver(post_save, sender=OnfleetTask)
+def notify_customer_of_status_change(sender, instance, **kwargs):
+    if instance.status == 'active':
+        # Send "driver en route" notification
+    elif instance.status == 'completed':
+        # Send "delivery completed" notification
+```
+
 **Organizing Services Extensions:**
 ```python
 # Add additional organizing service tiers or types
@@ -918,40 +1089,6 @@ class DistanceBasedPricing(models.Model):
     price_per_mile_cents = PositiveBigIntegerField()
 ```
 
-**Adding Staff Permissions:**
-```python
-# 1. Update StaffProfile model
-@property
-def can_approve_organizing_addons(self):
-    return self.role in ['admin', 'supervisor']
-
-# 2. Use in views
-if request.user.staff_profile.can_approve_organizing_addons:
-    # Allow organizing service modifications
-    
-# 3. Log action
-StaffAction.log_action(
-    staff_user=request.user,
-    action_type='modify_organizing_services',
-    description='Modified organizing services for booking',
-    request=request
-)
-```
-
-**Customer Profile Extensions:**
-```python
-# Enhanced customer preferences
-class CustomerPreferences(models.Model):
-    user = models.OneToOneField(User, related_name='preferences')
-    preferred_organizing_services = models.BooleanField(default=False)
-    organizing_service_notes = models.TextField(blank=True)
-    # Additional preference fields
-    
-# Access pattern
-user.customer_profile  # Existing profile
-user.preferences  # New extension
-```
-
 ### Integration Points Ready for Development
 
 **Frontend Booking Wizard:**
@@ -960,12 +1097,25 @@ user.preferences  # New extension
 - Organizing service explanation and upselling
 - Integration with existing API endpoints
 
+**Customer Tracking Experience:**
+- Onfleet tracking links in booking history
+- Real-time delivery status updates
+- Driver information display
+- Delivery completion notifications
+
+**Staff Logistics Dashboard:**
+- Live delivery monitoring
+- Onfleet integration health status
+- Manual task management
+- Performance analytics
+
 **Notification System:**
 - Booking status change triggers ready in booking model
 - Customer communication preferences in CustomerProfile
 - Staff action logging ready for notification triggers
 - Email template system architecture planned
 - Organizing service booking confirmations
+- Logistics status notifications
 
 **Advanced CRM Features:**
 - Customer analytics data available via CustomerProfile
@@ -973,6 +1123,7 @@ user.preferences  # New extension
 - Financial reporting via payments integration including organizing revenue
 - Staff productivity metrics via StaffAction logging
 - Organizing service performance metrics
+- Logistics performance tracking
 
 **Mobile API Extensions:**
 - Existing API endpoints mobile-ready
@@ -980,6 +1131,7 @@ user.preferences  # New extension
 - Real-time booking status ready for push notifications
 - Offline-first booking creation patterns planned
 - Organizing service mobile interface
+- Logistics tracking mobile optimization
 
 ### Technical Debt & Enhancement Opportunities
 
@@ -988,12 +1140,14 @@ user.preferences  # New extension
 - Caching strategy for pricing calculations including organizing services
 - Background job processing for heavy operations
 - API response pagination and filtering
+- Onfleet webhook processing optimization
 
 **Security Enhancements:**
 - Rate limiting on all endpoints
 - Enhanced audit logging for sensitive operations
 - API key authentication for mobile applications
 - Advanced permission granularity
+- Onfleet webhook signature verification
 
 **Business Logic Extensions:**
 - Dynamic pricing based on demand for organizing services
@@ -1001,6 +1155,7 @@ user.preferences  # New extension
 - Customer loyalty program integration
 - Multi-language support preparation
 - Organizing service capacity management
+- Logistics performance analytics
 
 **Frontend Development Requirements:**
 - Guest booking wizard with organizing service integration
@@ -1008,5 +1163,7 @@ user.preferences  # New extension
 - Service explanation and upselling interface
 - Authentication flows for customer accounts
 - Staff dashboard for organizing service management
+- Customer tracking interface integration
+- Logistics management dashboard
 
-This living documentation provides both complete operational understanding and clear development direction, enabling immediate productive development while maintaining architectural consistency and business logic integrity. The organizing services integration is fully implemented and ready for frontend integration.
+This living documentation provides both complete operational understanding and clear development direction, enabling immediate productive development while maintaining architectural consistency and business logic integrity. The organizing services integration is fully implemented and ready for frontend integration, and the Onfleet logistics integration provides a solid foundation for professional delivery coordination without the complexity of building full logistics infrastructure.
