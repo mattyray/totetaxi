@@ -26,6 +26,7 @@ export function ReviewPaymentStep() {
   const router = useRouter();
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Create booking mutation
   const createBookingMutation = useMutation({
@@ -131,6 +132,11 @@ export function ReviewPaymentStep() {
   });
 
   const handleSubmitBooking = () => {
+    if (!termsAccepted) {
+      alert('Please accept the Terms of Service to continue.');
+      return;
+    }
+    
     setLoading(true);
     createBookingMutation.mutate();
   };
@@ -407,6 +413,59 @@ export function ReviewPaymentStep() {
         </Card>
       )}
 
+      {/* Terms of Service Agreement */}
+      <Card variant="default" className="border-navy-200">
+        <CardHeader>
+          <h3 className="text-lg font-medium text-navy-900">Terms of Service Agreement</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="max-h-40 overflow-y-auto p-3 bg-gray-50 rounded text-xs text-navy-700 border">
+              <p className="font-medium mb-2">PLEASE READ THESE TERMS AND CONDITIONS CAREFULLY</p>
+              <p className="mb-2">
+                By using Tote Taxi and/or the Tote Taxi Website, you are agreeing to be bound by these terms and conditions. 
+                If you do not agree to the terms and conditions, do not use Tote Taxi's services or the Tote Taxi Website.
+              </p>
+              <p className="mb-2">
+                Tote Taxi LLC ("Tote Taxi") may revise and update these Terms and Conditions at any time without notice. 
+                Your continued usage of the Tote Taxi Website after any such change or update will mean you accept those changes or updates.
+              </p>
+              <p className="mb-2">
+                Tote Taxi will not accept for transport luggage or packages in excess of $150.00 in value. 
+                Tote Taxi's inadvertent acceptance of any luggage or package in excess of $150.00 shall not negate 
+                Tote Taxi's limitation of liability stated herein.
+              </p>
+              <p className="mb-2">
+                By delivering luggage or package to, or causing luggage or package to be delivered to, Tote Taxi for transport, 
+                you represent that the luggage or package does not contain any illegal substances, any liquids, or any hazardous materials, 
+                and does not exceed $150.00 in value.
+              </p>
+              <p className="text-xs text-navy-500 mt-4">
+                [Complete terms available at totetaxi.com/terms]
+              </p>
+            </div>
+            
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-1 h-4 w-4 text-navy-600 rounded border-gray-300 focus:ring-navy-500"
+              />
+              <div className="text-sm">
+                <span className="text-navy-900 font-medium">
+                  I acknowledge that I have read, understood, and agree to be bound by the Terms of Service.
+                </span>
+                <p className="text-navy-600 mt-1">
+                  By checking this box, you confirm your acceptance of all terms and conditions, 
+                  including the $150 liability limit and item restrictions.
+                </p>
+              </div>
+            </label>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Payment Notice */}
       <Card variant="default" className="border-gold-200 bg-gold-50">
         <CardContent>
@@ -426,7 +485,7 @@ export function ReviewPaymentStep() {
           variant="primary" 
           size="lg"
           onClick={handleSubmitBooking}
-          disabled={isLoading || createBookingMutation.isPending}
+          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
           className="w-full sm:w-auto"
         >
           {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
