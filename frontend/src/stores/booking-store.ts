@@ -73,30 +73,11 @@ const initialBookingData: BookingData = {
   is_same_day_delivery: false,
 };
 
-// Get current user info
-const getCurrentUserInfo = (): { userId: string; isGuest: boolean } => {
-  if (typeof window === 'undefined') return { userId: 'guest', isGuest: true };
-  
-  try {
-    const authData = localStorage.getItem('totetaxi-auth-store');
-    if (authData) {
-      const parsed = JSON.parse(authData);
-      const user = parsed.state?.user;
-      if (user?.id) {
-        return { userId: user.id.toString(), isGuest: false };
-      }
-    }
-  } catch (e) {
-    console.warn('Could not get user info:', e);
-  }
-  return { userId: 'guest', isGuest: true };
-};
-
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
-      // State
-      currentStep: 1,
+      // State - ALWAYS START AT STEP 0 (auth choice)
+      currentStep: 0,
       isLoading: false,
       bookingData: initialBookingData,
       errors: {},
@@ -108,12 +89,13 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
       
-      nextStep: () => set((state) => ({ 
-        currentStep: Math.min(state.currentStep + 1, 5) 
-      })),
+      nextStep: () => set((state) => {
+        const maxStep = state.isGuestMode ? 5 : 4;
+        return { currentStep: Math.min(state.currentStep + 1, maxStep) };
+      }),
       
       previousStep: () => set((state) => ({ 
-        currentStep: Math.max(state.currentStep - 1, 1) 
+        currentStep: Math.max(state.currentStep - 1, 0) // Can go back to step 0
       })),
       
       updateBookingData: (data) => set((state) => ({
@@ -140,20 +122,17 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       }),
       
       initializeForUser: (providedUserId?, isGuest?) => {
-        const currentUserInfo = getCurrentUserInfo();
-        const userId = providedUserId || currentUserInfo.userId;
-        const guestMode = isGuest !== undefined ? isGuest : currentUserInfo.isGuest;
+        const userId = providedUserId || 'guest';
+        const guestMode = isGuest !== undefined ? isGuest : true;
         
         const state = get();
         
         console.log('🔄 Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        // If switching between different authenticated users, reset
-        if (!guestMode && state.userId && state.userId !== userId && state.userId !== 'guest') {
-          console.log('👤 Different authenticated user detected, resetting wizard');
+        // If switching between different users, reset but stay at current step
+        if (state.userId && state.userId !== userId && state.userId !== 'guest') {
+          console.log('👤 Different user detected, resetting data');
           set({
-            currentStep: 1,
-            isLoading: false,
             bookingData: { ...initialBookingData },
             errors: {},
             isBookingComplete: false,
@@ -161,8 +140,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             userId: userId,
             isGuestMode: guestMode
           });
-        } else if (!state.userId) {
-          // First time initialization
+        } else {
+          // Just update user info
           set({ 
             userId: userId,
             isGuestMode: guestMode
@@ -173,17 +152,15 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       resetWizard: () => {
         console.log('🔄 Resetting booking wizard');
         
-        const currentUserInfo = getCurrentUserInfo();
-        
         const newState = {
-          currentStep: 1,
+          currentStep: 0, // Always reset to auth choice step
           isLoading: false,
           bookingData: { ...initialBookingData },
           errors: {},
           isBookingComplete: false,
           completedBookingNumber: undefined,
-          userId: currentUserInfo.userId,
-          isGuestMode: currentUserInfo.isGuest
+          userId: 'guest',
+          isGuestMode: true
         };
         
         set(newState);
@@ -203,7 +180,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         const { bookingData, isGuestMode } = get();
         
         switch (step) {
-          case 1: return true; // Service selection always available
+          case 0: return true; // Auth choice always available
+          case 1: return true; // Service selection always available after auth choice
           case 2: // Date/time step
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
@@ -212,7 +190,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             );
           case 3: // Address step
             return !!bookingData.pickup_date;
-          case 4: // Customer info step (always required for guests, skipped for auth users)
+          case 4: // Customer info step (required for guests only)
             return !!bookingData.pickup_address && !!bookingData.delivery_address;
           case 5: // Review/payment step
             if (isGuestMode) {
