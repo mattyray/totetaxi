@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-13 16:41:06.751597
-# Files: 65
+# Generated: 2025-09-19 18:18:55.185587
+# Files: 67
 
 # ==== next-env.d.ts ====
 
@@ -313,16 +313,50 @@ export default function AboutPage() {
 ```
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { BookingWizard } from '@/components/booking';
 import { MainLayout } from '@/components/layout/main-layout';
+import { Modal } from '@/components/ui/modal';
 
 export default function BookPage() {
-  // NO AUTH PROTECTION - this page works for both guest and authenticated users
+  const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const router = useRouter();
+
+  // Auto-open modal when page loads
+  useEffect(() => {
+    setShowBookingWizard(true);
+  }, []);
+
+  const closeBookingWizard = () => {
+    setShowBookingWizard(false);
+    // Redirect to home when modal closes
+    router.push('/');
+  };
+
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100">
-        <BookingWizard />
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+            Book Your Luxury Move
+          </h1>
+          <p className="text-navy-700">Loading booking wizard...</p>
+        </div>
       </div>
+
+      {/* Booking Wizard Modal */}
+      <Modal
+        isOpen={showBookingWizard}
+        onClose={closeBookingWizard}
+        size="xl"
+        showCloseButton={true}
+        className="max-h-[90vh] overflow-y-auto"
+      >
+        <div className="bg-gradient-to-br from-cream-50 to-cream-100 min-h-full">
+          <BookingWizard onComplete={closeBookingWizard} />
+        </div>
+      </Modal>
     </MainLayout>
   );
 }
@@ -1910,7 +1944,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { CustomerManagement } from '@/components/staff/customer-management';
 
 export default function StaffCustomersPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
@@ -1932,18 +1966,7 @@ export default function StaffCustomersPage() {
 
   return (
     <StaffLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Customer Management
-        </h1>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-navy-600">
-              Customer management functionality will be implemented here.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <CustomerManagement />
     </StaffLayout>
   );
 }
@@ -2088,6 +2111,140 @@ export default function StaffReportsPage() {
         </Card>
       </div>
     </StaffLayout>
+  );
+}
+```
+
+# ==== src/app/terms/page.tsx ====
+
+```
+import { MainLayout } from '@/components/layout/main-layout';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+
+export default function TermsPage() {
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+            Terms of Service
+          </h1>
+          <p className="text-navy-600">
+            Effective Date: January 2024 • Last Updated: January 2024
+          </p>
+        </div>
+
+        <Card variant="elevated">
+          <CardContent className="space-y-6 text-navy-700">
+            
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">General Terms</h2>
+              <p className="mb-4">
+                <strong>PLEASE READ THESE TERMS AND CONDITIONS (THE "TERMS AND CONDITIONS") CAREFULLY.</strong> 
+                By using Tote Taxi and/or the Tote Taxi Website, you are agreeing to be bound by these Terms and Conditions. 
+                If you do not agree to the Terms and Conditions, do not use Tote Taxi's services or the Tote Taxi Website.
+              </p>
+              
+              <p className="mb-4">
+                Tote Taxi LLC ("Tote Taxi") may revise and update these Terms and Conditions at any time without notice. 
+                Your continued usage of the Tote Taxi Website after any such change or update will mean you accept those changes or updates.
+              </p>
+              
+              <p className="mb-4">
+                Any aspect of the Tote Taxi Website may be changed, supplemented, deleted or updated without notice at the sole discretion of Tote Taxi.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Service Limitations</h2>
+              <p className="mb-4">
+                <strong>Tote Taxi will not accept for transport luggage or packages in excess of $150.00 in value.</strong> 
+                Tote Taxi's inadvertent acceptance of any luggage or package in excess of $150.00 shall not negate 
+                Tote Taxi's limitation of liability stated herein.
+              </p>
+              
+              <p className="mb-4">
+                By delivering luggage or package to, or causing luggage or package to be delivered to, Tote Taxi for transport, 
+                you represent that the luggage or package does not contain any illegal substances, any liquids, or any hazardous materials, 
+                and does not exceed $150.00 in value.
+              </p>
+              
+              <p className="mb-4">
+                Tote Taxi reserves the right to reject any luggage or packages that are damaged or are improperly packed.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Limitation of Liability</h2>
+              <p className="mb-4">
+                TO THE EXTENT NOT PROHIBITED BY APPLICABLE LAW, IN NO EVENT SHALL TOTE TAXI BE LIABLE FOR PERSONAL INJURY, 
+                OR ANY INCIDENTAL, SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES WHATSOEVER, REGARDLESS OF THE THEORY OF LIABILITY 
+                (CONTRACT, TORT OR OTHERWISE) EVEN IF Tote Taxi HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+              </p>
+              
+              <p className="mb-4">
+                In no event shall Tote Taxi's total liability to you for all damages (other than as may be required by applicable law 
+                in cases involving personal injury) exceed $150.00.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Intellectual Property</h2>
+              <p className="mb-4">
+                Any and all intellectual property rights associated with Tote Taxi and with the Tote Taxi Website and its contents 
+                are the sole property of Tote Taxi, its affiliates or third parties.
+              </p>
+              
+              <p className="mb-4">
+                The Tote Taxi Website is protected by copyright and other laws in both the United States and other countries. 
+                Elements of the Tote Taxi Website are also protected by trade dress, trade secret, unfair competition, 
+                and other laws and may not be copied or imitated in whole or in part.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Privacy</h2>
+              <p className="mb-4">
+                At all times your information will be treated in accordance with Tote Taxi's Privacy Policy, 
+                which is incorporated by reference into these Terms and Conditions.
+              </p>
+              
+              <p className="mb-4">
+                You agree that Tote Taxi and its agents may collect, maintain, process and use diagnostic, technical, 
+                usage and related information, that is gathered periodically to facilitate the provision of updates, 
+                product support and other services to you related to Tote Taxi.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Governing Law</h2>
+              <p className="mb-4">
+                Regardless of its place of negotiation, execution, or performance, you agree that these Terms and Conditions 
+                are governed by and shall be construed in accordance with the internal substantive laws of the State of New York.
+              </p>
+              
+              <p className="mb-4">
+                Each party agrees to the exclusive jurisdiction of the state and federal courts in and for Suffolk County, 
+                New York for any litigation or other dispute resolution relating in any way to these Terms and Conditions.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold text-navy-900 mb-3">Contact Information</h2>
+              <p className="mb-4">
+                If you have any questions about these Terms of Service, please contact us at:
+              </p>
+              <div className="bg-cream-50 p-4 rounded-lg">
+                <p className="font-medium text-navy-900">Tote Taxi LLC</p>
+                <p>Email: legal@totetaxi.com</p>
+                <p>Phone: (555) TOTE-TAXI</p>
+              </div>
+            </section>
+
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
   );
 }
 ```
@@ -3104,17 +3261,309 @@ export function AddressStep() {
 }
 ```
 
+# ==== src/components/booking/auth-choice-step.tsx ====
+
+```
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth-store';
+import { useBookingWizard } from '@/stores/booking-store';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+export function AuthChoiceStep() {
+  const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
+  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [registerData, setRegisterData] = useState({
+    first_name: '', last_name: '', email: '', password: '', phone: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const { login, register } = useAuthStore();
+  const { nextStep, initializeForUser } = useBookingWizard();
+  const router = useRouter();
+
+  const handleGuestContinue = () => {
+    initializeForUser('guest', true);
+    nextStep();
+  };
+
+  const handleLogin = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const result = await login(loginData.email, loginData.password);
+      if (result.success) {
+        initializeForUser(result.user?.id?.toString(), false);
+        nextStep();
+      } else {
+        setError(result.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const result = await register({
+        email: registerData.email,
+        password: registerData.password,
+        first_name: registerData.first_name,
+        last_name: registerData.last_name,
+        phone: registerData.phone
+      });
+      
+      if (result.success) {
+        // Auto-login after registration
+        const loginResult = await login(registerData.email, registerData.password);
+        if (loginResult.success) {
+          initializeForUser(loginResult.user?.id?.toString(), false);
+          nextStep();
+        }
+      } else {
+        setError(result.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!mode) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-navy-900 mb-2">How would you like to continue?</h3>
+          <p className="text-navy-700">Choose your preferred booking method</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Guest Option */}
+          <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <h4 className="font-medium text-navy-900 mb-2">Continue as Guest</h4>
+              <p className="text-sm text-navy-700 mb-4">Quick checkout without creating an account</p>
+              <Button 
+                variant="outline" 
+                onClick={handleGuestContinue}
+                className="w-full"
+              >
+                Continue as Guest
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Login Option */}
+          <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-navy-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </div>
+              <h4 className="font-medium text-navy-900 mb-2">Sign In</h4>
+              <p className="text-sm text-navy-700 mb-4">Access your saved addresses and booking history</p>
+              <Button 
+                variant="outline" 
+                onClick={() => setMode('login')}
+                className="w-full"
+              >
+                Sign In
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Register Option */}
+          <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+              </div>
+              <h4 className="font-medium text-navy-900 mb-2">Create Account</h4>
+              <p className="text-sm text-navy-700 mb-4">Save preferences and earn VIP benefits</p>
+              <Button 
+                variant="primary" 
+                onClick={() => setMode('register')}
+                className="w-full"
+              >
+                Create Account
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'login') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-navy-900">Sign In to Your Account</h3>
+          <Button variant="ghost" onClick={() => setMode(null)}>← Back</Button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <Input
+            label="Email"
+            type="email"
+            value={loginData.email}
+            onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
+            placeholder="your@email.com"
+            required
+          />
+          
+          <Input
+            label="Password"
+            type="password"
+            value={loginData.password}
+            onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
+            placeholder="Your password"
+            required
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <Button 
+            variant="primary" 
+            onClick={handleLogin}
+            disabled={isLoading || !loginData.email || !loginData.password}
+            className="flex-1"
+          >
+            {isLoading ? 'Signing In...' : 'Sign In & Continue'}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleGuestContinue}
+            className="flex-1"
+          >
+            Continue as Guest Instead
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'register') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-navy-900">Create Your Account</h3>
+          <Button variant="ghost" onClick={() => setMode(null)}>← Back</Button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="First Name"
+              value={registerData.first_name}
+              onChange={(e) => setRegisterData(prev => ({ ...prev, first_name: e.target.value }))}
+              placeholder="John"
+              required
+            />
+            
+            <Input
+              label="Last Name"
+              value={registerData.last_name}
+              onChange={(e) => setRegisterData(prev => ({ ...prev, last_name: e.target.value }))}
+              placeholder="Doe"
+              required
+            />
+          </div>
+          
+          <Input
+            label="Email"
+            type="email"
+            value={registerData.email}
+            onChange={(e) => setRegisterData(prev => ({ ...prev, email: e.target.value }))}
+            placeholder="your@email.com"
+            required
+          />
+          
+          <Input
+            label="Phone"
+            type="tel"
+            value={registerData.phone}
+            onChange={(e) => setRegisterData(prev => ({ ...prev, phone: e.target.value }))}
+            placeholder="(555) 123-4567"
+          />
+          
+          <Input
+            label="Password"
+            type="password"
+            value={registerData.password}
+            onChange={(e) => setRegisterData(prev => ({ ...prev, password: e.target.value }))}
+            placeholder="Create a secure password"
+            required
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <Button 
+            variant="primary" 
+            onClick={handleRegister}
+            disabled={isLoading || !registerData.email || !registerData.password || !registerData.first_name || !registerData.last_name}
+            className="flex-1"
+          >
+            {isLoading ? 'Creating Account...' : 'Create Account & Continue'}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleGuestContinue}
+            className="flex-1"
+          >
+            Continue as Guest Instead
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+```
+
 # ==== src/components/booking/booking-wizard.tsx ====
 
 ```
 'use client';
-// frontend/src/components/booking/booking-wizard.tsx
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AuthChoiceStep } from './auth-choice-step';
 import { ServiceSelectionStep } from './service-selection-step';
 import { DateTimeStep } from './date-time-step';
 import { AddressStep } from './address-step';
@@ -3122,6 +3571,7 @@ import { CustomerInfoStep } from './customer-info-step';
 import { ReviewPaymentStep } from './review-payment-step';
 
 const STEPS = [
+  { number: 0, title: 'Get Started', component: AuthChoiceStep },
   { number: 1, title: 'Select Service', component: ServiceSelectionStep },
   { number: 2, title: 'Date & Time', component: DateTimeStep },
   { number: 3, title: 'Addresses', component: AddressStep },
@@ -3129,51 +3579,130 @@ const STEPS = [
   { number: 5, title: 'Review & Pay', component: ReviewPaymentStep },
 ];
 
-export function BookingWizard() {
+interface BookingWizardProps {
+  onComplete?: () => void;
+}
+
+export function BookingWizard({ onComplete }: BookingWizardProps) {
+  const [mounted, setMounted] = useState(false);
   const {
     currentStep,
     nextStep,
     previousStep,
     canProceedToStep,
-    resetWizard
+    resetWizard,
+    initializeForUser,
+    isGuestMode,
+    isBookingComplete,
+    completedBookingNumber
   } = useBookingWizard();
   
-  const { isAuthenticated } = useAuthStore();
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const { isAuthenticated, user, logout, clearSessionIfIncognito } = useAuthStore();
 
-  // RESET WIZARD ON FRESH PAGE LOAD OR EXPLICIT RESET
+  // Fix hydration issue
   useEffect(() => {
-    const shouldReset = searchParams.get('reset') === 'true';
+    setMounted(true);
+  }, []);
+
+  // Handle booking completion
+  useEffect(() => {
+    if (isBookingComplete && completedBookingNumber) {
+      // Show success message for a moment, then close
+      setTimeout(() => {
+        if (onComplete) {
+          onComplete();
+        }
+      }, 2000);
+    }
+  }, [isBookingComplete, completedBookingNumber, onComplete]);
+
+  // Check for incognito/fresh sessions
+  useEffect(() => {
+    if (!mounted) return;
+    clearSessionIfIncognito();
+  }, [mounted, clearSessionIfIncognito]);
+
+  // Initialize for user but DON'T auto-skip auth step
+  useEffect(() => {
+    if (!mounted) return;
     
-    if (shouldReset) {
-      resetWizard();
-      // Clean up URL without triggering reload
-      router.replace('/book', { scroll: false });
+    if (isAuthenticated && user?.id) {
+      initializeForUser(user.id.toString(), false);
+    } else {
+      // Always start at step 0 for guests/new sessions
+      initializeForUser('guest', true);
     }
-  }, [searchParams, resetWizard, router]);
+  }, [mounted, user?.id, isAuthenticated, initializeForUser]);
 
-  // PREVENT AUTH-PROTECTED STEPS FOR UNAUTHENTICATED USERS
-  useEffect(() => {
-    // If user is not authenticated and somehow on step 4+, reset to step 1
-    if (!isAuthenticated && currentStep >= 4) {
-      const hasCustomerInfo = searchParams.get('guest') === 'true';
-      if (!hasCustomerInfo) {
-        resetWizard();
-      }
-    }
-  }, [isAuthenticated, currentStep, resetWizard, searchParams]);
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-navy-900">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show completion screen
+  if (isBookingComplete && completedBookingNumber) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-serif font-bold text-navy-900 mb-2">
+          Booking Confirmed!
+        </h3>
+        <p className="text-navy-700 mb-4">
+          Your booking {completedBookingNumber} has been created successfully.
+        </p>
+        <p className="text-sm text-navy-600">
+          You'll receive a confirmation email shortly.
+        </p>
+      </div>
+    );
+  }
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
 
+  // Get display steps (skip customer info for authenticated users, hide auth step from progress)
+  const getDisplaySteps = () => {
+    let steps = STEPS.slice(1); // Remove auth choice step from display
+    
+    if (!isGuestMode && isAuthenticated) {
+      steps = steps.filter(step => step.number !== 4); // Remove customer info step
+    }
+    
+    return steps.map((step, index) => ({
+      ...step,
+      displayNumber: index + 1,
+      actualStep: step.number
+    }));
+  };
+
+  const displaySteps = getDisplaySteps();
+  const maxSteps = isGuestMode ? 5 : 4;
+
   const handleStartOver = () => {
+    logout();
     resetWizard();
-    router.replace('/book?reset=true', { scroll: false });
+  };
+
+  const getStepTitle = () => {
+    const step = STEPS.find(s => s.number === currentStep);
+    return step?.title || 'Unknown Step';
+  };
+
+  const getCurrentDisplayStep = () => {
+    if (currentStep === 0) return 0;
+    if (!isGuestMode && currentStep > 4) return currentStep - 1;
+    return currentStep;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
@@ -3182,53 +3711,55 @@ export function BookingWizard() {
           <p className="text-navy-700">
             From Manhattan to the Hamptons with premium care
           </p>
+          {isAuthenticated && currentStep > 0 && (
+            <p className="text-sm text-green-600 mt-2">
+              ✓ Logged in as {user?.first_name} {user?.last_name}
+            </p>
+          )}
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {STEPS.map((step, index) => (
-              <div key={step.number} className="flex items-center">
-                {/* Step Circle */}
-                <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${currentStep === step.number 
-                    ? 'bg-navy-900 text-white' 
-                    : currentStep > step.number
-                    ? 'bg-green-500 text-white'
-                    : canProceedToStep(step.number)
-                    ? 'bg-navy-200 text-navy-900 cursor-pointer hover:bg-navy-300'
-                    : 'bg-gray-200 text-gray-500'
-                  }
-                `}>
-                  {currentStep > step.number ? '✓' : step.number}
-                </div>
-                
-                {/* Step Title */}
-                <span className={`
-                  ml-2 text-sm font-medium
-                  ${currentStep === step.number ? 'text-navy-900' : 'text-navy-600'}
-                `}>
-                  {step.title}
-                </span>
-                
-                {/* Connector Line */}
-                {index < STEPS.length - 1 && (
+        {/* Progress Steps - Only show if past auth step */}
+        {currentStep > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              {displaySteps.map((step, index) => (
+                <div key={step.actualStep} className="flex items-center">
                   <div className={`
-                    h-0.5 w-12 mx-4
-                    ${currentStep > step.number ? 'bg-green-500' : 'bg-gray-200'}
-                  `} />
-                )}
-              </div>
-            ))}
+                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    ${currentStep === step.actualStep 
+                      ? 'bg-navy-900 text-white' 
+                      : currentStep > step.actualStep
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                    }
+                  `}>
+                    {currentStep > step.actualStep ? '✓' : step.displayNumber}
+                  </div>
+                  
+                  <span className={`
+                    ml-2 text-sm font-medium
+                    ${currentStep === step.actualStep ? 'text-navy-900' : 'text-navy-600'}
+                  `}>
+                    {step.title}
+                  </span>
+                  
+                  {index < displaySteps.length - 1 && (
+                    <div className={`
+                      h-0.5 w-12 mx-4
+                      ${currentStep > step.actualStep ? 'bg-green-500' : 'bg-gray-200'}
+                    `} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main Content */}
         <Card variant="elevated" className="mb-8">
           <CardHeader>
             <h2 className="text-xl font-serif font-bold text-navy-900">
-              Step {currentStep}: {STEPS.find(s => s.number === currentStep)?.title}
+              {currentStep === 0 ? 'Get Started' : `Step ${getCurrentDisplayStep()}: ${getStepTitle()}`}
             </h2>
           </CardHeader>
           <CardContent>
@@ -3236,42 +3767,44 @@ export function BookingWizard() {
           </CardContent>
         </Card>
 
-        {/* Navigation */}
-        <div className="flex justify-between items-center">
-          <div>
-            {currentStep > 1 && (
+        {/* Navigation - Only show if past auth step */}
+        {currentStep > 0 && (
+          <div className="flex justify-between items-center">
+            <div>
+              {currentStep > 1 && (
+                <Button 
+                  variant="outline" 
+                  onClick={previousStep}
+                  className="mr-4"
+                >
+                  ← Previous
+                </Button>
+              )}
               <Button 
-                variant="outline" 
-                onClick={previousStep}
-                className="mr-4"
+                variant="ghost" 
+                onClick={handleStartOver}
+                className="text-navy-600"
               >
-                ← Previous
+                Start Over
               </Button>
-            )}
-            <Button 
-              variant="ghost" 
-              onClick={handleStartOver}
-              className="text-navy-600"
-            >
-              Start Over
-            </Button>
-          </div>
-          
-          <div>
-            {currentStep < 5 && canProceedToStep(currentStep + 1) && (
-              <Button 
-                variant="primary" 
-                onClick={nextStep}
-              >
-                Continue →
-              </Button>
-            )}
-          </div>
+            </div>
+            
+            <div>
+              {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+                <Button 
+                  variant="primary" 
+                  onClick={nextStep}
+                >
+                  Continue →
+                </Button>
+              )}
+            </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 ```
 
 # ==== src/components/booking/customer-info-step.tsx ====
@@ -3840,6 +4373,7 @@ export function ReviewPaymentStep() {
   const router = useRouter();
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Create booking mutation
   const createBookingMutation = useMutation({
@@ -3945,6 +4479,11 @@ export function ReviewPaymentStep() {
   });
 
   const handleSubmitBooking = () => {
+    if (!termsAccepted) {
+      alert('Please accept the Terms of Service to continue.');
+      return;
+    }
+    
     setLoading(true);
     createBookingMutation.mutate();
   };
@@ -4221,6 +4760,59 @@ export function ReviewPaymentStep() {
         </Card>
       )}
 
+      {/* Terms of Service Agreement */}
+      <Card variant="default" className="border-navy-200">
+        <CardHeader>
+          <h3 className="text-lg font-medium text-navy-900">Terms of Service Agreement</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="max-h-40 overflow-y-auto p-3 bg-gray-50 rounded text-xs text-navy-700 border">
+              <p className="font-medium mb-2">PLEASE READ THESE TERMS AND CONDITIONS CAREFULLY</p>
+              <p className="mb-2">
+                By using Tote Taxi and/or the Tote Taxi Website, you are agreeing to be bound by these terms and conditions. 
+                If you do not agree to the terms and conditions, do not use Tote Taxi's services or the Tote Taxi Website.
+              </p>
+              <p className="mb-2">
+                Tote Taxi LLC ("Tote Taxi") may revise and update these Terms and Conditions at any time without notice. 
+                Your continued usage of the Tote Taxi Website after any such change or update will mean you accept those changes or updates.
+              </p>
+              <p className="mb-2">
+                Tote Taxi will not accept for transport luggage or packages in excess of $150.00 in value. 
+                Tote Taxi's inadvertent acceptance of any luggage or package in excess of $150.00 shall not negate 
+                Tote Taxi's limitation of liability stated herein.
+              </p>
+              <p className="mb-2">
+                By delivering luggage or package to, or causing luggage or package to be delivered to, Tote Taxi for transport, 
+                you represent that the luggage or package does not contain any illegal substances, any liquids, or any hazardous materials, 
+                and does not exceed $150.00 in value.
+              </p>
+              <p className="text-xs text-navy-500 mt-4">
+                [Complete terms available at totetaxi.com/terms]
+              </p>
+            </div>
+            
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-1 h-4 w-4 text-navy-600 rounded border-gray-300 focus:ring-navy-500"
+              />
+              <div className="text-sm">
+                <span className="text-navy-900 font-medium">
+                  I acknowledge that I have read, understood, and agree to be bound by the Terms of Service.
+                </span>
+                <p className="text-navy-600 mt-1">
+                  By checking this box, you confirm your acceptance of all terms and conditions, 
+                  including the $150 liability limit and item restrictions.
+                </p>
+              </div>
+            </label>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Payment Notice */}
       <Card variant="default" className="border-gold-200 bg-gold-50">
         <CardContent>
@@ -4240,7 +4832,7 @@ export function ReviewPaymentStep() {
           variant="primary" 
           size="lg"
           onClick={handleSubmitBooking}
-          disabled={isLoading || createBookingMutation.isPending}
+          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
           className="w-full sm:w-auto"
         >
           {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
@@ -4254,19 +4846,92 @@ export function ReviewPaymentStep() {
 # ==== src/components/booking/service-selection-step.tsx ====
 
 ```
-// frontend/src/components/booking/service-selection-step.tsx
 'use client';
-
+// bookings/service-selection-step.tsx
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import type { ServiceCatalog } from '@/types';
+
+// NYC tax rate
+const TAX_RATE = 0.0825;
+
+// Organizing service details by tier
+const ORGANIZING_SERVICES = {
+  petite: {
+    packing: {
+      name: 'Petite Packing',
+      description: '1/2 day (up to 4 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).',
+      price: 1400,
+      duration: 4,
+      organizers: 2,
+      supplies: 250
+    },
+    unpacking: {
+      name: 'Petite Unpacking', 
+      description: '1/2 day (up to 4 hours) with 2 organizers. Organizing light (no supplies).',
+      price: 1130,
+      duration: 4,
+      organizers: 2,
+      supplies: 0
+    }
+  },
+  standard: {
+    packing: {
+      name: 'Standard Packing',
+      description: '1 day (up to 8 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).',
+      price: 2535,
+      duration: 8,
+      organizers: 2,
+      supplies: 250
+    },
+    unpacking: {
+      name: 'Standard Unpacking',
+      description: '1 day (up to 8 hours) with 2 organizers. Organizing light (no supplies).',
+      price: 2265,
+      duration: 8,
+      organizers: 2,
+      supplies: 0
+    }
+  },
+  full: {
+    packing: {
+      name: 'Full Packing',
+      description: '1 day (up to 8 hours) with 4 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $500).',
+      price: 5070,
+      duration: 8,
+      organizers: 4,
+      supplies: 500
+    },
+    unpacking: {
+      name: 'Full Unpacking',
+      description: '1 day (up to 8 hours) with 4 organizers. Organizing light (no supplies).',
+      price: 4530,
+      duration: 8,
+      organizers: 4,
+      supplies: 0
+    }
+  }
+};
+
+function calculateWithTax(price: number) {
+  const tax = price * TAX_RATE;
+  return {
+    subtotal: price,
+    tax: tax,
+    total: price + tax
+  };
+}
 
 export function ServiceSelectionStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
+  const [packingExpanded, setPackingExpanded] = useState(false);
+  const [unpackingExpanded, setUnpackingExpanded] = useState(false);
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -4290,6 +4955,15 @@ export function ServiceSelectionStep() {
     updateBookingData({
       [serviceType === 'packing' ? 'include_packing' : 'include_unpacking']: enabled
     });
+    
+    // Auto-expand when selected
+    if (enabled) {
+      if (serviceType === 'packing') {
+        setPackingExpanded(true);
+      } else {
+        setUnpackingExpanded(true);
+      }
+    }
   };
 
   const canContinue = () => {
@@ -4393,50 +5067,199 @@ export function ServiceSelectionStep() {
             ))}
           </div>
 
-          {/* Organizing Services */}
+          {/* Collapsible Organizing Services */}
           {bookingData.mini_move_package_id && (
             <div>
-              <h4 className="text-md font-medium text-navy-900 mb-3">Add Organizing Services</h4>
-              <div className="space-y-3">
-                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
-                  <input
-                    type="checkbox"
-                    checked={bookingData.include_packing || false}
-                    onChange={(e) => handleOrganizingServiceToggle('packing', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <h5 className="font-medium text-navy-900">Professional Packing</h5>
-                    <p className="text-sm text-navy-600">Expert packing at origin</p>
-                  </div>
-                </label>
+              <h4 className="text-lg font-medium text-navy-900 mb-3">Professional Organizing Services</h4>
+              <p className="text-sm text-navy-600 mb-4">
+                Add professional packing and unpacking services. Click to view details and pricing.
+              </p>
+              
+              {(() => {
+                const selectedPackage = services.mini_move_packages.find(p => p.id === bookingData.mini_move_package_id);
+                const tier = selectedPackage?.package_type;
+                const organizingOptions = tier ? ORGANIZING_SERVICES[tier] : null;
+                
+                if (!organizingOptions) return null;
 
-                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
-                  <input
-                    type="checkbox"
-                    checked={bookingData.include_unpacking || false}
-                    onChange={(e) => handleOrganizingServiceToggle('unpacking', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <h5 className="font-medium text-navy-900">Professional Unpacking</h5>
-                    <p className="text-sm text-navy-600">Expert organizing at destination</p>
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Collapsible Packing Service */}
+                    <Card 
+                      variant={bookingData.include_packing ? "luxury" : "default"}
+                      className="transition-all"
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={bookingData.include_packing || false}
+                              onChange={(e) => handleOrganizingServiceToggle('packing', e.target.checked)}
+                              className="h-4 w-4 text-navy-600 rounded"
+                            />
+                            <h5 className="font-semibold text-navy-900">{organizingOptions.packing.name}</h5>
+                          </div>
+                          <button
+                            onClick={() => setPackingExpanded(!packingExpanded)}
+                            className="text-navy-600 hover:text-navy-900"
+                          >
+                            {packingExpanded || bookingData.include_packing ? (
+                              <ChevronUpIcon className="h-5 w-5" />
+                            ) : (
+                              <ChevronDownIcon className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
+                        
+                        {/* Collapsed Preview */}
+                        {!packingExpanded && !bookingData.include_packing && (
+                          <p className="text-sm text-navy-600 mt-2">
+                            {organizingOptions.packing.duration} hours • {organizingOptions.packing.organizers} organizers • Supplies included
+                          </p>
+                        )}
+                      </CardHeader>
+                      
+                      {/* Expanded Content */}
+                      {(packingExpanded || bookingData.include_packing) && (
+                        <CardContent>
+                          <p className="text-sm text-navy-600 mb-4">{organizingOptions.packing.description}</p>
+                          
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Duration:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.packing.duration} hours</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Organizers:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.packing.organizers} professionals</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Supplies:</span>
+                              <span className="font-medium text-navy-900">${organizingOptions.packing.supplies} allowance</span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {(() => {
+                              const pricing = calculateWithTax(organizingOptions.packing.price);
+                              return (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Service:</span>
+                                    <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Tax:</span>
+                                    <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-bold text-navy-900 text-base">
+                                    <span>Total:</span>
+                                    <span>${pricing.total.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </CardContent>
+                      )}
+                    </Card>
+
+                    {/* Collapsible Unpacking Service */}
+                    <Card 
+                      variant={bookingData.include_unpacking ? "luxury" : "default"}
+                      className="transition-all"
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={bookingData.include_unpacking || false}
+                              onChange={(e) => handleOrganizingServiceToggle('unpacking', e.target.checked)}
+                              className="h-4 w-4 text-navy-600 rounded"
+                            />
+                            <h5 className="font-semibold text-navy-900">{organizingOptions.unpacking.name}</h5>
+                          </div>
+                          <button
+                            onClick={() => setUnpackingExpanded(!unpackingExpanded)}
+                            className="text-navy-600 hover:text-navy-900"
+                          >
+                            {unpackingExpanded || bookingData.include_unpacking ? (
+                              <ChevronUpIcon className="h-5 w-5" />
+                            ) : (
+                              <ChevronDownIcon className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
+                        
+                        {/* Collapsed Preview */}
+                        {!unpackingExpanded && !bookingData.include_unpacking && (
+                          <p className="text-sm text-navy-600 mt-2">
+                            {organizingOptions.unpacking.duration} hours • {organizingOptions.unpacking.organizers} organizers • Organizing only
+                          </p>
+                        )}
+                      </CardHeader>
+                      
+                      {/* Expanded Content */}
+                      {(unpackingExpanded || bookingData.include_unpacking) && (
+                        <CardContent>
+                          <p className="text-sm text-navy-600 mb-4">{organizingOptions.unpacking.description}</p>
+                          
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Duration:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.unpacking.duration} hours</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Organizers:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.unpacking.organizers} professionals</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Supplies:</span>
+                              <span className="font-medium text-navy-900">Organizing only</span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {(() => {
+                              const pricing = calculateWithTax(organizingOptions.unpacking.price);
+                              return (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Service:</span>
+                                    <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Tax:</span>
+                                    <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-bold text-navy-900 text-base">
+                                    <span>Total:</span>
+                                    <span>${pricing.total.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </CardContent>
+                      )}
+                    </Card>
                   </div>
-                </label>
-              </div>
+                );
+              })()}
             </div>
           )}
         </div>
       )}
 
-      {/* Standard Delivery */}
+      {/* Standard Delivery - unchanged */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
           <Card variant="elevated">
             <CardContent>
               <div className="space-y-4">
-                {/* FIXED: Use Input component with proper dark text styling */}
                 <Input
                   label="Number of Items"
                   type="number"
@@ -4466,7 +5289,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Specialty Items */}
+      {/* Specialty Items - unchanged */}
       {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>
@@ -6030,7 +6853,10 @@ import {
   StarIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon
+  MapPinIcon,
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 interface CustomerProfile {
@@ -6043,6 +6869,7 @@ interface CustomerProfile {
   total_spent_dollars: number;
   last_booking_at: string | null;
   created_at: string;
+  notes: string;
   recent_bookings: Array<{
     id: string;
     booking_number: string;
@@ -6206,6 +7033,37 @@ export function CustomerManagement() {
 }
 
 function CustomerDetailPanel({ customer }: { customer: CustomerProfile }) {
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState(customer.notes || '');
+  const queryClient = useQueryClient();
+
+  const updateNotesMutation = useMutation({
+    mutationFn: async (notes: string) => {
+      const response = await apiClient.patch(`/api/customer/${customer.id}/notes/`, {
+        notes
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      // Refresh customer detail
+      queryClient.invalidateQueries({ queryKey: ['staff', 'customer', customer.id] });
+      setIsEditingNotes(false);
+    },
+    onError: (error) => {
+      console.error('Failed to update notes:', error);
+      alert('Failed to update notes. Please try again.');
+    }
+  });
+
+  const handleSaveNotes = () => {
+    updateNotesMutation.mutate(notesValue);
+  };
+
+  const handleCancelNotes = () => {
+    setNotesValue(customer.notes || '');
+    setIsEditingNotes(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Customer Overview */}
@@ -6244,6 +7102,66 @@ function CustomerDetailPanel({ customer }: { customer: CustomerProfile }) {
           <div className="text-sm text-navy-600">
             <strong>Member since:</strong> {new Date(customer.created_at).toLocaleDateString()}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff Notes - NEW */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Staff Notes</h3>
+            {!isEditingNotes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingNotes(true)}
+              >
+                <PencilIcon className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isEditingNotes ? (
+            <div className="space-y-3">
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                placeholder="Add notes about customer preferences, special requests, VIP details, etc."
+                className="w-full p-3 border border-gray-300 rounded-lg resize-vertical min-h-[100px] text-navy-900"
+                rows={4}
+              />
+              <div className="flex space-x-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveNotes}
+                  disabled={updateNotesMutation.isPending}
+                >
+                  <CheckIcon className="h-4 w-4 mr-1" />
+                  {updateNotesMutation.isPending ? 'Saving...' : 'Save'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelNotes}
+                  disabled={updateNotesMutation.isPending}
+                >
+                  <XMarkIcon className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-[60px]">
+              {customer.notes ? (
+                <p className="text-navy-700 whitespace-pre-wrap">{customer.notes}</p>
+              ) : (
+                <p className="text-gray-500 italic">No notes added yet. Click Edit to add customer notes.</p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -7610,31 +8528,56 @@ interface AuthActions {
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
   updateProfile: (updates: Partial<CustomerProfile>) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
+  logout: () => Promise<void>;
+  clearSessionIfIncognito: () => void;
 }
+
+interface RegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+}
+
+const initialState: AuthState = {
+  user: null,
+  customerProfile: null,
+  isAuthenticated: false,
+  isLoading: false,
+};
+
+const API_BASE = process.env.NODE_ENV === 'production' 
+  ? 'https://your-production-domain.com'
+  : 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
     (set, get) => ({
       // State
-      user: null,
-      customerProfile: null,
-      isAuthenticated: false,
-      isLoading: false,
+      ...initialState,
 
       // Actions
-      setAuth: (user, profile) => set({
-        user,
-        customerProfile: profile,
-        isAuthenticated: true,
-        isLoading: false
-      }),
+      setAuth: (user, profile) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('totetaxi-last-activity', Date.now().toString());
+        }
+        set({
+          user,
+          customerProfile: profile,
+          isAuthenticated: true,
+          isLoading: false
+        });
+      },
 
-      clearAuth: () => set({
-        user: null,
-        customerProfile: null,
-        isAuthenticated: false,
-        isLoading: false
-      }),
+      clearAuth: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('totetaxi-last-activity');
+        }
+        set(initialState);
+      },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
@@ -7642,7 +8585,120 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         customerProfile: state.customerProfile 
           ? { ...state.customerProfile, ...updates }
           : null
-      }))
+      })),
+
+      login: async (email: string, password: string) => {
+        set({ isLoading: true });
+        
+        try {
+          // Get CSRF token first
+          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
+            credentials: 'include',
+          });
+          
+          if (!csrfResponse.ok) {
+            throw new Error('Failed to get CSRF token');
+          }
+          
+          const { csrf_token } = await csrfResponse.json();
+
+          // Login request
+          const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrf_token,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            get().setAuth(data.user, data.customer_profile);
+            return { success: true, user: data.user };
+          } else {
+            set({ isLoading: false });
+            return { success: false, error: data.error || 'Login failed' };
+          }
+        } catch (error) {
+          set({ isLoading: false });
+          return { success: false, error: 'Network error. Please try again.' };
+        }
+      },
+
+      register: async (data: RegisterData) => {
+        set({ isLoading: true });
+        
+        try {
+          // Get CSRF token first
+          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
+            credentials: 'include',
+          });
+          
+          if (!csrfResponse.ok) {
+            throw new Error('Failed to get CSRF token');
+          }
+          
+          const { csrf_token } = await csrfResponse.json();
+
+          // Registration request
+          const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrf_token,
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              ...data,
+              password_confirm: data.password
+            }),
+          });
+
+          const responseData = await response.json();
+
+          if (response.ok) {
+            set({ isLoading: false });
+            return { success: true, user: responseData.user };
+          } else {
+            set({ isLoading: false });
+            return { success: false, error: responseData.error || 'Registration failed' };
+          }
+        } catch (error) {
+          set({ isLoading: false });
+          return { success: false, error: 'Network error. Please try again.' };
+        }
+      },
+
+      logout: async () => {
+        try {
+          await fetch(`${API_BASE}/api/customer/auth/logout/`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.warn('Logout request failed:', error);
+        } finally {
+          get().clearAuth();
+        }
+      },
+
+      clearSessionIfIncognito: () => {
+        if (typeof window !== 'undefined') {
+          const now = Date.now();
+          const lastActivity = localStorage.getItem('totetaxi-last-activity');
+          
+          if (!lastActivity || (now - parseInt(lastActivity)) > 30 * 60 * 1000) {
+            // More than 30 minutes of inactivity, clear session
+            localStorage.clear();
+            set(initialState);
+          } else {
+            localStorage.setItem('totetaxi-last-activity', now.toString());
+          }
+        }
+      }
     }),
     {
       name: 'totetaxi-auth',
@@ -7661,7 +8717,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 ```
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-// frontend/src/stores/booking-store.ts
+
 export interface BookingAddress {
   address_line_1: string;
   address_line_2?: string;
@@ -7671,7 +8727,6 @@ export interface BookingAddress {
 }
 
 export interface BookingData {
-  // Service selection
   service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
   include_packing?: boolean;
@@ -7679,28 +8734,18 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
-  
-  // Date and time
   pickup_date?: string;
   pickup_time?: 'morning' | 'afternoon' | 'evening';
-  
-  // Addresses
   pickup_address?: BookingAddress;
   delivery_address?: BookingAddress;
-  
-  // Customer info (for guest checkout)
   customer_info?: {
     first_name: string;
     last_name: string;
     email: string;
     phone: string;
   };
-  
-  // Additional options
   special_instructions?: string;
   coi_required?: boolean;
-  
-  // Pricing
   pricing_data?: {
     base_price_dollars: number;
     surcharge_dollars: number;
@@ -7717,6 +8762,8 @@ interface BookingWizardState {
   errors: Record<string, string>;
   isBookingComplete: boolean;
   completedBookingNumber?: string;
+  userId?: string;
+  isGuestMode: boolean;
 }
 
 interface BookingWizardActions {
@@ -7731,6 +8778,7 @@ interface BookingWizardActions {
   resetWizard: () => void;
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
+  initializeForUser: (userId?: string, isGuest?: boolean) => void;
 }
 
 const initialBookingData: BookingData = {
@@ -7745,23 +8793,26 @@ const initialBookingData: BookingData = {
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
-      // State
-      currentStep: 1,
+      // State - ALWAYS START AT STEP 0 (auth choice)
+      currentStep: 0,
       isLoading: false,
       bookingData: initialBookingData,
       errors: {},
       isBookingComplete: false,
       completedBookingNumber: undefined,
+      userId: undefined,
+      isGuestMode: true,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
       
-      nextStep: () => set((state) => ({ 
-        currentStep: Math.min(state.currentStep + 1, 5) 
-      })),
+      nextStep: () => set((state) => {
+        const maxStep = state.isGuestMode ? 5 : 4;
+        return { currentStep: Math.min(state.currentStep + 1, maxStep) };
+      }),
       
       previousStep: () => set((state) => ({ 
-        currentStep: Math.max(state.currentStep - 1, 1) 
+        currentStep: Math.max(state.currentStep - 1, 0) // Can go back to step 0
       })),
       
       updateBookingData: (data) => set((state) => ({
@@ -7787,16 +8838,46 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         completedBookingNumber: bookingNumber
       }),
       
+      initializeForUser: (providedUserId?, isGuest?) => {
+        const userId = providedUserId || 'guest';
+        const guestMode = isGuest !== undefined ? isGuest : true;
+        
+        const state = get();
+        
+        console.log('🔄 Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        
+        // If switching between different users, reset but stay at current step
+        if (state.userId && state.userId !== userId && state.userId !== 'guest') {
+          console.log('👤 Different user detected, resetting data');
+          set({
+            bookingData: { ...initialBookingData },
+            errors: {},
+            isBookingComplete: false,
+            completedBookingNumber: undefined,
+            userId: userId,
+            isGuestMode: guestMode
+          });
+        } else {
+          // Just update user info
+          set({ 
+            userId: userId,
+            isGuestMode: guestMode
+          });
+        }
+      },
+      
       resetWizard: () => {
         console.log('🔄 Resetting booking wizard');
         
         const newState = {
-          currentStep: 1,
+          currentStep: 0, // Always reset to auth choice step
           isLoading: false,
           bookingData: { ...initialBookingData },
           errors: {},
           isBookingComplete: false,
-          completedBookingNumber: undefined
+          completedBookingNumber: undefined,
+          userId: 'guest',
+          isGuestMode: true
         };
         
         set(newState);
@@ -7813,10 +8894,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       },
       
       canProceedToStep: (step) => {
-        const { bookingData } = get();
+        const { bookingData, isGuestMode } = get();
         
         switch (step) {
-          case 1: return true; // Service selection always available
+          case 0: return true; // Auth choice always available
+          case 1: return true; // Service selection always available after auth choice
           case 2: // Date/time step
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
@@ -7825,10 +8907,14 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             );
           case 3: // Address step
             return !!bookingData.pickup_date;
-          case 4: // Customer info step
+          case 4: // Customer info step (required for guests only)
             return !!bookingData.pickup_address && !!bookingData.delivery_address;
           case 5: // Review/payment step
-            return !!bookingData.customer_info?.email;
+            if (isGuestMode) {
+              return !!bookingData.customer_info?.email;
+            } else {
+              return !!bookingData.pickup_address && !!bookingData.delivery_address;
+            }
           default:
             return false;
         }
@@ -7840,7 +8926,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         bookingData: state.bookingData,
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,
-        completedBookingNumber: state.completedBookingNumber
+        completedBookingNumber: state.completedBookingNumber,
+        userId: state.userId,
+        isGuestMode: state.isGuestMode
       })
     }
   )

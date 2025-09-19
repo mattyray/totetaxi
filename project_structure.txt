@@ -178,6 +178,8 @@
 │   │   │   │   │   └── page.tsx
 │   │   │   │   └── reports
 │   │   │   │       └── page.tsx
+│   │   │   ├── terms
+│   │   │   │   └── page.tsx
 │   │   │   ├── favicon.ico
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
@@ -191,6 +193,7 @@
 │   │   │   │   └── user-menu.tsx
 │   │   │   ├── booking
 │   │   │   │   ├── address-step.tsx
+│   │   │   │   ├── auth-choice-step.tsx
 │   │   │   │   ├── booking-wizard.tsx
 │   │   │   │   ├── customer-info-step.tsx
 │   │   │   │   ├── date-time-step.tsx
@@ -251,4 +254,4 @@
 ├── project_structure.txt
 └── README.md
 
-63 directories, 189 files
+64 directories, 191 files

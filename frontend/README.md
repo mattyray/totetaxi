@@ -1,21 +1,15 @@
-Yes, I understand completely how the living documentation works. It serves as **AI memory persistence** that captures both current operational reality and future development roadmap, enabling immediate technical context across development sessions. I need to update it to include all our new staff dashboard implementation while preserving all existing customer system information.
-
-Here's the updated living documentation:
-
----
-
 # ToteTaxi Frontend Living Documentation & AI Memory Persistence System
 
 ## About This Documentation
 
 This living documentation serves as **AI memory persistence** for ToteTaxi frontend development, enabling immediate technical context without rebuilding project understanding. It captures both operational reality and development roadmap to maintain continuity across AI development sessions.
 
-**Current Status:** Production-ready booking system with complete customer AND staff dashboards
-**Development Phase:** Phase 1, 2 & 3 Complete - Full Staff Operations Dashboard Implemented
+**Current Status:** Production-ready booking system with dual authentication flows and guest checkout capability
+**Development Phase:** Phase 1, 2 & 3 Complete - Enhanced Guest/Auth Booking System with Fixed Modal Experience
 
 ---
 
-## Current Implementation Status (Major Update - Staff Dashboard Complete)
+## Current Implementation Status (Major Update - Guest Checkout & Modal Booking Fixed)
 
 **Phase 1 - COMPLETE: Guest Booking System & Marketing Site**
 - Complete 5-step booking wizard with Django integration
@@ -33,13 +27,21 @@ This living documentation serves as **AI memory persistence** for ToteTaxi front
 - Auth-aware navigation with enhanced user menu
 
 **Phase 3 - COMPLETE: Staff Operations Dashboard**
-- **Complete staff authentication system** with role-based access (staff/admin)
-- **Professional staff dashboard** with business KPIs and operational metrics
-- **Comprehensive booking management** with status updates and filtering
-- **Staff navigation system** with sidebar layout and proper routing
-- **Calendar view placeholder** and customer management interface
-- **Audit logging integration** with backend staff action tracking
-- **Session persistence** for staff users with separate auth store
+- Complete staff authentication system with role-based access (staff/admin)
+- Professional staff dashboard with business KPIs and operational metrics
+- Comprehensive booking management with status updates and filtering
+- Staff navigation system with sidebar layout and proper routing
+- Calendar view placeholder and customer management interface
+- Audit logging integration with backend staff action tracking
+- Session persistence for staff users with separate auth store
+
+**Phase 4 - COMPLETE: Enhanced Guest Experience & Modal Booking**
+- **Auth Choice Step** - Clear user decision flow (guest vs login vs register)
+- **Modal-based booking wizard** - Restored original popup/overlay experience
+- **Proper guest checkout flow** - Full 5-step process without authentication barriers
+- **User session isolation** - Different users get separate booking data
+- **Incognito session handling** - Automatic auth clearing for fresh sessions
+- **Customer stats integration** - Confirmed bookings properly update customer spending totals
 
 **Technology Stack (Implemented & Working):**
 ```json
@@ -65,83 +67,51 @@ This living documentation serves as **AI memory persistence** for ToteTaxi front
 }
 ```
 
-## Major Accomplishments This Session (Phase 3 Implementation)
+## Major Accomplishments This Session (Phase 4 Implementation)
 
-### Staff Dashboard System Implementation
+### Enhanced Booking Experience
 
-**Complete Staff Authentication Flow:**
-- **Separate staff auth store** (`staff-auth-store.ts`) - Independent from customer auth
-- **Staff login component** with proper error handling and role validation
-- **Session persistence** for staff users with 30-day storage
-- **Role-based access control** (staff/admin permissions)
-- **Secure logout** with audit logging integration
+**Modal-Based Booking Wizard:**
+- **Restored original modal/popup design** - Users preferred the overlay booking experience
+- **Auto-opening modal** on `/book` page with proper modal state management
+- **Modal completion handling** - Success screens with automatic redirect to homepage
+- **Proper modal sizing** - `xl` size with overflow handling for mobile compatibility
+- **Background styling maintained** - Cream/navy gradients preserved in modal content
 
-**Professional Staff Interface:**
-- **Sidebar navigation layout** with collapsible mobile support and proper Next.js Link routing
-- **Staff dashboard** with real-time business metrics (revenue, bookings, customers, VIP stats)
-- **Booking management interface** with search, filtering, and status update capabilities
-- **Customer management system** with detailed profiles and booking history
-- **Calendar view** (placeholder implementation ready for full calendar integration)
-- **Reports and logistics** page structures prepared for future implementation
+**Auth Choice Integration:**
+- **Step 0: Get Started** - New initial step presenting clear user options
+- **Guest checkout path** - Complete 5-step flow (service → date → address → info → payment)
+- **Login integration** - Existing users can sign in and skip customer info step
+- **Registration flow** - New users can create accounts with auto-login on success
+- **Fallback guest option** - Always available "Continue as Guest" for all auth screens
 
-**Staff Dashboard Features Working:**
-- **Business KPIs** - Total bookings, pending actions, revenue, VIP customers
-- **Booking status breakdown** - Visual status distribution with color coding
-- **Payment statistics** - Success rates and processing metrics
-- **Urgent bookings display** - Pending/confirmed bookings needing attention
-- **Booking management** - Full CRUD operations with status updates (CRITICAL for resolving pending booking issue)
-- **Customer profiles** - Detailed view with booking history and VIP status
+### User Session Management
 
-### Technical Architecture Improvements
+**Booking Data Isolation:**
+- **User-specific booking storage** - Each user gets isolated booking wizard state
+- **Guest session handling** - Proper guest user identification and data separation
+- **Auth state switching** - Different authenticated users get clean booking states
+- **Session persistence** - User switching triggers appropriate data resets
 
-**Dual Authentication System:**
-```typescript
-// Customer Authentication (Existing)
-useAuthStore() // For customer login/dashboard
-// Routes: /login, /register, /dashboard, /book
+**Incognito/Fresh Session Handling:**
+- **Activity-based session clearing** - 30+ minute inactivity triggers logout
+- **Fresh session detection** - Automatic auth clearing for new browser sessions
+- **URL-based logout triggers** - `?logout=true` parameter forces clean sessions
+- **Storage management** - localStorage clearing with proper fallback handling
 
-// Staff Authentication (New)
-useStaffAuthStore() // For staff operations
-// Routes: /staff/login, /staff/dashboard, /staff/bookings, etc.
-```
+### Booking Flow Enhancements
 
-**Fixed Navigation Issues:**
-- **Next.js Link components** instead of anchor tags (prevents logout loops)
-- **Proper session handling** for staff navigation
-- **Mobile-responsive sidebar** with overlay and proper state management
-- **Auth-aware routing** that maintains sessions across page transitions
+**Step Progression Logic:**
+- **Dynamic step calculation** - Authenticated users skip customer info (4 steps total)
+- **Guest users complete all steps** - Full 5-step process including customer information
+- **Proper step validation** - Each step validates required data before progression
+- **Back navigation support** - Users can navigate back to step 0 (auth choice)
 
-### Files Created This Session
-
-**New Staff Components:**
-```
-src/components/staff/
-├── staff-login-form.tsx          - Complete staff authentication form
-├── staff-dashboard-overview.tsx  - Business metrics and KPI dashboard  
-├── staff-layout.tsx              - Professional sidebar navigation layout
-├── booking-management.tsx        - Comprehensive booking CRUD interface
-├── booking-calendar.tsx          - Calendar view (placeholder for full implementation)
-├── customer-management.tsx       - Customer profiles and history management
-└── index.ts                      - Staff component exports
-```
-
-**New Staff Pages:**
-```
-src/app/staff/
-├── login/page.tsx               - Staff authentication page
-├── dashboard/page.tsx           - Main operations dashboard
-├── bookings/page.tsx            - Booking management interface
-├── calendar/page.tsx            - Calendar view page
-├── customers/page.tsx           - Customer management page
-├── logistics/page.tsx           - Logistics coordination page
-└── reports/page.tsx             - Business reports page
-```
-
-**New Staff State Management:**
-```
-src/stores/
-└── staff-auth-store.ts          - Independent staff authentication store
-```
+**Customer Stats Integration:**
+- **Automatic stats updates** - Confirmed bookings immediately update customer spending
+- **Demo mode booking status** - All bookings automatically set to 'confirmed' status
+- **Customer profile stats** - `add_booking_stats()` called on successful booking creation
+- **Dashboard synchronization** - Customer dashboard shows accurate spending totals
 
 ## Complete File Structure (Current Implementation)
 
@@ -149,10 +119,10 @@ src/stores/
 frontend/src/
 ├── app/                                    Next.js 15 App Router Pages
 │   ├── layout.tsx                         Root layout with TanStack Query provider & auth
-│   ├── page.tsx                           Homepage - real ToteTaxi content, testimonials, booking CTA
+│   ├── page.tsx                           Homepage with modal booking wizard integration
 │   ├── globals.css                        Tailwind + luxury design tokens (navy/gold/cream)
 │   ├── book/
-│   │   └── page.tsx                       Booking page (NO auth protection - works for all users)
+│   │   └── page.tsx                       🆕 MODAL BOOKING PAGE - Auto-opens wizard modal, redirects on close
 │   ├── login/
 │   │   └── page.tsx                       Customer login page with auth integration
 │   ├── register/
@@ -161,7 +131,7 @@ frontend/src/
 │   │   ├── page.tsx                       Customer dashboard main page (auth protected)
 │   │   └── bookings/
 │   │       └── page.tsx                   Detailed booking history with filters
-│   ├── staff/                             🆕 COMPLETE STAFF SYSTEM
+│   ├── staff/                             Complete staff system with professional interface
 │   │   ├── login/
 │   │   │   └── page.tsx                   Staff authentication page
 │   │   ├── dashboard/
@@ -182,8 +152,10 @@ frontend/src/
 │   │   └── page.tsx                       About page - Danielle Candela founder story
 │   ├── faq/
 │   │   └── page.tsx                       FAQ - real ToteTaxi policies, prohibited items
-│   └── contact/
-│       └── page.tsx                       Contact - real info (631-595-5100, info@totetaxi.com)
+│   ├── contact/
+│   │   └── page.tsx                       Contact - real info (631-595-5100, info@totetaxi.com)
+│   └── terms/
+│       └── page.tsx                       Terms of service page
 ├── components/
 │   ├── layout/
 │   │   └── main-layout.tsx                Site header/footer with auth-aware navigation
@@ -191,7 +163,7 @@ frontend/src/
 │   │   ├── button.tsx                     Variant-based (primary/secondary/outline/ghost)
 │   │   ├── input.tsx                      Form inputs with validation, dark text styling
 │   │   ├── card.tsx                       Content containers (default/elevated/luxury)
-│   │   ├── modal.tsx                      Headless UI modal for booking wizard
+│   │   ├── modal.tsx                      🆕 ENHANCED - Headless UI modal with proper sizing/overflow
 │   │   ├── select.tsx                     Dropdown selects with proper styling
 │   │   └── index.ts                       Component exports
 │   ├── auth/                              Complete Customer Authentication System
@@ -199,7 +171,7 @@ frontend/src/
 │   │   ├── register-form.tsx              Account creation with validation
 │   │   ├── user-menu.tsx                  Enhanced user menu with "Book a Move" integration
 │   │   └── index.ts                       Auth exports
-│   ├── staff/                             🆕 COMPLETE STAFF OPERATIONS SYSTEM
+│   ├── staff/                             Complete staff operations system
 │   │   ├── staff-login-form.tsx           Staff authentication with role validation
 │   │   ├── staff-dashboard-overview.tsx   Business KPIs, revenue metrics, urgent bookings
 │   │   ├── staff-layout.tsx               Professional sidebar navigation with mobile support
@@ -208,17 +180,18 @@ frontend/src/
 │   │   ├── customer-management.tsx        Customer profiles with detailed history
 │   │   └── index.ts                       Staff component exports
 │   ├── dashboard/                         Customer Dashboard System
-│   │   ├── dashboard-overview.tsx         Account stats, recent bookings, VIP status
-│   │   ├── booking-history.tsx            Filterable booking list with status tracking
+│   │   ├── dashboard-overview.tsx         🆕 FIXED - Account stats with accurate spending totals
+│   │   ├── booking-history.tsx            Filterable booking list with confirmed status tracking
 │   │   ├── quick-actions.tsx              Rebook, modify, support shortcuts
 │   │   └── index.ts                       Dashboard exports
-│   ├── booking/                           Complete Booking Wizard System
-│   │   ├── booking-wizard.tsx             Main container with enhanced reset logic
+│   ├── booking/                           🆕 ENHANCED - Complete Booking Wizard System
+│   │   ├── booking-wizard.tsx             🆕 MODAL-COMPATIBLE - Supports onComplete callback, proper step handling
+│   │   ├── auth-choice-step.tsx           🆕 NEW - Step 0: Guest vs Login vs Register choice with embedded forms
 │   │   ├── service-selection-step.tsx     Step 1: Service types, Mini Move packages
 │   │   ├── date-time-step.tsx             Step 2: Calendar, real-time pricing, COI options
 │   │   ├── address-step.tsx               Step 3: Pickup/delivery forms, special instructions
-│   │   ├── customer-info-step.tsx         Step 4: Contact info, VIP signup option
-│   │   ├── review-payment-step.tsx        Step 5: Enhanced with proper reset navigation
+│   │   ├── customer-info-step.tsx         Step 4: Contact info (guest only), VIP signup option
+│   │   ├── review-payment-step.tsx        Step 5: Order summary with proper completion handling
 │   │   └── index.ts                       Booking exports
 │   ├── marketing/
 │   │   └── service-showcase.tsx           Homepage component - fetches live Django service data
@@ -227,11 +200,11 @@ frontend/src/
 │   └── test-api-connection.tsx            Dev tool - tests all API endpoints (remove in production)
 ├── hooks/                                 Custom React Hooks
 │   └── use-click-away.ts                  Click outside detection for modals/dropdowns
-├── stores/                                Zustand State Management
-│   ├── auth-store.ts                      Customer authentication with persistence & session handling
-│   ├── staff-auth-store.ts                🆕 Staff authentication with role-based access
+├── stores/                                🆕 ENHANCED - Zustand State Management
+│   ├── auth-store.ts                      🆕 ENHANCED - Customer auth with login/register methods, session clearing
+│   ├── staff-auth-store.ts                Staff authentication with role-based access
 │   ├── ui-store.ts                        UI state (modals, notifications, sidebar)
-│   └── booking-store.ts                   Enhanced booking wizard state with proper reset functionality
+│   └── booking-store.ts                   🆕 COMPLETELY REWRITTEN - User isolation, guest support, auth choice handling
 ├── lib/                                   Core Utilities  
 │   ├── api-client.ts                      Axios + Django CSRF integration with auth
 │   └── query-client.ts                    TanStack Query v5 configuration
@@ -241,151 +214,140 @@ frontend/src/
     └── cn.ts                              Tailwind class merging utility
 ```
 
-## Staff Dashboard System (Newly Implemented)
+## Enhanced Booking System (Newly Implemented)
 
-### Complete Staff Authentication Flow
+### Auth Choice Step (Step 0)
 
-**Staff Authentication System:**
+**Guest vs Authenticated Decision Flow:**
 ```typescript
-// src/stores/staff-auth-store.ts
+// src/components/booking/auth-choice-step.tsx
 // FUNCTIONALITY:
-//   - Independent authentication store from customer auth
-//   - Role-based access control (staff/admin permissions)
-//   - Session persistence with version control
-//   - Loading states and error handling
-// BACKEND INTEGRATION: POST /api/staff/auth/login/, /api/staff/auth/logout/
-// FEATURES: can_approve_refunds, can_manage_staff, can_view_financial_reports
+//   - Three-card selection: Continue as Guest, Sign In, Create Account
+//   - Embedded login form with validation and error handling
+//   - Embedded registration form with auto-login on success
+//   - Always available "Continue as Guest" fallback option
+//   - Proper initialization of user-specific booking state
+// USER EXPERIENCE: Clear choice presentation, no forced authentication
+// BACKEND INTEGRATION: Uses auth store login/register methods with CSRF handling
 ```
 
-**Staff Login Component:**
+**Modal-Based Booking Experience:**
 ```typescript
-// src/components/staff/staff-login-form.tsx
+// src/app/book/page.tsx & src/components/booking/booking-wizard.tsx
 // FUNCTIONALITY:
-//   - Professional staff login interface
-//   - Role validation and error handling
-//   - Account lockout messaging for security
-//   - Automatic redirect to staff dashboard on success
-// BACKEND INTEGRATION: POST /api/staff/auth/login/ with audit logging
-// SECURITY: Account lockout detection, failed attempt tracking
+//   - Auto-opening modal on page load with background content
+//   - Modal completion callback with automatic homepage redirect
+//   - Proper modal sizing (xl) with overflow handling for mobile
+//   - Success screens with booking confirmation display
+//   - Modal close button and escape key handling
+// USER EXPERIENCE: Original popup/overlay design preserved and enhanced
+// STYLING: Full cream/navy gradient background maintained in modal content
 ```
 
-### Staff Operations Dashboard
+### Enhanced Booking Store
 
-**Business Intelligence Dashboard:**
+**User Session Isolation:**
 ```typescript
-// src/components/staff/staff-dashboard-overview.tsx
-// BACKEND INTEGRATION: GET /api/staff/dashboard/
-// DISPLAYS:
-//   - Total bookings, pending actions, revenue, VIP customers
-//   - Booking status breakdown (pending, confirmed, paid, completed)
-//   - Payment statistics with success rate calculation
-//   - Urgent bookings list needing immediate attention
-//   - Real-time refresh capability (30-second intervals)
-// FEATURES: Auto-refresh, responsive design, drill-down navigation
-```
-
-**Professional Navigation System:**
-```typescript
-// src/components/staff/staff-layout.tsx
+// src/stores/booking-store.ts - COMPLETELY REWRITTEN
 // FUNCTIONALITY:
-//   - Sidebar navigation with collapsible mobile support
-//   - Next.js Link routing (prevents logout loops)
-//   - Staff profile display with role indicators
-//   - Secure logout with session cleanup
-//   - Responsive design with overlay mobile menu
-// NAVIGATION: Dashboard, Calendar, Bookings, Customers, Logistics, Reports
-// FIXED ISSUES: Proper routing maintains authentication state
+//   - initializeForUser() method isolates booking data by user ID
+//   - Guest users get 'guest' identifier with proper state management
+//   - User switching triggers data reset while preserving current step
+//   - Auth state changes properly update booking mode (guest vs authenticated)
+// STEP MANAGEMENT:
+//   - Always starts at step 0 (auth choice) for new sessions
+//   - Dynamic step calculation (4 steps auth, 5 steps guest)
+//   - Proper step validation with user mode awareness
+//   - Back navigation supports returning to auth choice
 ```
 
-### Staff Booking Management
-
-**Comprehensive Booking Interface:**
+**Enhanced Auth Store:**
 ```typescript
-// src/components/staff/booking-management.tsx
-// BACKEND INTEGRATION: 
-//   - GET /api/staff/bookings/ with filtering
-//   - PATCH /api/staff/bookings/<uuid>/ for status updates
-// FUNCTIONALITY:
-//   - Search by booking number, customer name, email
-//   - Filter by status, date, special requirements
-//   - Status update capabilities (CRITICAL for resolving pending booking issue)
-//   - Real-time booking counts and statistics
-//   - Quick action buttons for common operations
-// FEATURES: Responsive design, batch operations ready, audit logging integration
+// src/stores/auth-store.ts - ENHANCED WITH API METHODS
+// NEW FUNCTIONALITY:
+//   - login() method with CSRF token handling and error management
+//   - register() method with validation and auto-login capability  
+//   - logout() method with proper backend communication
+//   - clearSessionIfIncognito() for fresh session detection
+//   - Activity tracking with 30-minute inactivity timeout
+// BACKEND INTEGRATION: Full API integration with Django session auth
+// SESSION MANAGEMENT: localStorage clearing with incognito detection
 ```
 
-### Customer Relationship Management
+## Backend Integration Architecture (Enhanced)
 
-**Customer Management System:**
-```typescript
-// src/components/staff/customer-management.tsx
-// BACKEND INTEGRATION: GET /api/staff/customers/ (planned endpoint)
-// FUNCTIONALITY:
-//   - Customer search and VIP filtering
-//   - Detailed customer profiles with booking history
-//   - Total spending and booking statistics
-//   - Saved addresses management
-//   - Recent booking analysis
-// FEATURES: Customer segmentation, VIP status management, communication history
+### Customer APIs (All Working)
+```
+GET /api/customer/csrf-token/ - CSRF token for authenticated requests ✅
+POST /api/customer/auth/register/ - Account creation with CustomerProfile ✅
+POST /api/customer/auth/login/ - Session authentication with profile data ✅
+POST /api/customer/auth/logout/ - Session termination with cleanup ✅
+GET /api/customer/auth/user/ - Current user profile ✅
+GET /api/customer/dashboard/ - Account overview with accurate stats ✅
+GET /api/customer/bookings/ - Complete booking history ✅
+POST /api/customer/bookings/create/ - 🆕 ENHANCED - Auto-confirms bookings, updates customer stats ✅
 ```
 
-## Backend Integration Architecture (Complete)
-
-### Customer APIs (Existing - All Working)
+### Staff APIs (Complete Integration)
 ```
-GET /api/public/services/ - Service catalog
-GET /api/public/availability/ - Calendar with surcharges  
-POST /api/public/pricing-preview/ - Real-time pricing
-POST /api/public/guest-booking/ - Guest booking creation
-POST /api/customer/auth/register/ - Account creation
-POST /api/customer/auth/login/ - Session authentication
-POST /api/customer/auth/logout/ - Session termination
-GET /api/customer/auth/user/ - Current user profile
-GET /api/customer/dashboard/ - Account overview with stats
-GET /api/customer/bookings/ - Complete booking history
-POST /api/customer/bookings/create/ - Authenticated booking
+POST /api/accounts/auth/login/ - Staff authentication with role checking ✅
+POST /api/accounts/auth/logout/ - Staff logout with audit logging ✅
+GET /api/accounts/dashboard/ - Business KPIs and urgent bookings ✅
+GET /api/accounts/bookings/ - All bookings with search/filters ✅
+GET,PATCH /api/accounts/bookings/<uuid>/ - Booking detail and status management ✅
+GET /api/accounts/customers/ - Customer management interface ✅
 ```
 
-### Staff APIs (Newly Integrated)
+### Public APIs (Guest Support)
 ```
-POST /api/staff/auth/login/ - Staff authentication with role checking ✅
-POST /api/staff/auth/logout/ - Staff logout with audit logging ✅
-GET /api/staff/dashboard/ - Business KPIs and urgent bookings ✅
-GET /api/staff/bookings/ - All bookings with search/filters ✅
-GET,PATCH /api/staff/bookings/<uuid>/ - Booking detail and status management ✅
-GET /api/staff/customers/ - Customer management (planned)
+GET /api/public/services/ - Service catalog for all users ✅
+GET /api/public/availability/ - Calendar with surcharges ✅
+POST /api/public/pricing-preview/ - Real-time pricing calculation ✅
+POST /api/public/guest-booking/ - Guest booking creation ✅
 ```
 
-## Critical Issues Resolved
+## Critical Issues Resolved This Session
 
-### Booking Status Management Solution
+### Guest Checkout Flow Fixed
 
-**RESOLVED:** The critical "pending bookings" issue now has a complete solution:
+**RESOLVED:** Guest users can now complete full booking process:
+- Auth choice step presents clear options without barriers
+- Guest checkout completes all 5 steps including customer information collection
+- Guest bookings create GuestCheckout records in backend
+- Staff can view and manage all bookings (guest + authenticated)
+- Guest users can optionally upgrade to registered accounts later
 
-**Staff Interface Status Updates:**
-- Staff can now update booking status from pending → confirmed → completed
-- PATCH /api/staff/bookings/<uuid>/ with status updates working
-- Audit logging tracks all status changes
-- Real-time updates reflected in customer dashboards
+### Modal Booking Experience Restored
 
-**Customer Impact:**
-- Customer dashboards will now show accurate spending totals
-- Booking history displays correct statuses
-- VIP progress tracking works properly
+**RESOLVED:** Original popup/overlay booking design fully restored:
+- Booking wizard properly contained in modal with overflow handling
+- Auto-opening modal on `/book` page with proper state management
+- Modal completion triggers redirect to homepage
+- Full styling (gradients, colors, spacing) maintained in modal context
+- Mobile-responsive modal sizing with proper touch interactions
 
-### Navigation and Session Issues Fixed
+### User Session Management
 
-**RESOLVED:** Staff logout loops and session issues:
-- Next.js Link components prevent page refreshes
-- Separate staff auth store maintains proper session isolation
-- Mobile navigation works correctly with overlay system
-- Auth state properly maintained across staff page navigation
+**RESOLVED:** Multiple user accounts properly isolated:
+- Different users get separate booking wizard states
+- User switching triggers appropriate data resets
+- Guest vs authenticated mode properly tracked
+- Incognito sessions automatically cleared with activity timeout
+- Session persistence works correctly across page navigation
+
+### Customer Stats Integration
+
+**RESOLVED:** Customer spending and booking stats accurate:
+- Confirmed bookings automatically trigger `add_booking_stats()` 
+- Customer dashboard shows correct total spending
+- Booking history displays proper confirmed status
+- VIP progress tracking works with real spending data
 
 ## Development Patterns & Standards (Updated)
 
-### Dual Authentication Pattern (Implemented)
+### Dual Authentication Pattern (Complete)
 
-**Customer vs Staff Authentication:**
+**Customer vs Staff vs Guest Authentication:**
 ```typescript
 // Customer Routes & Auth
 import { useAuthStore } from '@/stores/auth-store';
@@ -396,129 +358,124 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 // Protected routes: /staff/dashboard, /staff/bookings, /staff/calendar, etc.
 // Public routes: /staff/login
+
+// Guest Booking Flow
+// Public routes: /book (modal), homepage booking button
+// No authentication required, creates GuestCheckout records
 ```
 
-### Staff Layout Pattern (New Standard)
+### Modal Booking Pattern (New Standard)
 
-**Staff Page Structure:**
+**Modal Integration Pattern:**
 ```typescript
-// Standard pattern for all staff pages
+// Modal booking wizard pattern for consistent UX
 'use client';
-import { useStaffAuthStore } from '@/stores/staff-auth-store';
-import { StaffLayout } from '@/components/staff/staff-layout';
+import { Modal } from '@/components/ui/modal';
+import { BookingWizard } from '@/components/booking';
 
-export default function StaffPage() {
-  const { isAuthenticated, isLoading } = useStaffAuthStore();
-  // Auth protection logic
-  return (
-    <StaffLayout>
-      <PageContent />
-    </StaffLayout>
-  );
-}
+// Page component renders modal with auto-open and completion handling
+const [showBookingWizard, setShowBookingWizard] = useState(false);
+const closeBookingWizard = () => {
+  setShowBookingWizard(false);
+  router.push('/'); // Redirect on completion
+};
+
+<Modal isOpen={showBookingWizard} onClose={closeBookingWizard} size="xl">
+  <BookingWizard onComplete={closeBookingWizard} />
+</Modal>
 ```
 
-### API Integration Pattern (Enhanced)
+### User Session Isolation Pattern (New)
 
-**Staff API Pattern:**
+**Booking Store Initialization:**
 ```typescript
-// Staff-specific API calls with proper error handling
-const { data, isLoading } = useQuery({
-  queryKey: ['staff', 'dashboard'],
-  queryFn: async () => {
-    const response = await apiClient.get('/api/staff/dashboard/');
-    return response.data;
-  },
-  enabled: !!staffProfile,
-  refetchInterval: 30000, // Real-time updates
-});
+// Always initialize booking store for current user
+useEffect(() => {
+  const userId = user?.id?.toString() || 'guest';
+  const isGuest = !isAuthenticated;
+  initializeForUser(userId, isGuest);
+}, [user?.id, isAuthenticated, initializeForUser]);
 ```
 
 ## Updated Development Priorities
 
-### Phase 4: Advanced Staff Features (Next Priority)
-
-**Calendar Integration (Partially Implemented):**
-- Full calendar component with drag-and-drop booking management
-- Van schedule integration with capacity management
-- Real-time availability updates
-- Conflict resolution and overbooking prevention
+### Phase 5: Advanced Staff Features (Immediate Priority)
 
 **Enhanced Customer Management:**
-- Communication history tracking
-- Customer notes and preferences
-- Automated VIP upgrade notifications
-- Marketing list segmentation
+- Complete customer profile editing and notes system
+- VIP management and automated upgrade notifications
+- Customer communication history and preferences
+- Advanced search and filtering capabilities
 
-**Advanced Reporting:**
-- Revenue analytics with trends
-- Staff performance metrics
-- Customer acquisition analysis
-- Service utilization reports
+**Real-time Updates:**
+- WebSocket integration for live booking status updates
+- Real-time staff dashboard metrics
+- Live customer notifications for booking changes
+- Automatic refresh of critical business data
 
-### Phase 5: File Management & Communication (Backend Ready)
+### Phase 6: Advanced Calendar & Logistics
 
-**Document Management:**
-- COI file upload and verification
-- Photo documentation for moves
-- Customer file storage and sharing
-- Insurance certificate tracking
+**Full Calendar Integration:**
+- Drag-and-drop booking scheduling with conflict detection
+- Van capacity management and route optimization
+- Driver assignment and tracking integration
+- Service area and availability management
 
-**Communication System:**
-- Email template management
-- SMS notification system
-- Customer communication preferences
-- Automated status notifications
+**File Management System:**
+- COI document upload and verification system
+- Photo documentation for deliveries
+- Customer file storage and secure sharing
+- Insurance certificate tracking and expiration alerts
 
-### Phase 6: Mobile & Advanced Features
+### Phase 7: Communication & Advanced Features
 
-**Mobile Optimization:**
-- Progressive Web App (PWA) capabilities
-- Native mobile navigation patterns
-- Offline booking capability
-- Push notifications
+**Customer Communication:**
+- Email template management system
+- SMS notification integration
+- Automated status update communications
+- Customer preference management
 
-**Advanced Integrations:**
-- Real Stripe payment processing
-- Onfleet logistics integration
-- Advanced calendar scheduling
-- Third-party service integrations
+**Advanced Analytics:**
+- Revenue forecasting and trend analysis
+- Customer segmentation and lifetime value
+- Service utilization and profitability reports
+- Staff performance and efficiency metrics
 
-## Production Deployment Readiness (Updated)
+## Production Deployment Readiness (Complete)
 
 **Fully Ready for Production:**
-- Complete customer booking and authentication system ✅
-- Full staff operations dashboard ✅
-- Booking status management solution ✅
-- Secure dual authentication system ✅
-- Mobile-responsive design ✅
-- Real-time data synchronization ✅
-- Professional staff interface ✅
-- Business intelligence dashboard ✅
+- Complete guest checkout and authenticated booking flows ✅
+- Modal-based booking wizard with proper UX ✅
+- Full customer authentication and dashboard system ✅
+- Professional staff operations dashboard ✅
+- Booking status management and customer stats integration ✅
+- Secure dual authentication with session management ✅
+- Mobile-responsive design across all interfaces ✅
+- Real-time business intelligence and KPI tracking ✅
 
 **Pre-Launch Tasks:**
-- Remove TestAPIConnection component
-- Configure production environment variables
-- Set up real Stripe payment processing
-- Final mobile testing and optimization
-- Staff training on dashboard usage
+- Remove TestAPIConnection component from production build
+- Configure production environment variables and API endpoints
+- Set up real Stripe payment processing integration
+- Final cross-browser testing and mobile optimization verification
+- Staff training on dashboard usage and booking management workflows
 
-**Post-Launch Priorities:**
-- Advanced calendar functionality
-- Enhanced reporting and analytics
-- Document management system
-- Real-time communication features
-- Mobile app development
+**Post-Launch Enhancement Pipeline:**
+- Advanced calendar functionality with drag-and-drop scheduling
+- Enhanced customer communication and notification systems
+- Document management and file upload capabilities
+- Advanced analytics and business intelligence reporting
+- Mobile app development for customer and staff usage
 
 ## Architecture Summary
 
-**ToteTaxi is now a complete luxury delivery service platform with:**
+**ToteTaxi is now a complete luxury delivery service platform featuring:**
 
-1. **Customer-facing system** - Guest and authenticated booking, account management, VIP tracking
-2. **Staff operations system** - Professional dashboard, booking management, customer relations
-3. **Dual authentication architecture** - Secure separation of customer and staff systems
-4. **Real-time business intelligence** - Live KPIs, status tracking, operational metrics
-5. **Mobile-responsive design** - Professional interface across all device types
-6. **Production-ready infrastructure** - Error handling, loading states, session management
+1. **Triple booking flow support** - Guest checkout, authenticated booking, and staff management
+2. **Modal-based booking experience** - Original popup design with enhanced functionality
+3. **Comprehensive user session management** - Isolated data per user with incognito handling
+4. **Accurate customer relationship tracking** - Real spending totals and booking statistics
+5. **Professional staff operations interface** - Complete business management dashboard
+6. **Production-ready infrastructure** - Error handling, loading states, and session persistence
 
-This documentation serves as complete AI memory for ToteTaxi development, covering the fully functional customer AND staff systems, with clear architectural patterns and development pathways for advanced features. The platform now provides comprehensive operations management alongside the seamless customer booking experience.
+This documentation serves as complete AI memory for ToteTaxi development, covering the enhanced guest/auth booking system, modal experience restoration, and comprehensive customer/staff management platform. The system now provides seamless booking experiences for all user types while maintaining professional operations management capabilities.
