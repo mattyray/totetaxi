@@ -26,4 +26,7 @@ urlpatterns = [
     path('bookings/create/', booking_views.CustomerBookingCreateView.as_view(), name='customer-booking-create'),
     path('bookings/<uuid:booking_id>/', booking_views.CustomerBookingDetailView.as_view(), name='customer-booking-detail'),
     path('bookings/<uuid:booking_id>/rebook/', booking_views.QuickRebookView.as_view(), name='quick-rebook'),
+    
+    # Staff-only customer notes management
+    path('<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='customer-notes-update'),
 ]

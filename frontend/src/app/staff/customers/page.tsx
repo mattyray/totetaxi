@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { CustomerManagement } from '@/components/staff/customer-management';
 
 export default function StaffCustomersPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
@@ -26,18 +26,7 @@ export default function StaffCustomersPage() {
 
   return (
     <StaffLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Customer Management
-        </h1>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-navy-600">
-              Customer management functionality will be implemented here.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <CustomerManagement />
     </StaffLayout>
   );
 }

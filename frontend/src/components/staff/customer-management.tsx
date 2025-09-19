@@ -12,7 +12,10 @@ import {
   StarIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon
+  MapPinIcon,
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 interface CustomerProfile {
@@ -25,6 +28,7 @@ interface CustomerProfile {
   total_spent_dollars: number;
   last_booking_at: string | null;
   created_at: string;
+  notes: string;
   recent_bookings: Array<{
     id: string;
     booking_number: string;
@@ -188,6 +192,37 @@ export function CustomerManagement() {
 }
 
 function CustomerDetailPanel({ customer }: { customer: CustomerProfile }) {
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState(customer.notes || '');
+  const queryClient = useQueryClient();
+
+  const updateNotesMutation = useMutation({
+    mutationFn: async (notes: string) => {
+      const response = await apiClient.patch(`/api/customer/${customer.id}/notes/`, {
+        notes
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      // Refresh customer detail
+      queryClient.invalidateQueries({ queryKey: ['staff', 'customer', customer.id] });
+      setIsEditingNotes(false);
+    },
+    onError: (error) => {
+      console.error('Failed to update notes:', error);
+      alert('Failed to update notes. Please try again.');
+    }
+  });
+
+  const handleSaveNotes = () => {
+    updateNotesMutation.mutate(notesValue);
+  };
+
+  const handleCancelNotes = () => {
+    setNotesValue(customer.notes || '');
+    setIsEditingNotes(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Customer Overview */}
@@ -226,6 +261,66 @@ function CustomerDetailPanel({ customer }: { customer: CustomerProfile }) {
           <div className="text-sm text-navy-600">
             <strong>Member since:</strong> {new Date(customer.created_at).toLocaleDateString()}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff Notes - NEW */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Staff Notes</h3>
+            {!isEditingNotes && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingNotes(true)}
+              >
+                <PencilIcon className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isEditingNotes ? (
+            <div className="space-y-3">
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                placeholder="Add notes about customer preferences, special requests, VIP details, etc."
+                className="w-full p-3 border border-gray-300 rounded-lg resize-vertical min-h-[100px] text-navy-900"
+                rows={4}
+              />
+              <div className="flex space-x-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveNotes}
+                  disabled={updateNotesMutation.isPending}
+                >
+                  <CheckIcon className="h-4 w-4 mr-1" />
+                  {updateNotesMutation.isPending ? 'Saving...' : 'Save'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelNotes}
+                  disabled={updateNotesMutation.isPending}
+                >
+                  <XMarkIcon className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-[60px]">
+              {customer.notes ? (
+                <p className="text-navy-700 whitespace-pre-wrap">{customer.notes}</p>
+              ) : (
+                <p className="text-gray-500 italic">No notes added yet. Click Edit to add customer notes.</p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
