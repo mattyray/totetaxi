@@ -73,7 +73,7 @@ class CurrentUserView(APIView):
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
-                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data,
+                'customer_profile': CustomerProfileSerializer(request.customer_profile).data,
                 'csrf_token': get_token(request)
             })
         else:
@@ -146,4 +146,30 @@ class CustomerBookingListView(generics.ListAPIView):
         return Response({
             'bookings': booking_data,
             'total_count': len(booking_data)
+        })
+
+
+# NEW: Customer Notes API for Staff
+class CustomerNotesUpdateView(APIView):
+    """Update customer notes - staff only"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def patch(self, request, customer_id):
+        # Check if user is staff
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            customer_user = User.objects.get(id=customer_id)
+            customer_profile = customer_user.customer_profile
+        except (User.DoesNotExist, CustomerProfile.DoesNotExist):
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        notes = request.data.get('notes', '')
+        customer_profile.notes = notes
+        customer_profile.save()
+        
+        return Response({
+            'message': 'Customer notes updated successfully',
+            'notes': customer_profile.notes
         })
