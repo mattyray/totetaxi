@@ -1,4 +1,3 @@
-// frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -8,6 +7,76 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ServiceCatalog } from '@/types';
+
+// NYC tax rate
+const TAX_RATE = 0.0825;
+
+// Organizing service details by tier (from your backend data)
+const ORGANIZING_SERVICES = {
+  petite: {
+    packing: {
+      name: 'Petite Packing',
+      description: '1/2 day (up to 4 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).',
+      price: 1400,
+      duration: 4,
+      organizers: 2,
+      supplies: 250
+    },
+    unpacking: {
+      name: 'Petite Unpacking', 
+      description: '1/2 day (up to 4 hours) with 2 organizers. Organizing light (no supplies).',
+      price: 1130,
+      duration: 4,
+      organizers: 2,
+      supplies: 0
+    }
+  },
+  standard: {
+    packing: {
+      name: 'Standard Packing',
+      description: '1 day (up to 8 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).',
+      price: 2535,
+      duration: 8,
+      organizers: 2,
+      supplies: 250
+    },
+    unpacking: {
+      name: 'Standard Unpacking',
+      description: '1 day (up to 8 hours) with 2 organizers. Organizing light (no supplies).',
+      price: 2265,
+      duration: 8,
+      organizers: 2,
+      supplies: 0
+    }
+  },
+  full: {
+    packing: {
+      name: 'Full Packing',
+      description: '1 day (up to 8 hours) with 4 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $500).',
+      price: 5070,
+      duration: 8,
+      organizers: 4,
+      supplies: 500
+    },
+    unpacking: {
+      name: 'Full Unpacking',
+      description: '1 day (up to 8 hours) with 4 organizers. Organizing light (no supplies).',
+      price: 4530,
+      duration: 8,
+      organizers: 4,
+      supplies: 0
+    }
+  }
+};
+
+function calculateWithTax(price: number) {
+  const tax = price * TAX_RATE;
+  return {
+    subtotal: price,
+    tax: tax,
+    total: price + tax
+  };
+}
 
 export function ServiceSelectionStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
@@ -137,50 +206,155 @@ export function ServiceSelectionStep() {
             ))}
           </div>
 
-          {/* Organizing Services */}
+          {/* Enhanced Organizing Services */}
           {bookingData.mini_move_package_id && (
             <div>
-              <h4 className="text-md font-medium text-navy-900 mb-3">Add Organizing Services</h4>
-              <div className="space-y-3">
-                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
-                  <input
-                    type="checkbox"
-                    checked={bookingData.include_packing || false}
-                    onChange={(e) => handleOrganizingServiceToggle('packing', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <h5 className="font-medium text-navy-900">Professional Packing</h5>
-                    <p className="text-sm text-navy-600">Expert packing at origin</p>
-                  </div>
-                </label>
+              <h4 className="text-lg font-medium text-navy-900 mb-3">Professional Organizing Services</h4>
+              <p className="text-sm text-navy-600 mb-4">
+                Add professional packing and unpacking services. All prices include NYC tax (8.25%).
+              </p>
+              
+              {(() => {
+                const selectedPackage = services.mini_move_packages.find(p => p.id === bookingData.mini_move_package_id);
+                const tier = selectedPackage?.package_type;
+                const organizingOptions = tier ? ORGANIZING_SERVICES[tier] : null;
+                
+                if (!organizingOptions) return null;
 
-                <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gold-50">
-                  <input
-                    type="checkbox"
-                    checked={bookingData.include_unpacking || false}
-                    onChange={(e) => handleOrganizingServiceToggle('unpacking', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <h5 className="font-medium text-navy-900">Professional Unpacking</h5>
-                    <p className="text-sm text-navy-600">Expert organizing at destination</p>
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Packing Service */}
+                    <Card 
+                      variant={bookingData.include_packing ? "luxury" : "default"}
+                      className="cursor-pointer transition-all hover:shadow-md"
+                      onClick={() => handleOrganizingServiceToggle('packing', !bookingData.include_packing)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-semibold text-navy-900">{organizingOptions.packing.name}</h5>
+                          <input
+                            type="checkbox"
+                            checked={bookingData.include_packing || false}
+                            onChange={() => handleOrganizingServiceToggle('packing', !bookingData.include_packing)}
+                            className="h-4 w-4 text-navy-600 rounded"
+                          />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-navy-600 mb-4">{organizingOptions.packing.description}</p>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Duration:</span>
+                            <span className="font-medium text-navy-900">{organizingOptions.packing.duration} hours</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Organizers:</span>
+                            <span className="font-medium text-navy-900">{organizingOptions.packing.organizers} professionals</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Supplies:</span>
+                            <span className="font-medium text-navy-900">${organizingOptions.packing.supplies} allowance</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          {(() => {
+                            const pricing = calculateWithTax(organizingOptions.packing.price);
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm text-navy-900">
+                                  <span>Service:</span>
+                                  <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-navy-900">
+                                  <span>Tax:</span>
+                                  <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-navy-900 text-base">
+                                  <span>Total:</span>
+                                  <span>${pricing.total.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Unpacking Service */}
+                    <Card 
+                      variant={bookingData.include_unpacking ? "luxury" : "default"}
+                      className="cursor-pointer transition-all hover:shadow-md"
+                      onClick={() => handleOrganizingServiceToggle('unpacking', !bookingData.include_unpacking)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-semibold text-navy-900">{organizingOptions.unpacking.name}</h5>
+                          <input
+                            type="checkbox"
+                            checked={bookingData.include_unpacking || false}
+                            onChange={() => handleOrganizingServiceToggle('unpacking', !bookingData.include_unpacking)}
+                            className="h-4 w-4 text-navy-600 rounded"
+                          />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-navy-600 mb-4">{organizingOptions.unpacking.description}</p>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Duration:</span>
+                            <span className="font-medium text-navy-900">{organizingOptions.unpacking.duration} hours</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Organizers:</span>
+                            <span className="font-medium text-navy-900">{organizingOptions.unpacking.organizers} professionals</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-navy-700">Supplies:</span>
+                            <span className="font-medium text-navy-900">Organizing only</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          {(() => {
+                            const pricing = calculateWithTax(organizingOptions.unpacking.price);
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm text-navy-900">
+                                  <span>Service:</span>
+                                  <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm text-navy-900">
+                                  <span>Tax:</span>
+                                  <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-navy-900 text-base">
+                                  <span>Total:</span>
+                                  <span>${pricing.total.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </label>
-              </div>
+                );
+              })()}
             </div>
           )}
         </div>
       )}
 
-      {/* Standard Delivery */}
+      {/* Standard Delivery - unchanged */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
           <Card variant="elevated">
             <CardContent>
               <div className="space-y-4">
-                {/* FIXED: Use Input component with proper dark text styling */}
                 <Input
                   label="Number of Items"
                   type="number"
@@ -210,7 +384,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Specialty Items */}
+      {/* Specialty Items - unchanged */}
       {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>

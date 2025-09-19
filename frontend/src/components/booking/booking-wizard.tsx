@@ -1,6 +1,6 @@
 'use client';
 // frontend/src/components/booking/booking-wizard.tsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -21,6 +21,7 @@ const STEPS = [
 ];
 
 export function BookingWizard() {
+  const [mounted, setMounted] = useState(false);
   const {
     currentStep,
     nextStep,
@@ -33,8 +34,15 @@ export function BookingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Fix hydration issue
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // RESET WIZARD ON FRESH PAGE LOAD OR EXPLICIT RESET
   useEffect(() => {
+    if (!mounted) return;
+    
     const shouldReset = searchParams.get('reset') === 'true';
     
     if (shouldReset) {
@@ -42,10 +50,12 @@ export function BookingWizard() {
       // Clean up URL without triggering reload
       router.replace('/book', { scroll: false });
     }
-  }, [searchParams, resetWizard, router]);
+  }, [searchParams, resetWizard, router, mounted]);
 
   // PREVENT AUTH-PROTECTED STEPS FOR UNAUTHENTICATED USERS
   useEffect(() => {
+    if (!mounted) return;
+    
     // If user is not authenticated and somehow on step 4+, reset to step 1
     if (!isAuthenticated && currentStep >= 4) {
       const hasCustomerInfo = searchParams.get('guest') === 'true';
@@ -53,7 +63,15 @@ export function BookingWizard() {
         resetWizard();
       }
     }
-  }, [isAuthenticated, currentStep, resetWizard, searchParams]);
+  }, [isAuthenticated, currentStep, resetWizard, searchParams, mounted]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 flex items-center justify-center">
+        <div className="text-navy-900">Loading...</div>
+      </div>
+    );
+  }
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
 
