@@ -1,17 +1,19 @@
 'use client';
-
+// bookings/service-selection-step.tsx
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import type { ServiceCatalog } from '@/types';
 
 // NYC tax rate
 const TAX_RATE = 0.0825;
 
-// Organizing service details by tier (from your backend data)
+// Organizing service details by tier
 const ORGANIZING_SERVICES = {
   petite: {
     packing: {
@@ -80,6 +82,8 @@ function calculateWithTax(price: number) {
 
 export function ServiceSelectionStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
+  const [packingExpanded, setPackingExpanded] = useState(false);
+  const [unpackingExpanded, setUnpackingExpanded] = useState(false);
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -103,6 +107,15 @@ export function ServiceSelectionStep() {
     updateBookingData({
       [serviceType === 'packing' ? 'include_packing' : 'include_unpacking']: enabled
     });
+    
+    // Auto-expand when selected
+    if (enabled) {
+      if (serviceType === 'packing') {
+        setPackingExpanded(true);
+      } else {
+        setUnpackingExpanded(true);
+      }
+    }
   };
 
   const canContinue = () => {
@@ -206,12 +219,12 @@ export function ServiceSelectionStep() {
             ))}
           </div>
 
-          {/* Enhanced Organizing Services */}
+          {/* Collapsible Organizing Services */}
           {bookingData.mini_move_package_id && (
             <div>
               <h4 className="text-lg font-medium text-navy-900 mb-3">Professional Organizing Services</h4>
               <p className="text-sm text-navy-600 mb-4">
-                Add professional packing and unpacking services. All prices include NYC tax (8.25%).
+                Add professional packing and unpacking services. Click to view details and pricing.
               </p>
               
               {(() => {
@@ -223,122 +236,166 @@ export function ServiceSelectionStep() {
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Packing Service */}
+                    {/* Collapsible Packing Service */}
                     <Card 
                       variant={bookingData.include_packing ? "luxury" : "default"}
-                      className="cursor-pointer transition-all hover:shadow-md"
-                      onClick={() => handleOrganizingServiceToggle('packing', !bookingData.include_packing)}
+                      className="transition-all"
                     >
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <h5 className="font-semibold text-navy-900">{organizingOptions.packing.name}</h5>
-                          <input
-                            type="checkbox"
-                            checked={bookingData.include_packing || false}
-                            onChange={() => handleOrganizingServiceToggle('packing', !bookingData.include_packing)}
-                            className="h-4 w-4 text-navy-600 rounded"
-                          />
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={bookingData.include_packing || false}
+                              onChange={(e) => handleOrganizingServiceToggle('packing', e.target.checked)}
+                              className="h-4 w-4 text-navy-600 rounded"
+                            />
+                            <h5 className="font-semibold text-navy-900">{organizingOptions.packing.name}</h5>
+                          </div>
+                          <button
+                            onClick={() => setPackingExpanded(!packingExpanded)}
+                            className="text-navy-600 hover:text-navy-900"
+                          >
+                            {packingExpanded || bookingData.include_packing ? (
+                              <ChevronUpIcon className="h-5 w-5" />
+                            ) : (
+                              <ChevronDownIcon className="h-5 w-5" />
+                            )}
+                          </button>
                         </div>
+                        
+                        {/* Collapsed Preview */}
+                        {!packingExpanded && !bookingData.include_packing && (
+                          <p className="text-sm text-navy-600 mt-2">
+                            {organizingOptions.packing.duration} hours • {organizingOptions.packing.organizers} organizers • Supplies included
+                          </p>
+                        )}
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-navy-600 mb-4">{organizingOptions.packing.description}</p>
-                        
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Duration:</span>
-                            <span className="font-medium text-navy-900">{organizingOptions.packing.duration} hours</span>
+                      
+                      {/* Expanded Content */}
+                      {(packingExpanded || bookingData.include_packing) && (
+                        <CardContent>
+                          <p className="text-sm text-navy-600 mb-4">{organizingOptions.packing.description}</p>
+                          
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Duration:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.packing.duration} hours</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Organizers:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.packing.organizers} professionals</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Supplies:</span>
+                              <span className="font-medium text-navy-900">${organizingOptions.packing.supplies} allowance</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Organizers:</span>
-                            <span className="font-medium text-navy-900">{organizingOptions.packing.organizers} professionals</span>
+                          
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {(() => {
+                              const pricing = calculateWithTax(organizingOptions.packing.price);
+                              return (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Service:</span>
+                                    <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Tax:</span>
+                                    <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-bold text-navy-900 text-base">
+                                    <span>Total:</span>
+                                    <span>${pricing.total.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Supplies:</span>
-                            <span className="font-medium text-navy-900">${organizingOptions.packing.supplies} allowance</span>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4 pt-3 border-t border-gray-100">
-                          {(() => {
-                            const pricing = calculateWithTax(organizingOptions.packing.price);
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-sm text-navy-900">
-                                  <span>Service:</span>
-                                  <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm text-navy-900">
-                                  <span>Tax:</span>
-                                  <span className="font-medium">${pricing.tax.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-navy-900 text-base">
-                                  <span>Total:</span>
-                                  <span>${pricing.total.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </CardContent>
+                        </CardContent>
+                      )}
                     </Card>
 
-                    {/* Unpacking Service */}
+                    {/* Collapsible Unpacking Service */}
                     <Card 
                       variant={bookingData.include_unpacking ? "luxury" : "default"}
-                      className="cursor-pointer transition-all hover:shadow-md"
-                      onClick={() => handleOrganizingServiceToggle('unpacking', !bookingData.include_unpacking)}
+                      className="transition-all"
                     >
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <h5 className="font-semibold text-navy-900">{organizingOptions.unpacking.name}</h5>
-                          <input
-                            type="checkbox"
-                            checked={bookingData.include_unpacking || false}
-                            onChange={() => handleOrganizingServiceToggle('unpacking', !bookingData.include_unpacking)}
-                            className="h-4 w-4 text-navy-600 rounded"
-                          />
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={bookingData.include_unpacking || false}
+                              onChange={(e) => handleOrganizingServiceToggle('unpacking', e.target.checked)}
+                              className="h-4 w-4 text-navy-600 rounded"
+                            />
+                            <h5 className="font-semibold text-navy-900">{organizingOptions.unpacking.name}</h5>
+                          </div>
+                          <button
+                            onClick={() => setUnpackingExpanded(!unpackingExpanded)}
+                            className="text-navy-600 hover:text-navy-900"
+                          >
+                            {unpackingExpanded || bookingData.include_unpacking ? (
+                              <ChevronUpIcon className="h-5 w-5" />
+                            ) : (
+                              <ChevronDownIcon className="h-5 w-5" />
+                            )}
+                          </button>
                         </div>
+                        
+                        {/* Collapsed Preview */}
+                        {!unpackingExpanded && !bookingData.include_unpacking && (
+                          <p className="text-sm text-navy-600 mt-2">
+                            {organizingOptions.unpacking.duration} hours • {organizingOptions.unpacking.organizers} organizers • Organizing only
+                          </p>
+                        )}
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-navy-600 mb-4">{organizingOptions.unpacking.description}</p>
-                        
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Duration:</span>
-                            <span className="font-medium text-navy-900">{organizingOptions.unpacking.duration} hours</span>
+                      
+                      {/* Expanded Content */}
+                      {(unpackingExpanded || bookingData.include_unpacking) && (
+                        <CardContent>
+                          <p className="text-sm text-navy-600 mb-4">{organizingOptions.unpacking.description}</p>
+                          
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Duration:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.unpacking.duration} hours</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Organizers:</span>
+                              <span className="font-medium text-navy-900">{organizingOptions.unpacking.organizers} professionals</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-navy-700">Supplies:</span>
+                              <span className="font-medium text-navy-900">Organizing only</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Organizers:</span>
-                            <span className="font-medium text-navy-900">{organizingOptions.unpacking.organizers} professionals</span>
+                          
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {(() => {
+                              const pricing = calculateWithTax(organizingOptions.unpacking.price);
+                              return (
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Service:</span>
+                                    <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm text-navy-900">
+                                    <span>Tax:</span>
+                                    <span className="font-medium">${pricing.tax.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between font-bold text-navy-900 text-base">
+                                    <span>Total:</span>
+                                    <span>${pricing.total.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-navy-700">Supplies:</span>
-                            <span className="font-medium text-navy-900">Organizing only</span>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4 pt-3 border-t border-gray-100">
-                          {(() => {
-                            const pricing = calculateWithTax(organizingOptions.unpacking.price);
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-sm text-navy-900">
-                                  <span>Service:</span>
-                                  <span className="font-medium">${pricing.subtotal.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm text-navy-900">
-                                  <span>Tax:</span>
-                                  <span className="font-medium">${pricing.tax.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between font-bold text-navy-900 text-base">
-                                  <span>Total:</span>
-                                  <span>${pricing.total.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </CardContent>
+                        </CardContent>
+                      )}
                     </Card>
                   </div>
                 );
