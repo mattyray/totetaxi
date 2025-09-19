@@ -198,6 +198,174 @@ class StaffDashboardView(APIView):
         return urgent_data
 
 
+class CustomerManagementView(APIView):
+    """Staff customer management - list and search customers"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get query parameters
+        search = request.query_params.get('search', '')
+        vip = request.query_params.get('vip', '')
+        
+        # Start with all customer profiles
+        customers = User.objects.filter(customer_profile__isnull=False).select_related('customer_profile')
+        
+        # Apply search filter
+        if search:
+            customers = customers.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(customer_profile__phone__icontains=search)
+            )
+        
+        # Apply VIP filter
+        if vip == 'true':
+            customers = customers.filter(customer_profile__is_vip=True)
+        elif vip == 'false':
+            customers = customers.filter(customer_profile__is_vip=False)
+        
+        # Serialize customer data
+        customer_data = []
+        for user in customers[:100]:  # Limit to 100 results
+            profile = user.customer_profile
+            
+            # Get recent bookings
+            recent_bookings = user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')[:5]
+            
+            customer_data.append({
+                'id': user.id,
+                'name': user.get_full_name(),
+                'email': user.email,
+                'phone': profile.phone,
+                'is_vip': profile.is_vip,
+                'total_bookings': profile.total_bookings,
+                'total_spent_dollars': profile.total_spent_dollars,
+                'last_booking_at': profile.last_booking_at,
+                'created_at': profile.created_at,
+                'notes': profile.notes,
+                'recent_bookings': [{
+                    'id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                    'service_type': booking.get_service_type_display(),
+                    'status': booking.status,
+                    'total_price_dollars': booking.total_price_dollars,
+                    'created_at': booking.created_at
+                } for booking in recent_bookings],
+                'saved_addresses': [{
+                    'id': str(addr.id),
+                    'address_line_1': addr.address_line_1,
+                    'city': addr.city,
+                    'state': addr.state,
+                    'is_primary': addr.times_used > 0
+                } for addr in user.saved_addresses.filter(is_active=True)[:3]]
+            })
+        
+        return Response({
+            'customers': customer_data,
+            'total_count': customers.count(),
+            'filters': {
+                'search': search,
+                'vip': vip
+            }
+        })
+
+
+class CustomerDetailView(APIView):
+    """Staff view for individual customer details"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, customer_id):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            user = User.objects.get(id=customer_id, customer_profile__isnull=False)
+            profile = user.customer_profile
+        except User.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Log viewing customer data
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='view_customer',
+            description=f'Viewed customer {user.get_full_name()} ({user.email})',
+            request=request,
+            customer_id=user.id
+        )
+        
+        # Get all bookings
+        all_bookings = user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
+        
+        return Response({
+            'id': user.id,
+            'name': user.get_full_name(),
+            'email': user.email,
+            'phone': profile.phone,
+            'is_vip': profile.is_vip,
+            'total_bookings': profile.total_bookings,
+            'total_spent_dollars': profile.total_spent_dollars,
+            'last_booking_at': profile.last_booking_at,
+            'created_at': profile.created_at,
+            'notes': profile.notes,
+            'recent_bookings': [{
+                'id': str(booking.id),
+                'booking_number': booking.booking_number,
+                'service_type': booking.get_service_type_display(),
+                'status': booking.status,
+                'total_price_dollars': booking.total_price_dollars,
+                'created_at': booking.created_at
+            } for booking in all_bookings],
+            'saved_addresses': [{
+                'id': str(addr.id),
+                'address_line_1': addr.address_line_1,
+                'address_line_2': addr.address_line_2,
+                'city': addr.city,
+                'state': addr.state,
+                'zip_code': addr.zip_code,
+                'is_primary': addr.times_used > 0
+            } for addr in user.saved_addresses.filter(is_active=True)]
+        })
+
+
+class CustomerNotesUpdateView(APIView):
+    """Update customer notes - staff only"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def patch(self, request, customer_id):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            user = User.objects.get(id=customer_id, customer_profile__isnull=False)
+            profile = user.customer_profile
+        except User.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        notes = request.data.get('notes', '')
+        old_notes = profile.notes
+        
+        profile.notes = notes
+        profile.save()
+        
+        # Log notes update
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='modify_customer',
+            description=f'Updated notes for customer {user.get_full_name()}',
+            request=request,
+            customer_id=user.id
+        )
+        
+        return Response({
+            'message': 'Customer notes updated successfully',
+            'notes': profile.notes
+        })
+
+
 class BookingManagementView(APIView):
     """Staff booking management operations"""
     permission_classes = [permissions.IsAuthenticated]

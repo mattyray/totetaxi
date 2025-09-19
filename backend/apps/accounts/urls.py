@@ -1,4 +1,3 @@
-# backend/apps/accounts/urls.py
 from django.urls import path
 from . import views
 
@@ -12,4 +11,9 @@ urlpatterns = [
     path('dashboard/', views.StaffDashboardView.as_view(), name='staff-dashboard'),
     path('bookings/', views.BookingManagementView.as_view(), name='staff-bookings'),
     path('bookings/<uuid:booking_id>/', views.BookingDetailView.as_view(), name='staff-booking-detail'),
+    
+    # Customer management
+    path('customers/', views.CustomerManagementView.as_view(), name='staff-customers'),
+    path('customers/<int:customer_id>/', views.CustomerDetailView.as_view(), name='staff-customer-detail'),
+    path('customers/<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='staff-customer-notes'),
 ]

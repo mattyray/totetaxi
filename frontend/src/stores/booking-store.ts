@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-// frontend/src/stores/booking-store.ts
+
 export interface BookingAddress {
   address_line_1: string;
   address_line_2?: string;
@@ -10,7 +10,6 @@ export interface BookingAddress {
 }
 
 export interface BookingData {
-  // Service selection
   service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
   include_packing?: boolean;
@@ -18,28 +17,18 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
-  
-  // Date and time
   pickup_date?: string;
   pickup_time?: 'morning' | 'afternoon' | 'evening';
-  
-  // Addresses
   pickup_address?: BookingAddress;
   delivery_address?: BookingAddress;
-  
-  // Customer info (for guest checkout)
   customer_info?: {
     first_name: string;
     last_name: string;
     email: string;
     phone: string;
   };
-  
-  // Additional options
   special_instructions?: string;
   coi_required?: boolean;
-  
-  // Pricing
   pricing_data?: {
     base_price_dollars: number;
     surcharge_dollars: number;
@@ -56,6 +45,8 @@ interface BookingWizardState {
   errors: Record<string, string>;
   isBookingComplete: boolean;
   completedBookingNumber?: string;
+  userId?: string;
+  isGuestMode: boolean;
 }
 
 interface BookingWizardActions {
@@ -70,6 +61,7 @@ interface BookingWizardActions {
   resetWizard: () => void;
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
+  initializeForUser: (userId?: string, isGuest?: boolean) => void;
 }
 
 const initialBookingData: BookingData = {
@@ -79,6 +71,25 @@ const initialBookingData: BookingData = {
   include_packing: false,
   include_unpacking: false,
   is_same_day_delivery: false,
+};
+
+// Get current user info
+const getCurrentUserInfo = (): { userId: string; isGuest: boolean } => {
+  if (typeof window === 'undefined') return { userId: 'guest', isGuest: true };
+  
+  try {
+    const authData = localStorage.getItem('totetaxi-auth-store');
+    if (authData) {
+      const parsed = JSON.parse(authData);
+      const user = parsed.state?.user;
+      if (user?.id) {
+        return { userId: user.id.toString(), isGuest: false };
+      }
+    }
+  } catch (e) {
+    console.warn('Could not get user info:', e);
+  }
+  return { userId: 'guest', isGuest: true };
 };
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -91,6 +102,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       errors: {},
       isBookingComplete: false,
       completedBookingNumber: undefined,
+      userId: undefined,
+      isGuestMode: true,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
@@ -126,8 +139,41 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         completedBookingNumber: bookingNumber
       }),
       
+      initializeForUser: (providedUserId?, isGuest?) => {
+        const currentUserInfo = getCurrentUserInfo();
+        const userId = providedUserId || currentUserInfo.userId;
+        const guestMode = isGuest !== undefined ? isGuest : currentUserInfo.isGuest;
+        
+        const state = get();
+        
+        console.log('🔄 Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        
+        // If switching between different authenticated users, reset
+        if (!guestMode && state.userId && state.userId !== userId && state.userId !== 'guest') {
+          console.log('👤 Different authenticated user detected, resetting wizard');
+          set({
+            currentStep: 1,
+            isLoading: false,
+            bookingData: { ...initialBookingData },
+            errors: {},
+            isBookingComplete: false,
+            completedBookingNumber: undefined,
+            userId: userId,
+            isGuestMode: guestMode
+          });
+        } else if (!state.userId) {
+          // First time initialization
+          set({ 
+            userId: userId,
+            isGuestMode: guestMode
+          });
+        }
+      },
+      
       resetWizard: () => {
         console.log('🔄 Resetting booking wizard');
+        
+        const currentUserInfo = getCurrentUserInfo();
         
         const newState = {
           currentStep: 1,
@@ -135,7 +181,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           bookingData: { ...initialBookingData },
           errors: {},
           isBookingComplete: false,
-          completedBookingNumber: undefined
+          completedBookingNumber: undefined,
+          userId: currentUserInfo.userId,
+          isGuestMode: currentUserInfo.isGuest
         };
         
         set(newState);
@@ -152,7 +200,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       },
       
       canProceedToStep: (step) => {
-        const { bookingData } = get();
+        const { bookingData, isGuestMode } = get();
         
         switch (step) {
           case 1: return true; // Service selection always available
@@ -164,10 +212,14 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             );
           case 3: // Address step
             return !!bookingData.pickup_date;
-          case 4: // Customer info step
+          case 4: // Customer info step (always required for guests, skipped for auth users)
             return !!bookingData.pickup_address && !!bookingData.delivery_address;
           case 5: // Review/payment step
-            return !!bookingData.customer_info?.email;
+            if (isGuestMode) {
+              return !!bookingData.customer_info?.email;
+            } else {
+              return !!bookingData.pickup_address && !!bookingData.delivery_address;
+            }
           default:
             return false;
         }
@@ -179,7 +231,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         bookingData: state.bookingData,
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,
-        completedBookingNumber: state.completedBookingNumber
+        completedBookingNumber: state.completedBookingNumber,
+        userId: state.userId,
+        isGuestMode: state.isGuestMode
       })
     }
   )
