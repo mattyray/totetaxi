@@ -15,31 +15,56 @@ interface AuthActions {
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
   updateProfile: (updates: Partial<CustomerProfile>) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
+  logout: () => Promise<void>;
+  clearSessionIfIncognito: () => void;
 }
+
+interface RegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+}
+
+const initialState: AuthState = {
+  user: null,
+  customerProfile: null,
+  isAuthenticated: false,
+  isLoading: false,
+};
+
+const API_BASE = process.env.NODE_ENV === 'production' 
+  ? 'https://your-production-domain.com'
+  : 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
     (set, get) => ({
       // State
-      user: null,
-      customerProfile: null,
-      isAuthenticated: false,
-      isLoading: false,
+      ...initialState,
 
       // Actions
-      setAuth: (user, profile) => set({
-        user,
-        customerProfile: profile,
-        isAuthenticated: true,
-        isLoading: false
-      }),
+      setAuth: (user, profile) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('totetaxi-last-activity', Date.now().toString());
+        }
+        set({
+          user,
+          customerProfile: profile,
+          isAuthenticated: true,
+          isLoading: false
+        });
+      },
 
-      clearAuth: () => set({
-        user: null,
-        customerProfile: null,
-        isAuthenticated: false,
-        isLoading: false
-      }),
+      clearAuth: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('totetaxi-last-activity');
+        }
+        set(initialState);
+      },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
@@ -47,7 +72,120 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         customerProfile: state.customerProfile 
           ? { ...state.customerProfile, ...updates }
           : null
-      }))
+      })),
+
+      login: async (email: string, password: string) => {
+        set({ isLoading: true });
+        
+        try {
+          // Get CSRF token first
+          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
+            credentials: 'include',
+          });
+          
+          if (!csrfResponse.ok) {
+            throw new Error('Failed to get CSRF token');
+          }
+          
+          const { csrf_token } = await csrfResponse.json();
+
+          // Login request
+          const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrf_token,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            get().setAuth(data.user, data.customer_profile);
+            return { success: true, user: data.user };
+          } else {
+            set({ isLoading: false });
+            return { success: false, error: data.error || 'Login failed' };
+          }
+        } catch (error) {
+          set({ isLoading: false });
+          return { success: false, error: 'Network error. Please try again.' };
+        }
+      },
+
+      register: async (data: RegisterData) => {
+        set({ isLoading: true });
+        
+        try {
+          // Get CSRF token first
+          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
+            credentials: 'include',
+          });
+          
+          if (!csrfResponse.ok) {
+            throw new Error('Failed to get CSRF token');
+          }
+          
+          const { csrf_token } = await csrfResponse.json();
+
+          // Registration request
+          const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrf_token,
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              ...data,
+              password_confirm: data.password
+            }),
+          });
+
+          const responseData = await response.json();
+
+          if (response.ok) {
+            set({ isLoading: false });
+            return { success: true, user: responseData.user };
+          } else {
+            set({ isLoading: false });
+            return { success: false, error: responseData.error || 'Registration failed' };
+          }
+        } catch (error) {
+          set({ isLoading: false });
+          return { success: false, error: 'Network error. Please try again.' };
+        }
+      },
+
+      logout: async () => {
+        try {
+          await fetch(`${API_BASE}/api/customer/auth/logout/`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.warn('Logout request failed:', error);
+        } finally {
+          get().clearAuth();
+        }
+      },
+
+      clearSessionIfIncognito: () => {
+        if (typeof window !== 'undefined') {
+          const now = Date.now();
+          const lastActivity = localStorage.getItem('totetaxi-last-activity');
+          
+          if (!lastActivity || (now - parseInt(lastActivity)) > 30 * 60 * 1000) {
+            // More than 30 minutes of inactivity, clear session
+            localStorage.clear();
+            set(initialState);
+          } else {
+            localStorage.setItem('totetaxi-last-activity', now.toString());
+          }
+        }
+      }
     }),
     {
       name: 'totetaxi-auth',
