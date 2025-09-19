@@ -143,105 +143,107 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900 mb-2">
-          Book Your Luxury Move
-        </h1>
-        <p className="text-navy-700">
-          From Manhattan to the Hamptons with premium care
-        </p>
-        {isAuthenticated && currentStep > 0 && (
-          <p className="text-sm text-green-600 mt-2">
-            ✓ Logged in as {user?.first_name} {user?.last_name}
+    <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
+            Book Your Luxury Move
+          </h1>
+          <p className="text-navy-700">
+            From Manhattan to the Hamptons with premium care
           </p>
-        )}
-      </div>
+          {isAuthenticated && currentStep > 0 && (
+            <p className="text-sm text-green-600 mt-2">
+              ✓ Logged in as {user?.first_name} {user?.last_name}
+            </p>
+          )}
+        </div>
 
-      {/* Progress Steps - Only show if past auth step */}
-      {currentStep > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            {displaySteps.map((step, index) => (
-              <div key={step.actualStep} className="flex items-center">
-                <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${currentStep === step.actualStep 
-                    ? 'bg-navy-900 text-white' 
-                    : currentStep > step.actualStep
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
-                  }
-                `}>
-                  {currentStep > step.actualStep ? '✓' : step.displayNumber}
-                </div>
-                
-                <span className={`
-                  ml-2 text-sm font-medium
-                  ${currentStep === step.actualStep ? 'text-navy-900' : 'text-navy-600'}
-                `}>
-                  {step.title}
-                </span>
-                
-                {index < displaySteps.length - 1 && (
+        {/* Progress Steps - Only show if past auth step */}
+        {currentStep > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              {displaySteps.map((step, index) => (
+                <div key={step.actualStep} className="flex items-center">
                   <div className={`
-                    h-0.5 w-12 mx-4
-                    ${currentStep > step.actualStep ? 'bg-green-500' : 'bg-gray-200'}
-                  `} />
-                )}
-              </div>
-            ))}
+                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    ${currentStep === step.actualStep 
+                      ? 'bg-navy-900 text-white' 
+                      : currentStep > step.actualStep
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                    }
+                  `}>
+                    {currentStep > step.actualStep ? '✓' : step.displayNumber}
+                  </div>
+                  
+                  <span className={`
+                    ml-2 text-sm font-medium
+                    ${currentStep === step.actualStep ? 'text-navy-900' : 'text-navy-600'}
+                  `}>
+                    {step.title}
+                  </span>
+                  
+                  {index < displaySteps.length - 1 && (
+                    <div className={`
+                      h-0.5 w-12 mx-4
+                      ${currentStep > step.actualStep ? 'bg-green-500' : 'bg-gray-200'}
+                    `} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Main Content */}
-      <Card variant="elevated" className="mb-6">
-        <CardHeader>
-          <h2 className="text-xl font-serif font-bold text-navy-900">
-            {currentStep === 0 ? 'Get Started' : `Step ${getCurrentDisplayStep()}: ${getStepTitle()}`}
-          </h2>
-        </CardHeader>
-        <CardContent>
-          {CurrentStepComponent && <CurrentStepComponent />}
-        </CardContent>
-      </Card>
+        {/* Main Content */}
+        <Card variant="elevated" className="mb-8">
+          <CardHeader>
+            <h2 className="text-xl font-serif font-bold text-navy-900">
+              {currentStep === 0 ? 'Get Started' : `Step ${getCurrentDisplayStep()}: ${getStepTitle()}`}
+            </h2>
+          </CardHeader>
+          <CardContent>
+            {CurrentStepComponent && <CurrentStepComponent />}
+          </CardContent>
+        </Card>
 
-      {/* Navigation - Only show if past auth step */}
-      {currentStep > 0 && (
-        <div className="flex justify-between items-center">
-          <div>
-            {currentStep > 1 && (
+        {/* Navigation - Only show if past auth step */}
+        {currentStep > 0 && (
+          <div className="flex justify-between items-center">
+            <div>
+              {currentStep > 1 && (
+                <Button 
+                  variant="outline" 
+                  onClick={previousStep}
+                  className="mr-4"
+                >
+                  ← Previous
+                </Button>
+              )}
               <Button 
-                variant="outline" 
-                onClick={previousStep}
-                className="mr-4"
+                variant="ghost" 
+                onClick={handleStartOver}
+                className="text-navy-600"
               >
-                ← Previous
+                Start Over
               </Button>
-            )}
-            <Button 
-              variant="ghost" 
-              onClick={handleStartOver}
-              className="text-navy-600"
-            >
-              Start Over
-            </Button>
-          </div>
-          
-          <div>
-            {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
-              <Button 
-                variant="primary" 
-                onClick={nextStep}
-              >
-                Continue →
-              </Button>
-            )}
-          </div>
+            </div>
+            
+            <div>
+              {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+                <Button 
+                  variant="primary" 
+                  onClick={nextStep}
+                >
+                  Continue →
+                </Button>
+              )}
+            </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }

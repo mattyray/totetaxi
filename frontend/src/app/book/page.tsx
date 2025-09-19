@@ -40,7 +40,9 @@ export default function BookPage() {
         showCloseButton={true}
         className="max-h-[90vh] overflow-y-auto"
       >
-        <BookingWizard onComplete={closeBookingWizard} />
+        <div className="bg-gradient-to-br from-cream-50 to-cream-100 min-h-full">
+          <BookingWizard onComplete={closeBookingWizard} />
+        </div>
       </Modal>
     </MainLayout>
   );
