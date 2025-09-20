@@ -19,7 +19,6 @@ interface BookingResponse {
   };
 }
 
-// FIXED: Helper function to get time display
 function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   switch (pickupTime) {
     case 'morning':
@@ -42,26 +41,21 @@ export function ReviewPaymentStep() {
   const [bookingNumber, setBookingNumber] = useState<string>('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Create booking mutation
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
-      // Use correct endpoint based on authentication status
       const endpoint = isAuthenticated 
-        ? '/api/customer/bookings/create/'     // Updates customer stats
-        : '/api/public/guest-booking/';        // Guest booking
+        ? '/api/customer/bookings/create/'
+        : '/api/public/guest-booking/';
 
       console.log(`Creating ${isAuthenticated ? 'authenticated' : 'guest'} booking at:`, endpoint);
 
       let bookingRequest;
 
       if (isAuthenticated) {
-        // Generate unique nicknames with timestamp
-        const timestamp = new Date().toISOString().slice(11, 16); // HH:MM format
+        const timestamp = new Date().toISOString().slice(11, 16);
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
-        // Authenticated booking format - different structure
         bookingRequest = {
-          // Service selection
           service_type: bookingData.service_type,
           mini_move_package_id: bookingData.mini_move_package_id,
           include_packing: bookingData.include_packing,
@@ -70,33 +64,28 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
-          // Date and time
           pickup_date: bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
+          specific_pickup_hour: bookingData.specific_pickup_hour,
           
-          // Addresses - use new_pickup_address format for authenticated users
           new_pickup_address: bookingData.pickup_address,
           new_delivery_address: bookingData.delivery_address,
-          save_pickup_address: true,  // Save addresses for future use
+          save_pickup_address: true,
           save_delivery_address: true,
-          pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`,  // Unique nickname
-          delivery_address_nickname: `Delivery ${dateStr} ${timestamp}`, // Unique nickname
+          pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`,
+          delivery_address_nickname: `Delivery ${dateStr} ${timestamp}`,
           
-          // Additional info
           special_instructions: bookingData.special_instructions,
           coi_required: bookingData.coi_required,
-          create_payment_intent: false, // Disable for demo
+          create_payment_intent: false,
         };
       } else {
-        // Guest booking format - original structure
         bookingRequest = {
-          // Customer info
           first_name: bookingData.customer_info?.first_name,
           last_name: bookingData.customer_info?.last_name,
           email: bookingData.customer_info?.email,
           phone: bookingData.customer_info?.phone,
           
-          // Service selection
           service_type: bookingData.service_type,
           mini_move_package_id: bookingData.mini_move_package_id,
           include_packing: bookingData.include_packing,
@@ -105,15 +94,13 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
-          // Date and time
           pickup_date: bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
+          specific_pickup_hour: bookingData.specific_pickup_hour,
           
-          // Addresses
           pickup_address: bookingData.pickup_address,
           delivery_address: bookingData.delivery_address,
           
-          // Additional info
           special_instructions: bookingData.special_instructions,
           coi_required: bookingData.coi_required,
         };
@@ -125,10 +112,9 @@ export function ReviewPaymentStep() {
     onSuccess: (data) => {
       setBookingNumber(data.booking.booking_number);
       setBookingCompleteLocal(true);
-      setBookingComplete(data.booking.booking_number); // Update store
+      setBookingComplete(data.booking.booking_number);
       setLoading(false);
       
-      // Invalidate dashboard cache for authenticated users
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
@@ -138,7 +124,6 @@ export function ReviewPaymentStep() {
       setLoading(false);
       console.error('Booking creation failed:', error);
       
-      // Check if it's an AxiosError before accessing response
       if ('response' in error && error.response) {
         console.error('Error response:', error.response.data);
       }
@@ -160,8 +145,6 @@ export function ReviewPaymentStep() {
     resetWizard();
     setBookingCompleteLocal(false);
     setBookingNumber('');
-    
-    // Force navigation to fresh booking page with reset flag
     router.push('/book?reset=true');
   };
 
@@ -283,14 +266,12 @@ export function ReviewPaymentStep() {
 
   return (
     <div className="space-y-6">
-      {/* Booking Summary */}
       <Card variant="luxury">
         <CardHeader>
           <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Service Details */}
             <div>
               <h4 className="font-medium text-navy-900 mb-2">Service</h4>
               <p className="text-navy-700">
@@ -307,7 +288,6 @@ export function ReviewPaymentStep() {
               )}
             </div>
 
-            {/* Date & Time - FIXED */}
             <div>
               <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
               <p className="text-navy-700">
@@ -323,7 +303,6 @@ export function ReviewPaymentStep() {
               </p>
             </div>
 
-            {/* Addresses */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
@@ -352,7 +331,6 @@ export function ReviewPaymentStep() {
               </div>
             </div>
 
-            {/* Customer Info - only show for guest bookings */}
             {!isAuthenticated && (
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
@@ -366,7 +344,6 @@ export function ReviewPaymentStep() {
               </div>
             )}
 
-            {/* Special Instructions */}
             {bookingData.special_instructions && (
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Special Instructions</h4>
@@ -379,7 +356,6 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      {/* Pricing Breakdown */}
       {bookingData.pricing_data && (
         <Card variant="elevated">
           <CardHeader>
@@ -394,7 +370,7 @@ export function ReviewPaymentStep() {
               
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-navy-700">Date Surcharges:</span>
+                  <span className="text-navy-700">Weekend Surcharge:</span>
                   <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
                 </div>
               )}
@@ -412,6 +388,20 @@ export function ReviewPaymentStep() {
                   <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
                 </div>
               )}
+
+              {bookingData.pricing_data.organizing_tax_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">Tax (8.75%):</span>
+                  <span className="font-medium">+${bookingData.pricing_data.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">1-Hour Window:</span>
+                  <span className="font-medium">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
+                </div>
+              )}
               
               <hr className="border-gray-200" />
               
@@ -424,7 +414,6 @@ export function ReviewPaymentStep() {
         </Card>
       )}
 
-      {/* Terms of Service Agreement */}
       <Card variant="default" className="border-navy-200">
         <CardHeader>
           <h3 className="text-lg font-medium text-navy-900">Terms of Service Agreement</h3>
@@ -500,7 +489,7 @@ export function ReviewPaymentStep() {
               </p>
 
               <p className="text-xs text-navy-500 mt-4 italic">
-                Complete terms and conditions available. Scroll to read all terms before accepting.
+                Complete terms and conditions. Scroll to read all terms before accepting.
               </p>
             </div>
             
@@ -525,7 +514,6 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      {/* Payment Notice */}
       <Card variant="default" className="border-gold-200 bg-gold-50">
         <CardContent>
           <div className="text-center">
@@ -538,7 +526,6 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      {/* Submit Button */}
       <div className="flex justify-center">
         <Button 
           variant="primary" 
