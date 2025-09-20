@@ -12,9 +12,6 @@ interface AvailabilityDay {
   date: string;
   available: boolean;
   is_weekend: boolean;
-  specialty_items_allowed: boolean;
-  capacity_used: number;
-  max_capacity: number;
   surcharges: Array<{
     name: string;
     type: string;
@@ -153,21 +150,17 @@ export function DateTimeStep() {
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
             const isSelected = selectedDate === dateStr;
-            const isAvailable = dayInfo?.available !== false;
             const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
 
             return (
               <button
                 key={dateStr}
-                onClick={() => isAvailable && handleDateSelect(dateStr)}
-                disabled={!isAvailable}
+                onClick={() => handleDateSelect(dateStr)}
                 className={`
                   p-2 text-sm rounded-md border transition-all min-h-[60px] flex flex-col items-center justify-center
                   ${isSelected 
                     ? 'bg-navy-900 text-white border-navy-900' 
-                    : isAvailable
-                    ? 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
                   }
                 `}
               >
@@ -183,15 +176,8 @@ export function DateTimeStep() {
           })}
         </div>
         
-        <div className="flex items-center justify-center space-x-4 mt-3 text-sm">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-white border border-gray-200 rounded mr-2"></div>
-            <span className="text-navy-600">Available</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-gray-100 rounded mr-2"></div>
-            <span className="text-navy-600">Unavailable</span>
-          </div>
+        {/* Simplified Legend - Only Surcharge indicator */}
+        <div className="flex items-center justify-center mt-3 text-sm">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
             <span className="text-navy-600">Surcharge applies</span>
@@ -199,6 +185,7 @@ export function DateTimeStep() {
         </div>
       </div>
 
+      {/* Selected Date Info - No capacity display */}
       {selectedDate && (
         <Card variant="default">
           <CardContent>
@@ -211,23 +198,23 @@ export function DateTimeStep() {
                   day: 'numeric' 
                 })}
               </h4>
-              <p className="text-sm text-navy-600">
-                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.capacity_used || 0}/
-                {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.max_capacity || 10} booked
-              </p>
-              
-              {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges?.map((surcharge, index) => (
-                <div key={index} className="mt-2 text-sm text-orange-600">
-                  <strong>Weekend surcharge applies:</strong>
-                  <br />• {surcharge.description}
-                  {bookingData.service_type === 'mini_move' && (
-                    <span className="font-bold"> +$175</span>
-                  )}
-                  {bookingData.service_type === 'standard_delivery' && (
-                    <span className="font-bold"> +$50</span>
-                  )}
-                </div>
-              ))}
+              {/* Surcharge notices - FILTERED by current service type */}
+              {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges
+                ?.filter((surcharge) => {
+                  // Only show surcharges relevant to current service type
+                  if (bookingData.service_type === 'mini_move') {
+                    return surcharge.description.includes('Mini Move');
+                  } else if (bookingData.service_type === 'standard_delivery') {
+                    return surcharge.description.includes('Standard Delivery');
+                  }
+                  return true; // Show all for other service types
+                })
+                .map((surcharge, index) => (
+                  <div key={index} className="mt-2 text-sm text-orange-600">
+                    <strong>Weekend surcharge applies:</strong>
+                    <br />• {surcharge.description}
+                  </div>
+                ))}
             </div>
           </CardContent>
         </Card>

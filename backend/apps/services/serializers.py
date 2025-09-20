@@ -4,8 +4,7 @@ from .models import (
     OrganizingService, 
     StandardDeliveryConfig, 
     SpecialtyItem, 
-    SurchargeRule,
-    VanSchedule
+    SurchargeRule
 )
 
 
@@ -85,7 +84,6 @@ class ServiceCatalogSerializer(serializers.Serializer):
     standard_delivery = StandardDeliveryConfigSerializer(read_only=True)
     specialty_items = SpecialtyItemSerializer(many=True, read_only=True)
     
-    # Optional: Include surcharge rules for frontend awareness
     surcharge_rules = SurchargeRuleSerializer(many=True, read_only=True, required=False)
 
 
@@ -93,7 +91,6 @@ class OrganizingServicesByTierSerializer(serializers.Serializer):
     """Organizing services grouped by Mini Move tier for easy frontend consumption"""
     
     def to_representation(self, instance):
-        # Get all organizing services
         organizing_services = OrganizingService.objects.filter(is_active=True)
         
         result = {}
@@ -114,12 +111,10 @@ class MiniMoveWithOrganizingSerializer(serializers.Serializer):
     """Mini Move packages with their available organizing services"""
     
     def to_representation(self, instance):
-        # Get mini move packages
         packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         
         result = []
         for package in packages:
-            # Get organizing services for this tier
             organizing_services = OrganizingService.objects.filter(
                 mini_move_tier=package.package_type,
                 is_active=True

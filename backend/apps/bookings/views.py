@@ -18,8 +18,7 @@ from apps.services.models import (
     StandardDeliveryConfig, 
     SpecialtyItem, 
     OrganizingService,
-    SurchargeRule,
-    VanSchedule
+    SurchargeRule
 )
 from apps.services.serializers import (
     ServiceCatalogSerializer,
@@ -37,13 +36,11 @@ class ServiceCatalogView(APIView):
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
-        # Get all active services
         mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         organizing_services = OrganizingService.objects.filter(is_active=True).order_by('mini_move_tier', 'is_packing_service')
         specialty_items = SpecialtyItem.objects.filter(is_active=True)
         standard_config = StandardDeliveryConfig.objects.filter(is_active=True).first()
         
-        # Serialize data using clean serializers
         response_data = {
             'mini_move_packages': MiniMovePackageSerializer(mini_move_packages, many=True).data,
             'organizing_services': OrganizingServiceSerializer(organizing_services, many=True).data,
@@ -91,7 +88,6 @@ class PricingPreviewView(APIView):
         organizing_total_cents = 0
         details = {}
         
-        # Calculate base price by service type
         if service_type == 'mini_move':
             package_id = serializer.validated_data.get('mini_move_package_id')
             if package_id:
@@ -101,13 +97,11 @@ class PricingPreviewView(APIView):
                     details['package_name'] = package.name
                     details['package_tier'] = package.package_type
                     
-                    # COI handling
                     coi_required = serializer.validated_data.get('coi_required', False)
                     if coi_required and not package.coi_included:
                         coi_fee_cents = package.coi_fee_cents
                         details['coi_required'] = True
                     
-                    # NEW: Calculate organizing services
                     include_packing = serializer.validated_data.get('include_packing', False)
                     include_unpacking = serializer.validated_data.get('include_unpacking', False)
                     
@@ -148,7 +142,7 @@ class PricingPreviewView(APIView):
                                 'price_dollars': unpacking_service.price_dollars,
                                 'duration_hours': unpacking_service.duration_hours,
                                 'organizer_count': unpacking_service.organizer_count,
-                                'supplies_allowance_dollars': 0  # Unpacking doesn't include supplies
+                                'supplies_allowance_dollars': 0
                             })
                         except OrganizingService.DoesNotExist:
                             return Response({
@@ -162,7 +156,6 @@ class PricingPreviewView(APIView):
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
         elif service_type == 'standard_delivery':
-            # Organizing services not available for standard delivery
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
                     'error': 'Organizing services are only available for Mini Move bookings'
@@ -188,7 +181,6 @@ class PricingPreviewView(APIView):
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
         
         elif service_type == 'specialty_item':
-            # Organizing services not available for specialty items
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
                     'error': 'Organizing services are only available for Mini Move bookings'
@@ -204,14 +196,13 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
         
-        # Calculate surcharges (skip for same-day delivery)
         is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
         if pickup_date and base_price_cents > 0 and not is_same_day:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             surcharge_details = []
             
             for surcharge in active_surcharges:
-                surcharge_amount = surcharge.calculate_surcharge(base_price_cents, pickup_date)
+                surcharge_amount = surcharge.calculate_surcharge(base_price_cents, pickup_date, service_type)
                 if surcharge_amount > 0:
                     surcharge_cents += surcharge_amount
                     surcharge_details.append({
@@ -223,7 +214,6 @@ class PricingPreviewView(APIView):
             if surcharge_details:
                 details['surcharges'] = surcharge_details
         
-        # Calculate total (base + surcharges + COI + organizing)
         total_price_cents = base_price_cents + surcharge_cents + coi_fee_cents + organizing_total_cents
         
         return Response({
@@ -241,11 +231,10 @@ class PricingPreviewView(APIView):
 
 
 class CalendarAvailabilityView(APIView):
-    """Get available dates for booking - no authentication required"""
+    """Get available dates with surcharge info - no authentication required"""
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
-        # Get date range (next 60 days by default)
         start_date = request.query_params.get('start_date', date.today())
         if isinstance(start_date, str):
             start_date = date.fromisoformat(start_date)
@@ -256,24 +245,8 @@ class CalendarAvailabilityView(APIView):
         current_date = start_date
         
         while current_date <= end_date:
-            # Check if it's a weekend (for surcharge indication)
             is_weekend = current_date.weekday() >= 5
             
-            # Check van schedule availability
-            van_schedule = VanSchedule.objects.filter(date=current_date).first()
-            if van_schedule:
-                available = van_schedule.has_capacity
-                specialty_items_allowed = van_schedule.allows_specialty_items
-                capacity_used = van_schedule.total_bookings
-                max_capacity = van_schedule.max_capacity
-            else:
-                # Default availability if no specific schedule
-                available = True
-                specialty_items_allowed = False
-                capacity_used = 0
-                max_capacity = 10
-            
-            # Check for specific surcharges on this date
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
@@ -285,20 +258,15 @@ class CalendarAvailabilityView(APIView):
             
             availability.append({
                 'date': current_date.isoformat(),
-                'available': available,
+                'available': True,
                 'is_weekend': is_weekend,
-                'specialty_items_allowed': specialty_items_allowed,
-                'capacity_used': capacity_used,
-                'max_capacity': max_capacity,
                 'surcharges': surcharges
             })
             
             current_date += timedelta(days=1)
         
         return Response({
-            'availability': availability,
-            'start_date': start_date.isoformat(),
-            'end_date': end_date.isoformat()
+            'availability': availability
         })
 
 

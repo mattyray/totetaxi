@@ -5,8 +5,7 @@ from .models import (
     OrganizingService,
     StandardDeliveryConfig, 
     SpecialtyItem, 
-    SurchargeRule, 
-    VanSchedule
+    SurchargeRule
 )
 
 
@@ -30,7 +29,6 @@ class MiniMovePackageAdmin(admin.ModelAdmin):
     )
     
     def get_organizing_services(self, obj):
-        """Show available organizing services for this tier"""
         organizing_services = OrganizingService.objects.filter(
             mini_move_tier=obj.package_type,
             is_active=True
@@ -73,14 +71,13 @@ class OrganizingServiceAdmin(admin.ModelAdmin):
         })
     )
     
-    readonly_fields = ('service_type',)  # Auto-generated based on tier + type
+    readonly_fields = ('service_type',)
     
     def get_tier_badge(self, obj):
-        """Display tier with color coding"""
         colors = {
-            'petite': '#fbbf24',    # Yellow
-            'standard': '#3b82f6',  # Blue  
-            'full': '#10b981'       # Green
+            'petite': '#fbbf24',
+            'standard': '#3b82f6',
+            'full': '#10b981'
         }
         color = colors.get(obj.mini_move_tier, '#6b7280')
         return format_html(
@@ -91,7 +88,6 @@ class OrganizingServiceAdmin(admin.ModelAdmin):
     get_tier_badge.short_description = 'Move Tier'
     
     def get_service_type_badge(self, obj):
-        """Display service type with icon"""
         if obj.is_packing_service:
             return format_html(
                 '<span style="color: #059669;">📦 Packing</span>'
@@ -103,7 +99,6 @@ class OrganizingServiceAdmin(admin.ModelAdmin):
     get_service_type_badge.short_description = 'Service Type'
     
     def save_model(self, request, obj, form, change):
-        """Auto-generate service_type based on tier and packing/unpacking"""
         service_prefix = f"{obj.mini_move_tier}_"
         service_suffix = "packing" if obj.is_packing_service else "unpacking"
         obj.service_type = service_prefix + service_suffix
@@ -151,13 +146,13 @@ class SpecialtyItemAdmin(admin.ModelAdmin):
 
 @admin.register(SurchargeRule)
 class SurchargeRuleAdmin(admin.ModelAdmin):
-    list_display = ('name', 'surcharge_type', 'calculation_type', 'get_surcharge_display', 'get_applies_to', 'is_active')
-    list_filter = ('surcharge_type', 'calculation_type', 'is_active', 'applies_saturday', 'applies_sunday')
+    list_display = ('name', 'surcharge_type', 'applies_to_service_type', 'calculation_type', 'get_surcharge_display', 'get_applies_to', 'is_active')
+    list_filter = ('surcharge_type', 'applies_to_service_type', 'calculation_type', 'is_active', 'applies_saturday', 'applies_sunday')
     search_fields = ('name', 'description')
     
     fieldsets = (
         ('Rule Details', {
-            'fields': ('surcharge_type', 'name', 'description', 'is_active')
+            'fields': ('surcharge_type', 'name', 'description', 'applies_to_service_type', 'is_active')
         }),
         ('Calculation', {
             'fields': ('calculation_type', 'percentage', 'fixed_amount_cents')
@@ -177,7 +172,6 @@ class SurchargeRuleAdmin(admin.ModelAdmin):
     get_surcharge_display.short_description = 'Surcharge Amount'
     
     def get_applies_to(self, obj):
-        """Show when this surcharge applies"""
         applies_to = []
         if obj.specific_date:
             applies_to.append(f"📅 {obj.specific_date}")
@@ -192,64 +186,6 @@ class SurchargeRuleAdmin(admin.ModelAdmin):
     get_applies_to.short_description = 'Applies To'
 
 
-@admin.register(VanSchedule)
-class VanScheduleAdmin(admin.ModelAdmin):
-    list_display = ('date', 'get_availability_status', 'total_bookings', 'max_capacity', 'get_capacity_bar', 'allows_specialty_items')
-    list_filter = ('is_available', 'date')
-    search_fields = ('notes',)
-    date_hierarchy = 'date'
-    ordering = ('-date',)
-    
-    fieldsets = (
-        ('Schedule', {
-            'fields': ('date', 'is_available', 'max_capacity')
-        }),
-        ('Current Bookings', {
-            'fields': ('mini_moves_booked', 'specialty_items_booked'),
-            'description': 'These are automatically updated when bookings are created'
-        }),
-        ('Notes', {
-            'fields': ('notes',)
-        })
-    )
-    
-    readonly_fields = ('mini_moves_booked', 'specialty_items_booked')
-    
-    def get_availability_status(self, obj):
-        if not obj.is_available:
-            return format_html('<span style="color: #dc2626; font-weight: bold;">❌ Unavailable</span>')
-        elif obj.has_capacity:
-            return format_html('<span style="color: #059669; font-weight: bold;">✅ Available</span>')
-        else:
-            return format_html('<span style="color: #d97706; font-weight: bold;">⚠️ Full</span>')
-    get_availability_status.short_description = 'Status'
-    
-    def get_capacity_bar(self, obj):
-        """Visual capacity bar"""
-        if obj.max_capacity == 0:
-            return "No capacity set"
-        
-        percentage = (obj.total_bookings / obj.max_capacity) * 100
-        percentage = min(percentage, 100)  # Cap at 100%
-        
-        if percentage < 50:
-            color = '#059669'  # Green
-        elif percentage < 80:
-            color = '#d97706'  # Orange
-        else:
-            color = '#dc2626'  # Red
-        
-        return format_html(
-            '<div style="width: 100px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">'
-            '<div style="width: {}%; background: {}; height: 20px; border-radius: 4px;"></div>'
-            '</div>'
-            '<small>{}/{}</small>',
-            percentage, color, obj.total_bookings, obj.max_capacity
-        )
-    get_capacity_bar.short_description = 'Capacity'
-
-
-# Custom admin site customization
 admin.site.site_header = "ToteTaxi Admin"
 admin.site.site_title = "ToteTaxi Admin Portal"
 admin.site.index_title = "Welcome to ToteTaxi Administration"

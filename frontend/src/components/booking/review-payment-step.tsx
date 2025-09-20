@@ -431,28 +431,76 @@ export function ReviewPaymentStep() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="max-h-40 overflow-y-auto p-3 bg-gray-50 rounded text-xs text-navy-700 border">
-              <p className="font-medium mb-2">PLEASE READ THESE TERMS AND CONDITIONS CAREFULLY</p>
-              <p className="mb-2">
-                By using Tote Taxi and/or the Tote Taxi Website, you are agreeing to be bound by these terms and conditions. 
-                If you do not agree to the terms and conditions, do not use Tote Taxi's services or the Tote Taxi Website.
+            <div className="max-h-60 overflow-y-auto p-4 bg-gray-50 rounded text-xs text-navy-700 border leading-relaxed">
+              <p className="font-bold mb-3 text-sm">PLEASE READ THESE TERMS AND CONDITIONS CAREFULLY</p>
+              
+              <p className="mb-3">
+                BY USING Tote Taxi and/or the Tote Taxi Website, YOU ARE AGREEING TO BE BOUND BY THESE TERMS AND CONDITIONS. 
+                IF YOU DO NOT AGREE TO THE TERMS AND CONDITIONS, DO NOT USE Tote Taxi'S SERVICES or the Tote Taxi Website.
               </p>
-              <p className="mb-2">
+
+              <p className="font-semibold mb-2">General</p>
+              <p className="mb-3">
                 Tote Taxi LLC ("Tote Taxi") may revise and update these Terms and Conditions at any time without notice. 
                 Your continued usage of the Tote Taxi Website after any such change or update will mean you accept those changes or updates.
               </p>
-              <p className="mb-2">
-                Tote Taxi will not accept for transport luggage or packages in excess of $150.00 in value. 
-                Tote Taxi's inadvertent acceptance of any luggage or package in excess of $150.00 shall not negate 
-                Tote Taxi's limitation of liability stated herein.
+
+              <p className="mb-3">
+                Any aspect of the Tote Taxi Website may be changed, supplemented, deleted or updated without notice at the sole discretion of Tote Taxi.
               </p>
-              <p className="mb-2">
-                By delivering luggage or package to, or causing luggage or package to be delivered to, Tote Taxi for transport, 
-                you represent that the luggage or package does not contain any illegal substances, any liquids, or any hazardous materials, 
-                and does not exceed $150.00 in value.
+
+              <p className="mb-3">
+                Tote Taxi may establish or change its general practices and limits concerning Tote Taxi services in its sole discretion.
               </p>
-              <p className="text-xs text-navy-500 mt-4">
-                [Complete terms available at totetaxi.com/terms]
+
+              <p className="mb-3">
+                Your violation of any of the Terms and Conditions may result in, among other things, the termination of your access to Tote Taxi's 
+                services and/or the Tote Taxi Website.
+              </p>
+
+              <p className="font-semibold mb-2">Restrictions on Your Use of Tote Taxi</p>
+              <p className="mb-3 font-medium text-orange-600">
+                Tote Taxi will not accept for transport luggage or packages in excess of $150.00 in value. Tote Taxi's inadvertent acceptance 
+                of any luggage or package in excess of $150.00 shall not negate Tote Taxi's limitation of liability stated herein.
+              </p>
+
+              <p className="mb-3">
+                By delivering luggage or package to, or causing luggage or package to be delivered to, Tote Taxi for transport, you represent 
+                that the luggage or package does not contain any illegal substances, any liquids, or any hazardous materials, and does not exceed $150.00 in value.
+              </p>
+
+              <p className="font-semibold mb-2">Limitation of Liability</p>
+              <p className="mb-3">
+                TO THE EXTENT NOT PROHIBITED BY APPLICABLE LAW, IN NO EVENT SHALL TOTE TAXI BE LIABLE FOR PERSONAL INJURY, OR ANY INCIDENTAL, 
+                SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES WHATSOEVER, REGARDLESS OF THE THEORY OF LIABILITY (CONTRACT, TORT OR OTHERWISE) EVEN 
+                IF Tote Taxi HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+              </p>
+
+              <p className="mb-3">
+                In no event shall Tote Taxi's total liability to you for all damages (other than as may be required by applicable law in cases 
+                involving personal injury) exceed $150.00. The foregoing limitations will apply even if the above stated remedy fails of its essential purpose.
+              </p>
+
+              <p className="font-semibold mb-2">Controlling Law</p>
+              <p className="mb-3">
+                These Terms and Conditions are governed by and shall be construed in accordance with the internal substantive laws of the State of New York, 
+                excluding any conflict-of-laws rule or principle that might refer the governance of the construction of the Terms and Conditions to the law 
+                of another jurisdiction.
+              </p>
+
+              <p className="mb-3">
+                Each party agrees to the exclusive jurisdiction of the state and federal courts in and for Suffolk County, New York for any litigation 
+                or other dispute resolution relating in any way to these Terms and Conditions.
+              </p>
+
+              <p className="font-semibold mb-2 text-orange-600">Claims Deadline</p>
+              <p className="mb-3 font-medium">
+                YOU AGREE THAT ANY CLAIM OR CAUSE OF ACTION ARISING OUT OF OR RELATED TO YOUR USE OF THE TOTE TAXI WEBSITE OR SERVICES AND/OR 
+                CONTENT MUST BE FILED WITHIN ONE (1) YEAR AFTER SUCH CLAIM OR CAUSE OF ACTION AROSE.
+              </p>
+
+              <p className="text-xs text-navy-500 mt-4 italic">
+                Complete terms and conditions available. Scroll to read all terms before accepting.
               </p>
             </div>
             
@@ -469,7 +517,7 @@ export function ReviewPaymentStep() {
                 </span>
                 <p className="text-navy-600 mt-1">
                   By checking this box, you confirm your acceptance of all terms and conditions, 
-                  including the $150 liability limit and item restrictions.
+                  including the $150 liability limit, item restrictions, and one-year claims deadline.
                 </p>
               </div>
             </label>

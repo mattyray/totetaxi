@@ -247,7 +247,6 @@ class SurchargeRule(models.Model):
         ('fixed_amount', 'Fixed Amount'),
     ]
     
-    # NEW: Service type filters
     SERVICE_TYPE_CHOICES = [
         ('all', 'All Services'),
         ('mini_move', 'Mini Moves Only'),
@@ -262,7 +261,7 @@ class SurchargeRule(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     
-    # NEW: Service type filter
+    # Service type filter
     applies_to_service_type = models.CharField(
         max_length=20,
         choices=SERVICE_TYPE_CHOICES,
@@ -311,11 +310,9 @@ class SurchargeRule(models.Model):
         if not self.is_active:
             return 0
         
-        # Check if rule applies to this date
         if not self.applies_to_date(booking_date):
             return 0
         
-        # NEW: Check if rule applies to this service type
         if self.applies_to_service_type != 'all':
             if service_type != self.applies_to_service_type:
                 return 0
@@ -329,66 +326,13 @@ class SurchargeRule(models.Model):
     
     def applies_to_date(self, booking_date):
         """Check if surcharge rule applies to given date"""
-        # Specific date check
         if self.specific_date and self.specific_date == booking_date:
             return True
         
-        # Weekend check
         weekday = booking_date.weekday()
-        if weekday == 5 and self.applies_saturday:  # Saturday
+        if weekday == 5 and self.applies_saturday:
             return True
-        if weekday == 6 and self.applies_sunday:    # Sunday
+        if weekday == 6 and self.applies_sunday:
             return True
         
         return False
-
-
-class VanSchedule(models.Model):
-    """Basic van availability for specialty item scheduling"""
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
-    # Schedule details
-    date = models.DateField(unique=True)
-    is_available = models.BooleanField(
-        default=True,
-        help_text="Van is available for pickups on this date"
-    )
-    
-    # Capacity tracking
-    mini_moves_booked = models.PositiveIntegerField(default=0)
-    specialty_items_booked = models.PositiveIntegerField(default=0)
-    max_capacity = models.PositiveIntegerField(
-        default=10,
-        help_text="Maximum bookings for this date"
-    )
-    
-    # Notes
-    notes = models.TextField(
-        blank=True,
-        help_text="Internal notes about availability or restrictions"
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'services_van_schedule'
-        ordering = ['date']
-    
-    def __str__(self):
-        status = "Available" if self.is_available else "Unavailable"
-        return f"{self.date} - {status} ({self.total_bookings}/{self.max_capacity})"
-    
-    @property
-    def total_bookings(self):
-        return self.mini_moves_booked + self.specialty_items_booked
-    
-    @property
-    def has_capacity(self):
-        return self.is_available and self.total_bookings < self.max_capacity
-    
-    @property
-    def allows_specialty_items(self):
-        """Specialty items only available when van is scheduled (has any bookings)"""
-        return self.has_capacity and self.total_bookings > 0
