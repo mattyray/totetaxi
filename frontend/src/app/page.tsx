@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
-import { TestAPIConnection } from '@/components/test-api-connection';
 import { BookingWizard } from '@/components/booking';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -63,7 +62,7 @@ export default function Home() {
                   <div className="text-center">
                     <div className="text-4xl mb-4">📱</div>
                     <h3 className="text-xl font-medium text-navy-900 mb-3">Pickup</h3>
-                    <p className="text-navy-700">Schedule a pickup and we'll come to you.</p>
+                    <p className="text-navy-700">Schedule a pickup and we&apos;ll come to you.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -81,18 +80,13 @@ export default function Home() {
                   <div className="text-center">
                     <div className="text-4xl mb-4">🚚</div>
                     <h3 className="text-xl font-medium text-navy-900 mb-3">Delivery</h3>
-                    <p className="text-navy-700">We'll deliver to your desired destination.</p>
+                    <p className="text-navy-700">We&apos;ll deliver to your desired destination.</p>
                   </div>
                 </CardContent>
               </Card>
             </div>
           </div>
         </section>
-
-        {/* API Connection Status - Remove this in production */}
-        <div className="container mx-auto px-4 py-8">
-          <TestAPIConnection />
-        </div>
 
         {/* Service Showcase */}
         <ServiceShowcase />
@@ -107,9 +101,9 @@ export default function Home() {
               <Card variant="elevated">
                 <CardContent>
                   <p className="text-navy-700 text-sm mb-4">
-                    "I've heard amazing things about Tote Taxi for awhile now and finally used it for 
+                    &quot;I&apos;ve heard amazing things about Tote Taxi for awhile now and finally used it for 
                     the first time today when I took Blade from JFK to Manhattan and LOVED it! 
-                    It was so easy and seamless!"
+                    It was so easy and seamless!&quot;
                   </p>
                   <p className="font-medium text-navy-900">- Natalie M.</p>
                 </CardContent>
@@ -118,9 +112,9 @@ export default function Home() {
               <Card variant="elevated">
                 <CardContent>
                   <p className="text-navy-700 text-sm mb-4">
-                    "We have been using Tote Taxi for the last three years when we come out to 
-                    East Hampton and when we head back to the city. They've always been wonderful! 
-                    Makes moving bikes and extras easy and stress free!"
+                    &quot;We have been using Tote Taxi for the last three years when we come out to 
+                    East Hampton and when we head back to the city. They&apos;ve always been wonderful! 
+                    Makes moving bikes and extras easy and stress free!&quot;
                   </p>
                   <p className="font-medium text-navy-900">- Kimberly R.</p>
                 </CardContent>
@@ -129,8 +123,8 @@ export default function Home() {
               <Card variant="elevated">
                 <CardContent>
                   <p className="text-navy-700 text-sm mb-4">
-                    "Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up 
-                    exactly on time, communicated well. I highly recommend their services."
+                    &quot;Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up 
+                    exactly on time, communicated well. I highly recommend their services.&quot;
                   </p>
                   <p className="font-medium text-navy-900">- Robyn M.</p>
                 </CardContent>
