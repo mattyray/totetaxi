@@ -32,7 +32,6 @@ export function LoginForm() {
   const router = useRouter();
   const { setAuth, setLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const {
     register,
@@ -44,77 +43,14 @@ export function LoginForm() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData): Promise<LoginResponse> => {
-      console.log('🔍 SENDING LOGIN REQUEST');
-      console.log('📤 Request data:', data);
-      console.log('🌐 API Base URL:', apiClient.defaults.baseURL);
-      console.log('🍪 Request config:', {
-        withCredentials: apiClient.defaults.withCredentials,
-        headers: apiClient.defaults.headers
-      });
-      
       const response = await apiClient.post('/api/customer/auth/login/', data);
-      
-      console.log('📥 RAW RESPONSE:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data
-      });
-      
       return response.data;
     },
     onSuccess: (data) => {
-      console.log('🎉 LOGIN SUCCESS!');
-      console.log('✅ Response data:', JSON.stringify(data, null, 2));
-      console.log('👤 User data:', data.user);
-      console.log('📋 Profile data:', data.customer_profile);
-      
-      setDebugInfo({
-        success: true,
-        response: data,
-        timestamp: new Date().toISOString()
-      });
-      
-      try {
-        // Set auth with correct types
-        setAuth(data.user, data.customer_profile);
-        console.log('✅ Auth state updated successfully');
-        
-        // Try to navigate
-        console.log('🚀 Attempting to navigate to dashboard...');
-        router.push('/dashboard');
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error in success handler';
-        console.error('❌ Error in onSuccess handler:', err);
-        setApiError(`Success handler error: ${errorMessage}`);
-      }
+      setAuth(data.user, data.customer_profile);
+      router.push('/dashboard');
     },
     onError: (error: any) => {
-      console.log('❌ LOGIN ERROR');
-      console.log('📊 Error details:', {
-        name: error.name,
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        headers: error.response?.headers,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          data: error.config?.data
-        }
-      });
-      
-      setDebugInfo({
-        success: false,
-        error: {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        },
-        timestamp: new Date().toISOString()
-      });
-      
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.detail || 
                           error.response?.data?.message ||
@@ -125,25 +61,13 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    console.log('🚀 FORM SUBMITTED');
-    console.log('📝 Form data:', data);
-    
     setApiError('');
-    setDebugInfo(null);
     setLoading(true);
-    
-    try {
-      loginMutation.mutate(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown submit error';
-      console.error('❌ Submit error:', err);
-      setApiError(`Submit error: ${errorMessage}`);
-      setLoading(false);
-    }
+    loginMutation.mutate(data);
   };
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-4">
+    <div className="w-full max-w-md mx-auto">
       <Card variant="luxury">
         <CardHeader>
           <h2 className="text-2xl font-serif font-bold text-navy-900 text-center">
@@ -211,7 +135,7 @@ export function LoginForm() {
             {/* Register Link */}
             <div className="text-center pt-4 border-t border-cream-200">
               <p className="text-sm text-navy-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={() => router.push('/register')}
@@ -235,29 +159,6 @@ export function LoginForm() {
               </button>
             </div>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Debug Information Panel */}
-      {debugInfo && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-medium">Debug Information</h3>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs bg-gray-100 p-3 rounded overflow-auto max-h-64">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Test Credentials Helper */}
-      <Card>
-        <CardContent>
-          <p className="text-sm text-gray-600 text-center">
-            Test with: mnraynor90@gmail.com / Dun3R0ad455@$$
-          </p>
         </CardContent>
       </Card>
     </div>
