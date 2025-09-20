@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-09 16:37:29
-# Total files: 102
+# Created: 2025-09-20 11:49:19
+# Total files: 107
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -638,9 +638,14 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://127.0.0.1:3000',
 ])
 
-# Session Settings
+# Session Settings - FIXED FOR PERSISTENT SESSIONS
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
+SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
+SESSION_COOKIE_NAME = 'totetaxi_sessionid'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
@@ -708,6 +713,8 @@ urlpatterns = [
     path('api/public/', include('apps.bookings.urls')),
     path('api/payments/', include('apps.payments.urls')),
     path('api/staff/', include('apps.accounts.urls')),  # Add this line
+    # In config/urls.py, add this to urlpatterns:
+    path('api/staff/logistics/', include('apps.logistics.urls')),
 ]
 ```
 
@@ -992,6 +999,7 @@ class StaffAction(models.Model):
 # ==== apps/accounts/serializers.py ====
 
 ```python
+# backend/apps/accounts/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import StaffProfile, StaffAction
@@ -1071,6 +1079,11 @@ urlpatterns = [
     path('dashboard/', views.StaffDashboardView.as_view(), name='staff-dashboard'),
     path('bookings/', views.BookingManagementView.as_view(), name='staff-bookings'),
     path('bookings/<uuid:booking_id>/', views.BookingDetailView.as_view(), name='staff-booking-detail'),
+    
+    # Customer management
+    path('customers/', views.CustomerManagementView.as_view(), name='staff-customers'),
+    path('customers/<int:customer_id>/', views.CustomerDetailView.as_view(), name='staff-customer-detail'),
+    path('customers/<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='staff-customer-notes'),
 ]
 ```
 
@@ -1275,6 +1288,174 @@ class StaffDashboardView(APIView):
                 'created_at': booking.created_at
             })
         return urgent_data
+
+
+class CustomerManagementView(APIView):
+    """Staff customer management - list and search customers"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get query parameters
+        search = request.query_params.get('search', '')
+        vip = request.query_params.get('vip', '')
+        
+        # Start with all customer profiles
+        customers = User.objects.filter(customer_profile__isnull=False).select_related('customer_profile')
+        
+        # Apply search filter
+        if search:
+            customers = customers.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(customer_profile__phone__icontains=search)
+            )
+        
+        # Apply VIP filter
+        if vip == 'true':
+            customers = customers.filter(customer_profile__is_vip=True)
+        elif vip == 'false':
+            customers = customers.filter(customer_profile__is_vip=False)
+        
+        # Serialize customer data
+        customer_data = []
+        for user in customers[:100]:  # Limit to 100 results
+            profile = user.customer_profile
+            
+            # Get recent bookings
+            recent_bookings = user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')[:5]
+            
+            customer_data.append({
+                'id': user.id,
+                'name': user.get_full_name(),
+                'email': user.email,
+                'phone': profile.phone,
+                'is_vip': profile.is_vip,
+                'total_bookings': profile.total_bookings,
+                'total_spent_dollars': profile.total_spent_dollars,
+                'last_booking_at': profile.last_booking_at,
+                'created_at': profile.created_at,
+                'notes': profile.notes,
+                'recent_bookings': [{
+                    'id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                    'service_type': booking.get_service_type_display(),
+                    'status': booking.status,
+                    'total_price_dollars': booking.total_price_dollars,
+                    'created_at': booking.created_at
+                } for booking in recent_bookings],
+                'saved_addresses': [{
+                    'id': str(addr.id),
+                    'address_line_1': addr.address_line_1,
+                    'city': addr.city,
+                    'state': addr.state,
+                    'is_primary': addr.times_used > 0
+                } for addr in user.saved_addresses.filter(is_active=True)[:3]]
+            })
+        
+        return Response({
+            'customers': customer_data,
+            'total_count': customers.count(),
+            'filters': {
+                'search': search,
+                'vip': vip
+            }
+        })
+
+
+class CustomerDetailView(APIView):
+    """Staff view for individual customer details"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, customer_id):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            user = User.objects.get(id=customer_id, customer_profile__isnull=False)
+            profile = user.customer_profile
+        except User.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Log viewing customer data
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='view_customer',
+            description=f'Viewed customer {user.get_full_name()} ({user.email})',
+            request=request,
+            customer_id=user.id
+        )
+        
+        # Get all bookings
+        all_bookings = user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
+        
+        return Response({
+            'id': user.id,
+            'name': user.get_full_name(),
+            'email': user.email,
+            'phone': profile.phone,
+            'is_vip': profile.is_vip,
+            'total_bookings': profile.total_bookings,
+            'total_spent_dollars': profile.total_spent_dollars,
+            'last_booking_at': profile.last_booking_at,
+            'created_at': profile.created_at,
+            'notes': profile.notes,
+            'recent_bookings': [{
+                'id': str(booking.id),
+                'booking_number': booking.booking_number,
+                'service_type': booking.get_service_type_display(),
+                'status': booking.status,
+                'total_price_dollars': booking.total_price_dollars,
+                'created_at': booking.created_at
+            } for booking in all_bookings],
+            'saved_addresses': [{
+                'id': str(addr.id),
+                'address_line_1': addr.address_line_1,
+                'address_line_2': addr.address_line_2,
+                'city': addr.city,
+                'state': addr.state,
+                'zip_code': addr.zip_code,
+                'is_primary': addr.times_used > 0
+            } for addr in user.saved_addresses.filter(is_active=True)]
+        })
+
+
+class CustomerNotesUpdateView(APIView):
+    """Update customer notes - staff only"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def patch(self, request, customer_id):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            user = User.objects.get(id=customer_id, customer_profile__isnull=False)
+            profile = user.customer_profile
+        except User.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        notes = request.data.get('notes', '')
+        old_notes = profile.notes
+        
+        profile.notes = notes
+        profile.save()
+        
+        # Log notes update
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='modify_customer',
+            description=f'Updated notes for customer {user.get_full_name()}',
+            request=request,
+            customer_id=user.id
+        )
+        
+        return Response({
+            'message': 'Customer notes updated successfully',
+            'notes': profile.notes
+        })
 
 
 class BookingManagementView(APIView):
@@ -1727,6 +1908,54 @@ class Migration(migrations.Migration):
     ]
 ```
 
+# ==== apps/bookings/migrations/0003_booking_geographic_surcharge_cents_and_more.py ====
+
+```python
+# Generated by Django 5.2.5 on 2025-09-19 23:12
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('bookings', '0002_booking_include_packing_booking_include_unpacking_and_more'),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='booking',
+            name='geographic_surcharge_cents',
+            field=models.PositiveBigIntegerField(default=0, help_text='$175 surcharge for 30+ miles from Manhattan'),
+        ),
+        migrations.AddField(
+            model_name='booking',
+            name='is_outside_core_area',
+            field=models.BooleanField(default=False, help_text='True if pickup/delivery is 30+ miles from Manhattan'),
+        ),
+        migrations.AddField(
+            model_name='booking',
+            name='organizing_tax_cents',
+            field=models.PositiveBigIntegerField(default=0, help_text='Tax on organizing services'),
+        ),
+        migrations.AddField(
+            model_name='booking',
+            name='specific_pickup_hour',
+            field=models.PositiveSmallIntegerField(blank=True, choices=[(8, '8:00 AM - 9:00 AM'), (9, '9:00 AM - 10:00 AM'), (10, '10:00 AM - 11:00 AM')], help_text='Specific hour for 1-hour window pickup', null=True),
+        ),
+        migrations.AddField(
+            model_name='booking',
+            name='time_window_surcharge_cents',
+            field=models.PositiveBigIntegerField(default=0, help_text='Surcharge for specific 1-hour window'),
+        ),
+        migrations.AlterField(
+            model_name='booking',
+            name='pickup_time',
+            field=models.CharField(choices=[('morning', '8 AM - 11 AM'), ('morning_specific', 'Specific 1-hour window (surcharge applies)'), ('no_time_preference', 'No time preference (available for certain packages)')], default='morning', max_length=30),
+        ),
+    ]
+```
+
 # ==== apps/bookings/migrations/__init__.py ====
 
 ```python
@@ -1814,6 +2043,13 @@ class Booking(models.Model):
         ('specialty_item', 'Specialty Item'),
     ]
     
+    # UPDATED: Only morning pickup time available
+    PICKUP_TIME_CHOICES = [
+        ('morning', '8 AM - 11 AM'),
+        ('morning_specific', 'Specific 1-hour window (surcharge applies)'),
+        ('no_time_preference', 'No time preference (available for certain packages)'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking_number = models.CharField(max_length=20, unique=True, blank=True)
     
@@ -1886,29 +2122,55 @@ class Booking(models.Model):
         related_name='delivery_bookings'
     )
     
-    # Date and preferences
+    # Date and preferences - UPDATED: Only morning times
     pickup_date = models.DateField()
     pickup_time = models.CharField(
-        max_length=20,
-        choices=[
-            ('morning', '8 AM - 11 AM'),
-            ('afternoon', '12 PM - 3 PM'),
-            ('evening', '4 PM - 7 PM'),
-        ],
+        max_length=30,
+        choices=PICKUP_TIME_CHOICES,
         default='morning'
+    )
+    
+    # NEW: Specific time window for morning_specific option
+    specific_pickup_hour = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=[
+            (8, '8:00 AM - 9:00 AM'),
+            (9, '9:00 AM - 10:00 AM'),
+            (10, '10:00 AM - 11:00 AM'),
+        ],
+        help_text="Specific hour for 1-hour window pickup"
     )
     
     # Special requirements
     special_instructions = models.TextField(blank=True)
     coi_required = models.BooleanField(default=False)
     
-    # CALCULATED PRICING - Updated to include organizing
+    # NEW: Geographic surcharge tracking
+    is_outside_core_area = models.BooleanField(
+        default=False,
+        help_text="True if pickup/delivery is 30+ miles from Manhattan"
+    )
+    
+    # CALCULATED PRICING - Updated to include new fees
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
     organizing_total_cents = models.PositiveBigIntegerField(
         default=0,
         help_text="Total cost for packing and unpacking services"
+    )
+    geographic_surcharge_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="$175 surcharge for 30+ miles from Manhattan"
+    )
+    time_window_surcharge_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Surcharge for specific 1-hour window"
+    )
+    organizing_tax_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Tax on organizing services"
     )
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
@@ -1986,6 +2248,18 @@ class Booking(models.Model):
     def organizing_total_dollars(self):
         return self.organizing_total_cents / 100
     
+    @property
+    def geographic_surcharge_dollars(self):
+        return self.geographic_surcharge_cents / 100
+    
+    @property
+    def time_window_surcharge_dollars(self):
+        return self.time_window_surcharge_cents / 100
+    
+    @property
+    def organizing_tax_dollars(self):
+        return self.organizing_tax_cents / 100
+    
     def calculate_organizing_costs(self):
         """Calculate organizing service costs based on Mini Move tier"""
         if self.service_type != 'mini_move' or not self.mini_move_package:
@@ -2022,8 +2296,47 @@ class Booking(models.Model):
         
         return total_organizing_cents
     
+    def calculate_coi_fee(self):
+        """Calculate COI fee - $50 for Petite moves if required"""
+        if not self.coi_required:
+            return 0
+        
+        if self.service_type == 'mini_move' and self.mini_move_package:
+            # Petite moves require $50 COI charge
+            if self.mini_move_package.package_type == 'petite':
+                return 5000  # $50 in cents
+            # Other packages may have different COI handling
+            elif not self.mini_move_package.coi_included:
+                return self.mini_move_package.coi_fee_cents
+        
+        return 0
+    
+    def calculate_geographic_surcharge(self):
+        """Calculate $175 surcharge for 30+ miles from Manhattan"""
+        if self.is_outside_core_area:
+            return 17500  # $175 in cents
+        return 0
+    
+    def calculate_time_window_surcharge(self):
+        """Calculate surcharge for 1-hour window selection"""
+        if self.pickup_time == 'morning_specific':
+            if self.service_type == 'mini_move' and self.mini_move_package:
+                # Standard package: surcharge applies
+                if self.mini_move_package.package_type == 'standard':
+                    return 2500  # $25 surcharge for example
+                # Full package: free
+                elif self.mini_move_package.package_type == 'full':
+                    return 0
+        return 0
+    
+    def calculate_organizing_tax(self):
+        """Calculate tax on organizing services (NYC rate: 8.25%)"""
+        if self.organizing_total_cents > 0:
+            return int(self.organizing_total_cents * 0.0825)
+        return 0
+    
     def calculate_pricing(self):
-        """Calculate total pricing using services pricing engine + organizing"""
+        """Calculate total pricing using services pricing engine + all new features"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
         # Reset pricing
@@ -2031,17 +2344,22 @@ class Booking(models.Model):
         self.surcharge_cents = 0
         self.coi_fee_cents = 0
         self.organizing_total_cents = 0
+        self.geographic_surcharge_cents = 0
+        self.time_window_surcharge_cents = 0
+        self.organizing_tax_cents = 0
         
         # Calculate base price by service type
         if self.service_type == 'mini_move' and self.mini_move_package:
             self.base_price_cents = self.mini_move_package.base_price_cents
             
-            # COI handling for Mini Moves
-            if self.coi_required and not self.mini_move_package.coi_included:
-                self.coi_fee_cents = self.mini_move_package.coi_fee_cents
-            
-            # Calculate organizing services
+            # Calculate organizing services first
             self.organizing_total_cents = self.calculate_organizing_costs()
+            
+            # Calculate organizing tax
+            self.organizing_tax_cents = self.calculate_organizing_tax()
+            
+            # NEW: COI handling with $50 for Petite
+            self.coi_fee_cents = self.calculate_coi_fee()
             
         elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
             try:
@@ -2071,12 +2389,19 @@ class Booking(models.Model):
                 )
                 self.surcharge_cents += surcharge_amount
         
-        # Calculate total (base + surcharges + COI + organizing)
+        # NEW: Calculate additional fees
+        self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+        self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
+        
+        # Calculate total (base + all surcharges + organizing + tax)
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
             self.coi_fee_cents + 
-            self.organizing_total_cents
+            self.organizing_total_cents +
+            self.organizing_tax_cents +
+            self.geographic_surcharge_cents +
+            self.time_window_surcharge_cents
         )
     
     def get_pricing_breakdown(self):
@@ -2086,6 +2411,9 @@ class Booking(models.Model):
             'surcharges': self.surcharge_dollars,
             'coi_fee': self.coi_fee_dollars,
             'organizing_total': self.organizing_total_dollars,
+            'organizing_tax': self.organizing_tax_dollars,
+            'geographic_surcharge': self.geographic_surcharge_dollars,
+            'time_window_surcharge': self.time_window_surcharge_dollars,
             'total': self.total_price_dollars,
             'service_type': self.get_service_type_display(),
         }
@@ -2196,9 +2524,9 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = (
             'id', 'booking_number', 'customer_name', 'customer_email',
-            'service_type', 'pickup_date', 'pickup_time', 'status',
+            'service_type', 'pickup_date', 'pickup_time', 'specific_pickup_hour', 'status',
             'pickup_address', 'delivery_address', 'guest_checkout',
-            'special_instructions', 'coi_required',
+            'special_instructions', 'coi_required', 'is_outside_core_area',
             'include_packing', 'include_unpacking',
             'total_price_dollars', 'organizing_total_dollars',
             'pricing_breakdown', 'organizing_services_breakdown', 'created_at'
@@ -2228,7 +2556,7 @@ class BookingStatusSerializer(serializers.ModelSerializer):
         model = Booking
         fields = (
             'booking_number', 'customer_name', 'service_type', 
-            'pickup_date', 'pickup_time', 'status',
+            'pickup_date', 'pickup_time', 'specific_pickup_hour', 'status',
             'pickup_address', 'delivery_address',
             'include_packing', 'include_unpacking',
             'total_price_dollars', 'organizing_total_dollars', 'created_at'
@@ -2253,6 +2581,21 @@ class PricingPreviewSerializer(serializers.Serializer):
     # NEW: Organizing service fields
     include_packing = serializers.BooleanField(required=False, default=False)
     include_unpacking = serializers.BooleanField(required=False, default=False)
+    
+    # UPDATED: New pickup time options
+    pickup_time = serializers.ChoiceField(
+        choices=[
+            ('morning', '8 AM - 11 AM'),
+            ('morning_specific', 'Specific 1-hour window'),
+            ('no_time_preference', 'No time preference'),
+        ],
+        required=False,
+        default='morning'
+    )
+    specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
+    
+    # NEW: Geographic surcharge
+    is_outside_core_area = serializers.BooleanField(required=False, default=False)
     
     # Standard Delivery fields
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
@@ -2294,13 +2637,17 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     
-    # Booking details
+    # Booking details - UPDATED: New pickup time options
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
-        ('afternoon', '12 PM - 3 PM'),
-        ('evening', '4 PM - 7 PM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
     ], default='morning')
+    specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
+    
+    # NEW: Geographic surcharge
+    is_outside_core_area = serializers.BooleanField(default=False)
     
     # Addresses
     pickup_address = serializers.DictField()
@@ -2326,6 +2673,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     def validate(self, attrs):
         service_type = attrs['service_type']
+        pickup_time = attrs.get('pickup_time', 'morning')
+        
+        # Validate specific hour if morning_specific is selected
+        if pickup_time == 'morning_specific' and not attrs.get('specific_pickup_hour'):
+            raise serializers.ValidationError("specific_pickup_hour is required when pickup_time is 'morning_specific'")
         
         # Validate service-specific requirements
         if service_type == 'mini_move':
@@ -2397,10 +2749,12 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             service_type=validated_data['service_type'],
             pickup_date=validated_data['pickup_date'],
             pickup_time=validated_data['pickup_time'],
+            specific_pickup_hour=validated_data.get('specific_pickup_hour'),
             pickup_address=pickup_address,
             delivery_address=delivery_address,
             special_instructions=validated_data.get('special_instructions', ''),
             coi_required=validated_data.get('coi_required', False),
+            is_outside_core_area=validated_data.get('is_outside_core_area', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
             # NEW: Organizing service fields
@@ -3236,8 +3590,16 @@ class CustomerBookingCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
+        # Set booking to confirmed for demo mode (no real payment processing)
+        booking.status = 'confirmed'
+        booking.save()
+        
+        # Update customer statistics immediately for demo
+        customer_profile = request.user.customer_profile
+        customer_profile.add_booking_stats(booking.total_price_cents)
+        
         # Automatically create payment intent for seamless experience
-        create_payment_intent = request.data.get('create_payment_intent', True)
+        create_payment_intent = request.data.get('create_payment_intent', False)  # Default to False for demo
         payment_data = None
         
         if create_payment_intent:
@@ -3297,7 +3659,8 @@ class QuickRebookView(APIView):
             pickup_address=original_booking.pickup_address,
             delivery_address=original_booking.delivery_address,
             special_instructions=serializer.validated_data.get('special_instructions', original_booking.special_instructions),
-            coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required)
+            coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required),
+            status='confirmed'  # Set to confirmed for demo
         )
         
         # Copy specialty items if any
@@ -3305,6 +3668,10 @@ class QuickRebookView(APIView):
             new_booking.specialty_items.set(original_booking.specialty_items.all())
         
         new_booking.save()  # Trigger pricing calculation
+        
+        # Update customer statistics
+        customer_profile = request.user.customer_profile
+        customer_profile.add_booking_stats(new_booking.total_price_cents)
         
         # Create payment intent
         payment_data = StripePaymentService.create_payment_intent(
@@ -3495,6 +3862,29 @@ class Migration(migrations.Migration):
     ]
 ```
 
+# ==== apps/customers/migrations/0002_alter_customerprofile_preferred_pickup_time.py ====
+
+```python
+# Generated by Django 5.2.5 on 2025-09-19 23:12
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('customers', '0001_initial'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='customerprofile',
+            name='preferred_pickup_time',
+            field=models.CharField(choices=[('morning', '8 AM - 11 AM'), ('morning_specific', 'Specific 1-hour window'), ('no_time_preference', 'No time preference')], default='morning', max_length=30),
+        ),
+    ]
+```
+
 # ==== apps/customers/migrations/__init__.py ====
 
 ```python
@@ -3530,13 +3920,13 @@ class CustomerProfile(models.Model):
     total_spent_cents = models.PositiveBigIntegerField(default=0)
     last_booking_at = models.DateTimeField(null=True, blank=True)
     
-    # Customer preferences
+    # Customer preferences - UPDATED: Only morning pickup time
     preferred_pickup_time = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=[
             ('morning', '8 AM - 11 AM'),
-            ('afternoon', '12 PM - 3 PM'),
-            ('evening', '4 PM - 7 PM'),
+            ('morning_specific', 'Specific 1-hour window'),
+            ('no_time_preference', 'No time preference'),
         ],
         default='morning'
     )
@@ -3800,6 +4190,9 @@ urlpatterns = [
     path('bookings/create/', booking_views.CustomerBookingCreateView.as_view(), name='customer-booking-create'),
     path('bookings/<uuid:booking_id>/', booking_views.CustomerBookingDetailView.as_view(), name='customer-booking-detail'),
     path('bookings/<uuid:booking_id>/rebook/', booking_views.QuickRebookView.as_view(), name='quick-rebook'),
+    
+    # Staff-only customer notes management
+    path('<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='customer-notes-update'),
 ]
 ```
 
@@ -3881,7 +4274,7 @@ class CurrentUserView(APIView):
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
-                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data,
+                'customer_profile': CustomerProfileSerializer(request.customer_profile).data,
                 'csrf_token': get_token(request)
             })
         else:
@@ -3955,6 +4348,32 @@ class CustomerBookingListView(generics.ListAPIView):
             'bookings': booking_data,
             'total_count': len(booking_data)
         })
+
+
+# NEW: Customer Notes API for Staff
+class CustomerNotesUpdateView(APIView):
+    """Update customer notes - staff only"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def patch(self, request, customer_id):
+        # Check if user is staff
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            customer_user = User.objects.get(id=customer_id)
+            customer_profile = customer_user.customer_profile
+        except (User.DoesNotExist, CustomerProfile.DoesNotExist):
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        notes = request.data.get('notes', '')
+        customer_profile.notes = notes
+        customer_profile.save()
+        
+        return Response({
+            'message': 'Customer notes updated successfully',
+            'notes': customer_profile.notes
+        })
 ```
 
 # ==== apps/documents/__init__.py ====
@@ -4021,20 +4440,62 @@ from django.shortcuts import render
 # ==== apps/logistics/admin.py ====
 
 ```python
-from django.contrib import admin
 
-# Register your models here.
 ```
 
 # ==== apps/logistics/apps.py ====
 
 ```python
+# apps/logistics/apps.py
 from django.apps import AppConfig
 
 
 class LogisticsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.logistics'
+    verbose_name = 'Logistics'
+```
+
+# ==== apps/logistics/migrations/0001_initial.py ====
+
+```python
+# Generated by Django 5.2.5 on 2025-09-13 23:37
+
+import django.db.models.deletion
+import uuid
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ('bookings', '0002_booking_include_packing_booking_include_unpacking_and_more'),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='OnfleetTask',
+            fields=[
+                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ('onfleet_task_id', models.CharField(max_length=100, unique=True)),
+                ('onfleet_short_id', models.CharField(blank=True, max_length=20)),
+                ('tracking_url', models.URLField(blank=True)),
+                ('status', models.CharField(choices=[('created', 'Created'), ('assigned', 'Assigned'), ('active', 'Active'), ('completed', 'Completed'), ('failed', 'Failed')], default='created', max_length=20)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('last_synced', models.DateTimeField(blank=True, null=True)),
+                ('booking', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='onfleet_task', to='bookings.booking')),
+            ],
+            options={
+                'verbose_name': 'Onfleet Task',
+                'verbose_name_plural': 'Onfleet Tasks',
+                'db_table': 'logistics_onfleet_task',
+                'indexes': [models.Index(fields=['onfleet_task_id'], name='logistics_o_onfleet_7020df_idx'), models.Index(fields=['status'], name='logistics_o_status_f0c32e_idx')],
+            },
+        ),
+    ]
 ```
 
 # ==== apps/logistics/migrations/__init__.py ====
@@ -4046,9 +4507,370 @@ class LogisticsConfig(AppConfig):
 # ==== apps/logistics/models.py ====
 
 ```python
+# apps/logistics/models.py
+import uuid
 from django.db import models
+from django.utils import timezone
+import logging
 
-# Create your models here.
+logger = logging.getLogger(__name__)
+
+
+class OnfleetTask(models.Model):
+    """Minimal bridge between ToteTaxi bookings and Onfleet tasks"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Core relationship - the only thing we really need to store
+    booking = models.OneToOneField(
+        'bookings.Booking', 
+        on_delete=models.CASCADE, 
+        related_name='onfleet_task'
+    )
+    
+    # Onfleet identifiers - essential for API calls
+    onfleet_task_id = models.CharField(max_length=100, unique=True)
+    onfleet_short_id = models.CharField(max_length=20, blank=True)
+    
+    
+    # Customer-facing tracking URL - this is what customers need
+    tracking_url = models.URLField(blank=True)
+    
+    # Simple status for our internal use - maps from Onfleet state
+    status = models.CharField(max_length=20, choices=[
+        ('created', 'Created'),
+        ('assigned', 'Assigned'), 
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed')
+    ], default='created')
+    
+    # Basic timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_synced = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'logistics_onfleet_task'
+        verbose_name = 'Onfleet Task'
+        verbose_name_plural = 'Onfleet Tasks'
+        indexes = [
+            models.Index(fields=['onfleet_task_id']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"Onfleet Task for {self.booking.booking_number}"
+    
+    def sync_status_from_onfleet(self, onfleet_state):
+        """Convert Onfleet state (0-3) to our status and update booking"""
+        state_mapping = {
+            0: 'created',    # unassigned
+            1: 'assigned',   # assigned to driver
+            2: 'active',     # driver started
+            3: 'completed'   # delivery done
+        }
+        
+        old_status = self.status
+        self.status = state_mapping.get(onfleet_state, 'failed')
+        self.last_synced = timezone.now()
+        self.save()
+        
+        # Update ToteTaxi booking status when delivery completes
+        if old_status != 'completed' and self.status == 'completed':
+            self._mark_booking_completed()
+    
+    def _mark_booking_completed(self):
+        """Update ToteTaxi booking when Onfleet delivery completes"""
+        try:
+            # Update booking status
+            if self.booking.status in ['confirmed', 'in_progress']:
+                self.booking.status = 'completed'
+                self.booking.save()
+            
+            # Update customer stats if authenticated user
+            if self.booking.customer and hasattr(self.booking.customer, 'customer_profile'):
+                profile = self.booking.customer.customer_profile
+                profile.total_bookings += 1
+                profile.total_spent_cents += self.booking.total_price_cents
+                profile.last_booking_at = timezone.now()
+                
+                # Check for VIP upgrade
+                if not profile.is_vip and profile.total_spent_dollars >= 2000:
+                    profile.is_vip = True
+                    
+                profile.save()
+                
+        except Exception as e:
+            logger.error(f"Error updating booking completion for {self.booking.booking_number}: {e}")
+
+
+# Signal to auto-create Onfleet tasks when bookings are confirmed
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender='bookings.Booking')
+def create_onfleet_task(sender, instance, created, **kwargs):
+    """Auto-create Onfleet task when booking is confirmed"""
+    if instance.status == 'confirmed' and not hasattr(instance, 'onfleet_task'):
+        try:
+            from .services import ToteTaxiOnfleetIntegration
+            integration = ToteTaxiOnfleetIntegration()
+            integration.create_delivery_task(instance)
+        except Exception as e:
+            logger.error(f"Failed to create Onfleet task for booking {instance.booking_number}: {e}")
+```
+
+# ==== apps/logistics/services.py ====
+
+```python
+# apps/logistics/services.py - FIXED VERSION
+import requests
+from django.conf import settings
+from django.utils import timezone
+from datetime import time
+from typing import Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class OnfleetService:
+    """Simple Onfleet API wrapper for ToteTaxi integration"""
+    
+    def __init__(self):
+        self.api_key = getattr(settings, 'ONFLEET_API_KEY', '')
+        self.base_url = 'https://onfleet.com/api/v2'
+        self.mock_mode = getattr(settings, 'ONFLEET_MOCK_MODE', True)
+    
+    def _make_request(self, method: str, endpoint: str, data: dict = None) -> dict:
+        """Make authenticated request to Onfleet API"""
+        if self.mock_mode:
+            return self._mock_response(method, endpoint, data)
+        
+        url = f"{self.base_url}/{endpoint}"
+        auth = (self.api_key, '')
+        headers = {'Content-Type': 'application/json'}
+        
+        try:
+            if method == 'GET':
+                response = requests.get(url, auth=auth, headers=headers)
+            elif method == 'POST':
+                response = requests.post(url, auth=auth, headers=headers, json=data)
+            elif method == 'PUT':
+                response = requests.put(url, auth=auth, headers=headers, json=data)
+            
+            response.raise_for_status()
+            return response.json()
+        
+        except requests.RequestException as e:
+            logger.error(f"Onfleet API error: {e}")
+            raise
+    
+    def _mock_response(self, method: str, endpoint: str, data: dict = None) -> dict:
+        """Mock responses for development"""
+        if endpoint == 'tasks' and method == 'POST':
+            booking_number = data.get('metadata', [{}])[0].get('value', 'unknown')
+            return {
+                'id': f'mock_task_{hash(booking_number) % 10000}',
+                'shortId': f'mt{hash(booking_number) % 1000:03d}',
+                'trackingURL': f'https://onf.lt/mock{hash(booking_number) % 10000}',
+                'state': 0,
+                'merchant': 'mock_org_id',
+                'creator': 'mock_admin_id'
+            }
+        elif endpoint == 'organization':
+            return {
+                'id': 'mock_org_id',
+                'name': 'ToteTaxi (Test Mode)',
+                'activeTasks': 3,
+                'workers': [
+                    {'id': 'mock_worker_1', 'name': 'Test Driver 1', 'onDuty': True},
+                    {'id': 'mock_worker_2', 'name': 'Test Driver 2', 'onDuty': True}
+                ]
+            }
+        return {'success': True, 'mock': True}
+    
+    def _get_customer_phone(self, booking):
+        """Get customer phone number - works for both authenticated and guest"""
+        try:
+            # Authenticated customer
+            if booking.customer and hasattr(booking.customer, 'customer_profile'):
+                phone = booking.customer.customer_profile.phone
+                return phone if phone else ''
+            
+            # Guest checkout (when we have them)
+            elif booking.guest_checkout:
+                # Try common phone field names
+                for field_name in ['phone', 'customer_phone', 'phone_number']:
+                    if hasattr(booking.guest_checkout, field_name):
+                        phone = getattr(booking.guest_checkout, field_name)
+                        if phone:
+                            return phone
+            
+            return ''
+        except Exception as e:
+            logger.warning(f"Could not get phone for booking {booking.booking_number}: {e}")
+            return ''
+    
+    def _convert_pickup_time(self, pickup_time_str):
+        """Convert string pickup time to time object"""
+        time_mapping = {
+            'morning': time(9, 0),      # 9:00 AM
+            'afternoon': time(14, 0),   # 2:00 PM  
+            'evening': time(18, 0)      # 6:00 PM
+        }
+        return time_mapping.get(pickup_time_str, time(9, 0))
+    
+    def create_task_from_booking(self, booking) -> dict:
+        """Create Onfleet task from ToteTaxi booking"""
+        customer_phone = self._get_customer_phone(booking)
+        
+        task_data = {
+            'destination': {
+                'address': {
+                    'unparsed': f"{booking.delivery_address.address_line_1}, {booking.delivery_address.city}, {booking.delivery_address.state} {booking.delivery_address.zip_code}"
+                }
+            },
+            'recipients': [{
+                'name': booking.get_customer_name(),
+                'phone': customer_phone,
+                'notes': f"ToteTaxi customer - {booking.get_service_type_display()}"
+            }],
+            'notes': f"ToteTaxi Booking #{booking.booking_number}\nService: {booking.get_service_type_display()}\nInstructions: {booking.special_instructions or 'None'}",
+            'metadata': [{
+                'name': 'totetaxi_booking_number',
+                'type': 'string',
+                'value': booking.booking_number,
+                'visibility': ['api']
+            }, {
+                'name': 'totetaxi_booking_id',
+                'type': 'string', 
+                'value': str(booking.id),
+                'visibility': ['api']
+            }]
+        }
+        
+        # Handle timing - convert string pickup times
+        if booking.pickup_date and booking.pickup_time:
+            try:
+                pickup_time = self._convert_pickup_time(booking.pickup_time)
+                pickup_datetime = timezone.datetime.combine(
+                    booking.pickup_date, 
+                    pickup_time,
+                    tzinfo=timezone.get_current_timezone()
+                )
+                task_data['completeAfter'] = int(pickup_datetime.timestamp() * 1000)
+            except Exception as e:
+                logger.warning(f"Could not set timing for booking {booking.booking_number}: {e}")
+        
+        return self._make_request('POST', 'tasks', task_data)
+    
+    def get_organization_info(self) -> dict:
+        """Get basic organization info for dashboard"""
+        return self._make_request('GET', 'organization')
+
+
+class ToteTaxiOnfleetIntegration:
+    """High-level integration manager for ToteTaxi + Onfleet"""
+    
+    def __init__(self):
+        self.onfleet = OnfleetService()
+    
+    def create_delivery_task(self, booking) -> Optional['OnfleetTask']:
+        """Create Onfleet task when ToteTaxi booking is confirmed"""
+        from .models import OnfleetTask
+        
+        try:
+            if hasattr(booking, 'onfleet_task'):
+                logger.warning(f"Booking {booking.booking_number} already has Onfleet task")
+                return booking.onfleet_task
+            
+            onfleet_response = self.onfleet.create_task_from_booking(booking)
+            
+            onfleet_task = OnfleetTask.objects.create(
+                booking=booking,
+                onfleet_task_id=onfleet_response['id'],
+                onfleet_short_id=onfleet_response.get('shortId', ''),
+                tracking_url=onfleet_response.get('trackingURL', ''),
+                status='created'
+            )
+            
+            logger.info(f"Created Onfleet task {onfleet_task.onfleet_task_id} for booking {booking.booking_number}")
+            return onfleet_task
+            
+        except Exception as e:
+            logger.error(f"Failed to create Onfleet task for booking {booking.booking_number}: {e}")
+            return None
+    
+    def handle_webhook(self, webhook_data: dict) -> bool:
+        """Process Onfleet webhook updates"""
+        from .models import OnfleetTask
+        
+        try:
+            task_data = webhook_data.get('data', {}).get('task', {})
+            
+            if not task_data.get('id'):
+                return False
+            
+            onfleet_task = OnfleetTask.objects.get(onfleet_task_id=task_data['id'])
+            onfleet_state = task_data.get('state')
+            
+            if onfleet_state is not None:
+                onfleet_task.sync_status_from_onfleet(onfleet_state)
+                return True
+            
+            return False
+            
+        except OnfleetTask.DoesNotExist:
+            logger.warning(f"Onfleet task {task_data.get('id')} not found")
+            return False
+        except Exception as e:
+            logger.error(f"Webhook processing error: {e}")
+            return False
+    
+    def get_dashboard_summary(self) -> dict:
+        """Get logistics summary for staff dashboard"""
+        from .models import OnfleetTask
+        from apps.bookings.models import Booking
+        from datetime import date
+        
+        try:
+            today = date.today()
+            
+            todays_bookings = Booking.objects.filter(
+                pickup_date=today,
+                deleted_at__isnull=True
+            )
+            
+            onfleet_tasks = OnfleetTask.objects.filter(created_at__date=today)
+            onfleet_org = self.onfleet.get_organization_info()
+            
+            return {
+                'totetaxi_stats': {
+                    'total_bookings': todays_bookings.count(),
+                    'confirmed_bookings': todays_bookings.filter(status='confirmed').count(),
+                    'completed_bookings': todays_bookings.filter(status='completed').count(),
+                },
+                'onfleet_stats': {
+                    'active_tasks': onfleet_org.get('activeTasks', 0),
+                    'available_workers': len([w for w in onfleet_org.get('workers', []) if w.get('onDuty')]),
+                    'organization_name': onfleet_org.get('name', 'Unknown')
+                },
+                'integration_stats': {
+                    'tasks_created_today': onfleet_tasks.count(),
+                    'tasks_completed_today': onfleet_tasks.filter(status='completed').count(),
+                    'tasks_active': onfleet_tasks.filter(status__in=['assigned', 'active']).count(),
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting dashboard summary: {e}")
+            return {
+                'error': 'Failed to fetch logistics data',
+                'totetaxi_stats': {'total_bookings': 0, 'confirmed_bookings': 0, 'completed_bookings': 0},
+                'onfleet_stats': {'active_tasks': 0, 'available_workers': 0, 'organization_name': 'Error'},
+                'integration_stats': {'tasks_created_today': 0, 'tasks_completed_today': 0, 'tasks_active': 0}
+            }
 ```
 
 # ==== apps/logistics/tests.py ====
@@ -4059,12 +4881,235 @@ from django.test import TestCase
 # Create your tests here.
 ```
 
+# ==== apps/logistics/urls.py ====
+
+```python
+# apps/logistics/urls.py
+from django.urls import path
+from . import views
+
+app_name = 'logistics'
+
+urlpatterns = [
+    # Staff dashboard endpoints
+    path('summary/', views.LogisticsSummaryView.as_view(), name='logistics-summary'),
+    path('sync/', views.sync_onfleet_status, name='sync-onfleet'),
+    path('tasks/', views.TaskStatusView.as_view(), name='task-status'),
+    path('create-task/', views.create_task_manually, name='create-task'),
+    
+    # Webhook endpoint (for Onfleet to call)
+    path('webhook/', views.OnfleetWebhookView.as_view(), name='onfleet-webhook'),
+]
+```
+
 # ==== apps/logistics/views.py ====
 
 ```python
-from django.shortcuts import render
+# apps/logistics/views.py
+from rest_framework import status, permissions
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+import logging
 
-# Create your views here.
+from .services import ToteTaxiOnfleetIntegration
+from .models import OnfleetTask
+
+logger = logging.getLogger(__name__)
+
+
+class LogisticsSummaryView(APIView):
+    """Simple logistics overview for staff dashboard"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=403)
+        
+        try:
+            integration = ToteTaxiOnfleetIntegration()
+            summary = integration.get_dashboard_summary()
+            
+            return Response({
+                'success': True,
+                'data': summary,
+                'timestamp': timezone.now()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in logistics summary: {e}")
+            return Response({
+                'error': 'Failed to fetch logistics data',
+                'details': str(e)
+            }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def sync_onfleet_status(request):
+    """Manual sync button for staff dashboard"""
+    if not hasattr(request.user, 'staff_profile'):
+        return Response({'error': 'Staff access required'}, status=403)
+    
+    try:
+        # Get recent incomplete tasks
+        recent_tasks = OnfleetTask.objects.filter(
+            status__in=['created', 'assigned', 'active'],
+            created_at__gte=timezone.now() - timezone.timedelta(days=7)
+        )
+        
+        synced_count = 0
+        for task in recent_tasks:
+            # In production, you'd fetch current status from Onfleet API
+            # For now, just update the sync timestamp
+            task.last_synced = timezone.now()
+            task.save()
+            synced_count += 1
+        
+        return Response({
+            'success': True,
+            'message': f'Synced {synced_count} tasks',
+            'synced_count': synced_count,
+            'timestamp': timezone.now()
+        })
+        
+    except Exception as e:
+        logger.error(f"Sync error: {e}")
+        return Response({
+            'error': f'Sync failed: {str(e)}'
+        }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_task_manually(request):
+    """Manually create Onfleet task for a booking"""
+    if not hasattr(request.user, 'staff_profile'):
+        return Response({'error': 'Staff access required'}, status=403)
+    
+    booking_id = request.data.get('booking_id')
+    if not booking_id:
+        return Response({'error': 'booking_id required'}, status=400)
+    
+    try:
+        from apps.bookings.models import Booking
+        booking = Booking.objects.get(id=booking_id, deleted_at__isnull=True)
+        
+        integration = ToteTaxiOnfleetIntegration()
+        task = integration.create_delivery_task(booking)
+        
+        if task:
+            return Response({
+                'success': True,
+                'message': f'Created Onfleet task for {booking.booking_number}',
+                'task': {
+                    'id': str(task.id),
+                    'onfleet_task_id': task.onfleet_task_id,
+                    'tracking_url': task.tracking_url,
+                    'status': task.status
+                }
+            })
+        else:
+            return Response({
+                'error': 'Failed to create Onfleet task'
+            }, status=500)
+            
+    except Booking.DoesNotExist:
+        return Response({'error': 'Booking not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Manual task creation error: {e}")
+        return Response({
+            'error': f'Task creation failed: {str(e)}'
+        }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class OnfleetWebhookView(APIView):
+    """Handle Onfleet webhook notifications"""
+    permission_classes = []  # Webhooks don't use session auth
+    
+    def post(self, request):
+        try:
+            # TODO: In production, verify webhook signature here
+            # webhook_secret = getattr(settings, 'ONFLEET_WEBHOOK_SECRET', None)
+            
+            webhook_data = request.data
+            integration = ToteTaxiOnfleetIntegration()
+            
+            success = integration.handle_webhook(webhook_data)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': 'Webhook processed successfully',
+                    'timestamp': timezone.now()
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': 'Webhook processing failed'
+                }, status=400)
+                
+        except Exception as e:
+            logger.error(f"Webhook error: {e}")
+            return Response({
+                'error': 'Webhook processing failed',
+                'details': str(e)
+            }, status=500)
+
+
+class TaskStatusView(APIView):
+    """Get status of Onfleet tasks"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=403)
+        
+        # Get query params
+        booking_id = request.query_params.get('booking_id')
+        date_filter = request.query_params.get('date')
+        
+        try:
+            tasks = OnfleetTask.objects.all()
+            
+            if booking_id:
+                tasks = tasks.filter(booking_id=booking_id)
+            
+            if date_filter:
+                tasks = tasks.filter(created_at__date=date_filter)
+            
+            tasks = tasks.select_related('booking').order_by('-created_at')[:50]
+            
+            task_data = []
+            for task in tasks:
+                task_data.append({
+                    'id': str(task.id),
+                    'booking_number': task.booking.booking_number,
+                    'customer_name': task.booking.get_customer_name(),
+                    'onfleet_task_id': task.onfleet_task_id,
+                    'onfleet_short_id': task.onfleet_short_id,
+                    'tracking_url': task.tracking_url,
+                    'status': task.status,
+                    'created_at': task.created_at,
+                    'last_synced': task.last_synced
+                })
+            
+            return Response({
+                'success': True,
+                'tasks': task_data,
+                'count': len(task_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching tasks: {e}")
+            return Response({
+                'error': 'Failed to fetch tasks',
+                'details': str(e)
+            }, status=500)
 ```
 
 # ==== apps/notifications/__init__.py ====
@@ -4946,7 +5991,7 @@ class PaymentStatusView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(APIView):
-    """Handle Stripe webhooks - no authentication required"""
+    """Handle Stripe webhooks - FIXED to update booking status"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -4961,8 +6006,27 @@ class StripeWebhookView(APIView):
                 payment_intent_id = payment_intent.get('id')
                 
                 if payment_intent_id:
-                    # Confirm payment
+                    # FIXED: Confirm payment AND update booking status
                     payment = StripePaymentService.confirm_payment(payment_intent_id)
+                    
+                    if payment and payment.booking:
+                        # Update booking status from pending to paid
+                        if payment.booking.status == 'pending':
+                            payment.booking.status = 'paid'
+                            payment.booking.save()
+                            print(f"✅ Booking {payment.booking.booking_number} status updated to 'paid'")
+                        
+                        # AUTO-COMPLETE certain booking types (optional - you can remove this)
+                        # For now, let's auto-complete all paid bookings to test the flow
+                        if payment.booking.status == 'paid':
+                            payment.booking.status = 'completed'
+                            payment.booking.save()
+                            
+                            # Update customer stats when booking completed
+                            if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
+                                payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
+                                print(f"✅ Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
+                    
                     return Response({'status': 'success'})
             
             elif event_type == 'payment_intent.payment_failed':
@@ -4976,7 +6040,7 @@ class StripeWebhookView(APIView):
                         payment.failure_reason = payment_intent.get('last_payment_error', {}).get('message', 'Payment failed')
                         payment.save()
                         
-                        # Update booking status
+                        # Update booking status back to pending
                         payment.booking.status = 'pending'
                         payment.booking.save()
                         
@@ -4992,9 +6056,8 @@ class StripeWebhookView(APIView):
             )
 
 
-# Mock payment confirmation for testing (remove in production)
 class MockPaymentConfirmView(APIView):
-    """Mock payment confirmation for testing - no authentication required"""
+    """FIXED Mock payment confirmation - now updates booking status and customer stats"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -5006,10 +6069,31 @@ class MockPaymentConfirmView(APIView):
         
         try:
             if status_value == 'succeeded':
+                # Confirm payment (updates Payment record)
                 payment = StripePaymentService.confirm_payment(payment_intent_id)
+                
+                if payment and payment.booking:
+                    # FIXED: Update booking status from pending to paid
+                    if payment.booking.status == 'pending':
+                        payment.booking.status = 'paid'
+                        payment.booking.save()
+                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
+                    
+                    # AUTO-COMPLETE for testing (you can remove this later for manual staff completion)
+                    if payment.booking.status == 'paid':
+                        payment.booking.status = 'completed'
+                        payment.booking.save()
+                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} auto-completed")
+                        
+                        # Update customer stats when booking completed
+                        if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
+                            payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
+                            print(f"✅ Mock payment: Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
+                
                 return Response({
                     'message': 'Payment confirmed successfully',
-                    'payment': PaymentSerializer(payment).data
+                    'payment': PaymentSerializer(payment).data,
+                    'booking_status': payment.booking.status if payment else 'unknown'
                 })
             else:
                 # Handle failed payment
@@ -5018,53 +6102,16 @@ class MockPaymentConfirmView(APIView):
                 payment.failure_reason = serializer.validated_data.get('failure_reason', 'Payment failed')
                 payment.save()
                 
+                # Keep booking as pending for failed payments
+                payment.booking.status = 'pending'
+                payment.booking.save()
+                
                 return Response({
                     'message': 'Payment marked as failed',
-                    'payment': PaymentSerializer(payment).data
+                    'payment': PaymentSerializer(payment).data,
+                    'booking_status': payment.booking.status
                 })
                 
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-
-class PaymentListView(generics.ListAPIView):
-    """List payments - for authenticated staff only"""
-    serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return Payment.objects.all().order_by('-created_at')
-
-
-class RefundCreateView(APIView):
-    """Create refund request - for authenticated staff only"""
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        serializer = RefundCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        payment_id = serializer.validated_data['payment_id']
-        amount_cents = serializer.validated_data['amount_cents']
-        reason = serializer.validated_data['reason']
-        
-        try:
-            payment = Payment.objects.get(id=payment_id)
-            refund = StripePaymentService.create_refund(
-                payment=payment,
-                amount_cents=amount_cents,
-                reason=reason,
-                requested_by_user=request.user
-            )
-            
-            return Response({
-                'message': 'Refund request created',
-                'refund': RefundSerializer(refund).data
-            }, status=status.HTTP_201_CREATED)
-            
         except Payment.DoesNotExist:
             return Response(
                 {'error': 'Payment not found'}, 
@@ -5077,13 +6124,39 @@ class RefundCreateView(APIView):
             )
 
 
+# Staff payment management views (existing functionality)
+class PaymentListView(generics.ListAPIView):
+    """List all payments - staff only"""
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'staff_profile'):
+            return Payment.objects.none()
+        return Payment.objects.all().order_by('-created_at')
+
+
 class RefundListView(generics.ListAPIView):
-    """List refunds - for authenticated staff only"""
+    """List all refunds - staff only"""
     serializer_class = RefundSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        if not hasattr(self.request.user, 'staff_profile'):
+            return Refund.objects.none()
         return Refund.objects.all().order_by('-created_at')
+
+
+class RefundCreateView(generics.CreateAPIView):
+    """Create refund request - staff only"""
+    serializer_class = RefundCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        if not hasattr(self.request.user, 'staff_profile'):
+            raise permissions.PermissionDenied('Not a staff account')
+        
+        serializer.save(requested_by=self.request.user)
 ```
 
 # ==== apps/services/__init__.py ====
@@ -6182,6 +7255,7 @@ from django.test import TestCase
 # ==== apps/services/views.py ====
 
 ```python
+# services/views.py
 from django.shortcuts import render
 
 # Create your views here.

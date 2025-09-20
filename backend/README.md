@@ -141,6 +141,7 @@ Need files:
 - `serializers.py` → Guest booking validation, pricing requests
 - `urls.py` → Public API endpoints (/api/public/)
 - `admin.py` → Staff booking management interface
+- `migrations/` → Database schema changes including pickup time updates
 
 ### **apps/customers/ - Customer Management**
 - `models.py` → CustomerProfile, SavedAddress, CustomerPaymentMethod
@@ -187,6 +188,33 @@ Need files:
 - `Dockerfile` → Container configuration
 - `manage.py` → Django management commands
 
+## Recent File Changes (Phase 5 - Morning-Only Pickup Implementation)
+
+**Files Modified:**
+1. **`apps/bookings/models.py`**
+   - Updated `Booking.pickup_time` choices to morning-only options
+   - Added `Booking.specific_pickup_hour` field (IntegerField)
+   - Enhanced `calculate_pricing()` with time window surcharge logic
+   - Added `calculate_time_window_surcharge()` method
+
+2. **`apps/bookings/migrations/0004_update_pickup_time_choices.py`** (NEW FILE)
+   - Data migration: Updates existing bookings to use 'morning' pickup time
+   - Schema migration: Adds `specific_pickup_hour` field
+   - Updates `pickup_time` field choices and constraints
+
+**Service Data Populated (via Django shell commands):**
+- Mini Move Packages: Petite ($995), Standard ($1,725), Full ($2,490)
+- Standard Delivery Config: $95/item, $285 minimum, $360 same-day
+- Specialty Items: Crib ($350), Surfboard ($350), Peloton ($500), Wardrobe Box ($275)
+- Geographic Surcharges: CT/NJ (+$220), Amagansett/Montauk (+$120)
+- Organizing Services: Already populated via migration `services.0003_populate_organizing_services`
+
+**No changes required to:**
+- Serializers (already flexible for new fields)
+- Views (pricing logic already dynamic)
+- Admin interface (automatically reflects model changes)
+- API endpoints (backward compatible)
+
 ## Quick Task Reference
 
 **"I want to..."** → **"Send me these files:"**
@@ -200,8 +228,9 @@ Need files:
 - **Payment integration** → `apps/payments/services.py`, `apps/payments/views.py`
 - **Logistics integration work** → `apps/logistics/services.py`, `apps/logistics/views.py`
 - **Add API endpoints** → Relevant app's `views.py`, `urls.py`, `serializers.py`
-- **Database changes** → Relevant app's `models.py`
+- **Database changes** → Relevant app's `models.py`, create migration
 - **Admin interface** → Relevant app's `admin.py`
+- **Update pickup time logic** → `apps/bookings/models.py`, `apps/bookings/migrations/`
 
 This guide ensures efficient file requests - you tell me what you want to build, I know exactly which files contain the relevant logic and patterns.
 
@@ -213,18 +242,18 @@ This guide ensures efficient file requests - you tell me what you want to build,
 
 ## System Architecture Overview
 
-ToteTaxi is a luxury delivery service system built on Django with a sophisticated dual-customer architecture supporting both authenticated users and guest checkout. The system handles complex pricing calculations, staff operations, and financial workflows while maintaining clean separation between customer and staff concerns.
+ToteTaxi is a luxury delivery service system built on Django with a sophisticated dual-customer architecture supporting both authenticated users and guest checkout. The system handles complex pricing calculations with morning-only pickup scheduling, staff operations, and financial workflows while maintaining clean separation between customer and staff concerns.
 
 **Current Implementation Status:**
-- **Fully Implemented:** Customer authentication, guest booking, pricing engine with organizing services, staff operations, payment processing (mocked), Onfleet logistics integration
+- **Fully Implemented:** Customer authentication, guest booking, pricing engine with organizing services, morning-only pickup scheduling, staff operations, payment processing (mocked), Onfleet logistics integration
 - **Partially Implemented:** Admin dashboard views, basic audit logging
 - **Stub Applications:** Documents, notifications, CRM (empty but structured)
 
 **ToteTaxi Backend Ecosystem**
 ```
-├── Core Business Logic (IMPLEMENTED)
-│   ├── bookings/ → Complete booking lifecycle (guest + authenticated)
-│   ├── services/ → Pricing engine with organizing services integration
+├── Core Business Logic (IMPLEMENTED + ENHANCED)
+│   ├── bookings/ → Complete booking lifecycle with morning-only pickup times
+│   ├── services/ → Pricing engine with organizing services and time window surcharges
 │   └── customers/ → Customer profiles, addresses, payment methods
 ├── Staff Operations (IMPLEMENTED)
 │   └── accounts/ → Staff profiles with comprehensive audit logging
@@ -244,6 +273,53 @@ ToteTaxi is a luxury delivery service system built on Django with a sophisticate
     └── AWS Services (S3 storage, SES email - configured but unused)
 ```
 
+## Recent Updates (Phase 5 - Morning-Only Pickup Implementation)
+
+**Database Schema Changes:**
+- **Updated `Booking.pickup_time` field** - Changed from afternoon/evening options to morning-only scheduling
+  - Removed: `'afternoon'`, `'evening'` pickup times (no longer offered per business requirements)
+  - Updated: `'morning'` (8-11 AM standard 3-hour window)
+  - Added: `'morning_specific'` (1-hour precision: 8 AM, 9 AM, or 10 AM)
+  - Added: `'no_time_preference'` (flexible scheduling for Petite packages only)
+- **Added `Booking.specific_pickup_hour` field** - IntegerField (8, 9, or 10) for 1-hour window selection
+- **Migration applied:** `apps/bookings/migrations/0004_update_pickup_time_choices.py`
+  - Data migration updates all existing bookings to use 'morning'
+  - Safely adds new field without data loss
+  - Updates model constraints and choices
+
+**Service Catalog Population (Complete):**
+All ToteTaxi services now populated in database with real pricing:
+
+**Mini Move Packages:**
+- **Petite:** $995 (15 items <50 lbs, shared van, COI +$50, no premium time options)
+- **Standard:** $1,725 (30 items <50 lbs, COI included, priority scheduling, 1-hour window +$25)
+- **Full Move:** $2,490 (unlimited items, van exclusive, COI included, 1-hour window FREE)
+
+**Professional Organizing Services:**
+- **Petite Packing:** $1,400 (4 hrs, 2 organizers, $250 supplies)
+- **Standard Packing:** $2,535 (8 hrs, 2 organizers, $250 supplies)
+- **Full Packing:** $5,070 (8 hrs, 4 organizers, $500 supplies)
+- **Petite Unpacking:** $1,130 (4 hrs, 2 organizers, organizing only)
+- **Standard Unpacking:** $2,265 (8 hrs, 2 organizers, organizing only)
+- **Full Unpacking:** $4,525 (8 hrs, 4 organizers, organizing only)
+- **NYC Tax:** 8.25% applied to all organizing services
+
+**Standard Delivery:**
+- **$95 per item** (confirmed final pricing)
+- **$285 minimum charge**, **$360 same-day flat rate**
+
+**Specialty Items:**
+- **Crib:** $350, **Surfboard:** $350, **Peloton:** $500, **Wardrobe Box:** $275
+
+**Geographic Surcharges:**
+- **CT/NJ Distance:** +$220 (for pickups 30+ min outside Manhattan)
+- **Amagansett/Montauk:** +$120 (East End premium)
+
+**Time Window Pricing (New):**
+- **Standard Package 1-hour window:** +$25 surcharge
+- **Full Package 1-hour window:** Included FREE
+- **Petite Package:** No premium time options available
+
 ## Complete ToteTaxi Service Catalog (IMPLEMENTED)
 
 ### 1. Mini Moves with Professional Organizing Integration
@@ -254,6 +330,23 @@ ToteTaxi is a luxury delivery service system built on Django with a sophisticate
 - Petite: $995 (15 items <50 lbs, shared van)
 - Standard: $1,725 (30 items <50 lbs, COI included, priority scheduling, shared van)  
 - Full Move: $2,490 (Van exclusive, unlimited items)
+```
+
+**Pickup Time Options (Morning-Only Scheduling):**
+```python
+# Package-specific time windows implemented
+Pickup Time Choices:
+- 'morning' (8-11 AM) - Standard 3-hour window for all packages
+- 'morning_specific' - 1-hour precision window (Standard/Full only)
+  - 8:00-9:00 AM option
+  - 9:00-10:00 AM option  
+  - 10:00-11:00 AM option
+- 'no_time_preference' - Flexible coordination (Petite only)
+
+Time Window Pricing:
+- Petite: No premium time options available
+- Standard: +$25 for 1-hour specific window
+- Full: 1-hour specific window included FREE
 ```
 
 **Professional Organizing Services (FULLY IMPLEMENTED):**
@@ -395,12 +488,12 @@ StaffAction (ForeignKey to User)
 
 ## Core Application Analysis
 
-### apps/bookings/ - System Heart (FULLY IMPLEMENTED)
+### apps/bookings/ - System Heart (FULLY IMPLEMENTED + ENHANCED)
 
-**Purpose:** Central booking entity managing complete lifecycle from inquiry to completion, including organizing services integration.
+**Purpose:** Central booking entity managing complete lifecycle from inquiry to completion, including organizing services integration and morning-only scheduling.
 
 **Key Models:**
-- **Booking:** UUID primary key, TT-XXXXXX numbering, supports both customer and guest_checkout, includes organizing services fields
+- **Booking:** UUID primary key, TT-XXXXXX numbering, supports both customer and guest_checkout, includes organizing services fields and new pickup time options
 - **Address:** Reusable addresses with customer linking
 - **GuestCheckout:** Temporary customer data for non-authenticated bookings
 
@@ -411,14 +504,26 @@ booking.customer  # ForeignKey to User (authenticated)
 booking.guest_checkout  # OneToOne to GuestCheckout (guest)
 # Constraint ensures exactly one customer type
 
-# Organizing services integration (NEW)
+# Morning-only scheduling (NEW - IMPLEMENTED)
+booking.pickup_time  # 'morning' | 'morning_specific' | 'no_time_preference'
+booking.specific_pickup_hour  # 8, 9, or 10 for 1-hour windows
+
+# Package-tier-specific time options validation
+if booking.mini_move_package.package_type == 'petite':
+    # Can use 'morning' or 'no_time_preference'
+    # Cannot use 'morning_specific' - no premium time options
+elif booking.mini_move_package.package_type in ['standard', 'full']:
+    # Can use 'morning' or 'morning_specific' with specific_pickup_hour
+    # 'no_time_preference' not offered for premium packages
+
+# Organizing services integration
 booking.include_packing  # BooleanField for packing service
 booking.include_unpacking  # BooleanField for unpacking service
 booking.organizing_total_cents  # Calculated organizing service costs
 
-# Automatic pricing calculation with organizing services
+# Automatic pricing calculation with organizing services and time windows
 def save(self):
-    self.calculate_pricing()  # Uses services app pricing engine + organizing
+    self.calculate_pricing()  # Uses services app pricing engine + organizing + time surcharges
     super().save()
 
 def calculate_organizing_costs(self):
@@ -444,6 +549,19 @@ def calculate_organizing_costs(self):
     
     return total_organizing_cents
 
+def calculate_time_window_surcharge(self):
+    # NEW: Calculate 1-hour window surcharge based on package tier
+    if self.pickup_time != 'morning_specific':
+        return 0
+    
+    tier = self.mini_move_package.package_type
+    if tier == 'standard':
+        return 2500  # $25 surcharge for Standard package
+    elif tier == 'full':
+        return 0  # Included free for Full package
+    else:
+        return 0  # Petite doesn't offer this option
+
 # Service integration
 booking.mini_move_package  # ForeignKey to MiniMovePackage
 booking.specialty_items  # ManyToMany to SpecialtyItem
@@ -451,25 +569,69 @@ booking.specialty_items  # ManyToMany to SpecialtyItem
 
 **API Endpoints (Implemented):**
 - `GET /api/public/services/` - Service catalog with organizing services (no auth)
-- `POST /api/public/pricing-preview/` - Real-time pricing including organizing (no auth)
+- `POST /api/public/pricing-preview/` - Real-time pricing including organizing and time surcharges (no auth)
 - `GET /api/public/availability/` - Calendar availability with surcharges (no auth)
-- `POST /api/public/guest-booking/` - Guest booking creation with organizing services (no auth)
+- `POST /api/public/guest-booking/` - Guest booking creation with organizing services and new time options (no auth)
 - `GET /api/public/booking-status/<booking_number>/` - Status lookup (no auth)
 - `GET /api/public/services/mini-moves-with-organizing/` - Mini Move packages with organizing options (no auth)
 - `GET /api/public/services/organizing-by-tier/` - Organizing services grouped by tier (no auth)
 - `GET /api/public/services/organizing/<uuid:service_id>/` - Organizing service details (no auth)
 
 **Integration Points:**
-- → services/: Pricing calculation integration including organizing services
+- → services/: Pricing calculation integration including organizing services and time windows
 - → payments/: Payment intent creation trigger
 - → logistics/: Automatic Onfleet task creation when booking confirmed
 - ← accounts/: Staff booking management
 - ↔ customers/: Authenticated booking creation
 
+**Migration Details:**
+```python
+# Migration 0004: Update pickup time choices
+class Migration(migrations.Migration):
+    dependencies = [
+        ('bookings', '0003_previous_migration'),
+    ]
+    
+    operations = [
+        # Data migration: Update existing bookings
+        migrations.RunPython(update_pickup_times),
+        
+        # Add new field for 1-hour window selection
+        migrations.AddField(
+            model_name='booking',
+            name='specific_pickup_hour',
+            field=models.IntegerField(null=True, blank=True, 
+                                     choices=[(8, '8 AM'), (9, '9 AM'), (10, '10 AM')]),
+        ),
+        
+        # Update pickup_time field choices
+        migrations.AlterField(
+            model_name='booking',
+            name='pickup_time',
+            field=models.CharField(
+                max_length=20,
+                choices=[
+                    ('morning', 'Morning (8-11 AM)'),
+                    ('morning_specific', 'Specific Morning Hour'),
+                    ('no_time_preference', 'No Time Preference'),
+                ]
+            ),
+        ),
+    ]
+
+def update_pickup_times(apps, schema_editor):
+    """Convert old afternoon/evening times to morning"""
+    Booking = apps.get_model('bookings', 'Booking')
+    Booking.objects.filter(pickup_time__in=['afternoon', 'evening']).update(
+        pickup_time='morning'
+    )
+```
+
 **Current Limitations:**
 - No automatic guest-to-customer account linking implemented
 - COI file association not connected to documents app
 - BLADE, Mini Storage, B2B services not yet implemented
+- Time slot capacity management not yet implemented (all time slots always available)
 
 ### apps/customers/ - Customer Data Management (FULLY IMPLEMENTED)
 
@@ -690,7 +852,7 @@ Onfleet delivery completed → booking.status = 'completed' + customer stats upd
 
 ### apps/services/ - Pricing Engine with Organizing Services (FULLY IMPLEMENTED)
 
-**Purpose:** Complex multi-factor pricing calculations, service definitions, and organizing services integration.
+**Purpose:** Complex multi-factor pricing calculations, service definitions, organizing services integration, and time window surcharges.
 
 **Key Models:**
 ```python
@@ -700,7 +862,7 @@ MiniMovePackage(models.Model):
     base_price_cents, max_items, coi_included, coi_fee_cents
     priority_scheduling, protective_wrapping, is_most_popular
 
-# NEW: Professional Organizing Services (FULLY IMPLEMENTED)
+# Professional Organizing Services (FULLY IMPLEMENTED)
 OrganizingService(models.Model):
     service_type = CharField(choices=[
         ('petite_packing', 'Petite Packing'),
@@ -734,7 +896,7 @@ SurchargeRule(models.Model):
     applies_saturday, applies_sunday
 ```
 
-**Pricing Integration with Organizing Services:**
+**Pricing Integration with Organizing Services and Time Windows:**
 ```python
 # Enhanced pricing calculation in Booking.save()
 def calculate_pricing(self):
@@ -744,6 +906,9 @@ def calculate_pricing(self):
         
         # Calculate organizing services
         self.organizing_total_cents = self.calculate_organizing_costs()
+        
+        # Calculate time window surcharge (NEW)
+        time_window_surcharge = self.calculate_time_window_surcharge()
         
     elif self.service_type == 'standard_delivery':
         config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -759,19 +924,20 @@ def calculate_pricing(self):
             self.pickup_date
         )
     
-    # Total includes organizing services
+    # Total includes organizing services and time window surcharge
     self.total_price_cents = (
         self.base_price_cents + 
         self.surcharge_cents + 
         self.coi_fee_cents + 
-        self.organizing_total_cents
+        self.organizing_total_cents +
+        time_window_surcharge
     )
 ```
 
 **API Integration:** 
-- Pricing accessed through booking endpoints with organizing services
+- Pricing accessed through booking endpoints with organizing services and time surcharges
 - Dedicated organizing service endpoints for frontend consumption
-- Service catalog includes organizing options
+- Service catalog includes organizing options and time window details
 
 ### apps/payments/ - Financial Operations (IMPLEMENTED - MOCKED)
 
@@ -815,7 +981,7 @@ class StripePaymentService:
         mock_intent = {
             'id': f'pi_mock_{booking.id.hex[:16]}',
             'client_secret': f'pi_mock_{booking.id.hex[:16]}_secret_mock',
-            'amount': int(booking.total_price_cents),  # Includes organizing services
+            'amount': int(booking.total_price_cents),  # Includes organizing + time surcharges
             'status': 'requires_payment_method'
         }
         # Creates Payment record with mock data
@@ -849,10 +1015,17 @@ class StripePaymentService:
 **Public APIs (No Authentication Required):**
 ```
 /api/public/
-├── services/ [GET] → Complete service catalog with organizing services
-├── pricing-preview/ [POST] → Real-time pricing calculations including organizing
+├── services/ [GET] → Complete service catalog with organizing services and time options
+├── pricing-preview/ [POST] → Real-time pricing with time window surcharges
+│   Request fields include:
+│   - pickup_time: 'morning' | 'morning_specific' | 'no_time_preference'
+│   - specific_pickup_hour: 8 | 9 | 10 (when morning_specific selected)
+│   Response includes:
+│   - time_window_surcharge_dollars: 0 or 25 based on package tier
 ├── availability/ [GET] → Calendar availability with surcharges
-├── guest-booking/ [POST] → Guest checkout booking creation with organizing
+├── guest-booking/ [POST] → Guest checkout with new time options
+│   - Validates package-appropriate time selections
+│   - Calculates time window surcharges automatically
 ├── booking-status/<booking_number>/ [GET] → Status lookup
 ├── services/mini-moves-with-organizing/ [GET] → Mini Move packages with organizing options
 ├── services/organizing-by-tier/ [GET] → Organizing services grouped by tier
@@ -882,7 +1055,10 @@ class StripePaymentService:
 ├── preferences/ [GET] → Booking preferences and defaults
 └── bookings/
     ├── [GET] → Booking history with filtering
-    ├── create/ [POST] → Authenticated booking creation with organizing services
+    ├── create/ [POST] → Authenticated booking with organizing and new time options
+    │   - Accepts new pickup_time choices
+    │   - Validates specific_pickup_hour when applicable
+    │   - Calculates pricing including time window surcharge
     ├── <uuid:booking_id>/ [GET] → Booking detail view
     └── <uuid:booking_id>/rebook/ [POST] → Quick rebooking
 ```
@@ -913,17 +1089,18 @@ class StripePaymentService:
 
 ## Data Flow Patterns
 
-**Guest Booking Flow with Organizing Services:**
+**Guest Booking Flow with Organizing Services and Time Windows:**
 ```
 1. Service Selection → /api/public/services/                
 2. Organizing Options → /api/public/services/mini-moves-with-organizing/
-3. Pricing Preview → /api/public/pricing-preview/ (includes organizing costs)
-4. Booking Creation → /api/public/guest-booking/
+3. Time Selection → Based on package tier (morning, morning_specific, or no_time_preference)
+4. Pricing Preview → /api/public/pricing-preview/ (includes organizing + time surcharges)
+5. Booking Creation → /api/public/guest-booking/
    ├── Creates GuestCheckout record
    ├── Creates Address records
-   ├── Creates Booking with organizing service flags and pricing calculation
-5. Payment Processing → /api/payments/create-intent/ (total includes organizing)
-6. Status Tracking → /api/public/booking-status/
+   ├── Creates Booking with organizing service flags and time window pricing
+6. Payment Processing → /api/payments/create-intent/ (total includes all surcharges)
+7. Status Tracking → /api/public/booking-status/
 ```
 
 **Authenticated Customer Booking Flow:**
@@ -935,6 +1112,7 @@ class StripePaymentService:
    ├── Links to User via customer ForeignKey
    ├── Pre-fills from CustomerProfile preferences
    ├── Includes organizing service selection
+   ├── Package-appropriate time window selection
 4. Payment Processing → Enhanced with saved payment methods
 5. Booking History → /api/customer/bookings/
 ```
@@ -952,14 +1130,14 @@ class StripePaymentService:
    ├── Search and filter capabilities
    ├── Status update functionality
    ├── Complete audit logging
-   ├── View organizing service details
+   ├── View organizing service and time window details
 4. Logistics Management → /api/staff/logistics/summary/
    ├── Onfleet integration metrics
    ├── Active delivery tracking
    ├── Manual task creation capabilities
 ```
 
-**Logistics Integration Flow (NEW):**
+**Logistics Integration Flow:**
 ```
 1. Booking Confirmed → Auto-create Onfleet task
    ├── ToteTaxiOnfleetIntegration.create_delivery_task()
@@ -980,31 +1158,39 @@ class StripePaymentService:
 
 ### Immediate Development Priorities
 
-**1. Frontend Logistics Integration**
+**1. Morning-Only Scheduling Frontend Integration**
+- Update booking wizard for morning-only time selection
+- Implement package-aware time window options
+  - Show "no time preference" only for Petite packages
+  - Show 1-hour window grid (8, 9, 10 AM) for Standard/Full packages
+- Real-time pricing updates with time window surcharges
+- Validation to prevent invalid time selections
+
+**2. Frontend Logistics Integration**
 - Add tracking links to customer booking history
 - Display logistics summary in staff dashboard
 - Show Onfleet task status in booking management
 - Customer tracking page integration
 
-**2. Real Onfleet API Integration**
+**3. Real Onfleet API Integration**
 - Add real Onfleet API key to production environment
 - Set up webhook endpoints for production
 - Implement webhook signature verification
 - Test end-to-end integration with real drivers
 
-**3. Additional Service Types Implementation**
+**4. Additional Service Types Implementation**
 - Implement BLADE Luggage Delivery service model and pricing
 - Build Mini Storage service with monthly billing
 - Create B2B/Pop-Up service with custom quote system
 - Add geographic pricing integration for all service types
 
-**4. COI File Management Integration**
+**5. COI File Management Integration**
 - Implement document models in apps/documents/
 - Connect COI requirements to booking workflow
 - S3 storage integration for file uploads
 - Staff interface for COI validation
 
-**5. Real Payment Processing**
+**6. Real Payment Processing**
 - Replace mock Stripe service with real integration
 - Implement webhook signature verification
 - Enhanced error handling and retry logic
@@ -1037,6 +1223,51 @@ def calculate_pricing(self):
         # BLADE luggage pricing logic
     elif self.service_type == 'mini_storage':
         # Storage pricing logic
+```
+
+**Pickup Time Extensions:**
+```python
+# Future time slot capacity management
+class TimeSlotCapacity(models.Model):
+    """Manage capacity for specific pickup windows"""
+    date = DateField()
+    time_slot = CharField(choices=[
+        ('8_9', '8-9 AM'),
+        ('9_10', '9-10 AM'),
+        ('10_11', '10-11 AM'),
+    ])
+    max_bookings = PositiveIntegerField()
+    current_bookings = PositiveIntegerField(default=0)
+    
+    def is_available(self):
+        return self.current_bookings < self.max_bookings
+    
+    class Meta:
+        unique_together = ['date', 'time_slot']
+
+# Real-time availability checking
+def check_time_slot_availability(pickup_date, specific_hour):
+    """Check if a specific time slot is available"""
+    slot_key = f"{specific_hour}_{specific_hour + 1}"
+    try:
+        capacity = TimeSlotCapacity.objects.get(
+            date=pickup_date,
+            time_slot=slot_key
+        )
+        return capacity.is_available()
+    except TimeSlotCapacity.DoesNotExist:
+        # No capacity limit set - assume available
+        return True
+
+# Integration with booking creation
+def validate_time_slot(booking_data):
+    """Validate time slot availability before booking"""
+    if booking_data['pickup_time'] == 'morning_specific':
+        if not check_time_slot_availability(
+            booking_data['pickup_date'],
+            booking_data['specific_pickup_hour']
+        ):
+            raise ValidationError('Selected time slot is fully booked')
 ```
 
 **Logistics Integration Extensions:**
@@ -1093,7 +1324,8 @@ class DistanceBasedPricing(models.Model):
 
 **Frontend Booking Wizard:**
 - Service selection step with organizing options
-- Real-time pricing display including organizing costs
+- Real-time pricing display including organizing costs and time surcharges
+- Morning-only time selection with package-aware options
 - Organizing service explanation and upselling
 - Integration with existing API endpoints
 
@@ -1108,6 +1340,7 @@ class DistanceBasedPricing(models.Model):
 - Onfleet integration health status
 - Manual task management
 - Performance analytics
+- Time slot utilization metrics
 
 **Notification System:**
 - Booking status change triggers ready in booking model
@@ -1116,6 +1349,7 @@ class DistanceBasedPricing(models.Model):
 - Email template system architecture planned
 - Organizing service booking confirmations
 - Logistics status notifications
+- Time window reminder notifications
 
 **Advanced CRM Features:**
 - Customer analytics data available via CustomerProfile
@@ -1124,6 +1358,7 @@ class DistanceBasedPricing(models.Model):
 - Staff productivity metrics via StaffAction logging
 - Organizing service performance metrics
 - Logistics performance tracking
+- Time slot demand analysis
 
 **Mobile API Extensions:**
 - Existing API endpoints mobile-ready
@@ -1137,10 +1372,11 @@ class DistanceBasedPricing(models.Model):
 
 **Performance Optimizations:**
 - Database query optimization for large datasets
-- Caching strategy for pricing calculations including organizing services
+- Caching strategy for pricing calculations including organizing services and time windows
 - Background job processing for heavy operations
 - API response pagination and filtering
 - Onfleet webhook processing optimization
+- Time slot availability caching
 
 **Security Enhancements:**
 - Rate limiting on all endpoints
@@ -1148,23 +1384,36 @@ class DistanceBasedPricing(models.Model):
 - API key authentication for mobile applications
 - Advanced permission granularity
 - Onfleet webhook signature verification
+- Time slot booking race condition prevention
 
 **Business Logic Extensions:**
-- Dynamic pricing based on demand for organizing services
-- Advanced surcharge rules (time-based, route-based)
+- Dynamic pricing based on demand for organizing services and time slots
+- Advanced surcharge rules (time-based, route-based, demand-based)
 - Customer loyalty program integration
 - Multi-language support preparation
 - Organizing service capacity management
 - Logistics performance analytics
+- Time slot optimization algorithms
 
 **Frontend Development Requirements:**
-- Guest booking wizard with organizing service integration
-- Real-time pricing preview component
+- Guest booking wizard with organizing service integration and morning-only scheduling
+- Real-time pricing preview component with time window surcharges
 - Service explanation and upselling interface
 - Authentication flows for customer accounts
 - Staff dashboard for organizing service management
 - Customer tracking interface integration
 - Logistics management dashboard
+- Time slot selection UI with availability indicators
 
-This living documentation provides both complete operational understanding and clear development direction, enabling immediate productive development while maintaining architectural consistency and business logic integrity. The organizing services integration is fully implemented and ready for frontend integration, and the Onfleet logistics integration provides a solid foundation for professional delivery coordination without the complexity of building full logistics infrastructure.
+## Summary
 
+This living documentation provides both complete operational understanding and clear development direction, enabling immediate productive development while maintaining architectural consistency and business logic integrity. 
+
+**Key Recent Updates:**
+- Morning-only pickup scheduling fully implemented with package-tier-specific options
+- Time window surcharges integrated into pricing engine ($25 Standard, FREE Full)
+- Complete service catalog populated with real Tote Taxi pricing
+- Database migration successfully applied to update existing bookings
+- All API endpoints updated to support new pickup time fields
+
+The organizing services integration is fully implemented and ready for frontend integration, the Onfleet logistics integration provides a solid foundation for professional delivery coordination without the complexity of building full logistics infrastructure, and the morning-only scheduling system provides premium time window options aligned with business requirements.
