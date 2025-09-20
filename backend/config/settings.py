@@ -176,9 +176,9 @@ REST_FRAMEWORK = {
 }
 
 # CSRF Settings - Enhanced Security
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='Lax')
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -191,8 +191,8 @@ if FLY_APP_NAME:
     ])
 
 # Session Settings - FIXED FOR PERSISTENT SESSIONS
-SESSION_COOKIE_SECURE = not DEBUG
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='Lax')
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
 SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
