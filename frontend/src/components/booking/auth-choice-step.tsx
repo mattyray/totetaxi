@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function AuthChoiceStep() {
+  const { isAuthenticated, user, login, register } = useAuthStore();
+  const { nextStep, initializeForUser } = useBookingWizard();
+  
   const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
@@ -15,10 +18,16 @@ export function AuthChoiceStep() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const { login, register } = useAuthStore();
-  const { nextStep, initializeForUser } = useBookingWizard();
   const router = useRouter();
+
+  // Auto-skip if already logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      console.log('Already authenticated, skipping auth step');
+      initializeForUser(user.id.toString(), false);
+      nextStep();
+    }
+  }, [isAuthenticated, user, initializeForUser, nextStep]);
 
   const handleGuestContinue = () => {
     initializeForUser('guest', true);
@@ -58,7 +67,6 @@ export function AuthChoiceStep() {
       });
       
       if (result.success) {
-        // Auto-login after registration
         const loginResult = await login(registerData.email, registerData.password);
         if (loginResult.success) {
           initializeForUser(loginResult.user?.id?.toString(), false);
@@ -83,7 +91,6 @@ export function AuthChoiceStep() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Guest Option */}
           <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -103,7 +110,6 @@ export function AuthChoiceStep() {
             </CardContent>
           </Card>
 
-          {/* Login Option */}
           <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-navy-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -123,7 +129,6 @@ export function AuthChoiceStep() {
             </CardContent>
           </Card>
 
-          {/* Register Option */}
           <Card className="cursor-pointer hover:ring-2 hover:ring-navy-500 transition-all">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
