@@ -76,6 +76,13 @@ class Booking(models.Model):
         ('specialty_item', 'Specialty Item'),
     ]
     
+    # UPDATED: Only morning pickup time available
+    PICKUP_TIME_CHOICES = [
+        ('morning', '8 AM - 11 AM'),
+        ('morning_specific', 'Specific 1-hour window (surcharge applies)'),
+        ('no_time_preference', 'No time preference (available for certain packages)'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking_number = models.CharField(max_length=20, unique=True, blank=True)
     
@@ -148,29 +155,55 @@ class Booking(models.Model):
         related_name='delivery_bookings'
     )
     
-    # Date and preferences
+    # Date and preferences - UPDATED: Only morning times
     pickup_date = models.DateField()
     pickup_time = models.CharField(
-        max_length=20,
-        choices=[
-            ('morning', '8 AM - 11 AM'),
-            ('afternoon', '12 PM - 3 PM'),
-            ('evening', '4 PM - 7 PM'),
-        ],
+        max_length=30,
+        choices=PICKUP_TIME_CHOICES,
         default='morning'
+    )
+    
+    # NEW: Specific time window for morning_specific option
+    specific_pickup_hour = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=[
+            (8, '8:00 AM - 9:00 AM'),
+            (9, '9:00 AM - 10:00 AM'),
+            (10, '10:00 AM - 11:00 AM'),
+        ],
+        help_text="Specific hour for 1-hour window pickup"
     )
     
     # Special requirements
     special_instructions = models.TextField(blank=True)
     coi_required = models.BooleanField(default=False)
     
-    # CALCULATED PRICING - Updated to include organizing
+    # NEW: Geographic surcharge tracking
+    is_outside_core_area = models.BooleanField(
+        default=False,
+        help_text="True if pickup/delivery is 30+ miles from Manhattan"
+    )
+    
+    # CALCULATED PRICING - Updated to include new fees
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
     organizing_total_cents = models.PositiveBigIntegerField(
         default=0,
         help_text="Total cost for packing and unpacking services"
+    )
+    geographic_surcharge_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="$175 surcharge for 30+ miles from Manhattan"
+    )
+    time_window_surcharge_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Surcharge for specific 1-hour window"
+    )
+    organizing_tax_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Tax on organizing services"
     )
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
@@ -248,6 +281,18 @@ class Booking(models.Model):
     def organizing_total_dollars(self):
         return self.organizing_total_cents / 100
     
+    @property
+    def geographic_surcharge_dollars(self):
+        return self.geographic_surcharge_cents / 100
+    
+    @property
+    def time_window_surcharge_dollars(self):
+        return self.time_window_surcharge_cents / 100
+    
+    @property
+    def organizing_tax_dollars(self):
+        return self.organizing_tax_cents / 100
+    
     def calculate_organizing_costs(self):
         """Calculate organizing service costs based on Mini Move tier"""
         if self.service_type != 'mini_move' or not self.mini_move_package:
@@ -284,8 +329,47 @@ class Booking(models.Model):
         
         return total_organizing_cents
     
+    def calculate_coi_fee(self):
+        """Calculate COI fee - $50 for Petite moves if required"""
+        if not self.coi_required:
+            return 0
+        
+        if self.service_type == 'mini_move' and self.mini_move_package:
+            # Petite moves require $50 COI charge
+            if self.mini_move_package.package_type == 'petite':
+                return 5000  # $50 in cents
+            # Other packages may have different COI handling
+            elif not self.mini_move_package.coi_included:
+                return self.mini_move_package.coi_fee_cents
+        
+        return 0
+    
+    def calculate_geographic_surcharge(self):
+        """Calculate $175 surcharge for 30+ miles from Manhattan"""
+        if self.is_outside_core_area:
+            return 17500  # $175 in cents
+        return 0
+    
+    def calculate_time_window_surcharge(self):
+        """Calculate surcharge for 1-hour window selection"""
+        if self.pickup_time == 'morning_specific':
+            if self.service_type == 'mini_move' and self.mini_move_package:
+                # Standard package: surcharge applies
+                if self.mini_move_package.package_type == 'standard':
+                    return 2500  # $25 surcharge for example
+                # Full package: free
+                elif self.mini_move_package.package_type == 'full':
+                    return 0
+        return 0
+    
+    def calculate_organizing_tax(self):
+        """Calculate tax on organizing services (NYC rate: 8.25%)"""
+        if self.organizing_total_cents > 0:
+            return int(self.organizing_total_cents * 0.0825)
+        return 0
+    
     def calculate_pricing(self):
-        """Calculate total pricing using services pricing engine + organizing"""
+        """Calculate total pricing using services pricing engine + all new features"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
         # Reset pricing
@@ -293,17 +377,22 @@ class Booking(models.Model):
         self.surcharge_cents = 0
         self.coi_fee_cents = 0
         self.organizing_total_cents = 0
+        self.geographic_surcharge_cents = 0
+        self.time_window_surcharge_cents = 0
+        self.organizing_tax_cents = 0
         
         # Calculate base price by service type
         if self.service_type == 'mini_move' and self.mini_move_package:
             self.base_price_cents = self.mini_move_package.base_price_cents
             
-            # COI handling for Mini Moves
-            if self.coi_required and not self.mini_move_package.coi_included:
-                self.coi_fee_cents = self.mini_move_package.coi_fee_cents
-            
-            # Calculate organizing services
+            # Calculate organizing services first
             self.organizing_total_cents = self.calculate_organizing_costs()
+            
+            # Calculate organizing tax
+            self.organizing_tax_cents = self.calculate_organizing_tax()
+            
+            # NEW: COI handling with $50 for Petite
+            self.coi_fee_cents = self.calculate_coi_fee()
             
         elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
             try:
@@ -333,12 +422,19 @@ class Booking(models.Model):
                 )
                 self.surcharge_cents += surcharge_amount
         
-        # Calculate total (base + surcharges + COI + organizing)
+        # NEW: Calculate additional fees
+        self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+        self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
+        
+        # Calculate total (base + all surcharges + organizing + tax)
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
             self.coi_fee_cents + 
-            self.organizing_total_cents
+            self.organizing_total_cents +
+            self.organizing_tax_cents +
+            self.geographic_surcharge_cents +
+            self.time_window_surcharge_cents
         )
     
     def get_pricing_breakdown(self):
@@ -348,6 +444,9 @@ class Booking(models.Model):
             'surcharges': self.surcharge_dollars,
             'coi_fee': self.coi_fee_dollars,
             'organizing_total': self.organizing_total_dollars,
+            'organizing_tax': self.organizing_tax_dollars,
+            'geographic_surcharge': self.geographic_surcharge_dollars,
+            'time_window_surcharge': self.time_window_surcharge_dollars,
             'total': self.total_price_dollars,
             'service_type': self.get_service_type_display(),
         }

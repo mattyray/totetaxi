@@ -29,18 +29,22 @@ interface PricingPreview {
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
+    organizing_tax_dollars: number;
+    geographic_surcharge_dollars: number;
+    time_window_surcharge_dollars: number;
     total_price_dollars: number;
   };
   details: any;
   pickup_date: string;
 }
 
-type PickupTime = 'morning' | 'afternoon' | 'evening';
+type PickupTime = 'morning' | 'morning_specific' | 'no_time_preference';
 
 export function DateTimeStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
+  const [specificHour, setSpecificHour] = useState<number>(8);
 
   // Get calendar availability
   const { data: availability } = useQuery({
@@ -63,18 +67,33 @@ export function DateTimeStep() {
         is_same_day_delivery: bookingData.is_same_day_delivery,
         specialty_item_ids: bookingData.specialty_item_ids,
         pickup_date: selectedDate,
+        pickup_time: selectedTime,
+        specific_pickup_hour: selectedTime === 'morning_specific' ? specificHour : undefined,
         coi_required: bookingData.coi_required || false
       });
       return response.data;
     }
   });
 
-  // Update pricing when date/service changes
+  // Update pricing when date/service changes - FIXED: Only call when we have required data
   useEffect(() => {
     if (selectedDate && bookingData.service_type) {
+      // For mini_move, ensure we have package_id before calling pricing
+      if (bookingData.service_type === 'mini_move' && !bookingData.mini_move_package_id) {
+        return;
+      }
+      // For standard_delivery, ensure we have item count
+      if (bookingData.service_type === 'standard_delivery' && !bookingData.standard_delivery_item_count) {
+        return;
+      }
+      // For specialty_item, ensure we have items
+      if (bookingData.service_type === 'specialty_item' && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) {
+        return;
+      }
+      
       pricingMutation.mutate();
     }
-  }, [selectedDate, bookingData.service_type, bookingData.mini_move_package_id, bookingData.include_packing, bookingData.include_unpacking, bookingData.standard_delivery_item_count, bookingData.is_same_day_delivery]);
+  }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_item_ids]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -83,7 +102,15 @@ export function DateTimeStep() {
 
   const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
-    updateBookingData({ pickup_time: time });
+    updateBookingData({ 
+      pickup_time: time,
+      specific_pickup_hour: time === 'morning_specific' ? specificHour : undefined
+    });
+  };
+
+  const handleSpecificHourSelect = (hour: number) => {
+    setSpecificHour(hour);
+    updateBookingData({ specific_pickup_hour: hour });
   };
 
   const handleContinue = () => {
@@ -115,6 +142,18 @@ export function DateTimeStep() {
     return availability?.find(day => day.date === dateStr);
   };
 
+  // FIXED: Get package type from the actual package data instead of relying on bookingData.package_type
+  const getPackageType = () => {
+    if (bookingData.service_type !== 'mini_move' || !bookingData.mini_move_package_id) {
+      return null;
+    }
+    
+    // You can get this from the services API or store it when package is selected
+    // For now, we'll use the package_type if available, otherwise default behavior
+    return bookingData.package_type;
+  };
+
+  const packageType = getPackageType();
   const canContinue = selectedDate && selectedTime;
 
   return (
@@ -204,51 +243,89 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {/* Time Selection */}
+      {/* Time Selection - UPDATED: Only morning options */}
       {selectedDate && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-4">
+            
+            {/* Standard Morning Option */}
             <button
               onClick={() => handleTimeSelect('morning')}
-              className={`p-4 rounded-lg border-2 text-center transition-all ${
+              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                 selectedTime === 'morning'
                   ? 'border-navy-500 bg-navy-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="font-medium text-navy-900">8 AM - 11 AM</div>
-              <div className="text-sm text-navy-600">Best availability</div>
+              <div className="font-medium text-navy-900">Morning (8 AM - 11 AM)</div>
+              <div className="text-sm text-navy-600">Standard 3-hour pickup window</div>
             </button>
 
-            <button
-              onClick={() => handleTimeSelect('afternoon')}
-              className={`p-4 rounded-lg border-2 text-center transition-all ${
-                selectedTime === 'afternoon'
-                  ? 'border-navy-500 bg-navy-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="font-medium text-navy-900">12 PM - 3 PM</div>
-              <div className="text-sm text-navy-600">Popular choice</div>
-            </button>
+            {/* No Time Preference (Petite only) */}
+            {packageType === 'petite' && (
+              <button
+                onClick={() => handleTimeSelect('no_time_preference')}
+                className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                  selectedTime === 'no_time_preference'
+                    ? 'border-navy-500 bg-navy-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-navy-900">No Time Preference</div>
+                <div className="text-sm text-navy-600">Flexible timing - we'll coordinate with you</div>
+              </button>
+            )}
 
-            <button
-              onClick={() => handleTimeSelect('evening')}
-              className={`p-4 rounded-lg border-2 text-center transition-all ${
-                selectedTime === 'evening'
-                  ? 'border-navy-500 bg-navy-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="font-medium text-navy-900">4 PM - 7 PM</div>
-              <div className="text-sm text-navy-600">Limited availability</div>
-            </button>
+            {/* Specific 1-Hour Window */}
+            {(packageType === 'standard' || packageType === 'full') && (
+              <div
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedTime === 'morning_specific'
+                    ? 'border-navy-500 bg-navy-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <button
+                  onClick={() => handleTimeSelect('morning_specific')}
+                  className="w-full text-left"
+                >
+                  <div className="font-medium text-navy-900">
+                    Specific 1-Hour Window
+                    {packageType === 'standard' && (
+                      <span className="text-orange-600 ml-2">(+$25)</span>
+                    )}
+                    {packageType === 'full' && (
+                      <span className="text-green-600 ml-2">(Free)</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-navy-600">Choose your preferred hour</div>
+                </button>
+                
+                {selectedTime === 'morning_specific' && (
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {[8, 9, 10].map((hour) => (
+                      <button
+                        key={hour}
+                        onClick={() => handleSpecificHourSelect(hour)}
+                        className={`p-2 text-sm rounded border transition-all ${
+                          specificHour === hour
+                            ? 'bg-navy-900 text-white border-navy-900'
+                            : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300'
+                        }`}
+                      >
+                        {hour}:00 - {hour + 1}:00 AM
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* FIXED: Pricing Summary with dark text */}
+      {/* Enhanced Pricing Summary */}
       {pricingMutation.data?.pricing && (
         <Card variant="luxury">
           <CardContent>
@@ -280,6 +357,27 @@ export function DateTimeStep() {
                 </div>
               )}
 
+              {pricingMutation.data.pricing.organizing_tax_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {pricingMutation.data.pricing.geographic_surcharge_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
+                </div>
+              )}
+
+              {pricingMutation.data.pricing.time_window_surcharge_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
+                </div>
+              )}
+
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-navy-900">Total:</span>
@@ -303,7 +401,12 @@ export function DateTimeStep() {
                 className="mr-3"
               />
               <div>
-                <span className="font-medium text-navy-900">Certificate of Insurance (COI) Required</span>
+                <span className="font-medium text-navy-900">
+                  Certificate of Insurance (COI) Required
+                  {packageType === 'petite' && (
+                    <span className="text-orange-600 ml-2">(+$50)</span>
+                  )}
+                </span>
                 <p className="text-sm text-navy-600">
                   Required by some buildings. We'll handle the paperwork for you.
                 </p>

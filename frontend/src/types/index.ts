@@ -10,7 +10,7 @@ export interface DjangoUser {
   date_joined: string;
 }
 
-// CustomerProfile interface
+// CustomerProfile interface - UPDATED: New pickup time options
 export interface CustomerProfile {
   id: string;
   user: DjangoUser;
@@ -19,7 +19,7 @@ export interface CustomerProfile {
   total_bookings: number;
   total_spent_cents: number;
   total_spent_dollars: number;
-  preferred_pickup_time: 'morning' | 'afternoon' | 'evening';
+  preferred_pickup_time: 'morning' | 'morning_specific' | 'no_time_preference';
   email_notifications: boolean;
   sms_notifications: boolean;
   is_vip: boolean;
@@ -44,9 +44,10 @@ export interface MiniMovePackage {
   coi_included: boolean;
   coi_fee_dollars: number;
   is_most_popular: boolean;
-  priority_scheduling: boolean;  // Changed: moved out of features
-  protective_wrapping: boolean;  // Changed: moved out of features
+  priority_scheduling: boolean;
+  protective_wrapping: boolean;
 }
+
 export interface SpecialtyItem {
   id: string;
   item_type: string;
@@ -75,8 +76,7 @@ export interface APIError {
   field_errors?: Record<string, string[]>;
 }
 
-// Add these booking-related types to the existing file
-
+// UPDATED: Booking types with new pickup time options and fields
 export interface BookingWizardState {
   currentStep: number;
   isLoading: boolean;
@@ -85,15 +85,17 @@ export interface BookingWizardState {
 }
 
 export interface BookingData {
-  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
+  package_type?: 'petite' | 'standard' | 'full'; // NEW: Track package type for UI logic
   include_packing?: boolean;
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
   pickup_date?: string;
-  pickup_time?: 'morning' | 'afternoon' | 'evening';
+  pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference'; // UPDATED: New options
+  specific_pickup_hour?: number; // NEW: For 1-hour window selection
   pickup_address?: BookingAddress;
   delivery_address?: BookingAddress;
   customer_info?: {
@@ -104,11 +106,15 @@ export interface BookingData {
   };
   special_instructions?: string;
   coi_required?: boolean;
+  is_outside_core_area?: boolean; // NEW: Geographic surcharge tracking
   pricing_data?: {
     base_price_dollars: number;
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
+    organizing_tax_dollars: number; // NEW: Tax on organizing services
+    geographic_surcharge_dollars: number; // NEW: $175 distance surcharge
+    time_window_surcharge_dollars: number; // NEW: 1-hour window surcharge
     total_price_dollars: number;
   };
 }

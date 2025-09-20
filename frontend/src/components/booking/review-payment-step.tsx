@@ -19,6 +19,20 @@ interface BookingResponse {
   };
 }
 
+// FIXED: Helper function to get time display
+function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
+  switch (pickupTime) {
+    case 'morning':
+      return '8:00 AM - 11:00 AM';
+    case 'morning_specific':
+      return specificHour ? `${specificHour}:00 AM - ${specificHour + 1}:00 AM` : '8:00 AM - 11:00 AM';
+    case 'no_time_preference':
+      return 'Flexible timing - we\'ll coordinate with you';
+    default:
+      return '8:00 AM - 11:00 AM';
+  }
+}
+
 export function ReviewPaymentStep() {
   const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete } = useBookingWizard();
   const { isAuthenticated } = useAuthStore();
@@ -193,8 +207,7 @@ export function ReviewPaymentStep() {
                   <span className="font-medium text-navy-900">Pickup:</span>
                   <p className="text-navy-700">
                     {new Date(bookingData.pickup_date!).toLocaleDateString()} at{' '}
-                    {bookingData.pickup_time === 'morning' ? '8-11 AM' : 
-                     bookingData.pickup_time === 'afternoon' ? '12-3 PM' : '4-7 PM'}
+                    {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
                   </p>
                   <p className="text-navy-600">
                     {bookingData.pickup_address?.address_line_1}, {bookingData.pickup_address?.city}
@@ -294,7 +307,7 @@ export function ReviewPaymentStep() {
               )}
             </div>
 
-            {/* Date & Time */}
+            {/* Date & Time - FIXED */}
             <div>
               <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
               <p className="text-navy-700">
@@ -306,9 +319,7 @@ export function ReviewPaymentStep() {
                 })}
               </p>
               <p className="text-navy-600">
-                {bookingData.pickup_time === 'morning' && '8:00 AM - 11:00 AM'}
-                {bookingData.pickup_time === 'afternoon' && '12:00 PM - 3:00 PM'}
-                {bookingData.pickup_time === 'evening' && '4:00 PM - 7:00 PM'}
+                {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
               </p>
             </div>
 

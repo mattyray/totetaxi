@@ -12,13 +12,15 @@ export interface BookingAddress {
 export interface BookingData {
   service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
+  package_type?: 'petite' | 'standard' | 'full'; // NEW: Track package type
   include_packing?: boolean;
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
   pickup_date?: string;
-  pickup_time?: 'morning' | 'afternoon' | 'evening';
+  pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference'; // UPDATED: New options
+  specific_pickup_hour?: number; // NEW: For 1-hour window selection
   pickup_address?: BookingAddress;
   delivery_address?: BookingAddress;
   customer_info?: {
@@ -29,11 +31,15 @@ export interface BookingData {
   };
   special_instructions?: string;
   coi_required?: boolean;
+  is_outside_core_area?: boolean; // NEW: Geographic surcharge tracking
   pricing_data?: {
     base_price_dollars: number;
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
+    organizing_tax_dollars: number; // NEW: Tax on organizing services
+    geographic_surcharge_dollars: number; // NEW: $175 distance surcharge
+    time_window_surcharge_dollars: number; // NEW: 1-hour window surcharge
     total_price_dollars: number;
   };
 }
@@ -66,11 +72,12 @@ interface BookingWizardActions {
 
 const initialBookingData: BookingData = {
   service_type: 'mini_move',
-  pickup_time: 'morning',
+  pickup_time: 'morning', // Default to morning only
   coi_required: false,
   include_packing: false,
   include_unpacking: false,
   is_same_day_delivery: false,
+  is_outside_core_area: false, // NEW: Default to false
 };
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(

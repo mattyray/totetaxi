@@ -48,9 +48,9 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = (
             'id', 'booking_number', 'customer_name', 'customer_email',
-            'service_type', 'pickup_date', 'pickup_time', 'status',
+            'service_type', 'pickup_date', 'pickup_time', 'specific_pickup_hour', 'status',
             'pickup_address', 'delivery_address', 'guest_checkout',
-            'special_instructions', 'coi_required',
+            'special_instructions', 'coi_required', 'is_outside_core_area',
             'include_packing', 'include_unpacking',
             'total_price_dollars', 'organizing_total_dollars',
             'pricing_breakdown', 'organizing_services_breakdown', 'created_at'
@@ -80,7 +80,7 @@ class BookingStatusSerializer(serializers.ModelSerializer):
         model = Booking
         fields = (
             'booking_number', 'customer_name', 'service_type', 
-            'pickup_date', 'pickup_time', 'status',
+            'pickup_date', 'pickup_time', 'specific_pickup_hour', 'status',
             'pickup_address', 'delivery_address',
             'include_packing', 'include_unpacking',
             'total_price_dollars', 'organizing_total_dollars', 'created_at'
@@ -105,6 +105,21 @@ class PricingPreviewSerializer(serializers.Serializer):
     # NEW: Organizing service fields
     include_packing = serializers.BooleanField(required=False, default=False)
     include_unpacking = serializers.BooleanField(required=False, default=False)
+    
+    # UPDATED: New pickup time options
+    pickup_time = serializers.ChoiceField(
+        choices=[
+            ('morning', '8 AM - 11 AM'),
+            ('morning_specific', 'Specific 1-hour window'),
+            ('no_time_preference', 'No time preference'),
+        ],
+        required=False,
+        default='morning'
+    )
+    specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
+    
+    # NEW: Geographic surcharge
+    is_outside_core_area = serializers.BooleanField(required=False, default=False)
     
     # Standard Delivery fields
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
@@ -146,13 +161,17 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     
-    # Booking details
+    # Booking details - UPDATED: New pickup time options
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
-        ('afternoon', '12 PM - 3 PM'),
-        ('evening', '4 PM - 7 PM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
     ], default='morning')
+    specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
+    
+    # NEW: Geographic surcharge
+    is_outside_core_area = serializers.BooleanField(default=False)
     
     # Addresses
     pickup_address = serializers.DictField()
@@ -178,6 +197,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     def validate(self, attrs):
         service_type = attrs['service_type']
+        pickup_time = attrs.get('pickup_time', 'morning')
+        
+        # Validate specific hour if morning_specific is selected
+        if pickup_time == 'morning_specific' and not attrs.get('specific_pickup_hour'):
+            raise serializers.ValidationError("specific_pickup_hour is required when pickup_time is 'morning_specific'")
         
         # Validate service-specific requirements
         if service_type == 'mini_move':
@@ -249,10 +273,12 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             service_type=validated_data['service_type'],
             pickup_date=validated_data['pickup_date'],
             pickup_time=validated_data['pickup_time'],
+            specific_pickup_hour=validated_data.get('specific_pickup_hour'),
             pickup_address=pickup_address,
             delivery_address=delivery_address,
             special_instructions=validated_data.get('special_instructions', ''),
             coi_required=validated_data.get('coi_required', False),
+            is_outside_core_area=validated_data.get('is_outside_core_area', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
             # NEW: Organizing service fields

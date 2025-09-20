@@ -94,9 +94,13 @@ export function ServiceSelectionStep() {
   });
 
   const handleMiniMoveSelect = (packageId: string) => {
+    // Find the selected package to get its type
+    const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
+    
     updateBookingData({
       service_type: 'mini_move',
       mini_move_package_id: packageId,
+      package_type: selectedPackage?.package_type, // FIXED: Add package_type
       // Clear other service selections
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,

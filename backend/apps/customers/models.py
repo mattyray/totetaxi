@@ -24,13 +24,13 @@ class CustomerProfile(models.Model):
     total_spent_cents = models.PositiveBigIntegerField(default=0)
     last_booking_at = models.DateTimeField(null=True, blank=True)
     
-    # Customer preferences
+    # Customer preferences - UPDATED: Only morning pickup time
     preferred_pickup_time = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=[
             ('morning', '8 AM - 11 AM'),
-            ('afternoon', '12 PM - 3 PM'),
-            ('evening', '4 PM - 7 PM'),
+            ('morning_specific', 'Specific 1-hour window'),
+            ('no_time_preference', 'No time preference'),
         ],
         default='morning'
     )
