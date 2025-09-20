@@ -247,12 +247,28 @@ class SurchargeRule(models.Model):
         ('fixed_amount', 'Fixed Amount'),
     ]
     
+    # NEW: Service type filters
+    SERVICE_TYPE_CHOICES = [
+        ('all', 'All Services'),
+        ('mini_move', 'Mini Moves Only'),
+        ('standard_delivery', 'Standard Delivery Only'),
+        ('specialty_item', 'Specialty Items Only'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # Surcharge details
     surcharge_type = models.CharField(max_length=20, choices=SURCHARGE_TYPES)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    
+    # NEW: Service type filter
+    applies_to_service_type = models.CharField(
+        max_length=20,
+        choices=SERVICE_TYPE_CHOICES,
+        default='all',
+        help_text='Which service types this surcharge applies to'
+    )
     
     # Calculation
     calculation_type = models.CharField(max_length=20, choices=CALCULATION_TYPES)
@@ -290,14 +306,19 @@ class SurchargeRule(models.Model):
     def __str__(self):
         return self.name
     
-    def calculate_surcharge(self, base_amount_cents, booking_date):
-        """Calculate surcharge for given base amount and date"""
+    def calculate_surcharge(self, base_amount_cents, booking_date, service_type=None):
+        """Calculate surcharge for given base amount, date, and service type"""
         if not self.is_active:
             return 0
         
         # Check if rule applies to this date
         if not self.applies_to_date(booking_date):
             return 0
+        
+        # NEW: Check if rule applies to this service type
+        if self.applies_to_service_type != 'all':
+            if service_type != self.applies_to_service_type:
+                return 0
         
         if self.calculation_type == 'percentage' and self.percentage:
             return int(base_amount_cents * (self.percentage / 100))

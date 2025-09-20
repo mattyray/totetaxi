@@ -351,21 +351,21 @@ class Booking(models.Model):
         return 0
     
     def calculate_time_window_surcharge(self):
-        """Calculate surcharge for 1-hour window selection"""
+        """UPDATED: Calculate $175 surcharge for 1-hour window selection"""
         if self.pickup_time == 'morning_specific':
             if self.service_type == 'mini_move' and self.mini_move_package:
-                # Standard package: surcharge applies
+                # Standard package: $175 surcharge (UPDATED from $25)
                 if self.mini_move_package.package_type == 'standard':
-                    return 2500  # $25 surcharge for example
-                # Full package: free
+                    return 17500  # $175 in cents
+                # Full package: still free
                 elif self.mini_move_package.package_type == 'full':
                     return 0
         return 0
     
     def calculate_organizing_tax(self):
-        """Calculate tax on organizing services (NYC rate: 8.25%)"""
+        """UPDATED: Calculate tax on organizing services - 8.75% (changed from 8.25%)"""
         if self.organizing_total_cents > 0:
-            return int(self.organizing_total_cents * 0.0825)
+            return int(self.organizing_total_cents * 0.0875)  # Changed from 0.0825
         return 0
     
     def calculate_pricing(self):
@@ -412,13 +412,14 @@ class Booking(models.Model):
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
         
-        # Calculate surcharges (but not for same-day delivery which has flat rate)
+        # UPDATED: Calculate surcharges with service type awareness
         if self.pickup_date and not self.is_same_day_delivery:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             for surcharge in active_surcharges:
                 surcharge_amount = surcharge.calculate_surcharge(
                     self.base_price_cents, 
-                    self.pickup_date
+                    self.pickup_date,
+                    self.service_type  # NEW: Pass service type
                 )
                 self.surcharge_cents += surcharge_amount
         

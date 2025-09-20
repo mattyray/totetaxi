@@ -46,7 +46,6 @@ export function DateTimeStep() {
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
 
-  // Get calendar availability
   const { data: availability } = useQuery({
     queryKey: ['availability', 'calendar'],
     queryFn: async () => {
@@ -55,7 +54,6 @@ export function DateTimeStep() {
     }
   });
 
-  // Get pricing preview
   const pricingMutation = useMutation({
     mutationFn: async (): Promise<PricingPreview> => {
       const response = await apiClient.post('/api/public/pricing-preview/', {
@@ -75,18 +73,14 @@ export function DateTimeStep() {
     }
   });
 
-  // Update pricing when date/service changes - FIXED: Only call when we have required data
   useEffect(() => {
     if (selectedDate && bookingData.service_type) {
-      // For mini_move, ensure we have package_id before calling pricing
       if (bookingData.service_type === 'mini_move' && !bookingData.mini_move_package_id) {
         return;
       }
-      // For standard_delivery, ensure we have item count
       if (bookingData.service_type === 'standard_delivery' && !bookingData.standard_delivery_item_count) {
         return;
       }
-      // For specialty_item, ensure we have items
       if (bookingData.service_type === 'specialty_item' && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) {
         return;
       }
@@ -114,14 +108,12 @@ export function DateTimeStep() {
   };
 
   const handleContinue = () => {
-    // Store pricing data
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
     }
     nextStep();
   };
 
-  // Simple calendar view - next 30 days
   const getNext30Days = () => {
     const days = [];
     const today = new Date();
@@ -142,14 +134,10 @@ export function DateTimeStep() {
     return availability?.find(day => day.date === dateStr);
   };
 
-  // FIXED: Get package type from the actual package data instead of relying on bookingData.package_type
   const getPackageType = () => {
     if (bookingData.service_type !== 'mini_move' || !bookingData.mini_move_package_id) {
       return null;
     }
-    
-    // You can get this from the services API or store it when package is selected
-    // For now, we'll use the package_type if available, otherwise default behavior
     return bookingData.package_type;
   };
 
@@ -158,7 +146,6 @@ export function DateTimeStep() {
 
   return (
     <div className="space-y-6">
-      {/* Calendar */}
       <div>
         <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
         <div className="grid grid-cols-7 gap-2">
@@ -196,7 +183,6 @@ export function DateTimeStep() {
           })}
         </div>
         
-        {/* Legend */}
         <div className="flex items-center justify-center space-x-4 mt-3 text-sm">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-white border border-gray-200 rounded mr-2"></div>
@@ -213,7 +199,6 @@ export function DateTimeStep() {
         </div>
       </div>
 
-      {/* Selected Date Info */}
       {selectedDate && (
         <Card variant="default">
           <CardContent>
@@ -231,11 +216,16 @@ export function DateTimeStep() {
                 {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.max_capacity || 10} booked
               </p>
               
-              {/* Surcharge notices */}
               {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges?.map((surcharge, index) => (
                 <div key={index} className="mt-2 text-sm text-orange-600">
-                  <strong>Additional charges apply:</strong>
+                  <strong>Weekend surcharge applies:</strong>
                   <br />• {surcharge.description}
+                  {bookingData.service_type === 'mini_move' && (
+                    <span className="font-bold"> +$175</span>
+                  )}
+                  {bookingData.service_type === 'standard_delivery' && (
+                    <span className="font-bold"> +$50</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -243,13 +233,11 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {/* Time Selection - UPDATED: Only morning options */}
       {selectedDate && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
           <div className="space-y-4">
             
-            {/* Standard Morning Option */}
             <button
               onClick={() => handleTimeSelect('morning')}
               className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
@@ -262,7 +250,6 @@ export function DateTimeStep() {
               <div className="text-sm text-navy-600">Standard 3-hour pickup window</div>
             </button>
 
-            {/* No Time Preference (Petite only) */}
             {packageType === 'petite' && (
               <button
                 onClick={() => handleTimeSelect('no_time_preference')}
@@ -277,7 +264,6 @@ export function DateTimeStep() {
               </button>
             )}
 
-            {/* Specific 1-Hour Window */}
             {(packageType === 'standard' || packageType === 'full') && (
               <div
                 className={`p-4 rounded-lg border-2 transition-all ${
@@ -293,7 +279,7 @@ export function DateTimeStep() {
                   <div className="font-medium text-navy-900">
                     Specific 1-Hour Window
                     {packageType === 'standard' && (
-                      <span className="text-orange-600 ml-2">(+$25)</span>
+                      <span className="text-orange-600 ml-2">(+$175)</span>
                     )}
                     {packageType === 'full' && (
                       <span className="text-green-600 ml-2">(Free)</span>
@@ -325,7 +311,6 @@ export function DateTimeStep() {
         </div>
       )}
 
-      {/* Enhanced Pricing Summary */}
       {pricingMutation.data?.pricing && (
         <Card variant="luxury">
           <CardContent>
@@ -338,7 +323,7 @@ export function DateTimeStep() {
 
               {pricingMutation.data.pricing.surcharge_dollars > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Date Surcharges:</span>
+                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
                   <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
                 </div>
               )}
@@ -359,7 +344,7 @@ export function DateTimeStep() {
 
               {pricingMutation.data.pricing.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-medium">Tax (8.75%):</span>
                   <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
                 </div>
               )}
@@ -389,7 +374,6 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {/* COI Option */}
       {selectedDate && (
         <Card variant="default">
           <CardContent>
@@ -416,7 +400,6 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {/* Continue Button */}
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}
