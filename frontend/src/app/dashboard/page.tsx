@@ -1,7 +1,7 @@
 // frontend/src/app/dashboard/page.tsx  
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/main-layout';
@@ -9,8 +9,8 @@ import { DashboardOverview } from '@/components/dashboard/dashboard-overview';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-export default function DashboardPage() {
-  const { user, isAuthenticated, clearAuth } = useAuthStore();
+function DashboardContent() {
+  const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isWelcome = searchParams.get('welcome') === 'true';
@@ -102,5 +102,19 @@ export default function DashboardPage() {
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 flex items-center justify-center">
+          <div className="text-navy-700">Loading...</div>
+        </div>
+      </MainLayout>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
