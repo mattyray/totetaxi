@@ -12,15 +12,15 @@ export interface BookingAddress {
 export interface BookingData {
   service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
   mini_move_package_id?: string;
-  package_type?: 'petite' | 'standard' | 'full'; // NEW: Track package type
+  package_type?: 'petite' | 'standard' | 'full';
   include_packing?: boolean;
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
   pickup_date?: string;
-  pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference'; // UPDATED: New options
-  specific_pickup_hour?: number; // NEW: For 1-hour window selection
+  pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
+  specific_pickup_hour?: number;
   pickup_address?: BookingAddress;
   delivery_address?: BookingAddress;
   customer_info?: {
@@ -31,15 +31,15 @@ export interface BookingData {
   };
   special_instructions?: string;
   coi_required?: boolean;
-  is_outside_core_area?: boolean; // NEW: Geographic surcharge tracking
+  is_outside_core_area?: boolean;
   pricing_data?: {
     base_price_dollars: number;
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
-    organizing_tax_dollars: number; // NEW: Tax on organizing services
-    geographic_surcharge_dollars: number; // NEW: $175 distance surcharge
-    time_window_surcharge_dollars: number; // NEW: 1-hour window surcharge
+    organizing_tax_dollars: number;
+    geographic_surcharge_dollars: number;
+    time_window_surcharge_dollars: number;
     total_price_dollars: number;
   };
 }
@@ -72,18 +72,17 @@ interface BookingWizardActions {
 
 const initialBookingData: BookingData = {
   service_type: 'mini_move',
-  pickup_time: 'morning', // Default to morning only
+  pickup_time: 'morning',
   coi_required: false,
   include_packing: false,
   include_unpacking: false,
   is_same_day_delivery: false,
-  is_outside_core_area: false, // NEW: Default to false
+  is_outside_core_area: false,
 };
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
-      // State - ALWAYS START AT STEP 0 (auth choice)
       currentStep: 0,
       isLoading: false,
       bookingData: initialBookingData,
@@ -93,16 +92,22 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       userId: undefined,
       isGuestMode: true,
 
-      // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
       
       nextStep: () => set((state) => {
         const maxStep = state.isGuestMode ? 5 : 4;
-        return { currentStep: Math.min(state.currentStep + 1, maxStep) };
+        let nextStep = state.currentStep + 1;
+        
+        // Skip customer info step (4) for authenticated users
+        if (!state.isGuestMode && nextStep === 4) {
+          nextStep = 5;
+        }
+        
+        return { currentStep: Math.min(nextStep, maxStep) };
       }),
       
       previousStep: () => set((state) => ({ 
-        currentStep: Math.max(state.currentStep - 1, 0) // Can go back to step 0
+        currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
       updateBookingData: (data) => set((state) => ({
@@ -136,7 +141,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         console.log('🔄 Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        // If switching between different users, reset but stay at current step
         if (state.userId && state.userId !== userId && state.userId !== 'guest') {
           console.log('👤 Different user detected, resetting data');
           set({
@@ -148,7 +152,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             isGuestMode: guestMode
           });
         } else {
-          // Just update user info
           set({ 
             userId: userId,
             isGuestMode: guestMode
@@ -160,7 +163,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         console.log('🔄 Resetting booking wizard');
         
         const newState = {
-          currentStep: 0, // Always reset to auth choice step
+          currentStep: 0,
           isLoading: false,
           bookingData: { ...initialBookingData },
           errors: {},
@@ -172,7 +175,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         set(newState);
         
-        // Force clear localStorage
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
@@ -187,19 +189,19 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         const { bookingData, isGuestMode } = get();
         
         switch (step) {
-          case 0: return true; // Auth choice always available
-          case 1: return true; // Service selection always available after auth choice
-          case 2: // Date/time step
+          case 0: return true;
+          case 1: return true;
+          case 2:
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
               (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
               (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
             );
-          case 3: // Address step
+          case 3:
             return !!bookingData.pickup_date;
-          case 4: // Customer info step (required for guests only)
+          case 4:
             return !!bookingData.pickup_address && !!bookingData.delivery_address;
-          case 5: // Review/payment step
+          case 5:
             if (isGuestMode) {
               return !!bookingData.customer_info?.email;
             } else {
