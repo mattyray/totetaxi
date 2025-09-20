@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Environment variables
 env = environ.Env(
-    DEBUG=(bool, True),
+    DEBUG=(bool, False),  # Changed default to False for production
 )
 
 # Take environment variables from .env file
@@ -17,9 +17,20 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', default=True)
+DEBUG = env('DEBUG', default=False)
+
+# Fly.io support
+FLY_APP_NAME = env('FLY_APP_NAME', default='')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
+
+# Add Fly.io hostnames
+if FLY_APP_NAME:
+    ALLOWED_HOSTS.extend([
+        f'{FLY_APP_NAME}.fly.dev',
+        f'{FLY_APP_NAME}.internal',
+        '.fly.dev',
+    ])
 
 # Application definition
 DJANGO_APPS = [
@@ -97,11 +108,15 @@ DATABASES = {
     }
 }
 
-# Alternative: use DATABASE_URL if provided
+# Alternative: use DATABASE_URL if provided (Fly.io provides this)
 database_url = env('DATABASE_URL', default=None)
 if database_url:
     import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(database_url)
+    DATABASES['default'] = dj_database_url.config(
+        default=database_url,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -133,6 +148,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = []
 if (BASE_DIR / 'static').exists():
     STATICFILES_DIRS.append(BASE_DIR / 'static')
+
+# WhiteNoise configuration for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
@@ -166,6 +184,12 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://127.0.0.1:3000',
 ])
 
+# Add Fly.io to CSRF trusted origins
+if FLY_APP_NAME:
+    CSRF_TRUSTED_ORIGINS.extend([
+        f'https://{FLY_APP_NAME}.fly.dev',
+    ])
+
 # Session Settings - FIXED FOR PERSISTENT SESSIONS
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -180,6 +204,10 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ])
+
+# Add Fly.io to CORS allowed origins if needed
+if FLY_APP_NAME:
+    CORS_ALLOWED_ORIGINS.append(f'https://{FLY_APP_NAME}.fly.dev')
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -202,14 +230,15 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Security Settings
+# Security Settings for Production
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_SECONDS = 31536000
-    SECURE_REDIRECT_EXEMPT = []
-    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
@@ -217,13 +246,27 @@ if not DEBUG:
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': env('DJANGO_LOG_LEVEL', default='INFO'),
+            'propagate': False,
+        },
     },
 }

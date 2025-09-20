@@ -1,24 +1,23 @@
 #!/bin/bash
-
-# Exit on any failure
 set -e
 
-echo "Waiting for postgres..."
-while ! pg_isready -h db -p 5432 -U postgres; do
-  sleep 1
-done
-echo "PostgreSQL started"
+echo "Starting ToteTaxi Backend..."
 
-# Only run migrations and collectstatic if manage.py exists
-if [ -f "manage.py" ]; then
-    echo "Running migrations..."
-    python manage.py migrate --no-input
-    
-    echo "Collecting static files..."
-    python manage.py collectstatic --no-input --clear || echo "Collectstatic failed, continuing..."
-else
-    echo "No manage.py found, skipping Django setup commands"
+# Wait for database if DB_HOST is set
+if [ -n "$DB_HOST" ]; then
+    echo "Waiting for postgres at $DB_HOST:${DB_PORT:-5432}..."
+    while ! pg_isready -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}"; do
+      sleep 1
+    done
+    echo "PostgreSQL is ready!"
 fi
 
-exec "$@"
+# Run migrations
+echo "Running database migrations..."
+python manage.py migrate --no-input
 
+# Create superuser if needed (optional)
+# python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@totetaxi.com', 'changeme123')"
+
+echo "Starting application..."
+exec "$@"
