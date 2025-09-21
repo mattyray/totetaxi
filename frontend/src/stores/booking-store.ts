@@ -95,7 +95,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       setCurrentStep: (step) => set({ currentStep: step }),
       
       nextStep: () => set((state) => {
-        const maxStep = state.isGuestMode ? 5 : 4;
+        const maxStep = 5;
         let nextStep = state.currentStep + 1;
         
         // Skip customer info step (4) for authenticated users
