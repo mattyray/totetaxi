@@ -1,13 +1,12 @@
 import stripe
 from django.conf import settings
+from django.utils import timezone
 from decimal import Decimal
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
 # Initialize Stripe with real API key
-from django.conf import settings
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
 
 
 class StripePaymentService:
@@ -25,13 +24,13 @@ class StripePaymentService:
                     'booking_id': str(booking.id),
                     'booking_number': booking.booking_number,
                 },
-                receipt_email=customer_email or booking.customer.email if hasattr(booking, 'customer') else None,
+                receipt_email=customer_email or (booking.customer.email if hasattr(booking, 'customer') and booking.customer else None),
             )
             
             # Create Payment record
             payment = Payment.objects.create(
                 booking=booking,
-                customer=booking.customer if hasattr(booking, 'customer') else None,
+                customer=booking.customer if hasattr(booking, 'customer') and booking.customer else None,
                 amount_cents=booking.total_price_cents,
                 stripe_payment_intent_id=intent.id,
                 status='pending'
@@ -58,7 +57,7 @@ class StripePaymentService:
     
     @staticmethod
     def confirm_payment(payment_intent_id):
-        """Verify payment with Stripe and update records"""
+        """Verify payment with Stripe and update records - CRITICAL: Updates customer stats"""
         try:
             # Retrieve the PaymentIntent from Stripe
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
@@ -68,12 +67,25 @@ class StripePaymentService:
             if intent.status == 'succeeded':
                 payment.status = 'succeeded'
                 payment.stripe_charge_id = intent.charges.data[0].id if intent.charges.data else ''
+                payment.processed_at = timezone.now()
                 payment.save()
                 
                 # Update booking status
                 booking = payment.booking
-                booking.status = 'paid'
-                booking.save()
+                if booking.status == 'pending':
+                    booking.status = 'paid'
+                    booking.save()
+                
+                # CRITICAL: Update customer stats when payment succeeds
+                try:
+                    if booking.customer and hasattr(booking.customer, 'customer_profile'):
+                        booking.customer.customer_profile.add_booking_stats(
+                            booking.total_price_cents
+                        )
+                        print(f"✅ Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
+                except Exception as stats_error:
+                    # Log but don't fail the payment if stats update fails
+                    print(f"⚠️ Failed to update customer stats: {stats_error}")
                 
                 # Log payment success
                 PaymentAudit.log(
