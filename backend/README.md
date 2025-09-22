@@ -682,8 +682,8 @@ STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 # backend/.env.local
 
 # Stripe Test Keys (for development)
-STRIPE_SECRET_KEY=sk_test_51SAEjgQ0uIfpHpq3vrht0MVeZEMhlfXffJcvmPjjN3UXdcH51ritAcxDyAKjgsnCwJ2z9w6y0gEXtI2yQ5ELtNRD00BfSgQZeF
-STRIPE_PUBLISHABLE_KEY=pk_test_51SAEjgQ0uIfpHpq3UywxbYKcTEzqJACgIqrLiE87SLkjpGx2VtFO7sLUzBfmuNCMwNd63y550pdYCymLYp9rbfsA006t32IcIl
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=whsec_xxx  # Production only
 
 # Production will use:
