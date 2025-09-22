@@ -139,10 +139,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         const state = get();
         
-        console.log('🔄 Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
         if (state.userId && state.userId !== userId && state.userId !== 'guest') {
-          console.log('👤 Different user detected, resetting data');
+          console.log('Different user detected, resetting data');
           set({
             bookingData: { ...initialBookingData },
             errors: {},
@@ -160,7 +160,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       },
       
       resetWizard: () => {
-        console.log('🔄 Resetting booking wizard');
+        console.log('Resetting booking wizard completely');
         
         const newState = {
           currentStep: 0,
@@ -178,7 +178,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
-            console.log('🗑️ Cleared booking wizard from localStorage');
+            console.log('Cleared booking wizard from localStorage');
           } catch (e) {
             console.warn('Could not clear localStorage:', e);
           }
