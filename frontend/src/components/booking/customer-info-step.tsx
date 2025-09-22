@@ -2,12 +2,22 @@
 'use client';
 
 import { useBookingWizard } from '@/stores/booking-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function CustomerInfoStep() {
-  const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+  const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
+  const { isAuthenticated, user } = useAuthStore();
+
+  // CRITICAL FIX: Don't render this step for authenticated users
+  // This should never happen if wizard logic is correct, but defensive check
+  if (isAuthenticated && !isGuestMode) {
+    console.warn('CustomerInfoStep rendered for authenticated user - auto-advancing');
+    nextStep();
+    return null;
+  }
 
   const handleFieldChange = (field: string, value: string) => {
     updateBookingData({
@@ -150,7 +160,6 @@ export function CustomerInfoStep() {
               <input
                 type="checkbox"
                 className="mr-2"
-                // This could be stored in booking data if you want to track VIP signups
               />
               <span className="text-sm text-navy-900">
                 Yes, I want to join ToteTaxi VIP (free to join)
