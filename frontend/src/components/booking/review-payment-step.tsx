@@ -46,7 +46,7 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
     setIsProcessing(true);
     setErrorMessage(undefined);
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/booking-success`,
@@ -57,7 +57,14 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
     if (error) {
       setErrorMessage(error.message);
       setIsProcessing(false);
-    } else {
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+      try {
+        await apiClient.post('/api/payments/confirm/', {
+          payment_intent_id: paymentIntent.id
+        });
+      } catch (err) {
+        console.error('Failed to confirm payment with backend:', err);
+      }
       onSuccess();
     }
   };
@@ -331,7 +338,7 @@ export function ReviewPaymentStep() {
             <h3 className="text-xl font-serif font-bold text-navy-900">Complete Payment</h3>
           </CardHeader>
           <CardContent>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <Elements stripe={stripePromise} options={{ clientSecret }}>        
               <CheckoutForm 
                 clientSecret={clientSecret} 
                 bookingNumber={bookingNumber}

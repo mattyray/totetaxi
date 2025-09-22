@@ -265,3 +265,37 @@ class RefundCreateView(generics.CreateAPIView):
             raise permissions.PermissionDenied('Not a staff account')
         
         serializer.save(requested_by=self.request.user)
+
+class PaymentConfirmView(APIView):
+    """Confirm payment after Stripe processes it - called from frontend"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        payment_intent_id = request.data.get('payment_intent_id')
+        
+        if not payment_intent_id:
+            return Response(
+                {'error': 'payment_intent_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Confirm payment and update booking status
+            payment = StripePaymentService.confirm_payment(payment_intent_id)
+            
+            return Response({
+                'message': 'Payment confirmed successfully',
+                'booking_status': payment.booking.status,
+                'payment_status': payment.status
+            })
+            
+        except Payment.DoesNotExist:
+            return Response(
+                {'error': 'Payment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
