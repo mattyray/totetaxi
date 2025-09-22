@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { apiClient } from '@/lib/api-client';
+import { getStripe } from '@/lib/stripe';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -17,6 +19,85 @@ interface BookingResponse {
     booking_number: string;
     total_price_dollars: number;
   };
+  payment?: {
+    client_secret: string;
+    payment_intent_id: string;
+  };
+}
+
+function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: { 
+  clientSecret: string; 
+  bookingNumber: string;
+  totalAmount: number;
+  onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setErrorMessage(undefined);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/booking-success`,
+      },
+      redirect: 'if_required',
+    });
+
+    if (error) {
+      setErrorMessage(error.message);
+      setIsProcessing(false);
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="bg-navy-50 border border-navy-200 rounded-lg p-4">
+        <div className="flex justify-between items-center">
+          <span className="text-navy-700">Booking Number:</span>
+          <span className="font-bold text-navy-900">{bookingNumber}</span>
+        </div>
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-navy-700">Total Amount:</span>
+          <span className="text-2xl font-bold text-navy-900">${totalAmount}</span>
+        </div>
+      </div>
+
+      <PaymentElement />
+      
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <p className="text-red-800 text-sm">{errorMessage}</p>
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={!stripe || isProcessing}
+        className="w-full"
+        size="lg"
+        variant="primary"
+      >
+        {isProcessing ? 'Processing Payment...' : `Pay $${totalAmount}`}
+      </Button>
+
+      <p className="text-xs text-center text-navy-600">
+        Payments are processed securely through Stripe. Your card information is never stored on our servers.
+      </p>
+    </form>
+  );
 }
 
 function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
@@ -40,14 +121,15 @@ export function ReviewPaymentStep() {
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string>('');
+  const [showPayment, setShowPayment] = useState(false);
+  const stripePromise = getStripe();
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
       const endpoint = isAuthenticated 
         ? '/api/customer/bookings/create/'
         : '/api/public/guest-booking/';
-
-      console.log(`Creating ${isAuthenticated ? 'authenticated' : 'guest'} booking at:`, endpoint);
 
       let bookingRequest;
 
@@ -77,7 +159,7 @@ export function ReviewPaymentStep() {
           
           special_instructions: bookingData.special_instructions,
           coi_required: bookingData.coi_required,
-          create_payment_intent: false,
+          create_payment_intent: true,
         };
       } else {
         bookingRequest = {
@@ -111,8 +193,15 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       setBookingNumber(data.booking.booking_number);
-      setBookingCompleteLocal(true);
-      setBookingComplete(data.booking.booking_number);
+      
+      if (data.payment?.client_secret) {
+        setClientSecret(data.payment.client_secret);
+        setShowPayment(true);
+      } else {
+        setBookingCompleteLocal(true);
+        setBookingComplete(data.booking.booking_number);
+      }
+      
       setLoading(false);
       
       if (isAuthenticated) {
@@ -140,20 +229,18 @@ export function ReviewPaymentStep() {
     createBookingMutation.mutate();
   };
 
+  const handlePaymentSuccess = () => {
+    setBookingCompleteLocal(true);
+    setBookingComplete(bookingNumber);
+  };
+
   const handleStartOver = () => {
-    console.log('🔄 Starting over - resetting wizard and navigating to fresh booking page');
     resetWizard();
     setBookingCompleteLocal(false);
     setBookingNumber('');
+    setClientSecret('');
+    setShowPayment(false);
     router.push('/book?reset=true');
-  };
-
-  const handleGoToDashboard = () => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
-    } else {
-      router.push('/');
-    }
   };
 
   if (bookingComplete) {
@@ -164,7 +251,7 @@ export function ReviewPaymentStep() {
         <Card variant="luxury">
           <CardContent>
             <h3 className="text-2xl font-serif font-bold text-navy-900 mb-4">
-              Booking Confirmed!
+              Payment Successful!
             </h3>
             
             <div className="space-y-3">
@@ -174,7 +261,7 @@ export function ReviewPaymentStep() {
               </div>
               
               <p className="text-navy-700">
-                Your luxury move is confirmed. 
+                Your luxury move is confirmed and paid. 
                 {isAuthenticated ? (
                   ' Check your dashboard for booking details.'
                 ) : (
@@ -184,26 +271,6 @@ export function ReviewPaymentStep() {
                   </>
                 )}
               </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="text-left">
-                  <span className="font-medium text-navy-900">Pickup:</span>
-                  <p className="text-navy-700">
-                    {new Date(bookingData.pickup_date!).toLocaleDateString()} at{' '}
-                    {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
-                  </p>
-                  <p className="text-navy-600">
-                    {bookingData.pickup_address?.address_line_1}, {bookingData.pickup_address?.city}
-                  </p>
-                </div>
-                
-                <div className="text-left">
-                  <span className="font-medium text-navy-900">Total:</span>
-                  <p className="text-2xl font-bold text-navy-900">
-                    ${bookingData.pricing_data?.total_price_dollars}
-                  </p>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -245,21 +312,35 @@ export function ReviewPaymentStep() {
         </div>
 
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Button 
-            variant="outline" 
-            onClick={handleStartOver}
-            className="w-full sm:w-auto"
-          >
+          <Button variant="outline" onClick={handleStartOver}>
             Book Another Move
           </Button>
-          <Button 
-            variant="primary" 
-            onClick={handleGoToDashboard}
-            className="w-full sm:w-auto"
-          >
+          <Button variant="primary" onClick={() => router.push(isAuthenticated ? '/dashboard' : '/')}>
             {isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (showPayment && clientSecret && stripePromise) {
+    return (
+      <div className="space-y-6">
+        <Card variant="luxury">
+          <CardHeader>
+            <h3 className="text-xl font-serif font-bold text-navy-900">Complete Payment</h3>
+          </CardHeader>
+          <CardContent>
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <CheckoutForm 
+                clientSecret={clientSecret} 
+                bookingNumber={bookingNumber}
+                totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
+                onSuccess={handlePaymentSuccess} 
+              />
+            </Elements>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -514,29 +595,15 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      <Card variant="default" className="border-gold-200 bg-gold-50">
-        <CardContent>
-          <div className="text-center">
-            <h4 className="font-medium text-navy-900 mb-2">Payment</h4>
-            <p className="text-navy-700 text-sm">
-              For this demo, we'll create your booking without payment processing. 
-              In production, this would integrate with Stripe for secure payment.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-center">
-        <Button 
-          variant="primary" 
-          size="lg"
-          onClick={handleSubmitBooking}
-          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
-          className="w-full sm:w-auto"
-        >
-          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Confirm Booking'}
-        </Button>
-      </div>
+      <Button 
+        variant="primary" 
+        size="lg"
+        onClick={handleSubmitBooking}
+        disabled={isLoading || !termsAccepted}
+        className="w-full"
+      >
+        {isLoading ? 'Creating Booking...' : 'Continue to Payment'}
+      </Button>
     </div>
   );
 }
