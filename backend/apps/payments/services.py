@@ -4,8 +4,8 @@ from decimal import Decimal
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
-# Mock Stripe for development - replace with real keys in production
-stripe.api_key = "sk_test_mock_key_for_development"
+# Initialize Stripe with real API key
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class StripePaymentService:
@@ -15,22 +15,23 @@ class StripePaymentService:
     def create_payment_intent(booking, customer_email=None):
         """Create Stripe PaymentIntent for a booking"""
         try:
-            # Mock PaymentIntent creation for development
-            # In production, this would be: stripe.PaymentIntent.create(...)
-            mock_intent = {
-                'id': f'pi_mock_{booking.id.hex[:16]}',
-                'client_secret': f'pi_mock_{booking.id.hex[:16]}_secret_mock',
-                'amount': int(booking.total_price_cents),
-                'currency': 'usd',
-                'status': 'requires_payment_method'
-            }
+            # Create real Stripe PaymentIntent
+            intent = stripe.PaymentIntent.create(
+                amount=int(booking.total_price_cents),
+                currency='usd',
+                metadata={
+                    'booking_id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                },
+                receipt_email=customer_email or booking.customer.email if hasattr(booking, 'customer') else None,
+            )
             
             # Create Payment record
             payment = Payment.objects.create(
                 booking=booking,
                 customer=booking.customer if hasattr(booking, 'customer') else None,
                 amount_cents=booking.total_price_cents,
-                stripe_payment_intent_id=mock_intent['id'],
+                stripe_payment_intent_id=intent.id,
                 status='pending'
             )
             
@@ -39,47 +40,58 @@ class StripePaymentService:
                 action='payment_created',
                 description=f'PaymentIntent created for booking {booking.booking_number}',
                 payment=payment,
-                user=None  # System action
+                user=None
             )
             
             return {
                 'payment': payment,
-                'client_secret': mock_intent['client_secret'],
-                'payment_intent_id': mock_intent['id']
+                'client_secret': intent.client_secret,
+                'payment_intent_id': intent.id
             }
             
+        except stripe.error.StripeError as e:
+            raise Exception(f"Stripe error: {str(e)}")
         except Exception as e:
-            # In production, this would catch actual Stripe exceptions
             raise Exception(f"Failed to create PaymentIntent: {str(e)}")
     
     @staticmethod
     def confirm_payment(payment_intent_id):
-        """Mock payment confirmation - in production would verify with Stripe"""
+        """Verify payment with Stripe and update records"""
         try:
+            # Retrieve the PaymentIntent from Stripe
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             
-            # Mock successful payment
-            payment.status = 'succeeded'
-            payment.stripe_charge_id = f'ch_mock_{payment.id.hex[:16]}'
-            payment.save()
-            
-            # Update booking status
-            booking = payment.booking
-            booking.status = 'paid'
-            booking.save()
-            
-            # Log payment success
-            PaymentAudit.log(
-                action='payment_succeeded',
-                description=f'Payment confirmed for booking {booking.booking_number}',
-                payment=payment,
-                user=None
-            )
-            
-            return payment
+            if intent.status == 'succeeded':
+                payment.status = 'succeeded'
+                payment.stripe_charge_id = intent.charges.data[0].id if intent.charges.data else ''
+                payment.save()
+                
+                # Update booking status
+                booking = payment.booking
+                booking.status = 'paid'
+                booking.save()
+                
+                # Log payment success
+                PaymentAudit.log(
+                    action='payment_succeeded',
+                    description=f'Payment confirmed for booking {booking.booking_number}',
+                    payment=payment,
+                    user=None
+                )
+                
+                return payment
+            else:
+                payment.status = 'failed'
+                payment.failure_reason = f"Payment status: {intent.status}"
+                payment.save()
+                raise Exception(f"Payment not successful: {intent.status}")
             
         except Payment.DoesNotExist:
             raise Exception("Payment not found")
+        except stripe.error.StripeError as e:
+            raise Exception(f"Stripe error: {str(e)}")
     
     @staticmethod
     def create_refund(payment, amount_cents, reason, requested_by_user):
@@ -87,28 +99,36 @@ class StripePaymentService:
         from .models import Refund
         
         try:
-            # Mock refund creation
-            mock_refund_id = f're_mock_{payment.id.hex[:16]}'
+            # Create Stripe refund
+            refund = stripe.Refund.create(
+                payment_intent=payment.stripe_payment_intent_id,
+                amount=amount_cents,
+                reason='requested_by_customer',
+            )
             
-            refund = Refund.objects.create(
+            refund_record = Refund.objects.create(
                 payment=payment,
                 amount_cents=amount_cents,
                 reason=reason,
                 requested_by=requested_by_user,
-                stripe_refund_id=mock_refund_id,
-                status='requested'
+                stripe_refund_id=refund.id,
+                status='completed'
             )
             
-            # Log refund request
+            # Update payment status
+            payment.status = 'refunded'
+            payment.save()
+            
+            # Log refund
             PaymentAudit.log(
-                action='refund_requested',
-                description=f'Refund requested for payment {payment.id}',
+                action='refund_completed',
+                description=f'Refund completed for payment {payment.id}',
                 payment=payment,
-                refund=refund,
+                refund=refund_record,
                 user=requested_by_user
             )
             
-            return refund
+            return refund_record
             
-        except Exception as e:
-            raise Exception(f"Failed to create refund: {str(e)}")
+        except stripe.error.StripeError as e:
+            raise Exception(f"Stripe refund error: {str(e)}")
