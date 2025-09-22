@@ -64,16 +64,23 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     clearSessionIfIncognito();
   }, [mounted, clearSessionIfIncognito]);
 
-  // FIXED: Don't auto-initialize based on persisted auth state
-  // Let AuthChoiceStep handle the logic
+  // FIXED: Proper initialization - check auth state and initialize accordingly
   useEffect(() => {
     if (!mounted) return;
     
-    // ONLY initialize as guest on first mount, don't check auth
+    // Only initialize if we're at step 0 (prevents re-initialization on step changes)
     if (currentStep === 0) {
-      initializeForUser('guest', true);
+      if (isAuthenticated && user) {
+        // User is logged in - initialize as authenticated user
+        console.log('Wizard: User authenticated, initializing for user', user.id);
+        initializeForUser(user.id.toString(), false);
+      } else {
+        // No user - initialize as guest
+        console.log('Wizard: No user, initializing as guest');
+        initializeForUser('guest', true);
+      }
     }
-  }, [mounted]); // Removed isAuthenticated, user, initializeForUser from deps
+  }, [mounted, isAuthenticated, user, currentStep, initializeForUser]);
 
   if (!mounted) {
     return (
@@ -127,8 +134,8 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 
   // FIXED: Make logout async
   const handleStartOver = async () => {
-    await logout(); // ← Wait for logout to complete
-    resetWizard(); // ← Then reset wizard
+    await logout();
+    resetWizard();
   };
 
   const getStepTitle = () => {
