@@ -19,7 +19,8 @@
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
-│   │   │   │   └── 0002_booking_include_packing_booking_include_unpacking_and_more.py
+│   │   │   │   ├── 0002_booking_include_packing_booking_include_unpacking_and_more.py
+│   │   │   │   └── 0003_booking_geographic_surcharge_cents_and_more.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -40,7 +41,8 @@
 │   │   ├── customers
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── 0001_initial.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_alter_customerprofile_preferred_pickup_time.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -99,7 +101,9 @@
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
 │   │   │   │   ├── 0002_organizingservice.py
-│   │   │   │   └── 0003_populate_organizing_services.py
+│   │   │   │   ├── 0003_populate_organizing_services.py
+│   │   │   │   ├── 0004_surchargerule_applies_to_service_type.py
+│   │   │   │   └── 0005_remove_van_schedule.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -123,9 +127,11 @@
 │   ├── static
 │   ├── .dockerignore
 │   ├── .env.example
+│   ├── .gitignore
 │   ├── cookies.txt
 │   ├── docker-compose.yml
 │   ├── Dockerfile
+│   ├── fly.toml
 │   ├── gunicorn.conf.py
 │   ├── manage.py
 │   ├── pyproject.toml
@@ -183,7 +189,6 @@
 │   │   │   ├── favicon.ico
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
-│   │   │   ├── layout.tsx.backup
 │   │   │   └── page.tsx
 │   │   ├── components
 │   │   │   ├── auth
@@ -218,19 +223,19 @@
 │   │   │   │   ├── staff-dashboard-overview.tsx
 │   │   │   │   ├── staff-layout.tsx
 │   │   │   │   └── staff-login-form.tsx
-│   │   │   ├── ui
-│   │   │   │   ├── button.tsx
-│   │   │   │   ├── card.tsx
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── input.tsx
-│   │   │   │   ├── modal.tsx
-│   │   │   │   └── select.tsx
-│   │   │   └── test-api-connection.tsx
+│   │   │   └── ui
+│   │   │       ├── button.tsx
+│   │   │       ├── card.tsx
+│   │   │       ├── index.ts
+│   │   │       ├── input.tsx
+│   │   │       ├── modal.tsx
+│   │   │       └── select.tsx
 │   │   ├── hooks
 │   │   │   └── use-click-away.ts
 │   │   ├── lib
 │   │   │   ├── api-client.ts
-│   │   │   └── query-client.ts
+│   │   │   ├── query-client.ts
+│   │   │   └── stripe.ts
 │   │   ├── stores
 │   │   │   ├── auth-store.ts
 │   │   │   ├── booking-store.ts
@@ -242,6 +247,7 @@
 │   │       └── cn.ts
 │   ├── .gitignore
 │   ├── eslint.config.mjs
+│   ├── netlify.toml
 │   ├── next.config.ts
 │   ├── package.json
 │   ├── postcss.config.js
@@ -250,8 +256,7 @@
 │   ├── tailwind.config.js
 │   └── tsconfig.json
 ├── .gitignore
-├── docker-compose.prod.yml
 ├── project_structure.txt
 └── README.md
 
-64 directories, 191 files
+64 directories, 196 files

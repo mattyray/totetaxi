@@ -268,9 +268,13 @@ LOGGING = {
             'level': env('DJANGO_LOG_LEVEL', default='INFO'),
             'propagate': False,
         },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
-
 # Stripe Configuration
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
