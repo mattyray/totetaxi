@@ -34,7 +34,7 @@ class CustomerBookingCreateView(APIView):
         booking = serializer.save()
         
         # Set booking to confirmed for demo mode (no real payment processing)
-        booking.status = 'confirmed'
+        booking.status = 'pending'  # Change to 'confirmed' if you want auto-confirmation
         booking.save()
         
         # Update customer statistics immediately for demo

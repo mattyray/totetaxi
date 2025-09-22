@@ -5,7 +5,9 @@ from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
 # Initialize Stripe with real API key
+from django.conf import settings
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 
 class StripePaymentService:
