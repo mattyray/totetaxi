@@ -1,3 +1,4 @@
+// frontend/src/components/booking/booking-wizard.tsx
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -49,7 +50,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   // Handle booking completion
   useEffect(() => {
     if (isBookingComplete && completedBookingNumber) {
-      // Show success message for a moment, then close
       setTimeout(() => {
         if (onComplete) {
           onComplete();
@@ -64,17 +64,16 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     clearSessionIfIncognito();
   }, [mounted, clearSessionIfIncognito]);
 
-  // Initialize for user but DON'T auto-skip auth step
+  // FIXED: Don't auto-initialize based on persisted auth state
+  // Let AuthChoiceStep handle the logic
   useEffect(() => {
     if (!mounted) return;
     
-    if (isAuthenticated && user?.id) {
-      initializeForUser(user.id.toString(), false);
-    } else {
-      // Always start at step 0 for guests/new sessions
+    // ONLY initialize as guest on first mount, don't check auth
+    if (currentStep === 0) {
       initializeForUser('guest', true);
     }
-  }, [mounted, user?.id, isAuthenticated, initializeForUser]);
+  }, [mounted]); // Removed isAuthenticated, user, initializeForUser from deps
 
   if (!mounted) {
     return (
@@ -126,9 +125,10 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   const displaySteps = getDisplaySteps();
   const maxSteps = isGuestMode ? 5 : 4;
 
-  const handleStartOver = () => {
-    logout();
-    resetWizard();
+  // FIXED: Make logout async
+  const handleStartOver = async () => {
+    await logout(); // ← Wait for logout to complete
+    resetWizard(); // ← Then reset wizard
   };
 
   const getStepTitle = () => {
@@ -241,9 +241,9 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
                 </Button>
               )}
             </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
