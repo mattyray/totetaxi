@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
@@ -56,11 +56,13 @@ class CustomerLoginView(APIView):
         })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Customer logout endpoint"""
-    permission_classes = [permissions.IsAuthenticated]
+    """Customer logout endpoint - CSRF exempt to handle logout failures gracefully"""
+    permission_classes = [permissions.AllowAny]  # Changed from IsAuthenticated
     
     def post(self, request):
+        # Logout even if user is not authenticated (cleanup)
         logout(request)
         return Response({'message': 'Logout successful'})
 
@@ -73,7 +75,7 @@ class CurrentUserView(APIView):
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
-                'customer_profile': CustomerProfileSerializer(request.customer_profile).data,
+                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data,
                 'csrf_token': get_token(request)
             })
         else:
@@ -149,7 +151,6 @@ class CustomerBookingListView(generics.ListAPIView):
         })
 
 
-# NEW: Customer Notes API for Staff
 class CustomerNotesUpdateView(APIView):
     """Update customer notes - staff only"""
     permission_classes = [permissions.IsAuthenticated]
