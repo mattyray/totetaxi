@@ -53,6 +53,7 @@ interface BookingWizardState {
   completedBookingNumber?: string;
   userId?: string;
   isGuestMode: boolean;
+  lastResetTimestamp?: number; // Track when wizard was last reset
 }
 
 interface BookingWizardActions {
@@ -80,6 +81,9 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
+const STORE_VERSION = 2; // Increment this to force reset all existing stores
+const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
@@ -91,6 +95,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       completedBookingNumber: undefined,
       userId: undefined,
       isGuestMode: true,
+      lastResetTimestamp: Date.now(),
 
       setCurrentStep: (step) => set({ currentStep: step }),
       
@@ -141,15 +146,26 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        if (state.userId && state.userId !== userId && state.userId !== 'guest') {
-          console.log('Different user detected, resetting data');
+        // Check if session is stale (older than 24 hours)
+        const isStale = state.lastResetTimestamp && 
+          (Date.now() - state.lastResetTimestamp > MAX_SESSION_AGE_MS);
+        
+        // Reset if different user, stale session, or booking complete
+        if (
+          (state.userId && state.userId !== userId && state.userId !== 'guest') ||
+          isStale ||
+          state.isBookingComplete
+        ) {
+          console.log('Resetting wizard - user change, stale session, or completed booking');
           set({
             bookingData: { ...initialBookingData },
             errors: {},
             isBookingComplete: false,
             completedBookingNumber: undefined,
+            currentStep: 0,
             userId: userId,
-            isGuestMode: guestMode
+            isGuestMode: guestMode,
+            lastResetTimestamp: Date.now()
           });
         } else {
           set({ 
@@ -170,11 +186,13 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           isBookingComplete: false,
           completedBookingNumber: undefined,
           userId: 'guest',
-          isGuestMode: true
+          isGuestMode: true,
+          lastResetTimestamp: Date.now()
         };
         
         set(newState);
         
+        // Force clear from localStorage
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
@@ -214,13 +232,53 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
     }),
     {
       name: 'totetaxi-booking-wizard',
+      version: STORE_VERSION,
+      migrate: (persistedState: any, version: number) => {
+        // If version mismatch, return fresh state
+        if (version !== STORE_VERSION) {
+          console.log(`Store version mismatch (${version} !== ${STORE_VERSION}), resetting to defaults`);
+          return {
+            currentStep: 0,
+            isLoading: false,
+            bookingData: { ...initialBookingData },
+            errors: {},
+            isBookingComplete: false,
+            completedBookingNumber: undefined,
+            userId: 'guest',
+            isGuestMode: true,
+            lastResetTimestamp: Date.now()
+          };
+        }
+        
+        // Check if persisted state is stale
+        if (persistedState?.lastResetTimestamp) {
+          const age = Date.now() - persistedState.lastResetTimestamp;
+          if (age > MAX_SESSION_AGE_MS) {
+            console.log('Persisted state is stale (>24h), resetting');
+            return {
+              currentStep: 0,
+              isLoading: false,
+              bookingData: { ...initialBookingData },
+              errors: {},
+              isBookingComplete: false,
+              completedBookingNumber: undefined,
+              userId: 'guest',
+              isGuestMode: true,
+              lastResetTimestamp: Date.now()
+            };
+          }
+        }
+        
+        return persistedState;
+      },
       partialize: (state) => ({
         bookingData: state.bookingData,
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,
         completedBookingNumber: state.completedBookingNumber,
         userId: state.userId,
-        isGuestMode: state.isGuestMode
+        isGuestMode: state.isGuestMode,
+        lastResetTimestamp: state.lastResetTimestamp
       })
     }
   )
