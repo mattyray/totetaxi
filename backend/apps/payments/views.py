@@ -266,6 +266,7 @@ class RefundCreateView(generics.CreateAPIView):
         
         serializer.save(requested_by=self.request.user)
 
+
 class PaymentConfirmView(APIView):
     """Confirm payment after Stripe processes it - called from frontend"""
     permission_classes = [permissions.AllowAny]
@@ -280,52 +281,20 @@ class PaymentConfirmView(APIView):
             )
         
         try:
-            # Confirm payment and update booking status
+            # Service handles ALL logic: payment update, booking status, customer stats
             payment = StripePaymentService.confirm_payment(payment_intent_id)
+            
+            # Defensive check before accessing attributes
+            if not payment:
+                return Response(
+                    {'error': 'Payment confirmation failed'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
             return Response({
                 'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status,
+                'booking_status': payment.booking.status if payment.booking else None,
                 'payment_status': payment.status
-            })
-            
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-class PaymentConfirmView(APIView):
-    """Confirm payment after Stripe processes it - called from frontend"""
-    permission_classes = [permissions.AllowAny]
-    
-    def post(self, request):
-        payment_intent_id = request.data.get('payment_intent_id')
-        
-        if not payment_intent_id:
-            return Response(
-                {'error': 'payment_intent_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Confirm payment and update booking status
-            payment = StripePaymentService.confirm_payment(payment_intent_id)
-            
-            if payment and payment.booking:
-                # Update booking status to paid
-                payment.booking.status = 'paid'
-                payment.booking.save()
-            
-            return Response({
-                'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status if payment else None,
-                'payment_status': payment.status if payment else None
             })
             
         except Payment.DoesNotExist:

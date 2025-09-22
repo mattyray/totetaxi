@@ -1099,3 +1099,127 @@ These updated documentation files now include:
 8. All file changes and their purposes
 
 The documentation is ready to use as AI memory persistence for future development sessions!
+
+Here's the explanation of `stripe.ts` for your frontend documentation:
+
+---
+
+## **`src/lib/stripe.ts` - Stripe Client Initialization**
+
+**Purpose:** Singleton factory for Stripe.js initialization with lazy loading and caching
+
+### **What It Does**
+
+This utility file creates and manages the Stripe.js client instance used throughout the frontend application. It implements a **singleton pattern** to ensure only one Stripe instance is created and reused across the entire app.
+
+### **Complete Code**
+
+```typescript
+// src/lib/stripe.ts
+import { loadStripe, Stripe } from '@stripe/stripe-js';
+
+let stripePromise: Promise<Stripe | null>;
+
+export const getStripe = () => {
+  if (!stripePromise) {
+    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+  }
+  return stripePromise;
+};
+```
+
+### **How It Works**
+
+1. **Lazy Initialization**
+   - Stripe instance is NOT created on import
+   - Only created when `getStripe()` is first called
+   - Subsequent calls return the same cached promise
+
+2. **Environment-Based Configuration**
+   - Uses `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` from environment variables
+   - Automatically switches between test/production keys based on environment
+   - Publishable key is safe to expose client-side (starts with `pk_test_` or `pk_live_`)
+
+3. **Promise Caching**
+   - `stripePromise` stores the loading promise in module scope
+   - First call triggers `loadStripe()` and caches the promise
+   - All subsequent calls return the same promise (no re-downloads)
+
+### **Usage in Components**
+
+```typescript
+// In review-payment-step.tsx or any payment component
+import { Elements } from '@stripe/react-stripe-js';
+import { getStripe } from '@/lib/stripe';
+
+function PaymentComponent({ clientSecret }) {
+  const stripePromise = getStripe(); // Get cached Stripe instance
+  
+  return (
+    <Elements stripe={stripePromise} options={{ clientSecret }}>
+      <CheckoutForm />
+    </Elements>
+  );
+}
+```
+
+### **Why This Pattern?**
+
+**Performance Benefits:**
+- ✅ Stripe.js library (80KB) only loads once
+- ✅ No duplicate network requests
+- ✅ Instant subsequent access (cached promise)
+- ✅ Works across component re-renders and route changes
+
+**Best Practice Compliance:**
+- ✅ Follows Stripe's official React integration guide
+- ✅ Prevents "multiple Stripe instances" errors
+- ✅ Lazy loads Stripe only when needed (payment step)
+- ✅ Proper memory management with singleton pattern
+
+**Security:**
+- ✅ Only uses publishable key (public-safe)
+- ✅ No secret keys exposed to client
+- ✅ Environment variable configuration
+- ✅ Automatic test/production switching
+
+### **Environment Setup Required**
+
+```bash
+# .env.local
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SAEjgQ0uIfpHpq3UywxbYKcTEzqJACgIqrLiE87SLkjpGx2VtFO7sLUzBfmuNCMwNd63y550pdYCymLYp9rbfsA006t32IcIl
+
+# Production (.env.production)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...your_live_key_here
+```
+
+### **Key Points for Documentation**
+
+1. **Singleton Pattern** - One Stripe instance for the entire app
+2. **Lazy Loading** - Stripe.js only loads when payment component mounts
+3. **Environment Aware** - Automatically uses correct key for test/production
+4. **Promise Caching** - Returns same promise on every call (performance optimization)
+5. **Stripe Elements Integration** - Designed to work with `@stripe/react-stripe-js` Elements provider
+
+### **Error Handling**
+
+If the publishable key is missing or invalid:
+```typescript
+// Stripe will return null and payment elements will show error
+const stripe = await getStripe(); // May return null
+if (!stripe) {
+  console.error('Stripe failed to load. Check NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+}
+```
+
+### **Integration Points**
+
+This utility connects to:
+- **Payment Components** - `review-payment-step.tsx` uses it to load Stripe Elements
+- **Environment Config** - Reads from `.env.local` or `.env.production`
+- **Stripe Backend** - Works with backend payment intents from `/api/customer/bookings/create/`
+- **Payment Confirmation** - Enables `stripe.confirmPayment()` in checkout flow
+
+---
+
+**Add this section to your frontend documentation under "Payment Integration" or "Core Utilities"** to explain the Stripe initialization strategy! 🎯
