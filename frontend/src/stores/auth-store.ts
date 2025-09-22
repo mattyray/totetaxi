@@ -60,9 +60,24 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       },
 
       clearAuth: () => {
+        // CRITICAL FIX: Clear ALL auth-related localStorage keys
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('totetaxi-last-activity');
+          const keysToRemove = [
+            'totetaxi-auth',
+            'totetaxi-last-activity',
+            'totetaxi-booking-wizard'
+          ];
+          
+          keysToRemove.forEach(key => {
+            try {
+              localStorage.removeItem(key);
+              console.log(`✓ Cleared ${key}`);
+            } catch (e) {
+              console.warn(`Failed to remove ${key}:`, e);
+            }
+          });
         }
+        
         set(initialState);
       },
 
@@ -169,6 +184,16 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           console.warn('Logout request failed:', error);
         } finally {
           get().clearAuth();
+          
+          // CRITICAL FIX: Also clear booking wizard via dynamic import to avoid circular dependency
+          if (typeof window !== 'undefined') {
+            try {
+              const { useBookingWizard } = await import('@/stores/booking-store');
+              useBookingWizard.getState().resetWizard();
+            } catch (e) {
+              console.warn('Could not clear booking wizard:', e);
+            }
+          }
         }
       },
 
@@ -179,6 +204,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           
           if (!lastActivity || (now - parseInt(lastActivity)) > 30 * 60 * 1000) {
             // More than 30 minutes of inactivity, clear session
+            console.log('Session expired, clearing auth');
             localStorage.clear();
             set(initialState);
           } else {
