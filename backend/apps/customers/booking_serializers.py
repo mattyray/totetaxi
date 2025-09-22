@@ -17,7 +17,9 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     ])
     
     # Service-specific fields
-    mini_move_package_id = serializers.UUIDField(required=False)
+    mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
+    include_packing = serializers.BooleanField(default=False)
+    include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
     is_same_day_delivery = serializers.BooleanField(default=False)
     specialty_item_ids = serializers.ListField(
@@ -30,9 +32,10 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
-        ('afternoon', '12 PM - 3 PM'),
-        ('evening', '4 PM - 7 PM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
     ], required=False)
+    specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
     
     # Address selection - can use saved addresses or create new ones
     pickup_address_id = serializers.UUIDField(required=False)
@@ -117,10 +120,13 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             service_type=validated_data['service_type'],
             pickup_date=validated_data['pickup_date'],
             pickup_time=validated_data['pickup_time'],
+            specific_pickup_hour=validated_data.get('specific_pickup_hour'),
             pickup_address=pickup_address,
             delivery_address=delivery_address,
             special_instructions=validated_data.get('special_instructions', ''),
             coi_required=validated_data.get('coi_required', False),
+            include_packing=validated_data.get('include_packing', False),
+            include_unpacking=validated_data.get('include_unpacking', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False)
         )
@@ -247,8 +253,8 @@ class QuickBookingSerializer(serializers.Serializer):
     pickup_time = serializers.ChoiceField(
         choices=[
             ('morning', '8 AM - 11 AM'),
-            ('afternoon', '12 PM - 3 PM'),
-            ('evening', '4 PM - 7 PM'),
+            ('morning_specific', 'Specific 1-hour window'),
+            ('no_time_preference', 'No time preference'),
         ],
         required=False
     )
