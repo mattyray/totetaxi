@@ -1,3 +1,4 @@
+// frontend/src/components/auth/user-menu.tsx
 'use client';
 
 import { useState, useRef } from 'react';
@@ -11,7 +12,8 @@ import {
   Cog6ToothIcon, 
   ArrowRightOnRectangleIcon,
   PlusIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 interface UserMenuProps {
@@ -19,18 +21,16 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ variant = 'header' }: UserMenuProps) {
-  const { user, customerProfile, clearAuth } = useAuthStore();
+  const { user, customerProfile, clearAuth, logout } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useClickAway(dropdownRef, () => setIsOpen(false));
 
   const handleLogout = async () => {
     try {
-      await apiClient.post('/api/customer/auth/logout/');
-      clearAuth();
+      await logout();
       router.push('/');
       setIsOpen(false);
     } catch (error) {
@@ -38,6 +38,18 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       clearAuth();
       router.push('/');
     }
+  };
+
+  const handleForceLogout = () => {
+    // Nuclear option for debugging
+    if (typeof window !== 'undefined') {
+      console.log('FORCE LOGOUT - Clearing all storage');
+      localStorage.clear();
+      sessionStorage.clear();
+    }
+    clearAuth();
+    router.push('/');
+    window.location.reload();
   };
 
   const menuItems = [
@@ -79,7 +91,14 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       icon: ArrowRightOnRectangleIcon,
       onClick: handleLogout,
       danger: true
-    }
+    },
+    // Debug option - remove in production
+    ...(process.env.NODE_ENV === 'development' ? [{
+      label: 'Force Logout (Debug)',
+      icon: ExclamationTriangleIcon,
+      onClick: handleForceLogout,
+      danger: true
+    }] : [])
   ];
 
   if (!user) return null;
@@ -87,7 +106,6 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
   if (variant === 'mobile') {
     return (
       <div className="space-y-2 pt-4 border-t border-gray-200">
-        {/* User Info */}
         <div className="px-4 py-3 bg-gray-50 rounded-lg mx-4">
           <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
           <p className="text-sm text-navy-600">{user.email}</p>
@@ -105,7 +123,6 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
           </div>
         </div>
 
-        {/* Menu Items */}
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -147,7 +164,6 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-gray-200">
           <div className="py-1">
-            {/* User Header */}
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
               <p className="text-sm text-navy-600">{user.email}</p>
@@ -167,7 +183,6 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
               )}
             </div>
 
-            {/* Menu Items */}
             {menuItems.map((item, index) => {
               const Icon = item.icon;
               return (
@@ -180,7 +195,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
                       : item.danger 
                       ? 'text-red-600 hover:text-red-700' 
                       : 'text-navy-700 hover:text-navy-900'
-                  } ${index === menuItems.length - 1 ? 'border-t border-gray-100 mt-1' : ''}`}
+                  } ${index === menuItems.length - 1 || (index === menuItems.length - 2 && process.env.NODE_ENV === 'development') ? 'border-t border-gray-100 mt-1' : ''}`}
                 >
                   <Icon className="h-5 w-5 mr-3" />
                   {item.label}
