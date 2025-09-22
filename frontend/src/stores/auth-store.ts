@@ -202,9 +202,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           const now = Date.now();
           const lastActivity = localStorage.getItem('totetaxi-last-activity');
           
-          if (!lastActivity || (now - parseInt(lastActivity)) > 30 * 60 * 1000) {
-            // More than 30 minutes of inactivity, clear session
-            console.log('Session expired, clearing auth');
+          // FIXED: 24 hours instead of 30 minutes
+          if (!lastActivity || (now - parseInt(lastActivity)) > 24 * 60 * 60 * 1000) {
+            console.log('Session expired (24h inactivity), clearing auth');
             localStorage.clear();
             set(initialState);
           } else {

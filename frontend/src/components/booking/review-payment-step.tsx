@@ -242,12 +242,12 @@ export function ReviewPaymentStep() {
   };
 
   const handleStartOver = () => {
-    resetWizard();
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
     setShowPayment(false);
-    router.push('/book?reset=true');
+    resetWizard();
+    router.push('/book');
   };
 
   if (bookingComplete) {
@@ -606,10 +606,10 @@ export function ReviewPaymentStep() {
         variant="primary" 
         size="lg"
         onClick={handleSubmitBooking}
-        disabled={isLoading || !termsAccepted}
+        disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
         className="w-full"
       >
-        {isLoading ? 'Creating Booking...' : 'Continue to Payment'}
+        {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
       </Button>
     </div>
   );
