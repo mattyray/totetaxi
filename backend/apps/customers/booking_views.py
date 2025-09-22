@@ -33,16 +33,11 @@ class CustomerBookingCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
-        # Set booking to confirmed for demo mode (no real payment processing)
-        booking.status = 'pending'  # Change to 'confirmed' if you want auto-confirmation
-        booking.save()
+        # Booking starts as pending - will be updated after payment
+        # DO NOT update customer stats here - wait for payment confirmation
         
-        # Update customer statistics immediately for demo
-        customer_profile = request.user.customer_profile
-        customer_profile.add_booking_stats(booking.total_price_cents)
-        
-        # Automatically create payment intent for seamless experience
-        create_payment_intent = request.data.get('create_payment_intent', False)  # Default to False for demo
+        # Create payment intent for this booking
+        create_payment_intent = request.data.get('create_payment_intent', True)  # Default to True
         payment_data = None
         
         if create_payment_intent:
@@ -103,7 +98,7 @@ class QuickRebookView(APIView):
             delivery_address=original_booking.delivery_address,
             special_instructions=serializer.validated_data.get('special_instructions', original_booking.special_instructions),
             coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required),
-            status='confirmed'  # Set to confirmed for demo
+            status='pending'  # Start as pending, not confirmed
         )
         
         # Copy specialty items if any
@@ -111,10 +106,6 @@ class QuickRebookView(APIView):
             new_booking.specialty_items.set(original_booking.specialty_items.all())
         
         new_booking.save()  # Trigger pricing calculation
-        
-        # Update customer statistics
-        customer_profile = request.user.customer_profile
-        customer_profile.add_booking_stats(new_booking.total_price_cents)
         
         # Create payment intent
         payment_data = StripePaymentService.create_payment_intent(
