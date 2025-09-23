@@ -12,20 +12,40 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-const TEST_PICKUP_ADDRESS: BookingAddress = {
-  address_line_1: '123 Park Avenue',
-  address_line_2: 'Apt 5B',
-  city: 'New York',
-  state: 'NY',
-  zip_code: '10001'
-};
-
-const TEST_DELIVERY_ADDRESS: BookingAddress = {
-  address_line_1: '456 Ocean Drive',
-  address_line_2: 'Suite 12',
-  city: 'Southampton',
-  state: 'NY',
-  zip_code: '11968'
+// Production-safe test data
+const TEST_ADDRESSES = {
+  manhattan: {
+    address_line_1: '123 Park Avenue',
+    address_line_2: 'Apt 5B',
+    city: 'New York',
+    state: 'NY' as const,
+    zip_code: '10001'
+  },
+  hamptons: {
+    address_line_1: '456 Ocean Drive',
+    address_line_2: 'Suite 12',
+    city: 'Southampton',
+    state: 'NY' as const,
+    zip_code: '11968'
+  },
+  brooklyn: {
+    address_line_1: '789 Atlantic Avenue',
+    city: 'Brooklyn',
+    state: 'NY' as const,
+    zip_code: '11217'
+  },
+  westchester: {
+    address_line_1: '321 Main Street',
+    city: 'White Plains',
+    state: 'NY' as const,
+    zip_code: '10601'
+  },
+  connecticut: {
+    address_line_1: '654 Elm Street',
+    city: 'Greenwich',
+    state: 'CT' as const,
+    zip_code: '06830'
+  }
 };
 
 interface AddressFormProps {
@@ -128,13 +148,38 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  // TEST DATA BUTTON - fills both addresses instantly
-  const fillTestData = () => {
-    updateBookingData({ 
-      pickup_address: TEST_PICKUP_ADDRESS,
-      delivery_address: TEST_DELIVERY_ADDRESS,
-      special_instructions: 'Test booking - doorman will let you in'
-    });
+  // Test data functions - production safe
+  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
+    switch (route) {
+      case 'manhattan-hamptons':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.hamptons,
+          special_instructions: 'Test booking - Manhattan to Hamptons route'
+        });
+        break;
+      case 'brooklyn-manhattan':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.brooklyn,
+          delivery_address: TEST_ADDRESSES.manhattan,
+          special_instructions: 'Test booking - Brooklyn to Manhattan route'
+        });
+        break;
+      case 'manhattan-westchester':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.westchester,
+          special_instructions: 'Test booking - Manhattan to Westchester route'
+        });
+        break;
+      case 'manhattan-connecticut':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.connecticut,
+          special_instructions: 'Test booking - Manhattan to Connecticut route'
+        });
+        break;
+    }
   };
 
   const handleContinue = () => {
@@ -191,7 +236,7 @@ export function AddressStep() {
 
   return (
     <div className="space-y-6">
-      {/* Instructions */}
+      {/* Instructions with Test Data Buttons */}
       <div className="text-center py-4">
         <p className="text-navy-700">
           Where should we pick up and deliver your items?
@@ -200,17 +245,44 @@ export function AddressStep() {
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
         
-        {/* DEV ONLY: Quick fill button */}
-        {process.env.NODE_ENV === 'development' && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fillTestData}
-            className="mt-2"
-          >
-            🚀 Fill Test Data
-          </Button>
-        )}
+        {/* Production-Safe Test Data Buttons */}
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-hamptons')}
+              className="text-xs"
+            >
+              Manhattan → Hamptons
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('brooklyn-manhattan')}
+              className="text-xs"
+            >
+              Brooklyn → Manhattan
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-westchester')}
+              className="text-xs"
+            >
+              Manhattan → Westchester
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-connecticut')}
+              className="text-xs"
+            >
+              Manhattan → Connecticut
+            </Button>
+          </div>
+        </div>
       </div>
 
       <AddressForm
