@@ -1,4 +1,3 @@
-// frontend/src/components/auth/login-form.tsx
 'use client';
 
 import { useState } from 'react';
@@ -28,6 +27,11 @@ interface LoginResponse {
   csrf_token: string;
 }
 
+const TEST_USER = {
+  email: 'dev.tester@totetaxi.local',
+  password: 'DevTest2024!'
+};
+
 export function LoginForm() {
   const router = useRouter();
   const { setAuth, setLoading } = useAuthStore();
@@ -37,9 +41,15 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setValue
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  const fillTestUser = () => {
+    setValue('email', TEST_USER.email);
+    setValue('password', TEST_USER.password);
+  };
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData): Promise<LoginResponse> => {
@@ -79,8 +89,20 @@ export function LoginForm() {
         </CardHeader>
 
         <CardContent>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-center mb-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fillTestUser}
+                className="text-xs"
+              >
+                🧪 Fill Test User
+              </Button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1">
                 Email Address
@@ -97,7 +119,6 @@ export function LoginForm() {
               )}
             </div>
 
-            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy-900 mb-1">
                 Password
@@ -114,14 +135,12 @@ export function LoginForm() {
               )}
             </div>
 
-            {/* API Error Display */}
             {apiError && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
                 <p className="text-red-700 text-sm">{apiError}</p>
               </div>
             )}
 
-            {/* Submit Button */}
             <Button
               type="submit"
               variant="primary"
@@ -132,7 +151,6 @@ export function LoginForm() {
               {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
             </Button>
 
-            {/* Register Link */}
             <div className="text-center pt-4 border-t border-cream-200">
               <p className="text-sm text-navy-600">
                 Don&apos;t have an account?{' '}
@@ -146,7 +164,6 @@ export function LoginForm() {
               </p>
             </div>
 
-            {/* Forgot Password */}
             <div className="text-center">
               <button
                 type="button"

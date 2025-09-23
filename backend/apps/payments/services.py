@@ -5,7 +5,6 @@ from decimal import Decimal
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
-# Initialize Stripe with real API key
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
@@ -16,7 +15,6 @@ class StripePaymentService:
     def create_payment_intent(booking, customer_email=None):
         """Create Stripe PaymentIntent for a booking"""
         try:
-            # Create real Stripe PaymentIntent
             intent = stripe.PaymentIntent.create(
                 amount=int(booking.total_price_cents),
                 currency='usd',
@@ -27,7 +25,6 @@ class StripePaymentService:
                 receipt_email=customer_email or (booking.customer.email if hasattr(booking, 'customer') and booking.customer else None),
             )
             
-            # Create Payment record
             payment = Payment.objects.create(
                 booking=booking,
                 customer=booking.customer if hasattr(booking, 'customer') and booking.customer else None,
@@ -36,7 +33,6 @@ class StripePaymentService:
                 status='pending'
             )
             
-            # Log payment creation
             PaymentAudit.log(
                 action='payment_created',
                 description=f'PaymentIntent created for booking {booking.booking_number}',
@@ -59,24 +55,21 @@ class StripePaymentService:
     def confirm_payment(payment_intent_id):
         """Verify payment with Stripe and update records - CRITICAL: Updates customer stats"""
         try:
-            # Retrieve the PaymentIntent from Stripe
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             
             if intent.status == 'succeeded':
                 payment.status = 'succeeded'
-                payment.stripe_charge_id = intent.charges.data[0].id if intent.charges.data else ''
+                payment.stripe_charge_id = intent.latest_charge if hasattr(intent, 'latest_charge') else ''
                 payment.processed_at = timezone.now()
                 payment.save()
                 
-                # Update booking status
                 booking = payment.booking
                 if booking.status == 'pending':
                     booking.status = 'paid'
                     booking.save()
                 
-                # CRITICAL: Update customer stats when payment succeeds
                 try:
                     if booking.customer and hasattr(booking.customer, 'customer_profile'):
                         booking.customer.customer_profile.add_booking_stats(
@@ -84,10 +77,8 @@ class StripePaymentService:
                         )
                         print(f"✅ Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
                 except Exception as stats_error:
-                    # Log but don't fail the payment if stats update fails
                     print(f"⚠️ Failed to update customer stats: {stats_error}")
                 
-                # Log payment success
                 PaymentAudit.log(
                     action='payment_succeeded',
                     description=f'Payment confirmed for booking {booking.booking_number}',
@@ -113,7 +104,6 @@ class StripePaymentService:
         from .models import Refund
         
         try:
-            # Create Stripe refund
             refund = stripe.Refund.create(
                 payment_intent=payment.stripe_payment_intent_id,
                 amount=amount_cents,
@@ -129,11 +119,9 @@ class StripePaymentService:
                 status='completed'
             )
             
-            # Update payment status
             payment.status = 'refunded'
             payment.save()
             
-            # Log refund
             PaymentAudit.log(
                 action='refund_completed',
                 description=f'Refund completed for payment {payment.id}',
