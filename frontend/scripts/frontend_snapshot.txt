@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-22 18:22:43.843758
+# Generated: 2025-09-23 13:29:03.747675
 # Files: 67
 
 # ==== next-env.d.ts ====
@@ -317,28 +317,32 @@ export default function AboutPage() {
 # ==== src/app/book/page.tsx ====
 
 ```
-// frontend/src/app/book/page.tsx
 'use client';
-
+// frontend/src/app/book/page.tsx
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookingWizard } from '@/components/booking';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Modal } from '@/components/ui/modal';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function BookPage() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const { isAuthenticated } = useAuthStore();
   const router = useRouter();
 
-  // Auto-open modal when page loads
   useEffect(() => {
     setShowBookingWizard(true);
   }, []);
 
   const closeBookingWizard = () => {
     setShowBookingWizard(false);
-    // Redirect to home when modal closes
-    router.push('/');
+    // Redirect authenticated users to dashboard, guests to home
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      router.push('/');
+    }
   };
 
   return (
@@ -352,7 +356,6 @@ export default function BookPage() {
         </div>
       </div>
 
-      {/* Booking Wizard Modal */}
       <Modal
         isOpen={showBookingWizard}
         onClose={closeBookingWizard}
@@ -2273,7 +2276,6 @@ export default function TermsPage() {
 # ==== src/components/auth/login-form.tsx ====
 
 ```
-// frontend/src/components/auth/login-form.tsx
 'use client';
 
 import { useState } from 'react';
@@ -2303,6 +2305,11 @@ interface LoginResponse {
   csrf_token: string;
 }
 
+const TEST_USER = {
+  email: 'dev.tester@totetaxi.local',
+  password: 'DevTest2024!'
+};
+
 export function LoginForm() {
   const router = useRouter();
   const { setAuth, setLoading } = useAuthStore();
@@ -2312,9 +2319,15 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setValue
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  const fillTestUser = () => {
+    setValue('email', TEST_USER.email);
+    setValue('password', TEST_USER.password);
+  };
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData): Promise<LoginResponse> => {
@@ -2354,8 +2367,20 @@ export function LoginForm() {
         </CardHeader>
 
         <CardContent>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-center mb-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fillTestUser}
+                className="text-xs"
+              >
+                🧪 Fill Test User
+              </Button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1">
                 Email Address
@@ -2372,7 +2397,6 @@ export function LoginForm() {
               )}
             </div>
 
-            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy-900 mb-1">
                 Password
@@ -2389,14 +2413,12 @@ export function LoginForm() {
               )}
             </div>
 
-            {/* API Error Display */}
             {apiError && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
                 <p className="text-red-700 text-sm">{apiError}</p>
               </div>
             )}
 
-            {/* Submit Button */}
             <Button
               type="submit"
               variant="primary"
@@ -2407,7 +2429,6 @@ export function LoginForm() {
               {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
             </Button>
 
-            {/* Register Link */}
             <div className="text-center pt-4 border-t border-cream-200">
               <p className="text-sm text-navy-600">
                 Don&apos;t have an account?{' '}
@@ -2421,7 +2442,6 @@ export function LoginForm() {
               </p>
             </div>
 
-            {/* Forgot Password */}
             <div className="text-center">
               <button
                 type="button"
@@ -2964,6 +2984,22 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
+const TEST_PICKUP_ADDRESS: BookingAddress = {
+  address_line_1: '123 Park Avenue',
+  address_line_2: 'Apt 5B',
+  city: 'New York',
+  state: 'NY',
+  zip_code: '10001'
+};
+
+const TEST_DELIVERY_ADDRESS: BookingAddress = {
+  address_line_1: '456 Ocean Drive',
+  address_line_2: 'Suite 12',
+  city: 'Southampton',
+  state: 'NY',
+  zip_code: '11968'
+};
+
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
@@ -3052,7 +3088,6 @@ export function AddressStep() {
 
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
-    // Clear errors when user starts typing
     if (address.address_line_1) clearError('pickup_address');
     if (address.city) clearError('pickup_city');
     if (address.zip_code) clearError('pickup_zip');
@@ -3060,16 +3095,23 @@ export function AddressStep() {
 
   const handleDeliveryChange = (address: BookingAddress) => {
     updateBookingData({ delivery_address: address });
-    // Clear errors when user starts typing
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
   };
 
+  // TEST DATA BUTTON - fills both addresses instantly
+  const fillTestData = () => {
+    updateBookingData({ 
+      pickup_address: TEST_PICKUP_ADDRESS,
+      delivery_address: TEST_DELIVERY_ADDRESS,
+      special_instructions: 'Test booking - doorman will let you in'
+    });
+  };
+
   const handleContinue = () => {
     let hasErrors = false;
 
-    // Validate pickup address
     if (!bookingData.pickup_address?.address_line_1) {
       setError('pickup_address', 'Pickup address is required');
       hasErrors = true;
@@ -3087,7 +3129,6 @@ export function AddressStep() {
       hasErrors = true;
     }
 
-    // Validate delivery address
     if (!bookingData.delivery_address?.address_line_1) {
       setError('delivery_address', 'Delivery address is required');
       hasErrors = true;
@@ -3130,9 +3171,20 @@ export function AddressStep() {
         <p className="text-sm text-navy-600 mt-1">
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
+        
+        {/* DEV ONLY: Quick fill button */}
+        {process.env.NODE_ENV === 'development' && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fillTestData}
+            className="mt-2"
+          >
+            🚀 Fill Test Data
+          </Button>
+        )}
       </div>
 
-      {/* Pickup Address */}
       <AddressForm
         title="Pickup Address"
         address={bookingData.pickup_address}
@@ -3145,7 +3197,6 @@ export function AddressStep() {
         }}
       />
 
-      {/* Delivery Address */}
       <AddressForm
         title="Delivery Address"
         address={bookingData.delivery_address}
@@ -3158,7 +3209,6 @@ export function AddressStep() {
         }}
       />
 
-      {/* Special Instructions */}
       <Card variant="default">
         <CardContent>
           <label className="block text-sm font-medium text-navy-900 mb-2">
@@ -3177,7 +3227,6 @@ export function AddressStep() {
         </CardContent>
       </Card>
 
-      {/* Continue Button */}
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}
@@ -3195,7 +3244,9 @@ export function AddressStep() {
 # ==== src/components/booking/auth-choice-step.tsx ====
 
 ```
+// frontend/src/components/booking/auth-choice-step.tsx
 'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -3204,9 +3255,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+const TEST_USER = {
+  email: 'dev.tester@totetaxi.local',
+  password: 'DevTest2024!'
+};
+
 export function AuthChoiceStep() {
   const { isAuthenticated, user, login, register } = useAuthStore();
-  const { nextStep, initializeForUser } = useBookingWizard();
+  const { nextStep, initializeForUser, setCurrentStep } = useBookingWizard();
   
   const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
@@ -3217,18 +3273,22 @@ export function AuthChoiceStep() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  // Auto-skip if already logged in
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('Already authenticated, skipping auth step');
+      console.log('Already authenticated, skipping to service selection');
+      localStorage.removeItem('totetaxi-booking-wizard');
       initializeForUser(user.id.toString(), false);
-      nextStep();
+      setCurrentStep(1);
     }
-  }, [isAuthenticated, user, initializeForUser, nextStep]);
+  }, [isAuthenticated, user, initializeForUser, setCurrentStep]);
 
   const handleGuestContinue = () => {
     initializeForUser('guest', true);
     nextStep();
+  };
+
+  const fillTestUser = () => {
+    setLoginData(TEST_USER);
   };
 
   const handleLogin = async () => {
@@ -3238,8 +3298,9 @@ export function AuthChoiceStep() {
     try {
       const result = await login(loginData.email, loginData.password);
       if (result.success) {
+        localStorage.removeItem('totetaxi-booking-wizard');
         initializeForUser(result.user?.id?.toString(), false);
-        nextStep();
+        setCurrentStep(1);
       } else {
         setError(result.error || 'Login failed');
       }
@@ -3266,8 +3327,9 @@ export function AuthChoiceStep() {
       if (result.success) {
         const loginResult = await login(registerData.email, registerData.password);
         if (loginResult.success) {
+          localStorage.removeItem('totetaxi-booking-wizard');
           initializeForUser(loginResult.user?.id?.toString(), false);
-          nextStep();
+          setCurrentStep(1);
         }
       } else {
         setError(result.error || 'Registration failed');
@@ -3360,6 +3422,19 @@ export function AuthChoiceStep() {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fillTestUser}
+              className="text-xs"
+            >
+              🧪 Fill Test User
+            </Button>
           </div>
         )}
 
@@ -3492,8 +3567,8 @@ export function AuthChoiceStep() {
 # ==== src/components/booking/booking-wizard.tsx ====
 
 ```
-// frontend/src/components/booking/booking-wizard.tsx
 'use client';
+// frontend/src/components/booking/booking-wizard.tsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -3536,38 +3611,47 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   
   const { isAuthenticated, user, logout, clearSessionIfIncognito } = useAuthStore();
 
-  // Fix hydration issue
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle booking completion
   useEffect(() => {
     if (isBookingComplete && completedBookingNumber) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        console.log('Booking complete, closing wizard');
+        resetWizard();
         if (onComplete) {
           onComplete();
         }
-      }, 2000);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [isBookingComplete, completedBookingNumber, onComplete]);
+  }, [isBookingComplete, completedBookingNumber, resetWizard, onComplete]);
 
-  // Check for incognito/fresh sessions
   useEffect(() => {
     if (!mounted) return;
     clearSessionIfIncognito();
   }, [mounted, clearSessionIfIncognito]);
 
-  // FIXED: Don't auto-initialize based on persisted auth state
-  // Let AuthChoiceStep handle the logic
   useEffect(() => {
     if (!mounted) return;
     
-    // ONLY initialize as guest on first mount, don't check auth
-    if (currentStep === 0) {
-      initializeForUser('guest', true);
+    if (isBookingComplete && completedBookingNumber) {
+      console.log('Success screen active, skipping initialization');
+      return;
     }
-  }, [mounted]); // Removed isAuthenticated, user, initializeForUser from deps
+    
+    if (currentStep === 0) {
+      if (isAuthenticated && user) {
+        console.log('Wizard: User authenticated, initializing for user', user.id);
+        initializeForUser(user.id.toString(), false);
+      } else {
+        console.log('Wizard: No user, initializing as guest');
+        initializeForUser('guest', true);
+      }
+    }
+  }, [mounted, isAuthenticated, user, currentStep, initializeForUser, isBookingComplete, completedBookingNumber]);
 
   if (!mounted) {
     return (
@@ -3577,7 +3661,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     );
   }
 
-  // Show completion screen
   if (isBookingComplete && completedBookingNumber) {
     return (
       <div className="text-center py-12">
@@ -3601,12 +3684,11 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
 
-  // Get display steps (skip customer info for authenticated users, hide auth step from progress)
   const getDisplaySteps = () => {
-    let steps = STEPS.slice(1); // Remove auth choice step from display
+    let steps = STEPS.slice(1);
     
     if (!isGuestMode && isAuthenticated) {
-      steps = steps.filter(step => step.number !== 4); // Remove customer info step
+      steps = steps.filter(step => step.number !== 4);
     }
     
     return steps.map((step, index) => ({
@@ -3619,10 +3701,9 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   const displaySteps = getDisplaySteps();
   const maxSteps = isGuestMode ? 5 : 4;
 
-  // FIXED: Make logout async
   const handleStartOver = async () => {
-    await logout(); // ← Wait for logout to complete
-    resetWizard(); // ← Then reset wizard
+    await logout();
+    resetWizard();
   };
 
   const getStepTitle = () => {
@@ -3639,7 +3720,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   return (
     <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
             Book Your Luxury Move
@@ -3654,7 +3734,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           )}
         </div>
 
-        {/* Progress Steps - Only show if past auth step */}
         {currentStep > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -3691,7 +3770,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           </div>
         )}
 
-        {/* Main Content */}
         <Card variant="elevated" className="mb-8">
           <CardHeader>
             <h2 className="text-xl font-serif font-bold text-navy-900">
@@ -3703,7 +3781,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           </CardContent>
         </Card>
 
-        {/* Navigation - Only show if past auth step */}
         {currentStep > 0 && (
           <div className="flex justify-between items-center">
             <div>
@@ -3749,13 +3826,27 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 // frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useBookingWizard } from '@/stores/booking-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function CustomerInfoStep() {
-  const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+  const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
+  const { isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && !isGuestMode) {
+      console.warn('CustomerInfoStep - auto-advancing authenticated user');
+      nextStep();
+    }
+  }, [isAuthenticated, isGuestMode, nextStep]);
+
+  if (isAuthenticated && !isGuestMode) {
+    return null;
+  }
 
   const handleFieldChange = (field: string, value: string) => {
     updateBookingData({
@@ -3774,7 +3865,6 @@ export function CustomerInfoStep() {
   const validateAndContinue = () => {
     let hasErrors = false;
 
-    // Validate required fields
     if (!bookingData.customer_info?.first_name) {
       setError('first_name', 'First name is required');
       hasErrors = true;
@@ -3811,7 +3901,6 @@ export function CustomerInfoStep() {
 
   return (
     <div className="space-y-6">
-      {/* Information Card */}
       <div className="text-center py-4">
         <h3 className="text-lg font-medium text-navy-900 mb-2">Contact Information</h3>
         <p className="text-navy-700">
@@ -3819,7 +3908,6 @@ export function CustomerInfoStep() {
         </p>
       </div>
 
-      {/* Customer Info Form */}
       <Card variant="elevated">
         <CardContent>
           <div className="space-y-4">
@@ -3868,7 +3956,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* Privacy Notice */}
       <Card variant="default" className="border-gold-200 bg-gold-50">
         <CardContent>
           <div className="flex items-start">
@@ -3884,7 +3971,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* VIP Program Signup */}
       <Card variant="luxury">
         <CardContent>
           <div className="text-center">
@@ -3898,7 +3984,6 @@ export function CustomerInfoStep() {
               <input
                 type="checkbox"
                 className="mr-2"
-                // This could be stored in booking data if you want to track VIP signups
               />
               <span className="text-sm text-navy-900">
                 Yes, I want to join ToteTaxi VIP (free to join)
@@ -3908,7 +3993,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* Account Creation Notice */}
       <div className="text-center text-sm text-navy-600">
         <p>
           Already have an account? 
@@ -3918,7 +4002,6 @@ export function CustomerInfoStep() {
         </p>
       </div>
 
-      {/* Continue Button */}
       <div className="flex justify-end">
         <Button 
           variant="primary" 
@@ -4354,6 +4437,7 @@ export { ReviewPaymentStep } from './review-payment-step';
 # ==== src/components/booking/review-payment-step.tsx ====
 
 ```
+// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
@@ -4551,6 +4635,12 @@ export function ReviewPaymentStep() {
         };
       }
 
+      // CRITICAL DEBUG LOGGING
+      console.log('🔍 ENDPOINT:', endpoint);
+      console.log('📦 FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      console.log('🔐 Is Authenticated:', isAuthenticated);
+      console.log('📊 Booking Data State:', bookingData);
+
       const response = await apiClient.post(endpoint, bookingRequest);
       return response.data;
     },
@@ -4574,10 +4664,17 @@ export function ReviewPaymentStep() {
     },
     onError: (error: AxiosError | Error) => {
       setLoading(false);
-      console.error('Booking creation failed:', error);
+      console.error('❌ Booking creation failed:', error);
       
       if ('response' in error && error.response) {
-        console.error('Error response:', error.response.data);
+        console.error('📛 FULL ERROR RESPONSE:', error.response);
+        console.error('📛 Error Status:', error.response.status);
+        console.error('📛 Error Data:', error.response.data);
+        console.error('📛 Error Headers:', error.response.headers);
+      }
+      
+      if ('isAxiosError' in error && error.isAxiosError) {
+        console.error('📤 Request that failed:', error.config?.data);
       }
     }
   });
@@ -4598,12 +4695,12 @@ export function ReviewPaymentStep() {
   };
 
   const handleStartOver = () => {
-    resetWizard();
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
     setShowPayment(false);
-    router.push('/book?reset=true');
+    resetWizard();
+    router.push('/book');
   };
 
   if (bookingComplete) {
@@ -4962,10 +5059,10 @@ export function ReviewPaymentStep() {
         variant="primary" 
         size="lg"
         onClick={handleSubmitBooking}
-        disabled={isLoading || !termsAccepted}
+        disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
         className="w-full"
       >
-        {isLoading ? 'Creating Booking...' : 'Continue to Payment'}
+        {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
       </Button>
     </div>
   );
@@ -5062,6 +5159,11 @@ export function ServiceSelectionStep() {
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
 
+  // DEBUG LOGGING
+  console.log('🔍 SERVICE STEP - Current booking data:', bookingData);
+  console.log('🔍 mini_move_package_id:', bookingData.mini_move_package_id);
+  console.log('🔍 service_type:', bookingData.service_type);
+
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -5074,14 +5176,20 @@ export function ServiceSelectionStep() {
     // Find the selected package to get its type
     const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
     
+    console.log('🎯 SELECTING PACKAGE:', packageId);
+    console.log('📦 Package Type:', selectedPackage?.package_type);
+    console.log('📦 Package Name:', selectedPackage?.name);
+    
     updateBookingData({
       service_type: 'mini_move',
       mini_move_package_id: packageId,
-      package_type: selectedPackage?.package_type, // FIXED: Add package_type
+      package_type: selectedPackage?.package_type,
       // Clear other service selections
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,
     });
+    
+    console.log('✅ Updated booking data - new state should have package_id:', packageId);
   };
 
   const handleOrganizingServiceToggle = (serviceType: 'packing' | 'unpacking', enabled: boolean) => {
@@ -5100,11 +5208,15 @@ export function ServiceSelectionStep() {
   };
 
   const canContinue = () => {
-    return (
+    const result = (
       (bookingData.service_type === 'mini_move' && bookingData.mini_move_package_id) ||
       (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count && bookingData.standard_delivery_item_count >= (services?.standard_delivery?.minimum_items || 3)) ||
       (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length)
     );
+    
+    console.log('🔍 Can continue?', result);
+    
+    return result;
   };
 
   if (isLoading) {
@@ -5386,7 +5498,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Standard Delivery - unchanged */}
+      {/* Standard Delivery */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
@@ -5422,7 +5534,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Specialty Items - unchanged */}
+      {/* Specialty Items */}
       {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>
@@ -8606,7 +8718,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       },
 
       clearAuth: () => {
-        // CRITICAL FIX: Clear ALL auth-related localStorage keys
         if (typeof window !== 'undefined') {
           const keysToRemove = [
             'totetaxi-auth',
@@ -8639,7 +8750,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ isLoading: true });
         
         try {
-          // Get CSRF token first
           const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
             credentials: 'include',
           });
@@ -8650,7 +8760,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           
           const { csrf_token } = await csrfResponse.json();
 
-          // Login request
           const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
             method: 'POST',
             headers: {
@@ -8680,7 +8789,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ isLoading: true });
         
         try {
-          // Get CSRF token first
           const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
             credentials: 'include',
           });
@@ -8691,7 +8799,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           
           const { csrf_token } = await csrfResponse.json();
 
-          // Registration request
           const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
             method: 'POST',
             headers: {
@@ -8731,7 +8838,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         } finally {
           get().clearAuth();
           
-          // CRITICAL FIX: Also clear booking wizard via dynamic import to avoid circular dependency
           if (typeof window !== 'undefined') {
             try {
               const { useBookingWizard } = await import('@/stores/booking-store');
@@ -8745,17 +8851,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       clearSessionIfIncognito: () => {
         if (typeof window !== 'undefined') {
-          const now = Date.now();
-          const lastActivity = localStorage.getItem('totetaxi-last-activity');
-          
-          if (!lastActivity || (now - parseInt(lastActivity)) > 30 * 60 * 1000) {
-            // More than 30 minutes of inactivity, clear session
-            console.log('Session expired, clearing auth');
-            localStorage.clear();
-            set(initialState);
-          } else {
-            localStorage.setItem('totetaxi-last-activity', now.toString());
-          }
+          // FIXED: Just update activity timestamp, don't clear session
+          localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
       }
     }),
@@ -8774,6 +8871,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 # ==== src/stores/booking-store.ts ====
 
 ```
+// frontend/src/stores/booking-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -8829,7 +8927,7 @@ interface BookingWizardState {
   completedBookingNumber?: string;
   userId?: string;
   isGuestMode: boolean;
-  lastResetTimestamp?: number; // Track when wizard was last reset
+  lastResetTimestamp?: number;
 }
 
 interface BookingWizardActions {
@@ -8857,8 +8955,8 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 2; // Increment this to force reset all existing stores
-const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STORE_VERSION = 2;
+const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
@@ -8878,6 +8976,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       nextStep: () => set((state) => {
         const maxStep = 5;
         let nextStep = state.currentStep + 1;
+        
+        // VALIDATION: Can't leave service selection without package
+        if (state.currentStep === 1 && state.bookingData.service_type === 'mini_move' && !state.bookingData.mini_move_package_id) {
+          console.error('Cannot proceed: No package selected for mini move');
+          return state;
+        }
         
         // Skip customer info step (4) for authenticated users
         if (!state.isGuestMode && nextStep === 4) {
@@ -8922,11 +9026,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        // Check if session is stale (older than 24 hours)
         const isStale = state.lastResetTimestamp && 
           (Date.now() - state.lastResetTimestamp > MAX_SESSION_AGE_MS);
         
-        // Reset if different user, stale session, or booking complete
         if (
           (state.userId && state.userId !== userId && state.userId !== 'guest') ||
           isStale ||
@@ -8968,7 +9070,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         set(newState);
         
-        // Force clear from localStorage
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
@@ -9010,7 +9111,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       name: 'totetaxi-booking-wizard',
       version: STORE_VERSION,
       migrate: (persistedState: any, version: number) => {
-        // If version mismatch, return fresh state
         if (version !== STORE_VERSION) {
           console.log(`Store version mismatch (${version} !== ${STORE_VERSION}), resetting to defaults`);
           return {
@@ -9026,7 +9126,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           };
         }
         
-        // Check if persisted state is stale
         if (persistedState?.lastResetTimestamp) {
           const age = Date.now() - persistedState.lastResetTimestamp;
           if (age > MAX_SESSION_AGE_MS) {

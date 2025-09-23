@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-22 18:22:34
+# Created: 2025-09-23 13:28:56
 # Total files: 111
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -3762,6 +3762,7 @@ from .booking_serializers import (
     CustomerBookingDetailSerializer,
     QuickBookingSerializer
 )
+import json
 
 
 class CustomerBookingCreateView(APIView):
@@ -3769,35 +3770,66 @@ class CustomerBookingCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
+        # CRITICAL DEBUG LOGGING
+        print("=" * 80)
+        print("🔍 BOOKING CREATE REQUEST RECEIVED")
+        print("=" * 80)
+        print(f"👤 User: {request.user}")
+        print(f"📧 Email: {request.user.email}")
+        print(f"🔐 Is Authenticated: {request.user.is_authenticated}")
+        print(f"📦 Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        print("=" * 80)
+        
         # Ensure user has customer profile
         if not hasattr(request.user, 'customer_profile'):
+            print("❌ ERROR: User has no customer profile")
             return Response(
                 {'error': 'This is not a customer account'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        print(f"✅ Customer Profile Found: {request.user.customer_profile}")
+        
         serializer = AuthenticatedBookingCreateSerializer(
             data=request.data,
             context={'user': request.user}
         )
-        serializer.is_valid(raise_exception=True)
-        booking = serializer.save()
         
-        # Booking starts as pending - will be updated after payment
-        # DO NOT update customer stats here - wait for payment confirmation
+        print("🔄 Validating serializer...")
+        
+        if not serializer.is_valid():
+            print("=" * 80)
+            print("❌ SERIALIZER VALIDATION FAILED")
+            print("=" * 80)
+            print(f"Errors: {json.dumps(serializer.errors, indent=2, default=str)}")
+            print("=" * 80)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        print("✅ Serializer valid, creating booking...")
+        
+        try:
+            booking = serializer.save()
+            print(f"✅ Booking created: {booking.booking_number}")
+        except Exception as e:
+            print(f"❌ ERROR creating booking: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Create payment intent for this booking
-        create_payment_intent = request.data.get('create_payment_intent', True)  # Default to True
+        create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
         
         if create_payment_intent:
+            print("💳 Creating payment intent...")
             try:
                 payment_data = StripePaymentService.create_payment_intent(
                     booking=booking,
                     customer_email=request.user.email
                 )
+                print(f"✅ Payment intent created: {payment_data.get('payment_intent_id')}")
             except Exception as e:
-                # Don't fail booking creation if payment intent fails
+                print(f"⚠️ Payment intent failed: {str(e)}")
                 payment_data = {'error': str(e)}
         
         response_data = {
@@ -3811,6 +3843,10 @@ class CustomerBookingCreateView(APIView):
                 'payment_intent_id': payment_data['payment_intent_id']
             }
         
+        print("=" * 80)
+        print("✅ SUCCESS - Returning response")
+        print("=" * 80)
+        
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
@@ -3820,7 +3856,6 @@ class QuickRebookView(APIView):
     
     def post(self, request, booking_id):
         try:
-            # Get original booking - must belong to this customer
             original_booking = Booking.objects.get(
                 id=booking_id,
                 customer=request.user,
@@ -3835,7 +3870,6 @@ class QuickRebookView(APIView):
         serializer = QuickBookingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Create new booking based on original
         new_booking = Booking.objects.create(
             customer=request.user,
             service_type=original_booking.service_type,
@@ -3848,16 +3882,14 @@ class QuickRebookView(APIView):
             delivery_address=original_booking.delivery_address,
             special_instructions=serializer.validated_data.get('special_instructions', original_booking.special_instructions),
             coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required),
-            status='pending'  # Start as pending, not confirmed
+            status='pending'
         )
         
-        # Copy specialty items if any
         if original_booking.specialty_items.exists():
             new_booking.specialty_items.set(original_booking.specialty_items.all())
         
-        new_booking.save()  # Trigger pricing calculation
+        new_booking.save()
         
-        # Create payment intent
         payment_data = StripePaymentService.create_payment_intent(
             booking=new_booking,
             customer_email=request.user.email
@@ -3899,19 +3931,15 @@ class CustomerDashboardView(APIView):
         
         customer_profile = request.user.customer_profile
         
-        # Get bookings
         all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
         recent_bookings = all_bookings[:5]
         
-        # Get booking statistics
         pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
         completed_bookings = all_bookings.filter(status='completed').count()
         
-        # Get saved data
         saved_addresses = request.user.saved_addresses.filter(is_active=True)
         payment_methods = request.user.payment_methods.filter(is_active=True)
         
-        # Get most used addresses
         popular_addresses = saved_addresses.order_by('-times_used')[:3]
         
         return Response({
@@ -3954,7 +3982,6 @@ class BookingPreferencesView(APIView):
         })
     
     def _get_most_used_address(self, address_type):
-        # This is a simplified version - in production you'd track pickup vs delivery usage
         most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None
 ```
@@ -4390,7 +4417,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
@@ -4441,11 +4468,13 @@ class CustomerLoginView(APIView):
         })
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Customer logout endpoint"""
-    permission_classes = [permissions.IsAuthenticated]
+    """Customer logout endpoint - CSRF exempt to handle logout failures gracefully"""
+    permission_classes = [permissions.AllowAny]  # Changed from IsAuthenticated
     
     def post(self, request):
+        # Logout even if user is not authenticated (cleanup)
         logout(request)
         return Response({'message': 'Logout successful'})
 
@@ -4458,7 +4487,7 @@ class CurrentUserView(APIView):
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
-                'customer_profile': CustomerProfileSerializer(request.customer_profile).data,
+                'customer_profile': CustomerProfileSerializer(request.user.customer_profile).data,
                 'csrf_token': get_token(request)
             })
         else:
@@ -4534,7 +4563,6 @@ class CustomerBookingListView(generics.ListAPIView):
         })
 
 
-# NEW: Customer Notes API for Staff
 class CustomerNotesUpdateView(APIView):
     """Update customer notes - staff only"""
     permission_classes = [permissions.IsAuthenticated]
@@ -5926,14 +5954,12 @@ class RefundSerializer(serializers.ModelSerializer):
 ```python
 import stripe
 from django.conf import settings
+from django.utils import timezone
 from decimal import Decimal
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
-# Initialize Stripe with real API key
-from django.conf import settings
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
 
 
 class StripePaymentService:
@@ -5943,7 +5969,6 @@ class StripePaymentService:
     def create_payment_intent(booking, customer_email=None):
         """Create Stripe PaymentIntent for a booking"""
         try:
-            # Create real Stripe PaymentIntent
             intent = stripe.PaymentIntent.create(
                 amount=int(booking.total_price_cents),
                 currency='usd',
@@ -5951,19 +5976,17 @@ class StripePaymentService:
                     'booking_id': str(booking.id),
                     'booking_number': booking.booking_number,
                 },
-                receipt_email=customer_email or booking.customer.email if hasattr(booking, 'customer') else None,
+                receipt_email=customer_email or (booking.customer.email if hasattr(booking, 'customer') and booking.customer else None),
             )
             
-            # Create Payment record
             payment = Payment.objects.create(
                 booking=booking,
-                customer=booking.customer if hasattr(booking, 'customer') else None,
+                customer=booking.customer if hasattr(booking, 'customer') and booking.customer else None,
                 amount_cents=booking.total_price_cents,
                 stripe_payment_intent_id=intent.id,
                 status='pending'
             )
             
-            # Log payment creation
             PaymentAudit.log(
                 action='payment_created',
                 description=f'PaymentIntent created for booking {booking.booking_number}',
@@ -5984,24 +6007,32 @@ class StripePaymentService:
     
     @staticmethod
     def confirm_payment(payment_intent_id):
-        """Verify payment with Stripe and update records"""
+        """Verify payment with Stripe and update records - CRITICAL: Updates customer stats"""
         try:
-            # Retrieve the PaymentIntent from Stripe
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
             
             if intent.status == 'succeeded':
                 payment.status = 'succeeded'
-                payment.stripe_charge_id = intent.charges.data[0].id if intent.charges.data else ''
+                payment.stripe_charge_id = intent.latest_charge if hasattr(intent, 'latest_charge') else ''
+                payment.processed_at = timezone.now()
                 payment.save()
                 
-                # Update booking status
                 booking = payment.booking
-                booking.status = 'paid'
-                booking.save()
+                if booking.status == 'pending':
+                    booking.status = 'paid'
+                    booking.save()
                 
-                # Log payment success
+                try:
+                    if booking.customer and hasattr(booking.customer, 'customer_profile'):
+                        booking.customer.customer_profile.add_booking_stats(
+                            booking.total_price_cents
+                        )
+                        print(f"✅ Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
+                except Exception as stats_error:
+                    print(f"⚠️ Failed to update customer stats: {stats_error}")
+                
                 PaymentAudit.log(
                     action='payment_succeeded',
                     description=f'Payment confirmed for booking {booking.booking_number}',
@@ -6027,7 +6058,6 @@ class StripePaymentService:
         from .models import Refund
         
         try:
-            # Create Stripe refund
             refund = stripe.Refund.create(
                 payment_intent=payment.stripe_payment_intent_id,
                 amount=amount_cents,
@@ -6043,11 +6073,9 @@ class StripePaymentService:
                 status='completed'
             )
             
-            # Update payment status
             payment.status = 'refunded'
             payment.save()
             
-            # Log refund
             PaymentAudit.log(
                 action='refund_completed',
                 description=f'Refund completed for payment {payment.id}',
@@ -6364,6 +6392,7 @@ class RefundCreateView(generics.CreateAPIView):
         
         serializer.save(requested_by=self.request.user)
 
+
 class PaymentConfirmView(APIView):
     """Confirm payment after Stripe processes it - called from frontend"""
     permission_classes = [permissions.AllowAny]
@@ -6378,52 +6407,20 @@ class PaymentConfirmView(APIView):
             )
         
         try:
-            # Confirm payment and update booking status
+            # Service handles ALL logic: payment update, booking status, customer stats
             payment = StripePaymentService.confirm_payment(payment_intent_id)
+            
+            # Defensive check before accessing attributes
+            if not payment:
+                return Response(
+                    {'error': 'Payment confirmation failed'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
             return Response({
                 'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status,
+                'booking_status': payment.booking.status if payment.booking else None,
                 'payment_status': payment.status
-            })
-            
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-class PaymentConfirmView(APIView):
-    """Confirm payment after Stripe processes it - called from frontend"""
-    permission_classes = [permissions.AllowAny]
-    
-    def post(self, request):
-        payment_intent_id = request.data.get('payment_intent_id')
-        
-        if not payment_intent_id:
-            return Response(
-                {'error': 'payment_intent_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Confirm payment and update booking status
-            payment = StripePaymentService.confirm_payment(payment_intent_id)
-            
-            if payment and payment.booking:
-                # Update booking status to paid
-                payment.booking.status = 'paid'
-                payment.booking.save()
-            
-            return Response({
-                'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status if payment else None,
-                'payment_status': payment.status if payment else None
             })
             
         except Payment.DoesNotExist:
