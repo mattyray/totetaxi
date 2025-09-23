@@ -12,6 +12,7 @@ from .booking_serializers import (
     CustomerBookingDetailSerializer,
     QuickBookingSerializer
 )
+import json
 
 
 class CustomerBookingCreateView(APIView):
@@ -19,35 +20,66 @@ class CustomerBookingCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
+        # CRITICAL DEBUG LOGGING
+        print("=" * 80)
+        print("🔍 BOOKING CREATE REQUEST RECEIVED")
+        print("=" * 80)
+        print(f"👤 User: {request.user}")
+        print(f"📧 Email: {request.user.email}")
+        print(f"🔐 Is Authenticated: {request.user.is_authenticated}")
+        print(f"📦 Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        print("=" * 80)
+        
         # Ensure user has customer profile
         if not hasattr(request.user, 'customer_profile'):
+            print("❌ ERROR: User has no customer profile")
             return Response(
                 {'error': 'This is not a customer account'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        print(f"✅ Customer Profile Found: {request.user.customer_profile}")
+        
         serializer = AuthenticatedBookingCreateSerializer(
             data=request.data,
             context={'user': request.user}
         )
-        serializer.is_valid(raise_exception=True)
-        booking = serializer.save()
         
-        # Booking starts as pending - will be updated after payment
-        # DO NOT update customer stats here - wait for payment confirmation
+        print("🔄 Validating serializer...")
+        
+        if not serializer.is_valid():
+            print("=" * 80)
+            print("❌ SERIALIZER VALIDATION FAILED")
+            print("=" * 80)
+            print(f"Errors: {json.dumps(serializer.errors, indent=2, default=str)}")
+            print("=" * 80)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        print("✅ Serializer valid, creating booking...")
+        
+        try:
+            booking = serializer.save()
+            print(f"✅ Booking created: {booking.booking_number}")
+        except Exception as e:
+            print(f"❌ ERROR creating booking: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Create payment intent for this booking
-        create_payment_intent = request.data.get('create_payment_intent', True)  # Default to True
+        create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
         
         if create_payment_intent:
+            print("💳 Creating payment intent...")
             try:
                 payment_data = StripePaymentService.create_payment_intent(
                     booking=booking,
                     customer_email=request.user.email
                 )
+                print(f"✅ Payment intent created: {payment_data.get('payment_intent_id')}")
             except Exception as e:
-                # Don't fail booking creation if payment intent fails
+                print(f"⚠️ Payment intent failed: {str(e)}")
                 payment_data = {'error': str(e)}
         
         response_data = {
@@ -61,6 +93,10 @@ class CustomerBookingCreateView(APIView):
                 'payment_intent_id': payment_data['payment_intent_id']
             }
         
+        print("=" * 80)
+        print("✅ SUCCESS - Returning response")
+        print("=" * 80)
+        
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
@@ -70,7 +106,6 @@ class QuickRebookView(APIView):
     
     def post(self, request, booking_id):
         try:
-            # Get original booking - must belong to this customer
             original_booking = Booking.objects.get(
                 id=booking_id,
                 customer=request.user,
@@ -85,7 +120,6 @@ class QuickRebookView(APIView):
         serializer = QuickBookingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Create new booking based on original
         new_booking = Booking.objects.create(
             customer=request.user,
             service_type=original_booking.service_type,
@@ -98,16 +132,14 @@ class QuickRebookView(APIView):
             delivery_address=original_booking.delivery_address,
             special_instructions=serializer.validated_data.get('special_instructions', original_booking.special_instructions),
             coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required),
-            status='pending'  # Start as pending, not confirmed
+            status='pending'
         )
         
-        # Copy specialty items if any
         if original_booking.specialty_items.exists():
             new_booking.specialty_items.set(original_booking.specialty_items.all())
         
-        new_booking.save()  # Trigger pricing calculation
+        new_booking.save()
         
-        # Create payment intent
         payment_data = StripePaymentService.create_payment_intent(
             booking=new_booking,
             customer_email=request.user.email
@@ -149,19 +181,15 @@ class CustomerDashboardView(APIView):
         
         customer_profile = request.user.customer_profile
         
-        # Get bookings
         all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
         recent_bookings = all_bookings[:5]
         
-        # Get booking statistics
         pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
         completed_bookings = all_bookings.filter(status='completed').count()
         
-        # Get saved data
         saved_addresses = request.user.saved_addresses.filter(is_active=True)
         payment_methods = request.user.payment_methods.filter(is_active=True)
         
-        # Get most used addresses
         popular_addresses = saved_addresses.order_by('-times_used')[:3]
         
         return Response({
@@ -204,6 +232,5 @@ class BookingPreferencesView(APIView):
         })
     
     def _get_most_used_address(self, address_type):
-        # This is a simplified version - in production you'd track pickup vs delivery usage
         most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None

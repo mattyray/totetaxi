@@ -7,9 +7,15 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+// TEST CREDENTIALS - Only for development
+const TEST_USER = {
+  email: 'dev.tester@totetaxi.local',
+  password: 'DevTest2024!'
+};
+
 export function AuthChoiceStep() {
   const { isAuthenticated, user, login, register } = useAuthStore();
-  const { nextStep, initializeForUser } = useBookingWizard();
+  const { nextStep, initializeForUser, setCurrentStep } = useBookingWizard();
   
   const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
@@ -20,18 +26,21 @@ export function AuthChoiceStep() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  // Auto-skip if already logged in
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log('Already authenticated, skipping auth step');
+      console.log('Already authenticated, skipping to service selection');
       initializeForUser(user.id.toString(), false);
-      nextStep();
+      setCurrentStep(1);
     }
-  }, [isAuthenticated, user, initializeForUser, nextStep]);
+  }, [isAuthenticated, user, initializeForUser, setCurrentStep]);
 
   const handleGuestContinue = () => {
     initializeForUser('guest', true);
     nextStep();
+  };
+
+  const fillTestUser = () => {
+    setLoginData(TEST_USER);
   };
 
   const handleLogin = async () => {
@@ -42,7 +51,7 @@ export function AuthChoiceStep() {
       const result = await login(loginData.email, loginData.password);
       if (result.success) {
         initializeForUser(result.user?.id?.toString(), false);
-        nextStep();
+        setCurrentStep(1);
       } else {
         setError(result.error || 'Login failed');
       }
@@ -70,7 +79,7 @@ export function AuthChoiceStep() {
         const loginResult = await login(registerData.email, registerData.password);
         if (loginResult.success) {
           initializeForUser(loginResult.user?.id?.toString(), false);
-          nextStep();
+          setCurrentStep(1);
         }
       } else {
         setError(result.error || 'Registration failed');
@@ -163,6 +172,20 @@ export function AuthChoiceStep() {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* DEV ONLY: Test User Button */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fillTestUser}
+              className="text-xs"
+            >
+              🧪 Fill Test User
+            </Button>
           </div>
         )}
 

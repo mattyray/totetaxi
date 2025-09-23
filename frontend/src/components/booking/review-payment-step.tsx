@@ -1,3 +1,4 @@
+// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState } from 'react';
@@ -195,6 +196,12 @@ export function ReviewPaymentStep() {
         };
       }
 
+      // CRITICAL DEBUG LOGGING
+      console.log('🔍 ENDPOINT:', endpoint);
+      console.log('📦 FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      console.log('🔐 Is Authenticated:', isAuthenticated);
+      console.log('📊 Booking Data State:', bookingData);
+
       const response = await apiClient.post(endpoint, bookingRequest);
       return response.data;
     },
@@ -218,10 +225,17 @@ export function ReviewPaymentStep() {
     },
     onError: (error: AxiosError | Error) => {
       setLoading(false);
-      console.error('Booking creation failed:', error);
+      console.error('❌ Booking creation failed:', error);
       
       if ('response' in error && error.response) {
-        console.error('Error response:', error.response.data);
+        console.error('📛 FULL ERROR RESPONSE:', error.response);
+        console.error('📛 Error Status:', error.response.status);
+        console.error('📛 Error Data:', error.response.data);
+        console.error('📛 Error Headers:', error.response.headers);
+      }
+      
+      if ('isAxiosError' in error && error.isAxiosError) {
+        console.error('📤 Request that failed:', error.config?.data);
       }
     }
   });

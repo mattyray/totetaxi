@@ -60,7 +60,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       },
 
       clearAuth: () => {
-        // CRITICAL FIX: Clear ALL auth-related localStorage keys
         if (typeof window !== 'undefined') {
           const keysToRemove = [
             'totetaxi-auth',
@@ -93,7 +92,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ isLoading: true });
         
         try {
-          // Get CSRF token first
           const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
             credentials: 'include',
           });
@@ -104,7 +102,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           
           const { csrf_token } = await csrfResponse.json();
 
-          // Login request
           const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
             method: 'POST',
             headers: {
@@ -134,7 +131,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ isLoading: true });
         
         try {
-          // Get CSRF token first
           const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
             credentials: 'include',
           });
@@ -145,7 +141,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           
           const { csrf_token } = await csrfResponse.json();
 
-          // Registration request
           const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
             method: 'POST',
             headers: {
@@ -185,7 +180,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         } finally {
           get().clearAuth();
           
-          // CRITICAL FIX: Also clear booking wizard via dynamic import to avoid circular dependency
           if (typeof window !== 'undefined') {
             try {
               const { useBookingWizard } = await import('@/stores/booking-store');
@@ -199,17 +193,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       clearSessionIfIncognito: () => {
         if (typeof window !== 'undefined') {
-          const now = Date.now();
-          const lastActivity = localStorage.getItem('totetaxi-last-activity');
-          
-          // FIXED: 24 hours instead of 30 minutes
-          if (!lastActivity || (now - parseInt(lastActivity)) > 24 * 60 * 60 * 1000) {
-            console.log('Session expired (24h inactivity), clearing auth');
-            localStorage.clear();
-            set(initialState);
-          } else {
-            localStorage.setItem('totetaxi-last-activity', now.toString());
-          }
+          // FIXED: Just update activity timestamp, don't clear session
+          localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
       }
     }),

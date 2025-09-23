@@ -12,6 +12,22 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
+const TEST_PICKUP_ADDRESS: BookingAddress = {
+  address_line_1: '123 Park Avenue',
+  address_line_2: 'Apt 5B',
+  city: 'New York',
+  state: 'NY',
+  zip_code: '10001'
+};
+
+const TEST_DELIVERY_ADDRESS: BookingAddress = {
+  address_line_1: '456 Ocean Drive',
+  address_line_2: 'Suite 12',
+  city: 'Southampton',
+  state: 'NY',
+  zip_code: '11968'
+};
+
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
@@ -100,7 +116,6 @@ export function AddressStep() {
 
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
-    // Clear errors when user starts typing
     if (address.address_line_1) clearError('pickup_address');
     if (address.city) clearError('pickup_city');
     if (address.zip_code) clearError('pickup_zip');
@@ -108,16 +123,23 @@ export function AddressStep() {
 
   const handleDeliveryChange = (address: BookingAddress) => {
     updateBookingData({ delivery_address: address });
-    // Clear errors when user starts typing
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
   };
 
+  // TEST DATA BUTTON - fills both addresses instantly
+  const fillTestData = () => {
+    updateBookingData({ 
+      pickup_address: TEST_PICKUP_ADDRESS,
+      delivery_address: TEST_DELIVERY_ADDRESS,
+      special_instructions: 'Test booking - doorman will let you in'
+    });
+  };
+
   const handleContinue = () => {
     let hasErrors = false;
 
-    // Validate pickup address
     if (!bookingData.pickup_address?.address_line_1) {
       setError('pickup_address', 'Pickup address is required');
       hasErrors = true;
@@ -135,7 +157,6 @@ export function AddressStep() {
       hasErrors = true;
     }
 
-    // Validate delivery address
     if (!bookingData.delivery_address?.address_line_1) {
       setError('delivery_address', 'Delivery address is required');
       hasErrors = true;
@@ -178,9 +199,20 @@ export function AddressStep() {
         <p className="text-sm text-navy-600 mt-1">
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
+        
+        {/* DEV ONLY: Quick fill button */}
+        {process.env.NODE_ENV === 'development' && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fillTestData}
+            className="mt-2"
+          >
+            🚀 Fill Test Data
+          </Button>
+        )}
       </div>
 
-      {/* Pickup Address */}
       <AddressForm
         title="Pickup Address"
         address={bookingData.pickup_address}
@@ -193,7 +225,6 @@ export function AddressStep() {
         }}
       />
 
-      {/* Delivery Address */}
       <AddressForm
         title="Delivery Address"
         address={bookingData.delivery_address}
@@ -206,7 +237,6 @@ export function AddressStep() {
         }}
       />
 
-      {/* Special Instructions */}
       <Card variant="default">
         <CardContent>
           <label className="block text-sm font-medium text-navy-900 mb-2">
@@ -225,7 +255,6 @@ export function AddressStep() {
         </CardContent>
       </Card>
 
-      {/* Continue Button */}
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}

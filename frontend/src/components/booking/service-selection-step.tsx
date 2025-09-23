@@ -85,6 +85,11 @@ export function ServiceSelectionStep() {
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
 
+  // DEBUG LOGGING
+  console.log('🔍 SERVICE STEP - Current booking data:', bookingData);
+  console.log('🔍 mini_move_package_id:', bookingData.mini_move_package_id);
+  console.log('🔍 service_type:', bookingData.service_type);
+
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -97,14 +102,20 @@ export function ServiceSelectionStep() {
     // Find the selected package to get its type
     const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
     
+    console.log('🎯 SELECTING PACKAGE:', packageId);
+    console.log('📦 Package Type:', selectedPackage?.package_type);
+    console.log('📦 Package Name:', selectedPackage?.name);
+    
     updateBookingData({
       service_type: 'mini_move',
       mini_move_package_id: packageId,
-      package_type: selectedPackage?.package_type, // FIXED: Add package_type
+      package_type: selectedPackage?.package_type,
       // Clear other service selections
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,
     });
+    
+    console.log('✅ Updated booking data - new state should have package_id:', packageId);
   };
 
   const handleOrganizingServiceToggle = (serviceType: 'packing' | 'unpacking', enabled: boolean) => {
@@ -123,11 +134,15 @@ export function ServiceSelectionStep() {
   };
 
   const canContinue = () => {
-    return (
+    const result = (
       (bookingData.service_type === 'mini_move' && bookingData.mini_move_package_id) ||
       (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count && bookingData.standard_delivery_item_count >= (services?.standard_delivery?.minimum_items || 3)) ||
       (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length)
     );
+    
+    console.log('🔍 Can continue?', result);
+    
+    return result;
   };
 
   if (isLoading) {
@@ -409,7 +424,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Standard Delivery - unchanged */}
+      {/* Standard Delivery */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
@@ -445,7 +460,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Specialty Items - unchanged */}
+      {/* Specialty Items */}
       {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>
