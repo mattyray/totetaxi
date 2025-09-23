@@ -36,9 +36,8 @@ const initialState: AuthState = {
   isLoading: false,
 };
 
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://your-production-domain.com'
-  : 'http://localhost:8005';
+// ✅ FIXED: Use environment variable instead of hardcoded URL
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
@@ -193,7 +192,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       clearSessionIfIncognito: () => {
         if (typeof window !== 'undefined') {
-          // FIXED: Just update activity timestamp, don't clear session
           localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
       }

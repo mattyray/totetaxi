@@ -1,7 +1,7 @@
 // frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -122,7 +122,7 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep } = useBookingWizard();
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -132,6 +132,19 @@ export function ReviewPaymentStep() {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
+
+  // ✅ ADDED: Critical debugging for production
+  useEffect(() => {
+    console.log('🔍 PRODUCTION DEBUG INFO:');
+    console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
+    console.log('Stripe Key Available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+    console.log('Stripe Key Length:', process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.length);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Client Secret State:', clientSecret);
+    console.log('Show Payment State:', showPayment);
+    console.log('Stripe Promise:', !!stripePromise);
+    console.log('Booking Complete State:', bookingComplete);
+  }, [clientSecret, showPayment, stripePromise, bookingComplete]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
@@ -196,22 +209,30 @@ export function ReviewPaymentStep() {
         };
       }
 
-      // CRITICAL DEBUG LOGGING
       console.log('🔍 ENDPOINT:', endpoint);
       console.log('📦 FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
       console.log('🔐 Is Authenticated:', isAuthenticated);
-      console.log('📊 Booking Data State:', bookingData);
 
       const response = await apiClient.post(endpoint, bookingRequest);
+      
+      console.log('✅ BOOKING API RESPONSE:', response.data);
+      
       return response.data;
     },
     onSuccess: (data) => {
+      console.log('🎉 BOOKING SUCCESS:', data);
+      
       setBookingNumber(data.booking.booking_number);
       
-      if (data.payment?.client_secret) {
+      // ✅ ADDED: More detailed payment intent checking
+      if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+        console.log('💳 Payment intent found, showing payment form');
         setClientSecret(data.payment.client_secret);
         setShowPayment(true);
       } else {
+        console.log('⚠️ No payment intent or missing Stripe key, showing success');
+        console.log('Payment data:', data.payment);
+        console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
@@ -231,11 +252,6 @@ export function ReviewPaymentStep() {
         console.error('📛 FULL ERROR RESPONSE:', error.response);
         console.error('📛 Error Status:', error.response.status);
         console.error('📛 Error Data:', error.response.data);
-        console.error('📛 Error Headers:', error.response.headers);
-      }
-      
-      if ('isAxiosError' in error && error.isAxiosError) {
-        console.error('📤 Request that failed:', error.config?.data);
       }
     }
   });
@@ -251,17 +267,25 @@ export function ReviewPaymentStep() {
   };
 
   const handlePaymentSuccess = () => {
+    console.log('💳 Payment successful, showing success screen');
     setBookingCompleteLocal(true);
     setBookingComplete(bookingNumber);
   };
 
   const handleStartOver = () => {
+    console.log('🔄 Starting over - resetting wizard');
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
     setShowPayment(false);
     resetWizard();
     router.push('/book');
+  };
+
+  // ✅ ADDED: Previous step handler
+  const handlePreviousStep = () => {
+    console.log('⬅️ Going to previous step');
+    previousStep();
   };
 
   if (bookingComplete) {
@@ -362,6 +386,15 @@ export function ReviewPaymentStep() {
             </Elements>
           </CardContent>
         </Card>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={handlePreviousStep}>
+            ← Previous
+          </Button>
+          <Button variant="outline" onClick={handleStartOver}>
+            Start Over
+          </Button>
+        </div>
       </div>
     );
   }
@@ -616,15 +649,20 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      <Button 
-        variant="primary" 
-        size="lg"
-        onClick={handleSubmitBooking}
-        disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
-        className="w-full"
-      >
-        {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
-      </Button>
+      <div className="flex justify-between items-center pt-4">
+        <Button variant="outline" onClick={handlePreviousStep}>
+          ← Previous
+        </Button>
+        
+        <Button 
+          variant="primary" 
+          size="lg"
+          onClick={handleSubmitBooking}
+          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
+        >
+          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
+        </Button>
+      </div>
     </div>
   );
 }
