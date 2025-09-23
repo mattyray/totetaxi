@@ -1,5 +1,5 @@
-// frontend/src/components/booking/booking-wizard.tsx
 'use client';
+// frontend/src/components/booking/booking-wizard.tsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -49,14 +49,16 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   useEffect(() => {
     if (isBookingComplete && completedBookingNumber) {
       const timer = setTimeout(() => {
-        console.log('Booking complete, redirecting to dashboard');
+        console.log('Booking complete, closing wizard');
         resetWizard();
-        window.location.href = '/dashboard';
+        if (onComplete) {
+          onComplete();
+        }
       }, 3000);
       
       return () => clearTimeout(timer);
     }
-  }, [isBookingComplete, completedBookingNumber, resetWizard]);
+  }, [isBookingComplete, completedBookingNumber, resetWizard, onComplete]);
 
   useEffect(() => {
     if (!mounted) return;
