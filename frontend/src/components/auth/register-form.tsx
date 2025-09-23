@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -41,6 +41,7 @@ interface RegisterResponse {
 
 export function RegisterForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setAuth, setLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
@@ -71,9 +72,16 @@ export function RegisterForm() {
       console.log('👤 New user:', data.user);
       
       try {
-        setAuth(data.user, data.customer_profile);
-        console.log('✅ Auth state updated successfully');
-        router.push('/dashboard?welcome=true');
+        // ✅ CRITICAL FIX: Clear all React Query cache before setting new auth
+        queryClient.clear();
+        console.log('🧹 Cleared all React Query cache to prevent cross-user data contamination');
+        
+        // Small delay to ensure cache is cleared
+        setTimeout(() => {
+          setAuth(data.user, data.customer_profile);
+          console.log('✅ Auth state updated successfully');
+          router.push('/dashboard?welcome=true');
+        }, 100);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error in success handler';
         console.error('❌ Error in onSuccess handler:', err);

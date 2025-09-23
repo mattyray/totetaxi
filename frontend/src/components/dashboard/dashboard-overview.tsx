@@ -44,14 +44,17 @@ export function DashboardOverview() {
   const router = useRouter();
 
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
-    queryKey: ['customer', 'dashboard'],
+    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
+    queryKey: ['customer', 'dashboard', user?.id],
     queryFn: async (): Promise<DashboardData> => {
+      console.log('🔍 Fetching dashboard data for user:', user?.id);
       const response = await apiClient.get('/api/customer/dashboard/');
+      console.log('📊 Dashboard API response for user:', user?.id, 'Data:', response.data);
       return response.data;
     },
-    enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
+    enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10,   // 10 minutes
   });
 
   if (isLoading) {
@@ -91,6 +94,21 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <h4 className="font-medium text-yellow-800">Debug Info (Dev Only)</h4>
+            <p className="text-sm text-yellow-700">
+              User ID: {user?.id} | Email: {user?.email}
+            </p>
+            <p className="text-sm text-yellow-700">
+              Profile Name: {profile?.name} | Bookings: {profile?.total_bookings}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>

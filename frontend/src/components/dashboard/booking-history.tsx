@@ -42,16 +42,19 @@ export function BookingHistory() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['customer', 'bookings', searchTerm, statusFilter],
+    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
+    queryKey: ['customer', 'bookings', user?.id, searchTerm, statusFilter],
     queryFn: async (): Promise<BookingHistoryResponse> => {
+      console.log('🔍 Fetching bookings for user:', user?.id);
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
       
       const response = await apiClient.get(`/api/customer/bookings/?${params}`);
+      console.log('📊 Bookings API response for user:', user?.id, 'Count:', response.data.total_count);
       return response.data;
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const getStatusColor = (status: string) => {
@@ -116,6 +119,15 @@ export function BookingHistory() {
             {data?.total_count || 0} total bookings
           </div>
         </div>
+
+        {/* Debug Info - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+            <p className="text-xs text-yellow-700">
+              Debug: Showing bookings for user {user?.id} ({user?.email})
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <div className="flex-1">
