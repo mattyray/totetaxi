@@ -1,3 +1,4 @@
+// frontend/src/stores/booking-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -53,7 +54,7 @@ interface BookingWizardState {
   completedBookingNumber?: string;
   userId?: string;
   isGuestMode: boolean;
-  lastResetTimestamp?: number; // Track when wizard was last reset
+  lastResetTimestamp?: number;
 }
 
 interface BookingWizardActions {
@@ -81,8 +82,8 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 2; // Increment this to force reset all existing stores
-const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STORE_VERSION = 2;
+const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
@@ -102,6 +103,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       nextStep: () => set((state) => {
         const maxStep = 5;
         let nextStep = state.currentStep + 1;
+        
+        // VALIDATION: Can't leave service selection without package
+        if (state.currentStep === 1 && state.bookingData.service_type === 'mini_move' && !state.bookingData.mini_move_package_id) {
+          console.error('Cannot proceed: No package selected for mini move');
+          return state;
+        }
         
         // Skip customer info step (4) for authenticated users
         if (!state.isGuestMode && nextStep === 4) {
@@ -146,11 +153,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        // Check if session is stale (older than 24 hours)
         const isStale = state.lastResetTimestamp && 
           (Date.now() - state.lastResetTimestamp > MAX_SESSION_AGE_MS);
         
-        // Reset if different user, stale session, or booking complete
         if (
           (state.userId && state.userId !== userId && state.userId !== 'guest') ||
           isStale ||
@@ -192,7 +197,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         set(newState);
         
-        // Force clear from localStorage
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
@@ -234,7 +238,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       name: 'totetaxi-booking-wizard',
       version: STORE_VERSION,
       migrate: (persistedState: any, version: number) => {
-        // If version mismatch, return fresh state
         if (version !== STORE_VERSION) {
           console.log(`Store version mismatch (${version} !== ${STORE_VERSION}), resetting to defaults`);
           return {
@@ -250,7 +253,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           };
         }
         
-        // Check if persisted state is stale
         if (persistedState?.lastResetTimestamp) {
           const age = Date.now() - persistedState.lastResetTimestamp;
           if (age > MAX_SESSION_AGE_MS) {

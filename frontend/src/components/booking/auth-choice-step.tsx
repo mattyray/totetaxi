@@ -1,4 +1,6 @@
+// frontend/src/components/booking/auth-choice-step.tsx
 'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -7,7 +9,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-// TEST CREDENTIALS - Only for development
 const TEST_USER = {
   email: 'dev.tester@totetaxi.local',
   password: 'DevTest2024!'
@@ -29,6 +30,7 @@ export function AuthChoiceStep() {
   useEffect(() => {
     if (isAuthenticated && user) {
       console.log('Already authenticated, skipping to service selection');
+      localStorage.removeItem('totetaxi-booking-wizard');
       initializeForUser(user.id.toString(), false);
       setCurrentStep(1);
     }
@@ -50,6 +52,7 @@ export function AuthChoiceStep() {
     try {
       const result = await login(loginData.email, loginData.password);
       if (result.success) {
+        localStorage.removeItem('totetaxi-booking-wizard');
         initializeForUser(result.user?.id?.toString(), false);
         setCurrentStep(1);
       } else {
@@ -78,6 +81,7 @@ export function AuthChoiceStep() {
       if (result.success) {
         const loginResult = await login(registerData.email, registerData.password);
         if (loginResult.success) {
+          localStorage.removeItem('totetaxi-booking-wizard');
           initializeForUser(loginResult.user?.id?.toString(), false);
           setCurrentStep(1);
         }
@@ -175,7 +179,6 @@ export function AuthChoiceStep() {
           </div>
         )}
 
-        {/* DEV ONLY: Test User Button */}
         {process.env.NODE_ENV === 'development' && (
           <div className="text-center">
             <Button 

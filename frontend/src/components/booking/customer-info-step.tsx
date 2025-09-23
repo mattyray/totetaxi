@@ -1,6 +1,7 @@
 // frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,13 +10,16 @@ import { Input } from '@/components/ui/input';
 
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  // CRITICAL FIX: Don't render this step for authenticated users
-  // This should never happen if wizard logic is correct, but defensive check
+  useEffect(() => {
+    if (isAuthenticated && !isGuestMode) {
+      console.warn('CustomerInfoStep - auto-advancing authenticated user');
+      nextStep();
+    }
+  }, [isAuthenticated, isGuestMode, nextStep]);
+
   if (isAuthenticated && !isGuestMode) {
-    console.warn('CustomerInfoStep rendered for authenticated user - auto-advancing');
-    nextStep();
     return null;
   }
 
@@ -36,7 +40,6 @@ export function CustomerInfoStep() {
   const validateAndContinue = () => {
     let hasErrors = false;
 
-    // Validate required fields
     if (!bookingData.customer_info?.first_name) {
       setError('first_name', 'First name is required');
       hasErrors = true;
@@ -73,7 +76,6 @@ export function CustomerInfoStep() {
 
   return (
     <div className="space-y-6">
-      {/* Information Card */}
       <div className="text-center py-4">
         <h3 className="text-lg font-medium text-navy-900 mb-2">Contact Information</h3>
         <p className="text-navy-700">
@@ -81,7 +83,6 @@ export function CustomerInfoStep() {
         </p>
       </div>
 
-      {/* Customer Info Form */}
       <Card variant="elevated">
         <CardContent>
           <div className="space-y-4">
@@ -130,7 +131,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* Privacy Notice */}
       <Card variant="default" className="border-gold-200 bg-gold-50">
         <CardContent>
           <div className="flex items-start">
@@ -146,7 +146,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* VIP Program Signup */}
       <Card variant="luxury">
         <CardContent>
           <div className="text-center">
@@ -169,7 +168,6 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      {/* Account Creation Notice */}
       <div className="text-center text-sm text-navy-600">
         <p>
           Already have an account? 
@@ -179,7 +177,6 @@ export function CustomerInfoStep() {
         </p>
       </div>
 
-      {/* Continue Button */}
       <div className="flex justify-end">
         <Button 
           variant="primary" 
