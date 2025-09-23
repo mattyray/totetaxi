@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -17,6 +18,7 @@ const TEST_USER = {
 export function AuthChoiceStep() {
   const { isAuthenticated, user, login, register } = useAuthStore();
   const { nextStep, initializeForUser, setCurrentStep } = useBookingWizard();
+  const queryClient = useQueryClient(); // Added this
   
   const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
@@ -50,6 +52,10 @@ export function AuthChoiceStep() {
     setError('');
     
     try {
+      // Clear cache before login to prevent contamination
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache before login');
+      
       const result = await login(loginData.email, loginData.password);
       if (result.success) {
         localStorage.removeItem('totetaxi-booking-wizard');
@@ -70,6 +76,10 @@ export function AuthChoiceStep() {
     setError('');
     
     try {
+      // Clear cache before registration to prevent contamination
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache before registration');
+      
       const result = await register({
         email: registerData.email,
         password: registerData.password,

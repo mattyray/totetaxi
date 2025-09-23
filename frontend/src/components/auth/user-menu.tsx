@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useClickAway } from '@/hooks/use-click-away';
 import { apiClient } from '@/lib/api-client';
@@ -22,6 +23,7 @@ interface UserMenuProps {
 
 export function UserMenu({ variant = 'header' }: UserMenuProps) {
   const { user, customerProfile, clearAuth, logout } = useAuthStore();
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -30,23 +32,56 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
+      // Clear React Query cache
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache on logout');
+      
       await logout();
       router.push('/');
       setIsOpen(false);
     } catch (error) {
       console.error('Logout error:', error);
+      queryClient.clear();
       clearAuth();
       router.push('/');
     }
   };
 
   const handleForceLogout = () => {
-    // Nuclear option for debugging
+    // ✅ SAFE: Only clear ToteTaxi-specific data
     if (typeof window !== 'undefined') {
-      console.log('FORCE LOGOUT - Clearing all storage');
-      localStorage.clear();
-      sessionStorage.clear();
+      console.log('FORCE LOGOUT - Clearing only ToteTaxi storage');
+      
+      const totetaxiKeys = [
+        'totetaxi-auth',
+        'totetaxi-last-activity', 
+        'totetaxi-booking-wizard',
+        'totetaxi-current-user-id'
+      ];
+      
+      // Clear only ToteTaxi localStorage keys
+      totetaxiKeys.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+          console.log(`✓ Cleared ${key}`);
+        } catch (e) {
+          console.warn(`Failed to remove ${key}:`, e);
+        }
+      });
+      
+      // Clear ToteTaxi sessionStorage keys (if any)
+      try {
+        // Only clear specific sessionStorage keys if we use them
+        // sessionStorage.removeItem('totetaxi-session-data'); // if we had any
+      } catch (e) {
+        console.warn('SessionStorage clear error:', e);
+      }
     }
+    
+    // Clear React Query cache
+    queryClient.clear();
+    console.log('🧹 Cleared React Query cache on force logout');
+    
     clearAuth();
     router.push('/');
     window.location.reload();
@@ -94,7 +129,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
     },
     // Debug option - remove in production
     ...(process.env.NODE_ENV === 'development' ? [{
-      label: 'Force Logout (Debug)',
+      label: 'Force Clear (Debug)',
       icon: ExclamationTriangleIcon,
       onClick: handleForceLogout,
       danger: true
