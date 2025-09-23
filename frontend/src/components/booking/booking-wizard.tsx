@@ -42,45 +42,45 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   
   const { isAuthenticated, user, logout, clearSessionIfIncognito } = useAuthStore();
 
-  // Fix hydration issue
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Handle booking completion
   useEffect(() => {
     if (isBookingComplete && completedBookingNumber) {
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete();
-        }
-      }, 2000);
+      const timer = setTimeout(() => {
+        console.log('Booking complete, redirecting to dashboard');
+        resetWizard();
+        window.location.href = '/dashboard';
+      }, 3000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [isBookingComplete, completedBookingNumber, onComplete]);
+  }, [isBookingComplete, completedBookingNumber, resetWizard]);
 
-  // Check for incognito/fresh sessions
   useEffect(() => {
     if (!mounted) return;
     clearSessionIfIncognito();
   }, [mounted, clearSessionIfIncognito]);
 
-  // FIXED: Proper initialization - check auth state and initialize accordingly
   useEffect(() => {
     if (!mounted) return;
     
-    // Only initialize if we're at step 0 (prevents re-initialization on step changes)
+    if (isBookingComplete && completedBookingNumber) {
+      console.log('Success screen active, skipping initialization');
+      return;
+    }
+    
     if (currentStep === 0) {
       if (isAuthenticated && user) {
-        // User is logged in - initialize as authenticated user
         console.log('Wizard: User authenticated, initializing for user', user.id);
         initializeForUser(user.id.toString(), false);
       } else {
-        // No user - initialize as guest
         console.log('Wizard: No user, initializing as guest');
         initializeForUser('guest', true);
       }
     }
-  }, [mounted, isAuthenticated, user, currentStep, initializeForUser]);
+  }, [mounted, isAuthenticated, user, currentStep, initializeForUser, isBookingComplete, completedBookingNumber]);
 
   if (!mounted) {
     return (
@@ -90,7 +90,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     );
   }
 
-  // Show completion screen
   if (isBookingComplete && completedBookingNumber) {
     return (
       <div className="text-center py-12">
@@ -114,12 +113,11 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 
   const CurrentStepComponent = STEPS.find(step => step.number === currentStep)?.component;
 
-  // Get display steps (skip customer info for authenticated users, hide auth step from progress)
   const getDisplaySteps = () => {
-    let steps = STEPS.slice(1); // Remove auth choice step from display
+    let steps = STEPS.slice(1);
     
     if (!isGuestMode && isAuthenticated) {
-      steps = steps.filter(step => step.number !== 4); // Remove customer info step
+      steps = steps.filter(step => step.number !== 4);
     }
     
     return steps.map((step, index) => ({
@@ -132,7 +130,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   const displaySteps = getDisplaySteps();
   const maxSteps = isGuestMode ? 5 : 4;
 
-  // FIXED: Make logout async
   const handleStartOver = async () => {
     await logout();
     resetWizard();
@@ -152,7 +149,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   return (
     <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
             Book Your Luxury Move
@@ -167,7 +163,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           )}
         </div>
 
-        {/* Progress Steps - Only show if past auth step */}
         {currentStep > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -204,7 +199,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           </div>
         )}
 
-        {/* Main Content */}
         <Card variant="elevated" className="mb-8">
           <CardHeader>
             <h2 className="text-xl font-serif font-bold text-navy-900">
@@ -216,7 +210,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
           </CardContent>
         </Card>
 
-        {/* Navigation - Only show if past auth step */}
         {currentStep > 0 && (
           <div className="flex justify-between items-center">
             <div>
