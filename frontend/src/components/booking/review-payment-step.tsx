@@ -133,18 +133,23 @@ export function ReviewPaymentStep() {
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
-  // ✅ ADDED: Critical debugging for production
+  // ENHANCED DEBUG INFO
   useEffect(() => {
-    console.log('🔍 PRODUCTION DEBUG INFO:');
+    console.log('=== REVIEW PAYMENT STEP DEBUG ===');
     console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
     console.log('Stripe Key Available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
     console.log('Stripe Key Length:', process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.length);
     console.log('Environment:', process.env.NODE_ENV);
+    console.log('Is Authenticated:', isAuthenticated);
     console.log('Client Secret State:', clientSecret);
     console.log('Show Payment State:', showPayment);
     console.log('Stripe Promise:', !!stripePromise);
     console.log('Booking Complete State:', bookingComplete);
-  }, [clientSecret, showPayment, stripePromise, bookingComplete]);
+    console.log('Booking Data:', bookingData);
+    console.log('Customer Info:', bookingData.customer_info);
+    console.log('Is Guest Mode (inferred):', !isAuthenticated);
+    console.log('==================================');
+  }, [clientSecret, showPayment, stripePromise, bookingComplete, isAuthenticated, bookingData]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
@@ -155,6 +160,7 @@ export function ReviewPaymentStep() {
       let bookingRequest;
 
       if (isAuthenticated) {
+        console.log('=== AUTHENTICATED BOOKING REQUEST ===');
         const timestamp = new Date().toISOString().slice(11, 16);
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
@@ -183,12 +189,22 @@ export function ReviewPaymentStep() {
           create_payment_intent: true,
         };
       } else {
+        console.log('=== GUEST BOOKING REQUEST ===');
+        console.log('Customer info available:', !!bookingData.customer_info);
+        console.log('Customer info details:', bookingData.customer_info);
+        
+        if (!bookingData.customer_info) {
+          throw new Error('Customer information is required for guest bookings');
+        }
+        
         bookingRequest = {
-          first_name: bookingData.customer_info?.first_name,
-          last_name: bookingData.customer_info?.last_name,
-          email: bookingData.customer_info?.email,
-          phone: bookingData.customer_info?.phone,
+          // Customer info
+          first_name: bookingData.customer_info.first_name,
+          last_name: bookingData.customer_info.last_name,
+          email: bookingData.customer_info.email,
+          phone: bookingData.customer_info.phone,
           
+          // Service details
           service_type: bookingData.service_type,
           mini_move_package_id: bookingData.mini_move_package_id,
           include_packing: bookingData.include_packing,
@@ -197,47 +213,64 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
+          // Scheduling
           pickup_date: bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
           specific_pickup_hour: bookingData.specific_pickup_hour,
           
+          // Addresses
           pickup_address: bookingData.pickup_address,
           delivery_address: bookingData.delivery_address,
           
+          // Additional options
           special_instructions: bookingData.special_instructions,
           coi_required: bookingData.coi_required,
+          
+          // CRITICAL: Request payment intent for guests too
+          create_payment_intent: true,
         };
       }
 
-      console.log('🔍 ENDPOINT:', endpoint);
-      console.log('📦 FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
-      console.log('🔐 Is Authenticated:', isAuthenticated);
+      console.log('ENDPOINT:', endpoint);
+      console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      console.log('Is Authenticated:', isAuthenticated);
 
       const response = await apiClient.post(endpoint, bookingRequest);
       
-      console.log('✅ BOOKING API RESPONSE:', response.data);
+      console.log('BOOKING API RESPONSE:', response.data);
       
       return response.data;
     },
     onSuccess: (data) => {
-      console.log('🎉 BOOKING SUCCESS:', data);
+      console.log('=== BOOKING SUCCESS HANDLER ===');
+      console.log('Response data:', data);
+      console.log('Is Guest Mode:', !isAuthenticated);
+      console.log('Payment data exists:', !!data.payment);
+      console.log('Client secret exists:', !!data.payment?.client_secret);
+      console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
       
       setBookingNumber(data.booking.booking_number);
       
-      // ✅ ADDED: More detailed payment intent checking
       if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-        console.log('💳 Payment intent found, showing payment form');
+        console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
+        console.log('Client secret length:', data.payment.client_secret.length);
         setClientSecret(data.payment.client_secret);
         setShowPayment(true);
       } else {
-        console.log('⚠️ No payment intent or missing Stripe key, showing success');
-        console.log('Payment data:', data.payment);
+        console.log('WARNING: NO PAYMENT INTENT OR STRIPE KEY MISSING');
+        console.log('This should NOT happen for paid bookings');
+        console.log('Payment object:', data.payment);
+        console.log('Client secret:', data.payment?.client_secret);
         console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+        console.log('INCORRECTLY MARKING BOOKING AS COMPLETE WITHOUT PAYMENT');
+        
+        // This path should only be taken for free bookings
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
       
       setLoading(false);
+      console.log('=== END BOOKING SUCCESS HANDLER ===');
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
@@ -245,14 +278,16 @@ export function ReviewPaymentStep() {
       }
     },
     onError: (error: AxiosError | Error) => {
+      console.log('=== BOOKING ERROR HANDLER ===');
       setLoading(false);
-      console.error('❌ Booking creation failed:', error);
+      console.error('Booking creation failed:', error);
       
       if ('response' in error && error.response) {
-        console.error('📛 FULL ERROR RESPONSE:', error.response);
-        console.error('📛 Error Status:', error.response.status);
-        console.error('📛 Error Data:', error.response.data);
+        console.error('FULL ERROR RESPONSE:', error.response);
+        console.error('Error Status:', error.response.status);
+        console.error('Error Data:', error.response.data);
       }
+      console.log('=== END BOOKING ERROR HANDLER ===');
     }
   });
 
@@ -262,18 +297,23 @@ export function ReviewPaymentStep() {
       return;
     }
     
+    console.log('=== SUBMITTING BOOKING ===');
+    console.log('Is authenticated:', isAuthenticated);
+    console.log('Has customer info:', !!bookingData.customer_info);
+    console.log('Customer info:', bookingData.customer_info);
+    
     setLoading(true);
     createBookingMutation.mutate();
   };
 
   const handlePaymentSuccess = () => {
-    console.log('💳 Payment successful, showing success screen');
+    console.log('PAYMENT SUCCESSFUL - SHOWING SUCCESS SCREEN');
     setBookingCompleteLocal(true);
     setBookingComplete(bookingNumber);
   };
 
   const handleStartOver = () => {
-    console.log('🔄 Starting over - resetting wizard');
+    console.log('STARTING OVER - RESETTING WIZARD');
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
@@ -282,13 +322,24 @@ export function ReviewPaymentStep() {
     router.push('/book');
   };
 
-  // ✅ ADDED: Previous step handler
   const handlePreviousStep = () => {
-    console.log('⬅️ Going to previous step');
+    console.log('GOING TO PREVIOUS STEP');
     previousStep();
   };
 
+  // Debug state transitions
+  useEffect(() => {
+    console.log('STATE CHANGE:', {
+      bookingComplete,
+      showPayment,
+      clientSecret: !!clientSecret,
+      bookingNumber,
+      isLoading
+    });
+  }, [bookingComplete, showPayment, clientSecret, bookingNumber, isLoading]);
+
   if (bookingComplete) {
+    console.log('RENDERING SUCCESS SCREEN');
     return (
       <div className="text-center space-y-6">
         <div className="text-6xl mb-4">✅</div>
@@ -369,6 +420,7 @@ export function ReviewPaymentStep() {
   }
 
   if (showPayment && clientSecret && stripePromise) {
+    console.log('RENDERING PAYMENT FORM');
     return (
       <div className="space-y-6">
         <Card variant="luxury">
@@ -399,8 +451,26 @@ export function ReviewPaymentStep() {
     );
   }
 
+  console.log('RENDERING BOOKING SUMMARY FORM');
   return (
     <div className="space-y-6">
+      {/* Debug Panel - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <h4 className="font-medium text-yellow-800 mb-2">Debug Info (Dev Only)</h4>
+            <div className="text-sm text-yellow-700 space-y-1">
+              <div>Mode: {isAuthenticated ? 'Authenticated' : 'Guest'}</div>
+              <div>Has Customer Info: {bookingData.customer_info ? 'Yes' : 'No'}</div>
+              <div>Customer Email: {bookingData.customer_info?.email || 'None'}</div>
+              <div>Service Type: {bookingData.service_type}</div>
+              <div>Package ID: {bookingData.mini_move_package_id}</div>
+              <div>Total Price: ${bookingData.pricing_data?.total_price_dollars || 'Not set'}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card variant="luxury">
         <CardHeader>
           <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
