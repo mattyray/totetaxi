@@ -11,6 +11,7 @@ dj-database-url==2.1.0
 # Authentication & Security
 djangorestframework-simplejwt==5.3.0
 django-allauth==0.63.6
+django-ipware==7.0.1
 
 # API Documentation
 drf-yasg==1.21.7

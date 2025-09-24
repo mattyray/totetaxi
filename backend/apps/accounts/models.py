@@ -135,13 +135,18 @@ class StaffAction(models.Model):
     
     @classmethod
     def log_action(cls, staff_user, action_type, description, request=None, customer_id=None, booking_id=None):
-        """Helper method to log staff actions"""
-        ip_address = '127.0.0.1'  # default
+        """Helper method to log staff actions with proper IP detection"""
+        from ipware import get_client_ip
+        
+        ip_address = '127.0.0.1'  # default fallback
         user_agent = ''
         
         if request:
-            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', 
-                                        request.META.get('REMOTE_ADDR', '127.0.0.1'))
+            # Use django-ipware for robust IP detection
+            client_ip, is_routable = get_client_ip(request)
+            if client_ip:
+                ip_address = client_ip
+            
             user_agent = request.META.get('HTTP_USER_AGENT', '')
         
         return cls.objects.create(
