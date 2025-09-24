@@ -1,3 +1,4 @@
+// frontend/src/app/staff/bookings/page.tsx
 'use client';
 
 import { useEffect } from 'react';

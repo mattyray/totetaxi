@@ -1,3 +1,4 @@
+// frontend/src/app/terms/page.tsx
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 

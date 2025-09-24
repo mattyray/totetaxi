@@ -1,3 +1,4 @@
+// frontend/src/app/staff/customers/page.tsx
 'use client';
 
 import { useEffect } from 'react';
