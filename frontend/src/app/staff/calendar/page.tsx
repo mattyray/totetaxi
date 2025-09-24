@@ -1,11 +1,11 @@
-// frontend/src/app/staff/bookings/page.tsx
+// frontend/src/app/staff/calendar/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { BookingCalendar } from '@/components/staff/booking-calendar'; // ADD THIS
 
 export default function StaffCalendarPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
@@ -27,18 +27,7 @@ export default function StaffCalendarPage() {
 
   return (
     <StaffLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Booking Calendar
-        </h1>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-navy-600">
-              Calendar functionality will be implemented here. This page should now load without logging you out.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <BookingCalendar /> {/* CHANGE THIS */}
     </StaffLayout>
   );
 }

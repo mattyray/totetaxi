@@ -367,17 +367,19 @@ class CustomerNotesUpdateView(APIView):
 
 
 class BookingManagementView(APIView):
-    """Staff booking management operations"""
+    """Enhanced staff booking management with date range support"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        """List all bookings with filters"""
+        """List all bookings with enhanced filtering including date ranges"""
         if not hasattr(request.user, 'staff_profile'):
             return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
         
         # Get query parameters
         status_filter = request.query_params.get('status', None)
         date_filter = request.query_params.get('date', None)
+        start_date = request.query_params.get('start_date', None)  # NEW
+        end_date = request.query_params.get('end_date', None)      # NEW
         search = request.query_params.get('search', None)
         
         # Build queryset
@@ -388,6 +390,17 @@ class BookingManagementView(APIView):
         
         if date_filter:
             bookings = bookings.filter(pickup_date=date_filter)
+        
+        # NEW: Date range filtering for calendar
+        if start_date and end_date:
+            bookings = bookings.filter(
+                pickup_date__gte=start_date,
+                pickup_date__lte=end_date
+            )
+        elif start_date:
+            bookings = bookings.filter(pickup_date__gte=start_date)
+        elif end_date:
+            bookings = bookings.filter(pickup_date__lte=end_date)
         
         if search:
             bookings = bookings.filter(
@@ -424,6 +437,8 @@ class BookingManagementView(APIView):
             'filters': {
                 'status': status_filter,
                 'date': date_filter,
+                'start_date': start_date,    # NEW
+                'end_date': end_date,        # NEW
                 'search': search
             }
         })
@@ -447,7 +462,7 @@ class BookingDetailView(APIView):
         except Booking.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Log viewing customer data
+        # Log viewing booking data
         StaffAction.log_action(
             staff_user=request.user,
             action_type='view_booking',
