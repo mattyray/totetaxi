@@ -11,7 +11,8 @@ class StaffProfileAdmin(admin.ModelAdmin):
 
 @admin.register(StaffAction)
 class StaffActionAdmin(admin.ModelAdmin):
-    list_display = ('staff_user', 'action_type', 'timestamp', 'ip_address')
-    list_filter = ('action_type', 'timestamp')
+    list_display = ('staff_user', 'action_type', 'created_at', 'ip_address')
+    list_filter = ('action_type', 'created_at')
     search_fields = ('staff_user__username', 'description')
-    readonly_fields = ('timestamp',)
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
