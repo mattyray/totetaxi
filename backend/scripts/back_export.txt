@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-23 13:28:56
+# Created: 2025-09-23 17:32:58
 # Total files: 111
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -3068,6 +3068,8 @@ from apps.services.serializers import (
     MiniMoveWithOrganizingSerializer,
     OrganizingServicesByTierSerializer
 )
+# ✅ ADD THIS IMPORT
+from apps.payments.services import StripePaymentService
 
 
 class ServiceCatalogView(APIView):
@@ -3310,19 +3312,71 @@ class CalendarAvailabilityView(APIView):
 
 
 class GuestBookingCreateView(generics.CreateAPIView):
-    """Create booking for guest (non-authenticated) users"""
+    """Create booking for guest (non-authenticated) users with payment integration"""
     serializer_class = GuestBookingCreateSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
+        print("=" * 80)
+        print("🔍 GUEST BOOKING CREATE REQUEST RECEIVED")
+        print("=" * 80)
+        print("📧 Guest Email:", request.data.get('email'))
+        print("📦 Request Data:", request.data)
+        print("🔍 Create Payment Intent:", request.data.get('create_payment_intent', True))
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
-        return Response({
+        print(f"✅ Guest booking created: {booking.booking_number}")
+        print(f"💰 Total price: ${booking.total_price_dollars}")
+        
+        # ✅ CRITICAL FIX: Add payment intent creation for guests
+        create_payment_intent = request.data.get('create_payment_intent', True)
+        payment_data = None
+        
+        if create_payment_intent:
+            print("💳 Creating payment intent for guest...")
+            try:
+                # Use guest email from the booking
+                guest_email = booking.guest_checkout.email if booking.guest_checkout else None
+                
+                payment_result = StripePaymentService.create_payment_intent(
+                    booking=booking,
+                    customer_email=guest_email
+                )
+                
+                payment_data = {
+                    'client_secret': payment_result['client_secret'],
+                    'payment_intent_id': payment_result['payment_intent_id']
+                }
+                
+                print(f"✅ Payment intent created: {payment_result['payment_intent_id']}")
+            except Exception as e:
+                print(f"⚠️ Payment intent failed: {str(e)}")
+                # Don't fail the booking creation, but log the error
+                payment_data = None
+        
+        # ✅ CRITICAL FIX: Return same format as authenticated endpoint
+        response_data = {
             'message': 'Booking created successfully',
-            'booking': BookingSerializer(booking).data
-        }, status=status.HTTP_201_CREATED)
+            'booking': {
+                'id': str(booking.id),
+                'booking_number': booking.booking_number,
+                'total_price_dollars': booking.total_price_dollars
+            }
+        }
+        
+        # ✅ CRITICAL FIX: Include payment data if available
+        if payment_data:
+            response_data['payment'] = payment_data
+        
+        print("=" * 80)
+        print("✅ SUCCESS - Returning guest booking response")
+        print("📊 Response includes payment:", bool(payment_data))
+        print("=" * 80)
+        
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class BookingStatusView(APIView):

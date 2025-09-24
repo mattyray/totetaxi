@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-23 13:29:03.747675
-# Files: 67
+# Generated: 2025-09-23 17:32:35.005079
+# Files: 66
 
 # ==== next-env.d.ts ====
 
@@ -17,6 +17,7 @@
 # ==== next.config.ts ====
 
 ```
+// frontend/next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -2471,7 +2472,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -2507,6 +2508,7 @@ interface RegisterResponse {
 
 export function RegisterForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setAuth, setLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
@@ -2537,9 +2539,16 @@ export function RegisterForm() {
       console.log('👤 New user:', data.user);
       
       try {
-        setAuth(data.user, data.customer_profile);
-        console.log('✅ Auth state updated successfully');
-        router.push('/dashboard?welcome=true');
+        // ✅ CRITICAL FIX: Clear all React Query cache before setting new auth
+        queryClient.clear();
+        console.log('🧹 Cleared all React Query cache to prevent cross-user data contamination');
+        
+        // Small delay to ensure cache is cleared
+        setTimeout(() => {
+          setAuth(data.user, data.customer_profile);
+          console.log('✅ Auth state updated successfully');
+          router.push('/dashboard?welcome=true');
+        }, 100);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error in success handler';
         console.error('❌ Error in onSuccess handler:', err);
@@ -2760,6 +2769,7 @@ export function RegisterForm() {
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useClickAway } from '@/hooks/use-click-away';
 import { apiClient } from '@/lib/api-client';
@@ -2779,6 +2789,7 @@ interface UserMenuProps {
 
 export function UserMenu({ variant = 'header' }: UserMenuProps) {
   const { user, customerProfile, clearAuth, logout } = useAuthStore();
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -2787,23 +2798,56 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
+      // Clear React Query cache
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache on logout');
+      
       await logout();
       router.push('/');
       setIsOpen(false);
     } catch (error) {
       console.error('Logout error:', error);
+      queryClient.clear();
       clearAuth();
       router.push('/');
     }
   };
 
   const handleForceLogout = () => {
-    // Nuclear option for debugging
+    // ✅ SAFE: Only clear ToteTaxi-specific data
     if (typeof window !== 'undefined') {
-      console.log('FORCE LOGOUT - Clearing all storage');
-      localStorage.clear();
-      sessionStorage.clear();
+      console.log('FORCE LOGOUT - Clearing only ToteTaxi storage');
+      
+      const totetaxiKeys = [
+        'totetaxi-auth',
+        'totetaxi-last-activity', 
+        'totetaxi-booking-wizard',
+        'totetaxi-current-user-id'
+      ];
+      
+      // Clear only ToteTaxi localStorage keys
+      totetaxiKeys.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+          console.log(`✓ Cleared ${key}`);
+        } catch (e) {
+          console.warn(`Failed to remove ${key}:`, e);
+        }
+      });
+      
+      // Clear ToteTaxi sessionStorage keys (if any)
+      try {
+        // Only clear specific sessionStorage keys if we use them
+        // sessionStorage.removeItem('totetaxi-session-data'); // if we had any
+      } catch (e) {
+        console.warn('SessionStorage clear error:', e);
+      }
     }
+    
+    // Clear React Query cache
+    queryClient.clear();
+    console.log('🧹 Cleared React Query cache on force logout');
+    
     clearAuth();
     router.push('/');
     window.location.reload();
@@ -2851,7 +2895,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
     },
     // Debug option - remove in production
     ...(process.env.NODE_ENV === 'development' ? [{
-      label: 'Force Logout (Debug)',
+      label: 'Force Clear (Debug)',
       icon: ExclamationTriangleIcon,
       onClick: handleForceLogout,
       danger: true
@@ -2984,20 +3028,40 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-const TEST_PICKUP_ADDRESS: BookingAddress = {
-  address_line_1: '123 Park Avenue',
-  address_line_2: 'Apt 5B',
-  city: 'New York',
-  state: 'NY',
-  zip_code: '10001'
-};
-
-const TEST_DELIVERY_ADDRESS: BookingAddress = {
-  address_line_1: '456 Ocean Drive',
-  address_line_2: 'Suite 12',
-  city: 'Southampton',
-  state: 'NY',
-  zip_code: '11968'
+// Production-safe test data
+const TEST_ADDRESSES = {
+  manhattan: {
+    address_line_1: '123 Park Avenue',
+    address_line_2: 'Apt 5B',
+    city: 'New York',
+    state: 'NY' as const,
+    zip_code: '10001'
+  },
+  hamptons: {
+    address_line_1: '456 Ocean Drive',
+    address_line_2: 'Suite 12',
+    city: 'Southampton',
+    state: 'NY' as const,
+    zip_code: '11968'
+  },
+  brooklyn: {
+    address_line_1: '789 Atlantic Avenue',
+    city: 'Brooklyn',
+    state: 'NY' as const,
+    zip_code: '11217'
+  },
+  westchester: {
+    address_line_1: '321 Main Street',
+    city: 'White Plains',
+    state: 'NY' as const,
+    zip_code: '10601'
+  },
+  connecticut: {
+    address_line_1: '654 Elm Street',
+    city: 'Greenwich',
+    state: 'CT' as const,
+    zip_code: '06830'
+  }
 };
 
 interface AddressFormProps {
@@ -3100,13 +3164,38 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  // TEST DATA BUTTON - fills both addresses instantly
-  const fillTestData = () => {
-    updateBookingData({ 
-      pickup_address: TEST_PICKUP_ADDRESS,
-      delivery_address: TEST_DELIVERY_ADDRESS,
-      special_instructions: 'Test booking - doorman will let you in'
-    });
+  // Test data functions - production safe
+  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
+    switch (route) {
+      case 'manhattan-hamptons':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.hamptons,
+          special_instructions: 'Test booking - Manhattan to Hamptons route'
+        });
+        break;
+      case 'brooklyn-manhattan':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.brooklyn,
+          delivery_address: TEST_ADDRESSES.manhattan,
+          special_instructions: 'Test booking - Brooklyn to Manhattan route'
+        });
+        break;
+      case 'manhattan-westchester':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.westchester,
+          special_instructions: 'Test booking - Manhattan to Westchester route'
+        });
+        break;
+      case 'manhattan-connecticut':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: TEST_ADDRESSES.connecticut,
+          special_instructions: 'Test booking - Manhattan to Connecticut route'
+        });
+        break;
+    }
   };
 
   const handleContinue = () => {
@@ -3163,7 +3252,7 @@ export function AddressStep() {
 
   return (
     <div className="space-y-6">
-      {/* Instructions */}
+      {/* Instructions with Test Data Buttons */}
       <div className="text-center py-4">
         <p className="text-navy-700">
           Where should we pick up and deliver your items?
@@ -3172,17 +3261,44 @@ export function AddressStep() {
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
         
-        {/* DEV ONLY: Quick fill button */}
-        {process.env.NODE_ENV === 'development' && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fillTestData}
-            className="mt-2"
-          >
-            🚀 Fill Test Data
-          </Button>
-        )}
+        {/* Production-Safe Test Data Buttons */}
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-hamptons')}
+              className="text-xs"
+            >
+              Manhattan → Hamptons
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('brooklyn-manhattan')}
+              className="text-xs"
+            >
+              Brooklyn → Manhattan
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-westchester')}
+              className="text-xs"
+            >
+              Manhattan → Westchester
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fillCommonRoutes('manhattan-connecticut')}
+              className="text-xs"
+            >
+              Manhattan → Connecticut
+            </Button>
+          </div>
+        </div>
       </div>
 
       <AddressForm
@@ -3249,6 +3365,7 @@ export function AddressStep() {
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -3263,6 +3380,7 @@ const TEST_USER = {
 export function AuthChoiceStep() {
   const { isAuthenticated, user, login, register } = useAuthStore();
   const { nextStep, initializeForUser, setCurrentStep } = useBookingWizard();
+  const queryClient = useQueryClient(); // Added this
   
   const [mode, setMode] = useState<'guest' | 'login' | 'register' | null>(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
@@ -3296,6 +3414,10 @@ export function AuthChoiceStep() {
     setError('');
     
     try {
+      // Clear cache before login to prevent contamination
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache before login');
+      
       const result = await login(loginData.email, loginData.password);
       if (result.success) {
         localStorage.removeItem('totetaxi-booking-wizard');
@@ -3316,6 +3438,10 @@ export function AuthChoiceStep() {
     setError('');
     
     try {
+      // Clear cache before registration to prevent contamination
+      queryClient.clear();
+      console.log('🧹 Cleared React Query cache before registration');
+      
       const result = await register({
         email: registerData.email,
         password: registerData.password,
@@ -4440,7 +4566,7 @@ export { ReviewPaymentStep } from './review-payment-step';
 // frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -4561,7 +4687,7 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep } = useBookingWizard();
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -4572,6 +4698,24 @@ export function ReviewPaymentStep() {
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
+  // ENHANCED DEBUG INFO
+  useEffect(() => {
+    console.log('=== REVIEW PAYMENT STEP DEBUG ===');
+    console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
+    console.log('Stripe Key Available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+    console.log('Stripe Key Length:', process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.length);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Is Authenticated:', isAuthenticated);
+    console.log('Client Secret State:', clientSecret);
+    console.log('Show Payment State:', showPayment);
+    console.log('Stripe Promise:', !!stripePromise);
+    console.log('Booking Complete State:', bookingComplete);
+    console.log('Booking Data:', bookingData);
+    console.log('Customer Info:', bookingData.customer_info);
+    console.log('Is Guest Mode (inferred):', !isAuthenticated);
+    console.log('==================================');
+  }, [clientSecret, showPayment, stripePromise, bookingComplete, isAuthenticated, bookingData]);
+
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
       const endpoint = isAuthenticated 
@@ -4581,6 +4725,7 @@ export function ReviewPaymentStep() {
       let bookingRequest;
 
       if (isAuthenticated) {
+        console.log('=== AUTHENTICATED BOOKING REQUEST ===');
         const timestamp = new Date().toISOString().slice(11, 16);
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
@@ -4609,12 +4754,22 @@ export function ReviewPaymentStep() {
           create_payment_intent: true,
         };
       } else {
+        console.log('=== GUEST BOOKING REQUEST ===');
+        console.log('Customer info available:', !!bookingData.customer_info);
+        console.log('Customer info details:', bookingData.customer_info);
+        
+        if (!bookingData.customer_info) {
+          throw new Error('Customer information is required for guest bookings');
+        }
+        
         bookingRequest = {
-          first_name: bookingData.customer_info?.first_name,
-          last_name: bookingData.customer_info?.last_name,
-          email: bookingData.customer_info?.email,
-          phone: bookingData.customer_info?.phone,
+          // Customer info
+          first_name: bookingData.customer_info.first_name,
+          last_name: bookingData.customer_info.last_name,
+          email: bookingData.customer_info.email,
+          phone: bookingData.customer_info.phone,
           
+          // Service details
           service_type: bookingData.service_type,
           mini_move_package_id: bookingData.mini_move_package_id,
           include_packing: bookingData.include_packing,
@@ -4623,39 +4778,64 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
+          // Scheduling
           pickup_date: bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
           specific_pickup_hour: bookingData.specific_pickup_hour,
           
+          // Addresses
           pickup_address: bookingData.pickup_address,
           delivery_address: bookingData.delivery_address,
           
+          // Additional options
           special_instructions: bookingData.special_instructions,
           coi_required: bookingData.coi_required,
+          
+          // CRITICAL: Request payment intent for guests too
+          create_payment_intent: true,
         };
       }
 
-      // CRITICAL DEBUG LOGGING
-      console.log('🔍 ENDPOINT:', endpoint);
-      console.log('📦 FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
-      console.log('🔐 Is Authenticated:', isAuthenticated);
-      console.log('📊 Booking Data State:', bookingData);
+      console.log('ENDPOINT:', endpoint);
+      console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      console.log('Is Authenticated:', isAuthenticated);
 
       const response = await apiClient.post(endpoint, bookingRequest);
+      
+      console.log('BOOKING API RESPONSE:', response.data);
+      
       return response.data;
     },
     onSuccess: (data) => {
+      console.log('=== BOOKING SUCCESS HANDLER ===');
+      console.log('Response data:', data);
+      console.log('Is Guest Mode:', !isAuthenticated);
+      console.log('Payment data exists:', !!data.payment);
+      console.log('Client secret exists:', !!data.payment?.client_secret);
+      console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      
       setBookingNumber(data.booking.booking_number);
       
-      if (data.payment?.client_secret) {
+      if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+        console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
+        console.log('Client secret length:', data.payment.client_secret.length);
         setClientSecret(data.payment.client_secret);
         setShowPayment(true);
       } else {
+        console.log('WARNING: NO PAYMENT INTENT OR STRIPE KEY MISSING');
+        console.log('This should NOT happen for paid bookings');
+        console.log('Payment object:', data.payment);
+        console.log('Client secret:', data.payment?.client_secret);
+        console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+        console.log('INCORRECTLY MARKING BOOKING AS COMPLETE WITHOUT PAYMENT');
+        
+        // This path should only be taken for free bookings
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
       
       setLoading(false);
+      console.log('=== END BOOKING SUCCESS HANDLER ===');
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
@@ -4663,19 +4843,16 @@ export function ReviewPaymentStep() {
       }
     },
     onError: (error: AxiosError | Error) => {
+      console.log('=== BOOKING ERROR HANDLER ===');
       setLoading(false);
-      console.error('❌ Booking creation failed:', error);
+      console.error('Booking creation failed:', error);
       
       if ('response' in error && error.response) {
-        console.error('📛 FULL ERROR RESPONSE:', error.response);
-        console.error('📛 Error Status:', error.response.status);
-        console.error('📛 Error Data:', error.response.data);
-        console.error('📛 Error Headers:', error.response.headers);
+        console.error('FULL ERROR RESPONSE:', error.response);
+        console.error('Error Status:', error.response.status);
+        console.error('Error Data:', error.response.data);
       }
-      
-      if ('isAxiosError' in error && error.isAxiosError) {
-        console.error('📤 Request that failed:', error.config?.data);
-      }
+      console.log('=== END BOOKING ERROR HANDLER ===');
     }
   });
 
@@ -4685,16 +4862,23 @@ export function ReviewPaymentStep() {
       return;
     }
     
+    console.log('=== SUBMITTING BOOKING ===');
+    console.log('Is authenticated:', isAuthenticated);
+    console.log('Has customer info:', !!bookingData.customer_info);
+    console.log('Customer info:', bookingData.customer_info);
+    
     setLoading(true);
     createBookingMutation.mutate();
   };
 
   const handlePaymentSuccess = () => {
+    console.log('PAYMENT SUCCESSFUL - SHOWING SUCCESS SCREEN');
     setBookingCompleteLocal(true);
     setBookingComplete(bookingNumber);
   };
 
   const handleStartOver = () => {
+    console.log('STARTING OVER - RESETTING WIZARD');
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
@@ -4703,7 +4887,24 @@ export function ReviewPaymentStep() {
     router.push('/book');
   };
 
+  const handlePreviousStep = () => {
+    console.log('GOING TO PREVIOUS STEP');
+    previousStep();
+  };
+
+  // Debug state transitions
+  useEffect(() => {
+    console.log('STATE CHANGE:', {
+      bookingComplete,
+      showPayment,
+      clientSecret: !!clientSecret,
+      bookingNumber,
+      isLoading
+    });
+  }, [bookingComplete, showPayment, clientSecret, bookingNumber, isLoading]);
+
   if (bookingComplete) {
+    console.log('RENDERING SUCCESS SCREEN');
     return (
       <div className="text-center space-y-6">
         <div className="text-6xl mb-4">✅</div>
@@ -4784,6 +4985,7 @@ export function ReviewPaymentStep() {
   }
 
   if (showPayment && clientSecret && stripePromise) {
+    console.log('RENDERING PAYMENT FORM');
     return (
       <div className="space-y-6">
         <Card variant="luxury">
@@ -4801,12 +5003,39 @@ export function ReviewPaymentStep() {
             </Elements>
           </CardContent>
         </Card>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={handlePreviousStep}>
+            ← Previous
+          </Button>
+          <Button variant="outline" onClick={handleStartOver}>
+            Start Over
+          </Button>
+        </div>
       </div>
     );
   }
 
+  console.log('RENDERING BOOKING SUMMARY FORM');
   return (
     <div className="space-y-6">
+      {/* Debug Panel - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <h4 className="font-medium text-yellow-800 mb-2">Debug Info (Dev Only)</h4>
+            <div className="text-sm text-yellow-700 space-y-1">
+              <div>Mode: {isAuthenticated ? 'Authenticated' : 'Guest'}</div>
+              <div>Has Customer Info: {bookingData.customer_info ? 'Yes' : 'No'}</div>
+              <div>Customer Email: {bookingData.customer_info?.email || 'None'}</div>
+              <div>Service Type: {bookingData.service_type}</div>
+              <div>Package ID: {bookingData.mini_move_package_id}</div>
+              <div>Total Price: ${bookingData.pricing_data?.total_price_dollars || 'Not set'}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card variant="luxury">
         <CardHeader>
           <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
@@ -5055,15 +5284,20 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
-      <Button 
-        variant="primary" 
-        size="lg"
-        onClick={handleSubmitBooking}
-        disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
-        className="w-full"
-      >
-        {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
-      </Button>
+      <div className="flex justify-between items-center pt-4">
+        <Button variant="outline" onClick={handlePreviousStep}>
+          ← Previous
+        </Button>
+        
+        <Button 
+          variant="primary" 
+          size="lg"
+          onClick={handleSubmitBooking}
+          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
+        >
+          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -5629,16 +5863,19 @@ export function BookingHistory() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['customer', 'bookings', searchTerm, statusFilter],
+    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
+    queryKey: ['customer', 'bookings', user?.id, searchTerm, statusFilter],
     queryFn: async (): Promise<BookingHistoryResponse> => {
+      console.log('🔍 Fetching bookings for user:', user?.id);
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
       
       const response = await apiClient.get(`/api/customer/bookings/?${params}`);
+      console.log('📊 Bookings API response for user:', user?.id, 'Count:', response.data.total_count);
       return response.data;
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const getStatusColor = (status: string) => {
@@ -5703,6 +5940,15 @@ export function BookingHistory() {
             {data?.total_count || 0} total bookings
           </div>
         </div>
+
+        {/* Debug Info - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+            <p className="text-xs text-yellow-700">
+              Debug: Showing bookings for user {user?.id} ({user?.email})
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <div className="flex-1">
@@ -5866,14 +6112,17 @@ export function DashboardOverview() {
   const router = useRouter();
 
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
-    queryKey: ['customer', 'dashboard'],
+    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
+    queryKey: ['customer', 'dashboard', user?.id],
     queryFn: async (): Promise<DashboardData> => {
+      console.log('🔍 Fetching dashboard data for user:', user?.id);
       const response = await apiClient.get('/api/customer/dashboard/');
+      console.log('📊 Dashboard API response for user:', user?.id, 'Data:', response.data);
       return response.data;
     },
-    enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
+    enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10,   // 10 minutes
   });
 
   if (isLoading) {
@@ -5913,6 +6162,21 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <h4 className="font-medium text-yellow-800">Debug Info (Dev Only)</h4>
+            <p className="text-sm text-yellow-700">
+              User ID: {user?.id} | Email: {user?.email}
+            </p>
+            <p className="text-sm text-yellow-700">
+              Profile Name: {profile?.name} | Bookings: {profile?.total_bookings}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
@@ -6062,12 +6326,6 @@ export function DashboardOverview() {
     </div>
   );
 }
-```
-
-# ==== src/components/dashboard/quick-actions.tsx ====
-
-```
-
 ```
 
 # ==== src/components/layout/main-layout.tsx ====
@@ -8694,9 +8952,8 @@ const initialState: AuthState = {
   isLoading: false,
 };
 
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://your-production-domain.com'
-  : 'http://localhost:8005';
+// ✅ FIXED: Use environment variable instead of hardcoded URL
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
@@ -8851,7 +9108,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       clearSessionIfIncognito: () => {
         if (typeof window !== 'undefined') {
-          // FIXED: Just update activity timestamp, don't clear session
           localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
       }
@@ -9163,6 +9419,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
 # ==== src/stores/staff-auth-store.ts ====
 
 ```
+// frontend/src/stores/staff-auth-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -9450,6 +9707,7 @@ export interface BookingAddress {
 # ==== src/utils/cn.ts ====
 
 ```
+// frontend/src/utils/cn.ts
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
