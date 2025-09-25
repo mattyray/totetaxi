@@ -171,10 +171,14 @@
 │   │   │   │   └── page.tsx
 │   │   │   ├── staff
 │   │   │   │   ├── bookings
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── calendar
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── customers
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── dashboard
 │   │   │   │   │   └── page.tsx
@@ -186,10 +190,16 @@
 │   │   │   │       └── page.tsx
 │   │   │   ├── terms
 │   │   │   │   └── page.tsx
+│   │   │   ├── android-chrome-192x192.png
+│   │   │   ├── android-chrome-512x512.png
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-16x16.png
+│   │   │   ├── favicon-32x32.png
 │   │   │   ├── favicon.ico
 │   │   │   ├── globals.css
 │   │   │   ├── layout.tsx
-│   │   │   └── page.tsx
+│   │   │   ├── page.tsx
+│   │   │   └── site.webmanifest
 │   │   ├── components
 │   │   │   ├── auth
 │   │   │   │   ├── index.ts
@@ -207,8 +217,7 @@
 │   │   │   │   └── service-selection-step.tsx
 │   │   │   ├── dashboard
 │   │   │   │   ├── booking-history.tsx
-│   │   │   │   ├── dashboard-overview.tsx
-│   │   │   │   └── quick-actions.tsx
+│   │   │   │   └── dashboard-overview.tsx
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
 │   │   │   ├── marketing
@@ -217,6 +226,7 @@
 │   │   │   │   └── query-provider.tsx
 │   │   │   ├── staff
 │   │   │   │   ├── booking-calendar.tsx
+│   │   │   │   ├── booking-detail-modal.tsx
 │   │   │   │   ├── booking-management.tsx
 │   │   │   │   ├── customer-management.tsx
 │   │   │   │   ├── index.ts
@@ -259,4 +269,4 @@
 ├── project_structure.txt
 └── README.md
 
-64 directories, 196 files
+66 directories, 204 files

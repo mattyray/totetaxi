@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-23 17:32:58
+# Created: 2025-09-25 15:48:54
 # Total files: 111
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -528,6 +528,7 @@ dj-database-url==2.1.0
 # Authentication & Security
 djangorestframework-simplejwt==5.3.0
 django-allauth==0.63.6
+django-ipware==7.0.1
 
 # API Documentation
 drf-yasg==1.21.7
@@ -928,6 +929,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/customer/', include('apps.customers.urls')),
     path('api/public/', include('apps.bookings.urls')),
+    
     path('api/payments/', include('apps.payments.urls')),
     path('api/staff/', include('apps.accounts.urls')),  # Add this line
     # In config/urls.py, add this to urlpatterns:
@@ -968,9 +970,24 @@ application = get_wsgi_application()
 # ==== apps/accounts/admin.py ====
 
 ```python
+# backend/apps/accounts/admin.py
 from django.contrib import admin
+from .models import StaffProfile, StaffAction
 
-# Register your models here.
+@admin.register(StaffProfile)
+class StaffProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'department', 'can_approve_refunds', 'can_manage_staff', 'can_view_financial_reports')
+    list_filter = ('role', 'department')
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(StaffAction)
+class StaffActionAdmin(admin.ModelAdmin):
+    list_display = ('staff_user', 'action_type', 'created_at', 'ip_address')
+    list_filter = ('action_type', 'created_at')
+    search_fields = ('staff_user__username', 'description')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
 ```
 
 # ==== apps/accounts/apps.py ====
@@ -1193,13 +1210,18 @@ class StaffAction(models.Model):
     
     @classmethod
     def log_action(cls, staff_user, action_type, description, request=None, customer_id=None, booking_id=None):
-        """Helper method to log staff actions"""
-        ip_address = '127.0.0.1'  # default
+        """Helper method to log staff actions with proper IP detection"""
+        from ipware import get_client_ip
+        
+        ip_address = '127.0.0.1'  # default fallback
         user_agent = ''
         
         if request:
-            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', 
-                                        request.META.get('REMOTE_ADDR', '127.0.0.1'))
+            # Use django-ipware for robust IP detection
+            client_ip, is_routable = get_client_ip(request)
+            if client_ip:
+                ip_address = client_ip
+            
             user_agent = request.META.get('HTTP_USER_AGENT', '')
         
         return cls.objects.create(
@@ -1676,17 +1698,19 @@ class CustomerNotesUpdateView(APIView):
 
 
 class BookingManagementView(APIView):
-    """Staff booking management operations"""
+    """Enhanced staff booking management with date range support"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        """List all bookings with filters"""
+        """List all bookings with enhanced filtering including date ranges"""
         if not hasattr(request.user, 'staff_profile'):
             return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
         
         # Get query parameters
         status_filter = request.query_params.get('status', None)
         date_filter = request.query_params.get('date', None)
+        start_date = request.query_params.get('start_date', None)  # NEW
+        end_date = request.query_params.get('end_date', None)      # NEW
         search = request.query_params.get('search', None)
         
         # Build queryset
@@ -1697,6 +1721,17 @@ class BookingManagementView(APIView):
         
         if date_filter:
             bookings = bookings.filter(pickup_date=date_filter)
+        
+        # NEW: Date range filtering for calendar
+        if start_date and end_date:
+            bookings = bookings.filter(
+                pickup_date__gte=start_date,
+                pickup_date__lte=end_date
+            )
+        elif start_date:
+            bookings = bookings.filter(pickup_date__gte=start_date)
+        elif end_date:
+            bookings = bookings.filter(pickup_date__lte=end_date)
         
         if search:
             bookings = bookings.filter(
@@ -1733,6 +1768,8 @@ class BookingManagementView(APIView):
             'filters': {
                 'status': status_filter,
                 'date': date_filter,
+                'start_date': start_date,    # NEW
+                'end_date': end_date,        # NEW
                 'search': search
             }
         })
@@ -1756,7 +1793,7 @@ class BookingDetailView(APIView):
         except Booking.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Log viewing customer data
+        # Log viewing booking data
         StaffAction.log_action(
             staff_user=request.user,
             action_type='view_booking',
@@ -3030,13 +3067,14 @@ urlpatterns = [
     
     # Booking status lookup
     path('booking-status/<str:booking_number>/', views.BookingStatusView.as_view(), name='booking-status'),
+    path('calendar/availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
+
 ]
 ```
 
 # ==== apps/bookings/views.py ====
 
 ```python
-# backend/apps/bookings/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -3068,7 +3106,6 @@ from apps.services.serializers import (
     MiniMoveWithOrganizingSerializer,
     OrganizingServicesByTierSerializer
 )
-# ✅ ADD THIS IMPORT
 from apps.payments.services import StripePaymentService
 
 
@@ -3269,10 +3306,9 @@ class PricingPreviewView(APIView):
             'details': details,
             'pickup_date': pickup_date
         })
-
-
+    
 class CalendarAvailabilityView(APIView):
-    """Get available dates with surcharge info - no authentication required"""
+    """Calendar data with booking details - no capacity limits"""
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
@@ -3280,14 +3316,23 @@ class CalendarAvailabilityView(APIView):
         if isinstance(start_date, str):
             start_date = date.fromisoformat(start_date)
         
-        end_date = start_date + timedelta(days=60)
+        end_date_param = request.query_params.get('end_date')
+        if end_date_param:
+            end_date = date.fromisoformat(end_date_param)
+        else:
+            end_date = start_date + timedelta(days=60)
         
         availability = []
         current_date = start_date
         
         while current_date <= end_date:
-            is_weekend = current_date.weekday() >= 5
+            # Get bookings for this date
+            bookings_today = Booking.objects.filter(
+                pickup_date=current_date,
+                deleted_at__isnull=True
+            ).select_related('customer', 'guest_checkout')
             
+            # Get surcharges for this date
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
@@ -3297,19 +3342,36 @@ class CalendarAvailabilityView(APIView):
                         'description': rule.description
                     })
             
+            # Serialize bookings for this date
+            booking_list = []
+            for booking in bookings_today:
+                booking_list.append({
+                    'id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                    'customer_name': booking.get_customer_name(),
+                    'service_type': booking.get_service_type_display(),
+                    'pickup_time': booking.get_pickup_time_display(),
+                    'status': booking.status,
+                    'total_price_dollars': booking.total_price_dollars,
+                    'coi_required': booking.coi_required
+                })
+            
             availability.append({
                 'date': current_date.isoformat(),
-                'available': True,
-                'is_weekend': is_weekend,
+                'available': True,  # Always available - no capacity limits
+                'is_weekend': current_date.weekday() >= 5,
+                'bookings': booking_list,
                 'surcharges': surcharges
+                # Removed: 'capacity_used', 'max_capacity'
             })
             
             current_date += timedelta(days=1)
         
         return Response({
-            'availability': availability
+            'availability': availability,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat()
         })
-
 
 class GuestBookingCreateView(generics.CreateAPIView):
     """Create booking for guest (non-authenticated) users with payment integration"""
@@ -3318,25 +3380,25 @@ class GuestBookingCreateView(generics.CreateAPIView):
     
     def create(self, request, *args, **kwargs):
         print("=" * 80)
-        print("🔍 GUEST BOOKING CREATE REQUEST RECEIVED")
+        print("GUEST BOOKING CREATE REQUEST RECEIVED")
         print("=" * 80)
-        print("📧 Guest Email:", request.data.get('email'))
-        print("📦 Request Data:", request.data)
-        print("🔍 Create Payment Intent:", request.data.get('create_payment_intent', True))
+        print("Guest Email:", request.data.get('email'))
+        print("Request Data:", request.data)
+        print("Create Payment Intent:", request.data.get('create_payment_intent', True))
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
-        print(f"✅ Guest booking created: {booking.booking_number}")
-        print(f"💰 Total price: ${booking.total_price_dollars}")
+        print(f"Guest booking created: {booking.booking_number}")
+        print(f"Total price: ${booking.total_price_dollars}")
         
-        # ✅ CRITICAL FIX: Add payment intent creation for guests
+        # Add payment intent creation for guests
         create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
         
         if create_payment_intent:
-            print("💳 Creating payment intent for guest...")
+            print("Creating payment intent for guest...")
             try:
                 # Use guest email from the booking
                 guest_email = booking.guest_checkout.email if booking.guest_checkout else None
@@ -3351,13 +3413,13 @@ class GuestBookingCreateView(generics.CreateAPIView):
                     'payment_intent_id': payment_result['payment_intent_id']
                 }
                 
-                print(f"✅ Payment intent created: {payment_result['payment_intent_id']}")
+                print(f"Payment intent created: {payment_result['payment_intent_id']}")
             except Exception as e:
-                print(f"⚠️ Payment intent failed: {str(e)}")
+                print(f"Payment intent failed: {str(e)}")
                 # Don't fail the booking creation, but log the error
                 payment_data = None
         
-        # ✅ CRITICAL FIX: Return same format as authenticated endpoint
+        # Return same format as authenticated endpoint
         response_data = {
             'message': 'Booking created successfully',
             'booking': {
@@ -3367,13 +3429,13 @@ class GuestBookingCreateView(generics.CreateAPIView):
             }
         }
         
-        # ✅ CRITICAL FIX: Include payment data if available
+        # Include payment data if available
         if payment_data:
             response_data['payment'] = payment_data
         
         print("=" * 80)
-        print("✅ SUCCESS - Returning guest booking response")
-        print("📊 Response includes payment:", bool(payment_data))
+        print("SUCCESS - Returning guest booking response")
+        print("Response includes payment:", bool(payment_data))
         print("=" * 80)
         
         return Response(response_data, status=status.HTTP_201_CREATED)

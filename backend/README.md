@@ -1,1098 +1,1143 @@
+I'll help you regenerate fresh living documentation for your Django backend project according to the comprehensive extraction protocol. Let me first search for the backend code snapshot you've attached.# TOTETAXI BACKEND - LIVING DOCUMENTATION
 
-# LIVING DOCUMENTATION - AI MEMORY PERSISTENCE SYSTEM (BACKEND)
-
-## WHAT THIS IS
-This is a **comprehensive AI memory persistence system** for Django/DRF backend projects of any type. It provides **complete executive function** over backend development by extracting and documenting every API endpoint, model specification, business logic implementation, and configuration detail. This enables independent code modification, feature development, and system extension without requiring additional context or file requests.
-
-## WHY THIS WORKS FOR ANY DJANGO PROJECT
-**Django-Generic Comprehension Optimization:**
-- **Predictable Architecture** - All Django projects follow consistent patterns (models, views, serializers, URLs)
-- **Centralized Business Logic** - Core algorithms concentrated in models and services regardless of domain
-- **Explicit API Contracts** - DRF serializers provide clear specifications in any project type
-- **Declarative Relationships** - Django ORM relationships are explicit across all domains
-- **Configuration Centralization** - Settings, integrations, configurations discoverable in any Django project
-- **Pattern Consistency** - Django conventions enable systematic extraction for any business domain
-
-## HOW TO REGENERATE AT END OF CHAT
-
-**REGENERATION COMMAND:**
-"Analyze the attached `back_export.txt` Django code snapshot following the comprehensive Django extraction protocol. Extract every API endpoint, model specification, business logic implementation, configuration detail, and development pattern. Generate complete living documentation that provides full executive function over this Django project's backend development, regardless of business domain."
+**Auto-Generated Django/DRF Living Documentation**  
+**Generated:** September 25, 2025  
+**Django Version:** 5.2.5 | **DRF Version:** 3.16.1  
+**Tech Stack:** PostgreSQL + Redis + Celery + Stripe + Onfleet + Docker  
+**Apps:** accounts, bookings, customers, payments, services, logistics + stub apps (crm, documents, notifications)
 
 ---
 
-# TOTETAXI BACKEND COMPREHENSIVE IMPLEMENTATION GUIDE
+## SECTION 1: System Mental Model
 
-## SECTION 1: SYSTEM MENTAL MODEL
+### Django Project Architecture Philosophy
 
-**Project Architecture Philosophy:**
-This Django project follows a **domain-driven app architecture** where each Django app represents a distinct business capability. The system is built around a luxury delivery service platform with dual-user architecture (customers + staff) and complex business logic for pricing, scheduling, and payment processing.
+**ToteTaxi** is architected as a **luxury delivery service platform** with a sophisticated **dual-customer architecture** supporting both authenticated users and guest checkout workflows. The system follows Django best practices with **app-based domain separation**, centralized business logic in models, and comprehensive API contracts through DRF serializers.
 
-**Django App Organization:**
-```python
-# Business Domain Apps (Core Functionality)
-apps/customers/     # Customer profiles, addresses, authentication
-apps/bookings/      # Booking lifecycle, pricing calculations  
-apps/payments/      # Financial transactions, Stripe integration
-apps/services/      # Service definitions, pricing rules
-apps/logistics/     # Delivery coordination, external integrations
+**Core Architectural Principles:**
+- **Business Domain Separation** - Each app handles a specific business concern (bookings, payments, customers, staff operations)
+- **Morning-Only Service Model** - All pickups restricted to 7AM-12PM time windows with dynamic pricing
+- **Dual Customer Architecture** - Supports both authenticated customer accounts and anonymous guest checkout
+- **Staff Operations Segregation** - Complete separation between customer-facing APIs and staff management interfaces
+- **Financial Transaction Integrity** - Full Stripe integration with audit trails and booking status workflows
 
-# Operational Apps (Staff & Management)  
-apps/accounts/      # Staff profiles, role management, audit logging
-apps/crm/          # Staff dashboard, reporting, analytics
-
-# Support Apps (Infrastructure)
-apps/documents/     # File management, document storage
-apps/notifications/ # Communication, email/SMS systems
+**App Organization Strategy:**
+```
+apps/
+├── bookings/     # Core booking lifecycle & pricing engine
+├── customers/    # Customer profiles & authentication  
+├── payments/     # Stripe integration & financial operations
+├── services/     # Service catalog & pricing rules
+├── accounts/     # Staff operations & audit logging
+├── logistics/    # Onfleet delivery coordination
+├── crm/          # Staff dashboard (stub)
+├── documents/    # File management (stub)
+└── notifications/ # Communication (stub)
 ```
 
-**Integration Strategy:**
-- **External Payment Processing** - Stripe for real payment handling
-- **Logistics Coordination** - Onfleet API for delivery management  
-- **Cloud Infrastructure** - AWS S3 for storage, SES for email
-- **Background Processing** - Celery with Redis for async tasks
+### Integration Architecture Approach
 
-## SECTION 2: COMPLETE API ENDPOINT REFERENCE
+**External Service Integration Pattern:**
+- **Stripe Payment Gateway** - Real payment processing with webhooks and audit trails
+- **Onfleet Logistics API** - Delivery task management with status synchronization
+- **AWS Services** - S3 storage and SES email (configured but unused)
+- **Mock Mode Fallbacks** - Development-friendly mocking for all external services
 
-### Customer Authentication Endpoints
+**Database Design Philosophy:**
+- **UUID Primary Keys** - All business models use UUID for security and distribution
+- **Soft Deletion Pattern** - Bookings and critical data use `deleted_at` fields
+- **Audit Trail Strategy** - Comprehensive logging via `StaffAction` model and payment audit trails
+- **Relationship Integrity** - Careful foreign key design with appropriate cascade behaviors
 
-```python
-# Customer Registration
-POST /api/customers/auth/register/
-Authentication: None required
-Request: {
-    "email": "string",
-    "password": "string", 
-    "first_name": "string",
-    "last_name": "string"
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "token": "string",
-        "user": {
-            "id": integer,
-            "email": "string",
-            "first_name": "string",
-            "last_name": "string"
-        }
-    },
-    "message": "string"
-}
-Validation Rules: 
-- Email format validation
-- Password strength requirements  
-- Unique email constraint
-Business Logic: Creates User and CustomerProfile, generates JWT token
+---
 
-# Customer Login  
-POST /api/customers/auth/login/
-Authentication: None required
-Request: {
-    "email": "string",
-    "password": "string"
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "token": "string", 
-        "user": UserObject
-    }
-}
-Error Responses: 
-- 401: Invalid credentials
-- 400: Validation errors
+## SECTION 2: Complete API Endpoint Reference
+
+### Public API Endpoints (`/api/public/`)
+**Authentication:** None required for public booking and service catalog APIs
+
+#### Service Catalog & Information
+```
+GET /api/public/services/
+→ ServiceCatalogView
+Returns: Complete service catalog with mini-move packages, specialty items, organizing services
+Schema: ServiceCatalogSerializer
+Business Logic: Filters active services, includes pricing and availability
 ```
 
-### Staff Authentication Endpoints
-
-```python
-# Staff Login
-POST /api/accounts/staff/login/  
-Authentication: None required
-Request: {
-    "email": "string",
-    "password": "string"
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "token": "string",
-        "staff": {
-            "id": integer,
-            "user": UserObject,
-            "role": "string",
-            "is_active": boolean
-        }
-    }
-}
-Business Logic: Only allows users with is_staff=True
-Validation: Staff role verification, active status check
+```
+GET /api/public/pricing-preview/
+→ PricingPreviewView  
+Request: { service_type, pickup_date, pickup_time, organizing_service_id?, specialty_items?, include_packing?, include_unpacking? }
+Response: { base_price, time_surcharge, organizing_cost, total_price, breakdown }
+Business Logic: Real-time pricing calculation using Booking.calculate_pricing()
 ```
 
-### Booking Management Endpoints
-
-```python
-# Guest Booking Creation
-POST /api/customers/bookings/guest/
-Authentication: None required  
-Request: {
-    "service": integer,
-    "pickup_address": AddressObject,
-    "delivery_address": AddressObject, 
-    "pickup_date": "YYYY-MM-DD",
-    "pickup_time": "HH:MM:SS",
-    "contact_info": ContactObject,
-    "special_instructions": "string",
-    "include_packing": boolean,
-    "include_unpacking": boolean
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "booking": BookingObject,
-        "pricing": PricingBreakdown
-    }
-}
-Business Logic: 
-- Creates pending booking
-- Calculates total pricing including surcharges
-- Handles guest checkout without authentication
-
-# Pricing Preview
-POST /api/bookings/pricing-preview/
-Authentication: Optional
-Request: {
-    "service": integer,
-    "pickup_date": "YYYY-MM-DD", 
-    "pickup_time": "HH:MM:SS",
-    "include_packing": boolean,
-    "include_unpacking": boolean
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "base_cost": "decimal",
-        "surcharges": [SurchargeObject],
-        "organizing_costs": "decimal",
-        "total_cost": "decimal"
-    }
-}
-Algorithm: Calls Booking.calculate_pricing() method
+```
+GET /api/public/services/mini-moves-with-organizing/
+→ ServiceCatalogWithOrganizingView
+Returns: Mini-move packages with available organizing service add-ons
+Schema: MiniMoveWithOrganizingSerializer
 ```
 
-### Payment Processing Endpoints
+```
+GET /api/public/services/organizing-by-tier/
+→ OrganizingServicesByTierView
+Returns: Organizing services grouped by tier (Essential, Premium, Luxury)
+Schema: OrganizingServicesByTierSerializer
+```
 
-```python
-# Create Payment Intent
+```
+GET /api/public/services/organizing/{service_id}/
+→ OrganizingServiceDetailView
+Returns: Detailed organizing service information
+Error Responses: 404 if service not found or inactive
+```
+
+#### Booking Operations
+```
+POST /api/public/guest-booking/
+→ GuestBookingCreateView
+Request Schema: GuestBookingCreateSerializer
+Response: { message, booking: { id, booking_number, total_price_dollars }, payment?: { client_secret, payment_intent_id } }
+Business Logic: Creates booking + guest checkout record, generates Stripe payment intent if requested
+Validation: Address validation, service availability, pricing calculation
+```
+
+```
+GET /api/public/booking-status/{booking_number}/
+→ BookingStatusView
+Response: BookingStatusSerializer with status, timestamps, tracking info
+Business Logic: No authentication required for status lookup
+```
+
+```
+GET /api/public/calendar/availability/
+→ CalendarAvailabilityView
+Returns: Available pickup time slots for date range
+Business Logic: Morning-only scheduling (7AM-12PM), excludes booked slots
+```
+
+### Customer API Endpoints (`/api/customer/`)
+**Authentication:** JWT tokens required, customer profiles only
+
+#### Authentication & Profile Management
+```
+POST /api/customer/register/
+→ CustomerRegistrationView
+Request: CustomerRegistrationSerializer
+Response: User creation with automatic CustomerProfile generation
+Business Logic: Email as username, creates linked profile
+Validation: Email uniqueness, password confirmation
+```
+
+```
+POST /api/customer/login/
+→ CustomerLoginView  
+Request: { email, password }
+Response: { access_token, refresh_token, user_profile }
+Authentication: Email-based login with profile validation
+```
+
+```
+GET /api/customer/profile/
+PUT /api/customer/profile/
+→ CustomerProfileView
+Schema: CustomerProfileSerializer
+Business Logic: Profile updates, VIP status display, spending history
+```
+
+#### Address & Payment Management
+```
+GET/POST /api/customer/addresses/
+PUT/DELETE /api/customer/addresses/{id}/
+→ SavedAddressViewSet
+Schema: SavedAddressSerializer
+Business Logic: Address usage tracking, default address management
+```
+
+```
+GET/POST /api/customer/payment-methods/
+DELETE /api/customer/payment-methods/{id}/
+→ CustomerPaymentMethodViewSet
+Schema: CustomerPaymentMethodSerializer  
+Business Logic: Stripe payment method storage, default method selection
+```
+
+#### Enhanced Booking Workflows
+```
+POST /api/customer/bookings/
+→ AuthenticatedBookingCreateView
+Request: AuthenticatedBookingCreateSerializer
+Response: Enhanced booking creation with saved address/payment integration
+Business Logic: Uses customer defaults, updates stats after payment confirmation
+Features: Saved address selection, payment method reuse, automatic profile updates
+```
+
+```
+GET /api/customer/bookings/
+→ CustomerBookingListView
+Returns: Paginated booking history with status tracking
+Filters: Date range, status, service type
+```
+
+### Staff API Endpoints (`/api/staff/`)
+**Authentication:** JWT tokens required, staff profiles only
+**Authorization:** Role-based permissions via StaffProfile
+
+#### Staff Authentication & Management
+```
+POST /api/staff/login/
+→ StaffLoginView
+Request: StaffLoginSerializer
+Response: JWT tokens with staff profile and permissions
+Business Logic: Username-based authentication, audit logging
+```
+
+```
+GET /api/staff/profile/
+→ StaffProfileView
+Response: StaffProfileSerializer with role permissions
+```
+
+#### Booking Management
+```
+GET /api/staff/bookings/
+→ StaffBookingListView
+Response: Comprehensive booking list with customer details
+Permissions: View bookings based on department
+Filters: Status, date range, customer, service type
+```
+
+```
+PUT /api/staff/bookings/{id}/status/
+→ BookingStatusUpdateView
+Request: { status, notes }
+Business Logic: Status transitions, audit logging via StaffAction
+Validation: Valid status transitions, permission checks
+```
+
+### Payment API Endpoints (`/api/payments/`)
+**Authentication:** Context-dependent (customer for payments, staff for refunds)
+
+#### Payment Operations
+```
 POST /api/payments/create-intent/
-Authentication: JWT required
-Request: {
-    "booking_id": integer,
-    "customer_email": "string"
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "client_secret": "string",
-        "payment_intent_id": "string"
-    }
-}
-Business Logic: 
-- Creates Stripe PaymentIntent
-- Links to booking record
-- Sets up customer payment method
+→ PaymentIntentCreateView
+Request: { booking_id, customer_email? }
+Response: { client_secret, payment_intent_id }
+Business Logic: StripePaymentService.create_payment_intent()
+```
 
-# Confirm Payment
+```
 POST /api/payments/confirm/
-Authentication: JWT required
-Request: {
-    "payment_intent_id": "string"
-}
-Response: {
-    "success": boolean,
-    "data": {
-        "payment": PaymentObject,
-        "booking": BookingObject
-    }
-}
-Business Logic:
-- Updates payment status
-- Triggers booking status change to 'paid'
-- Updates customer statistics
+→ PaymentConfirmView
+Request: { payment_intent_id, booking_id }
+Response: Payment confirmation and booking status update
+Business Logic: Confirms payment, updates booking to 'paid', triggers customer stats update
+```
 
-# Stripe Webhook Handler
+```
 POST /api/payments/webhook/
-Authentication: Stripe signature verification
-Request: Stripe webhook payload
-Business Logic:
-- Processes payment confirmations
-- Handles failed payments
-- Updates payment and booking statuses
+→ StripeWebhookView
+Business Logic: Handles Stripe webhook events (payment.succeeded, payment.failed)
+Security: Webhook signature verification
+Side Effects: Updates booking status, customer statistics
 ```
 
-### Service Management Endpoints
+### Logistics API Endpoints (`/api/staff/logistics/`)
+**Authentication:** Staff only, logistics department permissions
 
-```python
-# List Available Services
-GET /api/services/
-Authentication: None required
-Response: {
-    "success": boolean,
-    "data": [
-        {
-            "id": integer,
-            "name": "string",
-            "base_price": "decimal", 
-            "description": "string",
-            "is_active": boolean
-        }
-    ]
-}
-
-# Get Service Details
-GET /api/services/{id}/
-Authentication: None required
-Response: ServiceObject with pricing details
+```
+GET /api/staff/logistics/dashboard/
+→ LogisticsDashboardView
+Response: Active deliveries, task status overview
+Business Logic: Onfleet task synchronization data
 ```
 
-## SECTION 3: COMPLETE MODEL DOCUMENTATION
-
-### Customer Models (`apps/customers/models.py`)
-
-```python
-class CustomerProfile(models.Model):
-    # Primary relationship
-    user = models.OneToOneField(
-        User, 
-        on_delete=models.CASCADE,
-        related_name='customer_profile'
-    )
-    
-    # Contact information
-    phone = models.CharField(
-        max_length=20, 
-        blank=True,
-        help_text="Customer phone number"
-    )
-    
-    # Statistics fields  
-    total_bookings = models.PositiveIntegerField(
-        default=0,
-        help_text="Total number of completed bookings"
-    )
-    total_spent = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0.00,
-        help_text="Total amount spent on services"
-    )
-    
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    # Model Methods
-    def add_booking_stats(self, amount):
-        """Update customer statistics on successful payment"""
-        self.total_bookings += 1
-        self.total_spent += amount
-        self.save(update_fields=['total_bookings', 'total_spent'])
-    
-    def get_full_name(self):
-        """Return customer's full name"""
-        return f"{self.user.first_name} {self.user.last_name}"
-    
-    # Meta configuration
-    class Meta:
-        verbose_name = "Customer Profile"
-        verbose_name_plural = "Customer Profiles"
-        ordering = ['-created_at']
-
-class SavedAddress(models.Model):
-    # Relationship
-    customer = models.ForeignKey(
-        CustomerProfile, 
-        on_delete=models.CASCADE,
-        related_name='saved_addresses'
-    )
-    
-    # Address fields
-    label = models.CharField(
-        max_length=50,
-        help_text="User-defined address label (e.g., 'Home', 'Office')"
-    )
-    street_address = models.CharField(max_length=255)
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=50)
-    zip_code = models.CharField(max_length=10)
-    
-    # Metadata
-    is_default = models.BooleanField(
-        default=False,
-        help_text="Default address for this customer"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        unique_together = ['customer', 'label']
-        ordering = ['-is_default', '-created_at']
 ```
+POST /api/staff/logistics/sync-task/{task_id}/
+→ SyncOnfleetTaskView
+Business Logic: Manual Onfleet task status synchronization
+```
+
+---
+
+## SECTION 3: Complete Model Documentation
 
 ### Booking Models (`apps/bookings/models.py`)
 
+#### Core Booking Model
 ```python
 class Booking(models.Model):
-    # Status choices
-    STATUS_CHOICES = [
-        ('pending', 'Pending Payment'),
-        ('paid', 'Paid - Awaiting Pickup'), 
-        ('in_progress', 'In Progress'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    booking_number = models.CharField(max_length=20, unique=True)  # Auto-generated
+    customer = models.ForeignKey(User, null=True, blank=True)  # Nullable for guest bookings
+    
+    # Service Configuration
+    service_type = models.CharField(choices=[
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('organizing_only', 'Organizing Only')
+    ])
+    mini_move_package = models.ForeignKey('services.MiniMovePackage', null=True)
+    organizing_service = models.ForeignKey('services.OrganizingService', null=True)
+    specialty_items = models.ManyToManyField('services.SpecialtyItem', blank=True)
+    
+    # Scheduling - Morning Only Constraint
+    pickup_date = models.DateField()
+    pickup_time = models.TimeField()  # Constrained to 7AM-12PM in validation
+    estimated_duration_hours = models.PositiveSmallIntegerField(default=2)
+    
+    # Pricing Fields (all in cents for precision)
+    base_price_cents = models.PositiveIntegerField()
+    time_surcharge_cents = models.PositiveIntegerField(default=0)
+    organizing_cost_cents = models.PositiveIntegerField(default=0)
+    geographic_surcharge_cents = models.PositiveIntegerField(default=0)
+    total_price_cents = models.PositiveIntegerField()
+    
+    # Add-on Services
+    include_packing = models.BooleanField(default=False)
+    include_unpacking = models.BooleanField(default=False)
+    
+    # Status Workflow
+    status = models.CharField(choices=[
+        ('pending', 'Pending Payment'),      # Initial state for paid bookings
+        ('confirmed', 'Confirmed'),          # Payment completed or cash booking
+        ('in_progress', 'In Progress'),      # Service started
+        ('completed', 'Completed'),          # Service finished
+        ('cancelled', 'Cancelled')
+    ], default='pending')
     
     # Relationships
-    customer = models.ForeignKey(
-        'customers.CustomerProfile',
-        on_delete=models.CASCADE,
-        related_name='bookings',
-        null=True, blank=True,  # Allows guest bookings
-        help_text="Customer profile (null for guest bookings)"
-    )
-    service = models.ForeignKey(
-        'services.Service',
-        on_delete=models.PROTECT,
-        related_name='bookings'
-    )
-    payment = models.OneToOneField(
-        'payments.Payment',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='booking'
-    )
+    pickup_address = models.ForeignKey('Address', related_name='pickup_bookings')
+    delivery_address = models.ForeignKey('Address', related_name='delivery_bookings')
     
-    # Core booking data
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending'
-    )
-    
-    # Address information (stored as JSON or separate models)
-    pickup_address = models.JSONField(
-        help_text="Complete pickup address information"
-    )
-    delivery_address = models.JSONField(
-        help_text="Complete delivery address information"
-    )
-    
-    # Scheduling
-    pickup_date = models.DateField(
-        help_text="Requested pickup date"
-    )
-    pickup_time = models.TimeField(
-        help_text="Requested pickup time (morning window only)"
-    )
-    
-    # Service options
-    include_packing = models.BooleanField(
-        default=False,
-        help_text="Include packing service"
-    )
-    include_unpacking = models.BooleanField(
-        default=False,
-        help_text="Include unpacking service"
-    )
-    
-    # Pricing
-    base_cost = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        help_text="Base service cost"
-    )
-    total_cost = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        help_text="Total cost including all surcharges"
-    )
-    
-    # Additional information
-    special_instructions = models.TextField(
-        blank=True,
-        help_text="Special delivery instructions"
-    )
-    
-    # Contact for guest bookings
-    contact_email = models.EmailField(
-        blank=True,
-        help_text="Contact email for guest bookings"
-    )
-    contact_phone = models.CharField(
-        max_length=20,
-        blank=True
-    )
-    
-    # Timestamps
+    # Audit Fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # Core Business Logic Methods
-    def calculate_pricing(self):
-        """Calculate total booking cost with all surcharges and organizing services"""
-        from decimal import Decimal
-        
-        # Start with base service cost
-        total = self.service.base_price
-        
-        # Add organizing service costs
-        if self.include_packing:
-            organizing_service = OrganizingService.objects.filter(
-                service_type='packing'
-            ).first()
-            if organizing_service:
-                total += organizing_service.price
-                
-        if self.include_unpacking:
-            organizing_service = OrganizingService.objects.filter(
-                service_type='unpacking'  
-            ).first()
-            if organizing_service:
-                total += organizing_service.price
-        
-        # Apply surcharge rules
-        applicable_surcharges = SurchargeRule.objects.filter(
-            is_active=True
-        )
-        
-        for surcharge in applicable_surcharges:
-            if surcharge.applies_to_booking(self):
-                if surcharge.calculation_type == 'percentage':
-                    total += (total * surcharge.amount / 100)
-                else:  # flat fee
-                    total += surcharge.amount
-        
-        return total
-    
-    def save(self, *args, **kwargs):
-        """Override save to calculate pricing automatically"""
-        if not self.total_cost:
-            self.total_cost = self.calculate_pricing()
-            self.base_cost = self.service.base_price
-        super().save(*args, **kwargs)
-    
-    def update_status_to_paid(self):
-        """Update booking status when payment is confirmed"""
-        self.status = 'paid'
-        self.save(update_fields=['status'])
-        
-        # Update customer statistics if authenticated booking
-        if self.customer:
-            self.customer.add_booking_stats(self.total_cost)
+    deleted_at = models.DateTimeField(null=True, blank=True)  # Soft deletion
     
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Booking"
-        verbose_name_plural = "Bookings"
+        db_table = 'bookings_booking'
+        indexes = [
+            models.Index(fields=['customer', '-created_at']),
+            models.Index(fields=['pickup_date', 'pickup_time']),
+            models.Index(fields=['status']),
+            models.Index(fields=['booking_number'])
+        ]
+    
+    # Business Logic Methods
+    def calculate_pricing(self):
+        """Complex pricing calculation with time-based surcharges and organizing costs"""
+        # Base service pricing
+        base_price = self.get_base_service_price()
+        
+        # Time-based surcharges (early morning premium)
+        time_surcharge = self.calculate_time_surcharge()
+        
+        # Organizing service costs
+        organizing_cost = self.organizing_service.price_cents if self.organizing_service else 0
+        
+        # Geographic surcharges
+        geographic_surcharge = self.calculate_geographic_surcharge()
+        
+        # Update pricing fields
+        self.base_price_cents = base_price
+        self.time_surcharge_cents = time_surcharge
+        self.organizing_cost_cents = organizing_cost
+        self.geographic_surcharge_cents = geographic_surcharge
+        self.total_price_cents = base_price + time_surcharge + organizing_cost + geographic_surcharge
+    
+    @property
+    def total_price_dollars(self):
+        return self.total_price_cents / 100
 ```
 
-### Service Models (`apps/services/models.py`)
-
+#### Address Model
 ```python
-class Service(models.Model):
-    name = models.CharField(
-        max_length=100,
-        unique=True,
-        help_text="Service name (e.g., 'Local Delivery', 'Airport Transfer')"
-    )
-    description = models.TextField(
-        help_text="Detailed service description"
-    )
-    base_price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Base price for this service"
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Whether this service is available for booking"
-    )
+class Address(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=50)
+    zip_code = models.CharField(max_length=10)
+    delivery_instructions = models.TextField(blank=True)
     
-    # Service-specific configuration
-    max_distance_miles = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Maximum delivery distance in miles"
-    )
-    estimated_duration_hours = models.PositiveIntegerField(
-        default=2,
-        help_text="Estimated service duration in hours"
-    )
+    # Geographic data for pricing calculations
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True)
+    
+    @property
+    def formatted_address(self):
+        parts = [self.address_line_1]
+        if self.address_line_2:
+            parts.append(self.address_line_2)
+        parts.append(f"{self.city}, {self.state} {self.zip_code}")
+        return ", ".join(parts)
+```
+
+#### Guest Checkout Model
+```python
+class GuestCheckout(models.Model):
+    """Stores contact information for non-authenticated bookings"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    booking = models.OneToOneField(Booking, related_name='guest_checkout')
+    
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
+```
+
+### Customer Models (`apps/customers/models.py`)
+
+#### Customer Profile Model
+```python
+class CustomerProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.OneToOneField(User, related_name='customer_profile')
+    
+    # Contact Information
+    phone = models.CharField(max_length=20, blank=True)
+    
+    # Usage Statistics
+    total_bookings = models.PositiveIntegerField(default=0)
+    total_spent_cents = models.PositiveBigIntegerField(default=0)
+    last_booking_at = models.DateTimeField(null=True, blank=True)
+    
+    # Preferences
+    preferred_pickup_time = models.CharField(choices=[
+        ('early_morning', 'Early Morning (7-9 AM)'),
+        ('mid_morning', 'Mid Morning (9-11 AM)'),
+        ('late_morning', 'Late Morning (11 AM-12 PM)')
+    ], default='mid_morning')
+    
+    # Communication Preferences
+    email_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=False)
+    
+    # VIP Status (auto-calculated)
+    is_vip = models.BooleanField(default=False)
+    
+    # Audit Fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    @property
+    def total_spent_dollars(self):
+        return self.total_spent_cents / 100
+    
+    @property
+    def full_name(self):
+        return self.user.get_full_name()
+    
+    @property
+    def email(self):
+        return self.user.email
+    
+    def update_booking_stats(self, booking_amount_cents):
+        """Update customer statistics after successful booking"""
+        self.total_bookings += 1
+        self.total_spent_cents += booking_amount_cents
+        self.last_booking_at = timezone.now()
+        
+        # Auto-VIP upgrade at $2000 lifetime spend
+        if not self.is_vip and self.total_spent_dollars >= 2000:
+            self.is_vip = True
+        
+        self.save()
+```
+
+#### Saved Address Model
+```python
+class SavedAddress(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.ForeignKey(User, related_name='saved_addresses')
+    
+    nickname = models.CharField(max_length=50)  # "Home", "Office", etc.
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=50)
+    zip_code = models.CharField(max_length=10)
+    delivery_instructions = models.TextField(blank=True)
+    
+    # Usage Tracking
+    times_used = models.PositiveIntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    def __str__(self):
-        return f"{self.name} - ${self.base_price}"
-    
-    class Meta:
-        ordering = ['name']
+    def mark_used(self):
+        self.times_used += 1
+        self.last_used_at = timezone.now()
+        self.save()
+```
 
-class OrganizingService(models.Model):
-    SERVICE_TYPE_CHOICES = [
-        ('packing', 'Packing Service'),
-        ('unpacking', 'Unpacking Service'),
-        ('organizing', 'Organizing Service'),
-    ]
+#### Customer Payment Method Model
+```python
+class CustomerPaymentMethod(models.Model):
+    """Stores Stripe payment method references for customers"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.ForeignKey(User, related_name='payment_methods')
     
-    name = models.CharField(max_length=100)
-    service_type = models.CharField(
-        max_length=20,
-        choices=SERVICE_TYPE_CHOICES
-    )
-    price = models.DecimalField(
-        max_digits=8,
-        decimal_places=2
-    )
-    description = models.TextField()
+    # Stripe Integration
+    stripe_payment_method_id = models.CharField(max_length=100, unique=True)
+    card_brand = models.CharField(max_length=20)
+    card_last_four = models.CharField(max_length=4)
+    card_exp_month = models.PositiveSmallIntegerField()
+    card_exp_year = models.PositiveSmallIntegerField()
+    
+    # Management
+    is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
-    class Meta:
-        unique_together = ['service_type']
-
-class SurchargeRule(models.Model):
-    CALCULATION_CHOICES = [
-        ('flat', 'Flat Fee'),
-        ('percentage', 'Percentage'),
-    ]
+    @property
+    def display_name(self):
+        return f"{self.card_brand.title()} ending in {self.card_last_four}"
     
-    name = models.CharField(
-        max_length=100,
-        help_text="Surcharge rule name (e.g., 'Weekend Surcharge')"
-    )
-    calculation_type = models.CharField(
-        max_length=20,
-        choices=CALCULATION_CHOICES
-    )
-    amount = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        help_text="Surcharge amount (percentage or flat fee)"
-    )
-    
-    # Condition fields
-    applies_to_weekends = models.BooleanField(default=False)
-    applies_to_early_pickup = models.BooleanField(default=False)
-    applies_to_late_pickup = models.BooleanField(default=False)
-    min_pickup_time = models.TimeField(
-        null=True, blank=True,
-        help_text="Minimum pickup time for early surcharge"
-    )
-    max_pickup_time = models.TimeField(
-        null=True, blank=True, 
-        help_text="Maximum pickup time for late surcharge"
-    )
-    
-    is_active = models.BooleanField(default=True)
-    
-    def applies_to_booking(self, booking):
-        """Check if this surcharge rule applies to a specific booking"""
-        # Weekend check
-        if self.applies_to_weekends:
-            if booking.pickup_date.weekday() >= 5:  # Saturday=5, Sunday=6
-                return True
-                
-        # Early pickup check
-        if self.applies_to_early_pickup and self.min_pickup_time:
-            if booking.pickup_time <= self.min_pickup_time:
-                return True
-                
-        # Late pickup check  
-        if self.applies_to_late_pickup and self.max_pickup_time:
-            if booking.pickup_time >= self.max_pickup_time:
-                return True
-                
-        return False
-    
-    class Meta:
-        ordering = ['name']
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # Ensure only one default per user
+            CustomerPaymentMethod.objects.filter(
+                user=self.user, is_default=True
+            ).exclude(id=self.id).update(is_default=False)
+        super().save(*args, **kwargs)
 ```
 
 ### Payment Models (`apps/payments/models.py`)
 
+#### Payment Model
 ```python
 class Payment(models.Model):
-    STATUS_CHOICES = [
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    booking = models.ForeignKey('bookings.Booking', related_name='payments')
+    
+    # Stripe Integration
+    stripe_payment_intent_id = models.CharField(max_length=100, unique=True)
+    stripe_charge_id = models.CharField(max_length=100, blank=True)
+    
+    # Payment Details
+    amount_cents = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default='USD')
+    status = models.CharField(choices=[
         ('pending', 'Pending'),
         ('processing', 'Processing'),
         ('succeeded', 'Succeeded'),
         ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
-        ('refunded', 'Refunded'),
-    ]
+        ('canceled', 'Canceled')
+    ])
     
-    # Stripe integration fields
-    stripe_payment_intent_id = models.CharField(
-        max_length=100,
-        unique=True,
-        help_text="Stripe PaymentIntent ID"
-    )
-    stripe_customer_id = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Stripe Customer ID"
-    )
-    
-    # Payment details
-    amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Payment amount in dollars"
-    )
-    currency = models.CharField(
-        max_length=3,
-        default='USD'
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending'
-    )
-    
-    # Associated data
-    customer_email = models.EmailField(
-        help_text="Email address for payment confirmation"
-    )
+    # Customer Information
+    customer_email = models.EmailField()
+    payment_method_last_four = models.CharField(max_length=4, blank=True)
+    payment_method_brand = models.CharField(max_length=20, blank=True)
     
     # Metadata
-    payment_method_types = models.JSONField(
-        default=list,
-        help_text="Stripe payment method types accepted"
-    )
-    stripe_fees = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        null=True, blank=True,
-        help_text="Stripe processing fees"
-    )
-    
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    succeeded_at = models.DateTimeField(
-        null=True, blank=True,
-        help_text="When payment was confirmed"
-    )
+    completed_at = models.DateTimeField(null=True, blank=True)
     
-    def mark_as_succeeded(self):
-        """Mark payment as successful and update related booking"""
-        from django.utils import timezone
-        
-        self.status = 'succeeded'
-        self.succeeded_at = timezone.now()
-        self.save(update_fields=['status', 'succeeded_at'])
-        
-        # Update associated booking status
-        if hasattr(self, 'booking') and self.booking:
-            self.booking.update_status_to_paid()
-    
-    class Meta:
-        ordering = ['-created_at']
+    @property
+    def amount_dollars(self):
+        return self.amount_cents / 100
+```
 
-class Refund(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('succeeded', 'Succeeded'), 
-        ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
-    ]
+### Service Models (`apps/services/models.py`)
+
+#### Mini Move Package Model
+```python
+class MiniMovePackage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)  # "Studio Apartment", "1 Bedroom"
+    description = models.TextField()
     
-    payment = models.ForeignKey(
-        Payment,
-        on_delete=models.CASCADE,
-        related_name='refunds'
-    )
-    stripe_refund_id = models.CharField(
-        max_length=100,
-        unique=True
-    )
-    amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2
-    )
-    reason = models.CharField(
-        max_length=100,
-        blank=True
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending'
-    )
+    # Capacity Specifications  
+    max_items = models.PositiveIntegerField()
+    estimated_volume_cubic_feet = models.PositiveIntegerField()
+    
+    # Pricing
+    base_price_cents = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
     
     created_at = models.DateTimeField(auto_now_add=True)
-    processed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['sort_order', 'name']
+    
+    @property
+    def base_price_dollars(self):
+        return self.base_price_cents / 100
+```
+
+#### Organizing Service Model
+```python
+class OrganizingService(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    
+    # Service Tier Classification
+    tier = models.CharField(choices=[
+        ('essential', 'Essential'),
+        ('premium', 'Premium'),
+        ('luxury', 'Luxury')
+    ])
+    
+    # Pricing and Duration
+    price_cents = models.PositiveIntegerField()
+    estimated_hours = models.PositiveIntegerField()
+    
+    # Features
+    includes_supplies = models.BooleanField(default=False)
+    includes_donation_coordination = models.BooleanField(default=False)
+    includes_custom_organization_system = models.BooleanField(default=False)
+    
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    
+    @property
+    def price_dollars(self):
+        return self.price_cents / 100
+```
+
+#### Surcharge Rule Model
+```python
+class SurchargeRule(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    
+    # Rule Application
+    applies_to_service_type = models.CharField(choices=[
+        ('all', 'All Services'),
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('organizing_only', 'Organizing Only')
+    ], default='all')
+    
+    # Time-based Rules
+    applies_to_time_start = models.TimeField(null=True, blank=True)
+    applies_to_time_end = models.TimeField(null=True, blank=True)
+    
+    # Geographic Rules
+    applies_to_zip_codes = models.TextField(blank=True)  # Comma-separated
+    
+    # Surcharge Configuration
+    surcharge_type = models.CharField(choices=[
+        ('fixed', 'Fixed Amount'),
+        ('percentage', 'Percentage'),
+        ('per_hour', 'Per Hour')
+    ])
+    surcharge_amount_cents = models.PositiveIntegerField()
+    
+    is_active = models.BooleanField(default=True)
+    
+    def calculate_surcharge(self, booking):
+        """Calculate surcharge amount for a specific booking"""
+        if not self.applies_to_booking(booking):
+            return 0
+        
+        if self.surcharge_type == 'fixed':
+            return self.surcharge_amount_cents
+        elif self.surcharge_type == 'percentage':
+            return int(booking.base_price_cents * (self.surcharge_amount_cents / 10000))
+        elif self.surcharge_type == 'per_hour':
+            return self.surcharge_amount_cents * booking.estimated_duration_hours
+        
+        return 0
 ```
 
 ### Staff Models (`apps/accounts/models.py`)
 
+#### Staff Profile Model
 ```python
 class StaffProfile(models.Model):
-    ROLE_CHOICES = [
-        ('admin', 'Administrator'),
-        ('manager', 'Manager'),
-        ('coordinator', 'Delivery Coordinator'),
-        ('support', 'Customer Support'),
-    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    user = models.OneToOneField(User, related_name='staff_profile')
     
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='staff_profile'
-    )
-    role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default='support'
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Whether staff member can access the system"
-    )
+    # Role and Department
+    role = models.CharField(choices=[
+        ('customer_service', 'Customer Service'),
+        ('operations', 'Operations'),
+        ('logistics', 'Logistics'),
+        ('finance', 'Finance'),
+        ('admin', 'Administrator')
+    ])
+    department = models.CharField(max_length=100)
+    hire_date = models.DateField()
     
-    # Contact information
+    # Contact Information
     phone = models.CharField(max_length=20, blank=True)
-    emergency_contact = models.CharField(max_length=100, blank=True)
     
-    # Employment details
-    hire_date = models.DateField(null=True, blank=True)
-    department = models.CharField(max_length=50, blank=True)
+    # Permission Flags
+    can_approve_refunds = models.BooleanField(default=False)
+    can_manage_staff = models.BooleanField(default=False)
+    can_view_financial_reports = models.BooleanField(default=False)
     
+    # Status
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    def has_permission(self, permission):
-        """Check if staff member has specific permission"""
-        permission_map = {
-            'admin': ['view_all', 'edit_all', 'delete_all', 'manage_staff'],
-            'manager': ['view_all', 'edit_bookings', 'view_reports'],
-            'coordinator': ['view_bookings', 'edit_booking_status'],
-            'support': ['view_bookings', 'view_customers'],
-        }
-        return permission in permission_map.get(self.role, [])
+    @property
+    def full_name(self):
+        return self.user.get_full_name()
     
-    class Meta:
-        ordering = ['user__first_name', 'user__last_name']
-
-class AuditLog(models.Model):
-    ACTION_CHOICES = [
-        ('create', 'Create'),
-        ('update', 'Update'), 
-        ('delete', 'Delete'),
-        ('view', 'View'),
-        ('login', 'Login'),
-        ('logout', 'Logout'),
-    ]
-    
-    staff = models.ForeignKey(
-        StaffProfile,
-        on_delete=models.CASCADE,
-        related_name='audit_logs'
-    )
-    action = models.CharField(
-        max_length=20,
-        choices=ACTION_CHOICES
-    )
-    model_type = models.CharField(
-        max_length=50,
-        help_text="Model that was acted upon"
-    )
-    object_id = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="ID of the object that was acted upon"
-    )
-    details = models.JSONField(
-        default=dict,
-        help_text="Additional details about the action"
-    )
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-timestamp']
-        indexes = [
-            models.Index(fields=['staff', 'timestamp']),
-            models.Index(fields=['model_type', 'object_id']),
-        ]
+    @property
+    def email(self):
+        return self.user.email
 ```
 
-## SECTION 4: BUSINESS LOGIC IMPLEMENTATION GUIDE
+#### Staff Action Model (Audit Logging)
+```python
+class StaffAction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    staff_user = models.ForeignKey(User, related_name='staff_actions')
+    
+    # Action Details
+    action_type = models.CharField(choices=[
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('booking_update', 'Booking Update'),
+        ('refund_issued', 'Refund Issued'),
+        ('customer_contact', 'Customer Contact'),
+        ('system_config', 'System Configuration')
+    ])
+    description = models.TextField()
+    
+    # Context
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    
+    # Related Objects
+    customer_id = models.UUIDField(null=True, blank=True)
+    booking_id = models.UUIDField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    @classmethod
+    def log_action(cls, staff_user, action_type, description, **kwargs):
+        return cls.objects.create(
+            staff_user=staff_user,
+            action_type=action_type,
+            description=description,
+            **kwargs
+        )
+```
 
-### Pricing Calculation Algorithm
+### Logistics Models (`apps/logistics/models.py`)
+
+#### Onfleet Task Model
+```python
+class OnfleetTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    booking = models.OneToOneField('bookings.Booking', related_name='onfleet_task')
+    
+    # Onfleet Integration
+    onfleet_task_id = models.CharField(max_length=100, unique=True)
+    onfleet_short_id = models.CharField(max_length=20, blank=True)
+    tracking_url = models.URLField(blank=True)
+    
+    # Status Mapping
+    status = models.CharField(choices=[
+        ('created', 'Created'),
+        ('assigned', 'Assigned'),
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed')
+    ], default='created')
+    
+    # Synchronization
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_synced = models.DateTimeField(null=True, blank=True)
+    
+    def sync_status_from_onfleet(self, onfleet_state):
+        """Convert Onfleet state to internal status"""
+        state_mapping = {
+            0: 'created',    # unassigned
+            1: 'assigned',   # assigned to driver
+            2: 'active',     # driver started
+            3: 'completed'   # delivery done
+        }
+        
+        self.status = state_mapping.get(onfleet_state, 'failed')
+        self.last_synced = timezone.now()
+        self.save()
+        
+        # Update booking status when delivery completes
+        if self.status == 'completed':
+            self._mark_booking_completed()
+    
+    def _mark_booking_completed(self):
+        if self.booking.status in ['confirmed', 'in_progress']:
+            self.booking.status = 'completed'
+            self.booking.save()
+            
+            # Update customer stats
+            if self.booking.customer and hasattr(self.booking.customer, 'customer_profile'):
+                profile = self.booking.customer.customer_profile
+                profile.update_booking_stats(self.booking.total_price_cents)
+```
+
+---
+
+## SECTION 4: Business Logic Implementation Guide
+
+### Core Pricing Algorithm
+
+**Booking Price Calculation** (`apps/bookings/models.Booking.calculate_pricing()`)
 
 ```python
-# Complete pricing calculation implementation
-def calculate_booking_total(booking):
+def calculate_pricing(self):
     """
-    Master pricing algorithm combining base price, organizing services, and surcharges
+    ToteTaxi's comprehensive pricing algorithm:
+    Total Price = Base Service Price + Time Surcharge + Organizing Cost + Geographic Surcharge
     """
-    from decimal import Decimal
     
-    # Step 1: Base service price
-    total = booking.service.base_price
+    # 1. Base Service Pricing
+    if self.service_type == 'mini_move' and self.mini_move_package:
+        base_price = self.mini_move_package.base_price_cents
+    elif self.service_type == 'standard_delivery':
+        config = StandardDeliveryConfig.get_active_config()
+        base_price = config.base_price_cents
+    elif self.service_type == 'organizing_only':
+        base_price = 0  # Organizing service price is separate
     
-    # Step 2: Add organizing service costs
-    organizing_costs = Decimal('0.00')
+    # 2. Time-based Surcharges (Morning Premium)
+    time_surcharge = 0
+    active_rules = SurchargeRule.objects.filter(is_active=True)
+    for rule in active_rules:
+        if rule.applies_to_time_range(self.pickup_time):
+            time_surcharge += rule.calculate_surcharge(self)
     
-    if booking.include_packing:
-        packing_service = OrganizingService.objects.filter(
-            service_type='packing',
-            is_active=True
-        ).first()
-        if packing_service:
-            organizing_costs += packing_service.price
+    # 3. Organizing Service Costs
+    organizing_cost = 0
+    if self.organizing_service:
+        organizing_cost = self.organizing_service.price_cents
     
-    if booking.include_unpacking:
-        unpacking_service = OrganizingService.objects.filter(
-            service_type='unpacking',
-            is_active=True
-        ).first()
-        if unpacking_service:
-            organizing_costs += unpacking_service.price
+    # 4. Geographic Surcharges
+    geographic_surcharge = 0
+    for rule in active_rules:
+        if rule.applies_to_location(self.pickup_address, self.delivery_address):
+            geographic_surcharge += rule.calculate_surcharge(self)
     
-    total += organizing_costs
+    # 5. Add-on Service Costs
+    addon_cost = 0
+    if self.include_packing:
+        addon_cost += 5000  # $50 packing service
+    if self.include_unpacking:
+        addon_cost += 5000  # $50 unpacking service
     
-    # Step 3: Apply surcharge rules
-    surcharge_total = Decimal('0.00')
-    active_surcharges = SurchargeRule.objects.filter(is_active=True)
+    # Update all pricing fields
+    self.base_price_cents = base_price
+    self.time_surcharge_cents = time_surcharge  
+    self.organizing_cost_cents = organizing_cost
+    self.geographic_surcharge_cents = geographic_surcharge
+    self.total_price_cents = base_price + time_surcharge + organizing_cost + geographic_surcharge + addon_cost
+```
+
+### Morning-Only Scheduling Logic
+
+**Pickup Time Validation** (`apps/bookings/serializers.py`)
+
+```python
+def validate_pickup_time(self, value):
+    """Enforce 7AM-12PM pickup window constraint"""
+    morning_start = time(7, 0)   # 7:00 AM
+    morning_end = time(12, 0)    # 12:00 PM
     
-    for surcharge in active_surcharges:
-        if surcharge.applies_to_booking(booking):
-            if surcharge.calculation_type == 'percentage':
-                surcharge_amount = (total * surcharge.amount / 100)
-            else:  # flat fee
-                surcharge_amount = surcharge.amount
-            
-            surcharge_total += surcharge_amount
+    if not (morning_start <= value <= morning_end):
+        raise serializers.ValidationError(
+            "Pickup times must be between 7:00 AM and 12:00 PM"
+        )
     
-    total += surcharge_total
+    return value
+
+def validate_pickup_date(self, value):
+    """Ensure pickup date is at least 24 hours in advance"""
+    if value <= date.today():
+        raise serializers.ValidationError(
+            "Pickup date must be at least one day in advance"
+        )
     
-    # Step 4: Round to 2 decimal places
-    return round(total, 2)
+    return value
+```
+
+### Customer VIP Status Algorithm
+
+**Automatic VIP Upgrade** (`apps/customers/models.CustomerProfile.update_booking_stats()`)
+
+```python
+def update_booking_stats(self, booking_amount_cents):
+    """Update customer statistics and check for VIP upgrade"""
+    self.total_bookings += 1
+    self.total_spent_cents += booking_amount_cents
+    self.last_booking_at = timezone.now()
+    
+    # VIP upgrade threshold: $2000 lifetime spend
+    if not self.is_vip and self.total_spent_dollars >= 2000:
+        self.is_vip = True
+        
+        # Log VIP upgrade for marketing/customer service
+        logger.info(f"Customer {self.user.email} upgraded to VIP status")
+        
+        # Could trigger email notification here
+        # send_vip_upgrade_email.delay(self.user.id)
+    
+    self.save()
 ```
 
 ### Payment Processing Workflow
 
+**Stripe Payment Integration** (`apps/payments/services.StripePaymentService`)
+
 ```python
-# Complete Stripe payment integration workflow
 class StripePaymentService:
-    
-    @staticmethod
-    def create_payment_intent(booking, customer_email):
-        """Create Stripe PaymentIntent for booking"""
-        import stripe
-        from django.conf import settings
-        
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        
+    @classmethod
+    def create_payment_intent(cls, booking, customer_email):
+        """Create Stripe payment intent for booking"""
         try:
-            # Create payment intent with booking amount
+            # Create payment intent
             intent = stripe.PaymentIntent.create(
-                amount=int(booking.total_cost * 100),  # Convert to cents
+                amount=booking.total_price_cents,
                 currency='usd',
-                payment_method_types=['card'],
                 metadata={
-                    'booking_id': booking.id,
-                    'customer_email': customer_email,
-                }
+                    'booking_id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                    'customer_email': customer_email
+                },
+                receipt_email=customer_email
             )
             
-            # Create local payment record
+            # Create internal payment record
             payment = Payment.objects.create(
+                booking=booking,
                 stripe_payment_intent_id=intent.id,
-                amount=booking.total_cost,
-                currency='usd',
-                customer_email=customer_email,
-                status='pending'
+                amount_cents=booking.total_price_cents,
+                status='pending',
+                customer_email=customer_email
             )
-            
-            # Link payment to booking
-            booking.payment = payment
-            booking.save()
             
             return {
                 'client_secret': intent.client_secret,
-                'payment_intent_id': intent.id,
-                'payment_id': payment.id
+                'payment_intent_id': intent.id
             }
             
         except stripe.error.StripeError as e:
-            # Handle Stripe errors
-            return {
-                'error': str(e),
-                'type': 'stripe_error'
-            }
+            logger.error(f"Stripe payment intent creation failed: {e}")
+            raise PaymentProcessingError(str(e))
     
-    @staticmethod
-    def handle_webhook_event(event):
-        """Process Stripe webhook events"""
-        if event['type'] == 'payment_intent.succeeded':
-            payment_intent = event['data']['object']
-            payment_intent_id = payment_intent['id']
+    @classmethod
+    def confirm_payment(cls, payment_intent_id, booking_id):
+        """Confirm payment and update booking status"""
+        try:
+            payment = Payment.objects.get(
+                stripe_payment_intent_id=payment_intent_id,
+                booking_id=booking_id
+            )
             
-            try:
-                payment = Payment.objects.get(
-                    stripe_payment_intent_id=payment_intent_id
-                )
-                payment.mark_as_succeeded()
+            # Retrieve payment intent from Stripe
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            if intent.status == 'succeeded':
+                # Update payment record
+                payment.status = 'succeeded'
+                payment.completed_at = timezone.now()
                 
-                return {'status': 'success'}
+                # Extract payment method details
+                if intent.charges.data:
+                    charge = intent.charges.data[0]
+                    payment.stripe_charge_id = charge.id
+                    if charge.payment_method_details.card:
+                        card = charge.payment_method_details.card
+                        payment.payment_method_last_four = card.last4
+                        payment.payment_method_brand = card.brand
                 
-            except Payment.DoesNotExist:
-                return {'status': 'error', 'message': 'Payment not found'}
-        
-        return {'status': 'unhandled_event'}
+                payment.save()
+                
+                # Update booking status
+                booking = payment.booking
+                booking.status = 'confirmed'  # Move from 'pending' to 'confirmed'
+                booking.save()
+                
+                # Update customer statistics (if authenticated user)
+                if booking.customer and hasattr(booking.customer, 'customer_profile'):
+                    profile = booking.customer.customer_profile
+                    profile.update_booking_stats(booking.total_price_cents)
+                
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Payment confirmation failed: {e}")
+            return False
 ```
 
-### Booking Status State Machine
+### Staff Permission System
+
+**Role-Based Access Control** (`apps/accounts/models.StaffProfile` + View Decorators)
 
 ```python
-# Complete booking status workflow implementation
-class BookingStatusManager:
-    
-    VALID_TRANSITIONS = {
-        'pending': ['paid', 'cancelled'],
-        'paid': ['in_progress', 'cancelled'], 
-        'in_progress': ['completed', 'cancelled'],
-        'completed': [],  # Final state
-        'cancelled': [],  # Final state
-    }
-    
-    @classmethod
-    def can_transition(cls, current_status, new_status):
-        """Check if status transition is valid"""
-        return new_status in cls.VALID_TRANSITIONS.get(current_status, [])
-    
-    @classmethod
-    def update_booking_status(cls, booking, new_status, staff_user=None):
-        """Update booking status with validation and audit logging"""
-        if not cls.can_transition(booking.status, new_status):
-            raise ValidationError(
-                f"Cannot transition from {booking.status} to {new_status}"
+def staff_permission_required(permission_attr):
+    """Decorator for staff view permissions"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not hasattr(request.user, 'staff_profile'):
+                return Response({'error': 'Staff access required'}, status=403)
+            
+            staff_profile = request.user.staff_profile
+            if not getattr(staff_profile, permission_attr, False):
+                return Response({'error': 'Insufficient permissions'}, status=403)
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+# Usage in views:
+@staff_permission_required('can_approve_refunds')
+def process_refund(request, booking_id):
+    # Refund processing logic
+    pass
+```
+
+### Onfleet Integration Logic
+
+**Delivery Task Management** (`apps/logistics/services.ToteTaxiOnfleetIntegration`)
+
+```python
+class ToteTaxiOnfleetIntegration:
+    def create_delivery_task(self, booking):
+        """Create Onfleet task when booking is confirmed"""
+        if settings.ONFLEET_MOCK_MODE:
+            return self._create_mock_task(booking)
+        
+        # Real Onfleet API integration
+        task_data = {
+            'destination': {
+                'address': {
+                    'unparsed': booking.delivery_address.formatted_address
+                },
+                'notes': booking.delivery_address.delivery_instructions
+            },
+            'recipients': [self._get_recipient_data(booking)],
+            'completeAfter': int(booking.pickup_datetime.timestamp() * 1000),
+            'completeBefore': int((booking.pickup_datetime + timedelta(hours=4)).timestamp() * 1000),
+            'pickupTask': True,
+            'autoAssign': {'mode': 'load'}
+        }
+        
+        try:
+            onfleet_service = OnfleetService()
+            task_response = onfleet_service.create_task(task_data)
+            
+            # Create bridge record
+            OnfleetTask.objects.create(
+                booking=booking,
+                onfleet_task_id=task_response['id'],
+                onfleet_short_id=task_response['shortId'],
+                tracking_url=task_response.get('trackingURL', ''),
+                status='created'
             )
-        
-        old_status = booking.status
-        booking.status = new_status
-        booking.save(update_fields=['status'])
-        
-        # Create audit log if staff user provided
-        if staff_user and hasattr(staff_user, 'staff_profile'):
-            AuditLog.objects.create(
-                staff=staff_user.staff_profile,
-                action='update',
-                model_type='Booking',
-                object_id=booking.id,
-                details={
-                    'field_changed': 'status',
-                    'old_value': old_status,
-                    'new_value': new_status
-                }
-            )
+            
+            return task_response
+            
+        except Exception as e:
+            logger.error(f"Onfleet task creation failed for booking {booking.booking_number}: {e}")
+            return None
 ```
 
-### Authentication & Authorization Logic
+---
 
+## SECTION 5: Integration Architecture Reference
+
+### Django Settings Configuration (`config/settings.py`)
+
+#### Database Configuration
 ```python
-# JWT token authentication implementation
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import BasePermission
-
-class CustomerPermission(BasePermission):
-    """Permission class for customer-specific endpoints"""
-    
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-        
-        # Check if user has customer profile
-        return hasattr(request.user, 'customer_profile')
-
-class StaffPermission(BasePermission):
-    """Permission class for staff-specific endpoints"""
-    
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-        
-        # Check if user is staff and has active profile
-        return (request.user.is_staff and 
-                hasattr(request.user, 'staff_profile') and
-                request.user.staff_profile.is_active)
-
-class RoleBasedPermission(BasePermission):
-    """Permission class with role-based access control"""
-    
-    required_roles = []  # Override in subclasses
-    
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-        
-        if not hasattr(request.user, 'staff_profile'):
-            return False
-        
-        return request.user.staff_profile.role in self.required_roles
-```
-
-## SECTION 5: INTEGRATION ARCHITECTURE REFERENCE
-
-### Complete Django Settings Configuration
-
-```python
-# From config/settings.py - Complete configuration breakdown
-
-# Core Django Configuration
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
-DEBUG = env('DEBUG', default=False)  # Production default: False
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
-
-# Application Definition
-DJANGO_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth', 
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-]
-
-THIRD_PARTY_APPS = [
-    'rest_framework',           # Django REST Framework
-    'corsheaders',             # CORS handling for frontend
-    'django_celery_beat',      # Celery periodic tasks
-    'drf_yasg',               # API documentation
-]
-
-LOCAL_APPS = [
-    'apps.accounts',           # Staff management and authentication
-    'apps.bookings',          # Core booking functionality
-    'apps.services',          # Service definitions and pricing
-    'apps.payments',          # Payment processing with Stripe
-    'apps.logistics',         # Delivery coordination
-    'apps.documents',         # Document management
-    'apps.notifications',     # Communication systems
-    'apps.crm',              # Customer relationship management
-    'apps.customers',        # Customer profiles and authentication
-]
-
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
-
-# Database Configuration
+# PostgreSQL Database (Development on port 5435)
 DATABASES = {
-    'default': dj_database_url.parse(
-        env('DATABASE_URL', default='postgresql://user:pass@localhost:5435/totetaxi')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DATABASE_URL', default='postgresql://totetaxi:totetaxi@localhost:5435/totetaxi'),
+        'OPTIONS': {
+            'sslmode': 'disable',
+        },
+    }
 }
 
-# Django REST Framework Configuration
+# Use DATABASE_URL if available (production)
+if 'DATABASE_URL' in os.environ:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(env('DATABASE_URL'))
+```
+
+#### Cache and Queue Configuration  
+```python
+# Redis Configuration (Development on port 6382)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://127.0.0.1:6382/1'),
+    }
+}
+
+# Celery Configuration
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://127.0.0.1:6382/0')
+CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://127.0.0.1:6382/0')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+```
+
+#### Stripe Payment Configuration
+```python
+# Stripe Settings
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='sk_test_...')
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='pk_test_...')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_...')
+
+# Payment Processing Settings
+PAYMENT_SUCCESS_URL = env('PAYMENT_SUCCESS_URL', default='http://localhost:3000/success')
+PAYMENT_CANCEL_URL = env('PAYMENT_CANCEL_URL', default='http://localhost:3000/cancel')
+```
+
+#### Authentication and CORS
+```python
+# JWT Authentication
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True
+}
+
+# CORS Configuration for Frontend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React development server
+    "http://127.0.0.1:3000",
+    "https://app.totetaxi.com",  # Production frontend
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# API Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -1100,635 +1145,799 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-    ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 20
 }
+```
 
-# JWT Configuration  
-from datetime import timedelta
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-}
+#### External Service Integration
+```python
+# Onfleet Logistics Integration
+ONFLEET_API_KEY = env('ONFLEET_API_KEY', default='')
+ONFLEET_MOCK_MODE = env('ONFLEET_MOCK_MODE', default=True, cast=bool)
 
-# Stripe Payment Configuration
-STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
-STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
-STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
-
-# Redis Configuration for Caching and Celery
-REDIS_URL = env('REDIS_URL', default='redis://localhost:6382/0')
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
-}
-
-# Celery Configuration
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
-
-# AWS Configuration
+# AWS Services (Configured but unused)
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
-AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='')
+AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='totetaxi-media')
 AWS_S3_REGION_NAME = env('AWS_S3_REGION_NAME', default='us-east-1')
 
 # Email Configuration (SES)
 EMAIL_BACKEND = 'django_ses.SESBackend'
-AWS_SES_REGION_NAME = env('AWS_SES_REGION_NAME', default='us-east-1')
-AWS_SES_REGION_ENDPOINT = f'email.{AWS_SES_REGION_NAME}.amazonaws.com'
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@totetaxi.com')
+```
 
-# CORS Configuration for Frontend
-CORS_ALLOWED_ORIGINS = env.list(
-    'CORS_ALLOWED_ORIGINS', 
-    default=['http://localhost:3000', 'http://127.0.0.1:3000']
-)
-CORS_ALLOW_CREDENTIALS = True
+#### Installed Django Apps
+```python
+INSTALLED_APPS = [
+    # Django Core
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    
+    # Third-party
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'django_extensions',
+    'django_celery_beat',
+    'storages',
+    
+    # ToteTaxi Apps
+    'apps.accounts',        # Staff operations
+    'apps.bookings',        # Core booking logic
+    'apps.customers',       # Customer management  
+    'apps.payments',        # Payment processing
+    'apps.services',        # Service catalog & pricing
+    'apps.logistics',       # Onfleet integration
+    'apps.crm',            # Staff dashboard (stub)
+    'apps.documents',      # File management (stub)
+    'apps.notifications',  # Communications (stub)
+]
+```
 
-# Security Configuration
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-SECURE_HSTS_SECONDS = env('SECURE_HSTS_SECONDS', default=0, cast=int)
+### URL Routing Architecture (`config/urls.py`)
 
-# Logging Configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'logs/django.log',
-        },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-}
+```python
+# Main URL Configuration
+urlpatterns = [
+    # Django Admin
+    path('admin/', admin.site.urls),
+    
+    # API Routes
+    path('api/public/', include('apps.bookings.urls')),        # Public booking APIs
+    path('api/customer/', include('apps.customers.urls')),     # Customer account APIs  
+    path('api/staff/', include('apps.accounts.urls')),         # Staff operation APIs
+    path('api/payments/', include('apps.payments.urls')),      # Payment processing APIs
+    path('api/staff/logistics/', include('apps.logistics.urls')), # Logistics management
+    
+    # Development Tools
+    path('api/debug/', include('django_extensions.urls')),     # Development debugging
+]
+
+# API Versioning Pattern
+# Current: /api/{scope}/endpoint/
+# Future: /api/v2/{scope}/endpoint/
 ```
 
 ### Environment Variables Reference
 
-```python
-# Required Environment Variables (.env file)
-SECRET_KEY=your-secret-key-here
+#### Required Production Variables
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@host:port/dbname
+
+# Redis/Cache  
+REDIS_URL=redis://user:pass@host:port/db
+
+# Security
+SECRET_KEY=django-secret-key
 DEBUG=False
+ALLOWED_HOSTS=api.totetaxi.com,localhost
 
-# Database Configuration  
-DATABASE_URL=postgresql://user:password@host:port/database
+# Stripe Payment Processing
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Redis Configuration
-REDIS_URL=redis://localhost:6382/0
+# Onfleet Logistics
+ONFLEET_API_KEY=your-onfleet-api-key
+ONFLEET_MOCK_MODE=False
 
-# Stripe Payment Integration
-STRIPE_PUBLISHABLE_KEY=pk_live_or_test_key
-STRIPE_SECRET_KEY=sk_live_or_test_key  
-STRIPE_WEBHOOK_SECRET=whsec_webhook_secret
+# AWS Services (Optional)
+AWS_ACCESS_KEY_ID=your-aws-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret
+AWS_STORAGE_BUCKET_NAME=totetaxi-production
 
-# AWS Services
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_STORAGE_BUCKET_NAME=your-s3-bucket
-AWS_S3_REGION_NAME=us-east-1
-AWS_SES_REGION_NAME=us-east-1
-
-# Frontend Integration
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
-
-# Security (Production)
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-SECURE_HSTS_SECONDS=31536000
+# Email
+DEFAULT_FROM_EMAIL=noreply@totetaxi.com
 ```
 
-### External Service Integration Patterns
+#### Development Environment Variables
+```bash
+# Database (Docker Compose)
+DATABASE_URL=postgresql://totetaxi:totetaxi@localhost:5435/totetaxi
 
-```python
-# Stripe Integration Service
-class StripeService:
-    """Centralized Stripe integration service"""
-    
-    def __init__(self):
-        import stripe
-        from django.conf import settings
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        self.stripe = stripe
-    
-    def create_customer(self, email, name=None):
-        """Create Stripe customer"""
-        return self.stripe.Customer.create(
-            email=email,
-            name=name
-        )
-    
-    def create_payment_intent(self, amount, currency='usd', customer=None):
-        """Create payment intent"""
-        return self.stripe.PaymentIntent.create(
-            amount=int(amount * 100),  # Convert to cents
-            currency=currency,
-            customer=customer
-        )
+# Redis (Docker Compose)
+REDIS_URL=redis://127.0.0.1:6382/0
 
-# Onfleet Integration Service (Configured but not actively used)
-class OnfleetService:
-    """Delivery coordination service integration"""
-    
-    def __init__(self):
-        from django.conf import settings
-        self.api_key = settings.ONFLEET_API_KEY
-        self.base_url = 'https://onfleet.com/api/v2'
-    
-    def create_delivery_task(self, booking):
-        """Create delivery task in Onfleet system"""
-        # Implementation depends on actual Onfleet integration
-        pass
+# Security (Development)
+SECRET_KEY=dev-secret-key-not-for-production
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
 
-# AWS S3 File Storage (Configured but not actively used)
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-STATICFILES_STORAGE = 'storages.backends.s3boto3.StaticS3Boto3Storage'
+# Stripe (Test Mode)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Mock Integrations
+ONFLEET_MOCK_MODE=True
 ```
 
-## SECTION 6: DEVELOPMENT EXTENSION PATTERNS
+---
 
-### Adding New Django Apps
+## SECTION 6: Development Extension Patterns
 
+### Adding New Service Types
+
+**Pattern: Extend Service Catalog**
+
+1. **Create Service Model** (`apps/services/models.py`)
 ```python
-# Pattern for creating new business domain apps
-# 1. Create app structure
-python manage.py startapp new_feature
-
-# 2. Standard app structure to follow:
-new_feature/
-├── migrations/
-├── __init__.py
-├── admin.py          # Django admin customization
-├── apps.py           # App configuration  
-├── models.py         # Data models
-├── serializers.py    # DRF serializers
-├── views.py          # API views
-├── urls.py           # URL patterns
-├── services.py       # Business logic services (optional)
-├── managers.py       # Custom model managers (optional)
-└── tests.py          # Unit tests
-
-# 3. Add to INSTALLED_APPS in settings.py
-LOCAL_APPS = [
-    # ... existing apps
-    'apps.new_feature',
-]
-
-# 4. Create URL pattern in config/urls.py
-urlpatterns = [
-    # ... existing patterns
-    path('api/new-feature/', include('apps.new_feature.urls')),
-]
+class BladeDeliveryService(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    
+    # BLADE-specific attributes
+    aircraft_type = models.CharField(max_length=50)
+    max_weight_lbs = models.PositiveIntegerField()
+    price_per_mile_cents = models.PositiveIntegerField()
+    minimum_price_cents = models.PositiveIntegerField()
+    
+    is_active = models.BooleanField(default=True)
 ```
 
-### Model Extension Pattern
-
+2. **Update Booking Model** (`apps/bookings/models.py`)
 ```python
-# Pattern for adding new models following project conventions
-class NewModel(models.Model):
-    """Follow established model patterns"""
+class Booking(models.Model):
+    # Add new service type choice
+    service_type = models.CharField(choices=[
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'), 
+        ('organizing_only', 'Organizing Only'),
+        ('blade_delivery', 'BLADE Helicopter Delivery'),  # NEW
+    ])
     
-    # Always include these standard fields
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    # Add relationship field
+    blade_delivery_service = models.ForeignKey('services.BladeDeliveryService', null=True, blank=True)
     
-    # Use proper foreign key relationships
-    customer = models.ForeignKey(
-        'customers.CustomerProfile',
-        on_delete=models.CASCADE,
-        related_name='new_models'
-    )
+    def calculate_pricing(self):
+        # Extend pricing logic
+        if self.service_type == 'blade_delivery' and self.blade_delivery_service:
+            distance_miles = self.calculate_flight_distance()
+            base_price = max(
+                distance_miles * self.blade_delivery_service.price_per_mile_cents,
+                self.blade_delivery_service.minimum_price_cents
+            )
+```
+
+3. **Create Serializer** (`apps/services/serializers.py`)
+```python
+class BladeDeliveryServiceSerializer(serializers.ModelSerializer):
+    price_per_mile_dollars = serializers.ReadOnlyField()
+    minimum_price_dollars = serializers.ReadOnlyField()
     
-    # Include proper field documentation
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='active',
-        help_text="Current model status"
-    )
-    
-    # Add business logic methods
-    def custom_business_method(self):
-        """Implement business logic in model methods"""
-        pass
-    
-    # Include proper Meta configuration
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = "New Model"
-        verbose_name_plural = "New Models"
-```
-
-### API Endpoint Creation Pattern
-
-```python
-# Pattern for creating new API endpoints following DRF conventions
-
-# 1. Create serializer (serializers.py)
-class NewModelSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = NewModel
+        model = BladeDeliveryService
         fields = '__all__'
-    
-    def validate_custom_field(self, value):
-        """Custom validation logic"""
-        if not value:
-            raise serializers.ValidationError("Field is required")
-        return value
+```
 
-# 2. Create view (views.py)  
-class NewModelViewSet(viewsets.ModelViewSet):
-    queryset = NewModel.objects.all()
-    serializer_class = NewModelSerializer
+4. **Add Admin Interface** (`apps/services/admin.py`)
+```python
+@admin.register(BladeDeliveryService)
+class BladeDeliveryServiceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'aircraft_type', 'price_per_mile_dollars', 'is_active')
+    list_filter = ('aircraft_type', 'is_active')
+```
+
+5. **Create Migration**
+```bash
+python manage.py makemigrations services
+python manage.py migrate
+```
+
+### Adding New API Endpoints
+
+**Pattern: Extend Existing App APIs**
+
+1. **Add View** (`apps/customers/views.py`)
+```python
+class CustomerBookingAnalyticsView(APIView):
+    """Customer booking analytics and spending insights"""
     permission_classes = [IsAuthenticated]
     
-    def get_queryset(self):
-        """Filter queryset based on user"""
-        if hasattr(self.request.user, 'customer_profile'):
-            return NewModel.objects.filter(
-                customer=self.request.user.customer_profile
-            )
-        return NewModel.objects.all()
-
-# 3. Add URL patterns (urls.py)
-from rest_framework.routers import DefaultRouter
-from . import views
-
-router = DefaultRouter()
-router.register(r'new-models', views.NewModelViewSet)
-urlpatterns = router.urls
-```
-
-### Testing Pattern
-
-```python
-# Pattern for writing tests following project conventions
-from django.test import TestCase
-from django.contrib.auth.models import User
-from rest_framework.test import APITestCase
-from rest_framework_simplejwt.tokens import RefreshToken
-
-class NewModelTestCase(TestCase):
-    """Model testing pattern"""
-    
-    def setUp(self):
-        """Set up test data"""
-        self.user = User.objects.create_user(
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.customer = CustomerProfile.objects.create(user=self.user)
-    
-    def test_model_creation(self):
-        """Test model creation"""
-        model = NewModel.objects.create(
-            customer=self.customer,
-            # ... other fields
-        )
-        self.assertIsNotNone(model.id)
-        self.assertEqual(model.customer, self.customer)
-
-class NewModelAPITestCase(APITestCase):
-    """API testing pattern"""
-    
-    def setUp(self):
-        """Set up test data and authentication"""
-        self.user = User.objects.create_user(
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.customer = CustomerProfile.objects.create(user=self.user)
+    def get(self, request):
+        customer = request.user.customer_profile
         
-        # Set up JWT authentication
-        refresh = RefreshToken.for_user(self.user)
-        self.client.credentials(
-            HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}'
-        )
-    
-    def test_api_endpoint(self):
-        """Test API endpoint"""
-        response = self.client.get('/api/new-models/')
-        self.assertEqual(response.status_code, 200)
+        # Calculate analytics
+        analytics = {
+            'total_spent_dollars': customer.total_spent_dollars,
+            'average_booking_value': customer.calculate_average_booking_value(),
+            'most_used_service': customer.get_most_used_service_type(),
+            'monthly_spending': customer.get_monthly_spending_trend(),
+            'vip_status': customer.is_vip,
+            'next_vip_threshold': 2000 - customer.total_spent_dollars if not customer.is_vip else None
+        }
+        
+        return Response(analytics)
 ```
 
-## SECTION 7: VALIDATION & CONSTRAINT REFERENCE
+2. **Add URL Pattern** (`apps/customers/urls.py`)
+```python
+urlpatterns = [
+    # ... existing patterns
+    path('analytics/', CustomerBookingAnalyticsView.as_view(), name='customer-analytics'),
+]
+```
+
+3. **Extend Model Methods** (`apps/customers/models.py`)
+```python
+class CustomerProfile(models.Model):
+    # ... existing fields
+    
+    def calculate_average_booking_value(self):
+        if self.total_bookings == 0:
+            return 0
+        return self.total_spent_cents / self.total_bookings / 100
+    
+    def get_most_used_service_type(self):
+        from django.db.models import Count
+        from apps.bookings.models import Booking
+        
+        result = Booking.objects.filter(customer=self.user)\
+            .values('service_type')\
+            .annotate(count=Count('id'))\
+            .order_by('-count')\
+            .first()
+        
+        return result['service_type'] if result else None
+```
+
+### Staff Permission Extension
+
+**Pattern: Add New Permission Types**
+
+1. **Extend StaffProfile Model** (`apps/accounts/models.py`)
+```python
+class StaffProfile(models.Model):
+    # ... existing fields
+    
+    # NEW PERMISSIONS
+    can_manage_blade_services = models.BooleanField(default=False)
+    can_view_customer_analytics = models.BooleanField(default=False)
+    can_export_financial_data = models.BooleanField(default=False)
+```
+
+2. **Create Permission Decorator** (`apps/accounts/decorators.py`)
+```python
+def requires_blade_management(view_func):
+    def wrapper(request, *args, **kwargs):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=403)
+        
+        if not request.user.staff_profile.can_manage_blade_services:
+            StaffAction.log_action(
+                staff_user=request.user,
+                action_type='permission_denied',
+                description=f'Attempted to access BLADE management without permission',
+                ip_address=get_client_ip(request)
+            )
+            return Response({'error': 'BLADE management permission required'}, status=403)
+        
+        return view_func(request, *args, **kwargs)
+    return wrapper
+```
+
+3. **Apply to Views** (`apps/services/views.py`)
+```python
+@requires_blade_management
+class BladeServiceManagementView(APIView):
+    def post(self, request):
+        # BLADE service creation logic
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='blade_service_created',
+            description=f'Created new BLADE service: {request.data.get("name")}'
+        )
+```
+
+### Database Migration Patterns
+
+**Pattern: Complex Schema Changes**
+
+1. **Create Data Migration** (`apps/services/migrations/0006_add_blade_services.py`)
+```python
+from django.db import migrations
+
+def create_initial_blade_services(apps, schema_editor):
+    BladeDeliveryService = apps.get_model('services', 'BladeDeliveryService')
+    
+    BladeDeliveryService.objects.create(
+        name='Manhattan to Hamptons Express',
+        description='Luxury helicopter delivery to the Hamptons',
+        aircraft_type='Bell 407',
+        max_weight_lbs=500,
+        price_per_mile_cents=2500,  # $25 per mile
+        minimum_price_cents=50000,  # $500 minimum
+        is_active=True
+    )
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('services', '0005_blade_delivery_service'),
+    ]
+    
+    operations = [
+        migrations.RunPython(create_initial_blade_services),
+    ]
+```
+
+### Testing Patterns
+
+**Pattern: Model and API Testing**
+
+1. **Model Tests** (`apps/services/tests.py`)
+```python
+from django.test import TestCase
+from .models import BladeDeliveryService
+
+class BladeDeliveryServiceModelTests(TestCase):
+    def setUp(self):
+        self.blade_service = BladeDeliveryService.objects.create(
+            name='Test BLADE Service',
+            aircraft_type='Bell 407',
+            price_per_mile_cents=2500,
+            minimum_price_cents=50000
+        )
+    
+    def test_price_calculation(self):
+        # Test minimum price enforcement
+        self.assertEqual(self.blade_service.calculate_price(1), 50000)
+        
+        # Test per-mile pricing
+        self.assertEqual(self.blade_service.calculate_price(30), 75000)  # 30 * 2500
+```
+
+2. **API Tests** (`apps/services/tests.py`)
+```python
+from rest_framework.test import APITestCase
+from django.contrib.auth.models import User
+
+class BladeServiceAPITests(APITestCase):
+    def setUp(self):
+        # Create test staff user
+        self.staff_user = User.objects.create_user(
+            username='teststaff',
+            password='testpass123'
+        )
+        StaffProfile.objects.create(
+            user=self.staff_user,
+            role='admin',
+            can_manage_blade_services=True
+        )
+    
+    def test_create_blade_service_requires_permission(self):
+        self.client.force_authenticate(user=self.staff_user)
+        
+        response = self.client.post('/api/staff/blade-services/', {
+            'name': 'Test BLADE Service',
+            'aircraft_type': 'Bell 407',
+            'price_per_mile_cents': 2500,
+            'minimum_price_cents': 50000
+        })
+        
+        self.assertEqual(response.status_code, 201)
+```
+
+---
+
+## SECTION 7: Validation & Constraint Reference
+
+### Model-Level Validations
+
+#### Booking Validation Rules
+
+**Time Window Constraints** (`apps/bookings/models.py`)
+```python
+class Booking(models.Model):
+    def clean(self):
+        # Morning-only pickup validation
+        if self.pickup_time:
+            morning_start = time(7, 0)
+            morning_end = time(12, 0)
+            if not (morning_start <= self.pickup_time <= morning_end):
+                raise ValidationError({
+                    'pickup_time': 'Pickup times must be between 7:00 AM and 12:00 PM'
+                })
+        
+        # Date validation
+        if self.pickup_date and self.pickup_date <= date.today():
+            raise ValidationError({
+                'pickup_date': 'Pickup date must be at least one day in advance'
+            })
+        
+        # Service type consistency validation
+        if self.service_type == 'mini_move' and not self.mini_move_package:
+            raise ValidationError({
+                'mini_move_package': 'Mini move bookings require a package selection'
+            })
+        
+        if self.service_type == 'organizing_only' and self.mini_move_package:
+            raise ValidationError({
+                'service_type': 'Organizing-only bookings cannot have mini move packages'
+            })
+        
+        super().clean()
+```
+
+**Address Validation** (`apps/bookings/models.py`)
+```python
+class Address(models.Model):
+    def clean(self):
+        # ZIP code format validation
+        import re
+        if not re.match(r'^\d{5}(-\d{4})?$', self.zip_code):
+            raise ValidationError({
+                'zip_code': 'ZIP code must be in format 12345 or 12345-6789'
+            })
+        
+        # State abbreviation validation
+        US_STATES = [
+            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+            'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+            'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+            'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+            'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+        ]
+        
+        if self.state.upper() not in US_STATES:
+            raise ValidationError({
+                'state': 'Please use a valid US state abbreviation'
+            })
+        
+        super().clean()
+```
 
 ### Serializer Validation Rules
 
+#### Customer Registration Validation (`apps/customers/serializers.py`)
 ```python
-# Complete validation patterns from existing serializers
+class CustomerRegistrationSerializer(serializers.Serializer):
+    def validate_email(self, value):
+        # Email uniqueness check
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email already exists")
+        
+        # Business email domain restrictions (if needed)
+        restricted_domains = ['tempmail.com', '10minutemail.com']
+        domain = value.split('@')[1].lower()
+        if domain in restricted_domains:
+            raise serializers.ValidationError("Temporary email addresses are not allowed")
+        
+        return value.lower()
+    
+    def validate_password(self, value):
+        # Password strength validation
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long")
+        
+        if not any(c.isdigit() for c in value):
+            raise serializers.ValidationError("Password must contain at least one digit")
+        
+        if not any(c.isupper() for c in value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter")
+        
+        return value
+    
+    def validate(self, attrs):
+        # Password confirmation validation
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError("Passwords don't match")
+        
+        return attrs
+```
 
-class BookingSerializer(serializers.ModelSerializer):
-    """Example of comprehensive validation implementation"""
-    
+#### Booking Creation Validation (`apps/bookings/serializers.py`)
+```python
+class GuestBookingCreateSerializer(serializers.Serializer):
     def validate_pickup_date(self, value):
-        """Validate pickup date is not in the past"""
-        from django.utils import timezone
-        from datetime import date
-        
-        if value < date.today():
+        # Advance booking requirement
+        if value <= date.today():
             raise serializers.ValidationError(
-                "Pickup date cannot be in the past"
+                "Pickup date must be at least one day in advance"
             )
         
-        # Business rule: No bookings more than 30 days in advance
-        max_advance_days = 30
-        max_date = date.today() + timedelta(days=max_advance_days)
-        if value > max_date:
+        # Weekend restriction (if applicable)
+        if value.weekday() >= 5:  # Saturday = 5, Sunday = 6
             raise serializers.ValidationError(
-                f"Pickup date cannot be more than {max_advance_days} days in advance"
+                "Weekend pickups are not available"
             )
         
-        return value
-    
-    def validate_pickup_time(self, value):
-        """Validate pickup time is within morning window"""
-        from datetime import time
-        
-        # Business rule: Morning pickups only (8 AM - 12 PM)
-        morning_start = time(8, 0)  # 8:00 AM
-        morning_end = time(12, 0)   # 12:00 PM
-        
-        if not (morning_start <= value <= morning_end):
+        # Holiday restriction check
+        from .utils import is_holiday
+        if is_holiday(value):
             raise serializers.ValidationError(
-                "Pickup time must be between 8:00 AM and 12:00 PM"
+                "Pickup not available on holidays"
             )
         
         return value
     
-    def validate(self, data):
-        """Cross-field validation"""
-        pickup_address = data.get('pickup_address', {})
-        delivery_address = data.get('delivery_address', {})
+    def validate_specialty_items(self, value):
+        # Specialty item limits
+        if len(value) > 5:
+            raise serializers.ValidationError(
+                "Maximum 5 specialty items allowed per booking"
+            )
         
-        # Validate addresses are different
+        # Check if items are active
+        inactive_items = [item.id for item in value if not item.is_active]
+        if inactive_items:
+            raise serializers.ValidationError(
+                f"Selected specialty items are no longer available: {inactive_items}"
+            )
+        
+        return value
+    
+    def validate(self, attrs):
+        # Service type consistency checks
+        service_type = attrs.get('service_type')
+        mini_move_package = attrs.get('mini_move_package')
+        organizing_service = attrs.get('organizing_service')
+        
+        if service_type == 'mini_move' and not mini_move_package:
+            raise serializers.ValidationError({
+                'mini_move_package': 'Required for mini move bookings'
+            })
+        
+        if service_type == 'organizing_only' and mini_move_package:
+            raise serializers.ValidationError({
+                'mini_move_package': 'Not allowed for organizing-only bookings'
+            })
+        
+        # Address validation (pickup != delivery)
+        pickup_address = attrs.get('pickup_address', {})
+        delivery_address = attrs.get('delivery_address', {})
+        
         if pickup_address == delivery_address:
             raise serializers.ValidationError(
                 "Pickup and delivery addresses must be different"
             )
         
-        # Validate required address fields
-        required_address_fields = ['street_address', 'city', 'state', 'zip_code']
-        for addr_type, address in [('pickup', pickup_address), ('delivery', delivery_address)]:
-            for field in required_address_fields:
-                if not address.get(field):
-                    raise serializers.ValidationError(
-                        f"{addr_type.title()} address {field} is required"
-                    )
-        
-        return data
-
-class PaymentSerializer(serializers.ModelSerializer):
-    """Payment validation patterns"""
-    
-    def validate_amount(self, value):
-        """Validate payment amount"""
-        from decimal import Decimal
-        
-        if value <= Decimal('0.00'):
-            raise serializers.ValidationError(
-                "Payment amount must be greater than zero"
-            )
-        
-        # Business rule: Maximum payment amount
-        max_amount = Decimal('10000.00')
-        if value > max_amount:
-            raise serializers.ValidationError(
-                f"Payment amount cannot exceed ${max_amount}"
-            )
-        
-        return value
+        return attrs
 ```
 
-### Model Field Constraints
+### Business Rule Constraints
 
+#### Payment Processing Constraints (`apps/payments/services.py`)
 ```python
-# Database-level constraints from models
+class StripePaymentService:
+    @classmethod
+    def validate_payment_amount(cls, booking):
+        # Minimum charge validation
+        min_charge_cents = 100  # $1.00 minimum
+        if booking.total_price_cents < min_charge_cents:
+            raise PaymentValidationError(
+                f"Minimum charge is ${min_charge_cents/100:.2f}"
+            )
+        
+        # Maximum charge validation (fraud prevention)
+        max_charge_cents = 500000  # $5,000 maximum
+        if booking.total_price_cents > max_charge_cents:
+            raise PaymentValidationError(
+                f"Maximum charge is ${max_charge_cents/100:.2f}. Please contact customer service."
+            )
+        
+        # Pricing calculation validation
+        calculated_total = booking.calculate_total_price()
+        if booking.total_price_cents != calculated_total:
+            logger.warning(f"Price mismatch for booking {booking.id}: stored={booking.total_price_cents}, calculated={calculated_total}")
+            raise PaymentValidationError(
+                "Price calculation error. Please refresh and try again."
+            )
+```
 
+#### Customer Profile Constraints (`apps/customers/models.py`)
+```python
+class CustomerProfile(models.Model):
+    def clean(self):
+        # Phone number format validation
+        if self.phone:
+            import re
+            phone_pattern = r'^(\+1-?)?(\d{3}-?\d{3}-?\d{4}|\(\d{3}\)\s?\d{3}-?\d{4})$'
+            if not re.match(phone_pattern, self.phone):
+                raise ValidationError({
+                    'phone': 'Phone number must be in format: (555) 123-4567 or 555-123-4567'
+                })
+        
+        # VIP status business rules
+        if self.is_vip and self.total_spent_dollars < 2000:
+            raise ValidationError({
+                'is_vip': 'VIP status requires minimum $2000 lifetime spending'
+            })
+        
+        super().clean()
+```
+
+### Database Constraints
+
+#### Model Meta Constraints
+```python
 class Booking(models.Model):
-    # Field-level constraints
-    pickup_date = models.DateField(
-        validators=[
-            # Custom validator for future dates
-            lambda value: value >= date.today() or 
-            ValidationError("Pickup date must be today or in the future")
-        ]
-    )
-    
-    total_cost = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[
-            MinValueValidator(Decimal('0.01'), "Cost must be positive"),
-            MaxValueValidator(Decimal('99999.99'), "Cost exceeds maximum")
-        ]
-    )
-    
-    # Database constraints
     class Meta:
         constraints = [
+            # Ensure pickup time is within business hours
             models.CheckConstraint(
-                check=models.Q(total_cost__gte=0),
-                name='positive_total_cost'
+                check=models.Q(pickup_time__gte=time(7, 0)) & models.Q(pickup_time__lte=time(12, 0)),
+                name='pickup_time_business_hours'
             ),
-            models.UniqueConstraint(
-                fields=['customer', 'pickup_date', 'pickup_time'],
-                condition=models.Q(status__in=['pending', 'paid', 'in_progress']),
-                name='unique_active_booking_per_customer_timeslot'
-            ),
-        ]
-
-class Payment(models.Model):
-    class Meta:
-        constraints = [
+            # Ensure pricing fields are non-negative
             models.CheckConstraint(
-                check=models.Q(amount__gt=0),
-                name='positive_payment_amount'
+                check=models.Q(total_price_cents__gte=0),
+                name='total_price_positive'
             ),
+            # Ensure pickup date is not in the past
+            models.CheckConstraint(
+                check=models.Q(pickup_date__gt=date.today()),
+                name='pickup_date_future'
+            )
         ]
+        
         indexes = [
-            models.Index(fields=['stripe_payment_intent_id']),
-            models.Index(fields=['status', 'created_at']),
+            # Performance indexes for common queries
+            models.Index(fields=['customer', '-created_at']),
+            models.Index(fields=['pickup_date', 'pickup_time']),
+            models.Index(fields=['status', 'service_type']),
         ]
 ```
 
-### Business Rule Edge Cases
+### Error Handling Patterns
 
+#### Custom Exception Classes (`apps/common/exceptions.py`)
 ```python
-# Edge case handling patterns
+class ToteTaxiException(Exception):
+    """Base exception for ToteTaxi business logic"""
+    pass
 
-class BookingStatusValidator:
-    """Handle booking status transition edge cases"""
-    
-    @staticmethod
-    def validate_status_change(booking, new_status, user=None):
-        """Comprehensive status change validation"""
-        
-        # Edge case: Cannot modify completed or cancelled bookings
-        if booking.status in ['completed', 'cancelled']:
-            raise ValidationError(
-                f"Cannot modify {booking.status} booking"
-            )
-        
-        # Edge case: Only staff can cancel paid bookings
-        if new_status == 'cancelled' and booking.status == 'paid':
-            if not (user and hasattr(user, 'staff_profile')):
-                raise ValidationError(
-                    "Only staff can cancel paid bookings"
-                )
-        
-        # Edge case: Cannot skip payment for authenticated users
-        if (new_status == 'in_progress' and 
-            booking.status == 'pending' and 
-            booking.customer is not None):
-            raise ValidationError(
-                "Authenticated bookings must be paid before processing"
-            )
+class BookingValidationError(ToteTaxiException):
+    """Booking creation validation errors"""
+    pass
 
-class PaymentValidator:
-    """Handle payment processing edge cases"""
-    
-    @staticmethod
-    def validate_refund_request(payment, refund_amount):
-        """Validate refund requests"""
-        
-        # Edge case: Cannot refund more than paid
-        total_refunded = payment.refunds.filter(
-            status='succeeded'
-        ).aggregate(
-            total=models.Sum('amount')
-        )['total'] or Decimal('0.00')
-        
-        available_for_refund = payment.amount - total_refunded
-        
-        if refund_amount > available_for_refund:
-            raise ValidationError(
-                f"Refund amount ${refund_amount} exceeds available "
-                f"refund amount ${available_for_refund}"
-            )
-        
-        # Edge case: Cannot refund failed payments
-        if payment.status != 'succeeded':
-            raise ValidationError(
-                "Cannot refund unsuccessful payments"
-            )
+class PaymentProcessingError(ToteTaxiException):
+    """Payment processing failures"""
+    pass
+
+class ServiceUnavailableError(ToteTaxiException):
+    """Service availability issues"""
+    pass
+
+class PermissionDeniedError(ToteTaxiException):
+    """Staff permission violations"""
+    pass
 ```
 
-### Permission and Access Control Edge Cases
-
+#### Global Error Handler (`apps/common/views.py`)
 ```python
-# Authorization edge case handling
+from rest_framework.views import exception_handler
+from rest_framework.response import Response
 
-class BookingPermissions:
-    """Handle booking access control edge cases"""
+def custom_exception_handler(exc, context):
+    response = exception_handler(exc, context)
     
-    @staticmethod
-    def can_view_booking(user, booking):
-        """Determine if user can view specific booking"""
+    if response is not None:
+        # Log errors for monitoring
+        logger.error(f"API Error: {exc.__class__.__name__}: {str(exc)}", 
+                    extra={'context': context})
         
-        # Customer can view their own bookings
-        if (hasattr(user, 'customer_profile') and 
-            booking.customer == user.customer_profile):
-            return True
+        # Custom error response format
+        custom_response_data = {
+            'error': True,
+            'error_type': exc.__class__.__name__,
+            'message': str(exc),
+            'details': response.data if hasattr(response, 'data') else None
+        }
         
-        # Guest bookings: Can view with email verification
-        # (This would require additional session/token mechanism)
-        
-        # Staff can view all bookings
-        if (hasattr(user, 'staff_profile') and 
-            user.staff_profile.is_active):
-            return True
-        
-        return False
+        response.data = custom_response_data
     
-    @staticmethod
-    def can_modify_booking(user, booking):
-        """Determine if user can modify specific booking"""
-        
-        # Edge case: Customers cannot modify after payment
-        if (hasattr(user, 'customer_profile') and 
-            booking.customer == user.customer_profile):
-            return booking.status == 'pending'
-        
-        # Staff can modify based on role
-        if (hasattr(user, 'staff_profile') and 
-            user.staff_profile.is_active):
-            return user.staff_profile.has_permission('edit_bookings')
-        
-        return False
+    return response
 ```
 
-## SECTION 8: CONFIGURATION & DEPLOYMENT REFERENCE
+---
 
-### Production vs Development Configuration
-
-```python
-# Development Configuration (settings.py with DEBUG=True)
-DEBUG = True
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
-
-# Database: Local PostgreSQL
-DATABASE_URL = 'postgresql://user:pass@localhost:5435/totetaxi'
-
-# Redis: Local instance
-REDIS_URL = 'redis://localhost:6382/0'
-
-# Stripe: Test keys
-STRIPE_SECRET_KEY = 'sk_test_...'
-STRIPE_PUBLISHABLE_KEY = 'pk_test_...'
-
-# CORS: Allow local frontend
-CORS_ALLOWED_ORIGINS = ['http://localhost:3000']
-
-# Production Configuration (settings.py with DEBUG=False)
-DEBUG = False
-ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
-
-# Database: Production PostgreSQL (via DATABASE_URL)
-# Redis: Production Redis instance
-# Stripe: Live keys
-# CORS: Production frontend origins
-
-# Security settings for production
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-```
+## SECTION 8: Configuration & Deployment Reference
 
 ### Docker Configuration
 
+#### Development Environment (`docker-compose.yml`)
+```yaml
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    ports:
+      - "5435:5432"  # Custom port to avoid conflicts
+    environment:
+      POSTGRES_DB: totetaxi
+      POSTGRES_USER: totetaxi
+      POSTGRES_PASSWORD: totetaxi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U totetaxi"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6382:6379"  # Custom port to avoid conflicts
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Django Application
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://totetaxi:totetaxi@postgres:5432/totetaxi
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=True
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: python manage.py runserver 0.0.0.0:8000
+
+  # Celery Worker
+  worker:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://totetaxi:totetaxi@postgres:5432/totetaxi
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+    command: celery -A config worker -l info
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+#### Production Dockerfile
 ```dockerfile
-# Complete Dockerfile for production deployment
 FROM python:3.11-slim
 
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
@@ -1737,100 +1946,273 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        postgresql-client \
-        build-essential \
-        libpq-dev \
-        curl \
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    build-essential \
+    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
+# Copy application code
 COPY . /app/
 
-# Set execute permissions for entrypoint
-RUN chmod +x scripts/entrypoint.sh
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+USER appuser
 
-# Expose port
-EXPOSE $PORT
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health/ || exit 1
 
-# Use custom entrypoint
-ENTRYPOINT ["scripts/entrypoint.sh"]
+# Entrypoint script
+COPY scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Default command
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "config.wsgi:application"]
 ```
 
-### Deployment Infrastructure Requirements
+### Production Settings
 
+#### Environment-Specific Settings (`config/settings.py`)
 ```python
-# Required Infrastructure Components
+# Environment detection
+ENVIRONMENT = env('ENVIRONMENT', default='development')
+DEBUG = env('DEBUG', default=False, cast=bool)
 
-# 1. PostgreSQL Database
-# - Version: 12+ recommended
-# - Configuration: UTF-8 encoding, timezone-aware
-# - Backup: Daily automated backups
-
-# 2. Redis Instance  
-# - Version: 6+ recommended
-# - Usage: Caching and Celery message broker
-# - Memory: Based on cache requirements
-
-# 3. Application Server
-# - Python 3.11+
-# - Gunicorn WSGI server
-# - Multiple worker processes for concurrency
-
-# 4. Background Task Processing
-# - Celery workers for async tasks
-# - Celery beat for periodic tasks
-# - Proper monitoring and restart policies
-
-# 5. External Services
-# - Stripe: Payment processing (live keys)
-# - AWS S3: File storage (if enabled)
-# - AWS SES: Email sending (if enabled)
-# - Onfleet: Delivery coordination (if enabled)
-
-# 6. Monitoring & Logging
-# - Application logs to files/service
-# - Error tracking (Sentry if configured)
-# - Performance monitoring
-# - Database query monitoring
-```
-
-### Performance & Security Configuration
-
-```python
-# Production Performance Settings
-CONN_MAX_AGE = 60  # Database connection pooling
-DATABASES['default']['CONN_MAX_AGE'] = CONN_MAX_AGE
-
-# Static file serving with WhiteNoise
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_AUTOREFRESH = True
-
-# Security Headers
+# Security settings
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
-SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
-# Rate Limiting (if django-ratelimit installed)
-RATELIMIT_ENABLE = True
+# Database connection pooling
+DATABASES['default']['CONN_MAX_AGE'] = 600
+DATABASES['default']['OPTIONS'] = {
+    'MAX_CONNS': 20,
+    'sslmode': 'require' if ENVIRONMENT == 'production' else 'disable',
+}
 
-# Gunicorn Configuration (gunicorn.conf.py)
-bind = "0.0.0.0:8000"
-workers = 3
-worker_class = "sync"
-worker_connections = 1000
-max_requests = 1000
-max_requests_jitter = 100
-timeout = 30
-keepalive = 5
+# Static files (production)
+if ENVIRONMENT == 'production':
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'logs/django.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': env('DJANGO_LOG_LEVEL', default='INFO'),
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 ```
+
+### Deployment Scripts
+
+#### Entrypoint Script (`scripts/entrypoint.sh`)
+```bash
+#!/bin/bash
+set -e
+
+echo "Starting ToteTaxi Backend..."
+
+# CRITICAL: Unset docker-compose DB variables on cloud deployment
+unset DB_HOST DB_NAME DB_USER DB_PASSWORD DB_PORT
+
+# Wait for database if DB_HOST is set
+if [ -n "$DB_HOST" ]; then
+    echo "Waiting for postgres at $DB_HOST:${DB_PORT:-5432}..."
+    while ! pg_isready -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}"; do
+        sleep 1
+    done
+    echo "PostgreSQL is ready!"
+fi
+
+# Run database migrations
+echo "Running database migrations..."
+python manage.py migrate --no-input
+
+# Collect static files (production)
+if [ "$ENVIRONMENT" = "production" ]; then
+    echo "Collecting static files..."
+    python manage.py collectstatic --no-input
+fi
+
+# Create superuser if needed (development)
+if [ "$DEBUG" = "True" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ]; then
+    echo "Creating superuser..."
+    python manage.py createsuperuser --no-input --email "$DJANGO_SUPERUSER_EMAIL" || true
+fi
+
+echo "Starting application..."
+exec "$@"
+```
+
+### Performance Configuration
+
+#### Database Optimization
+```python
+# Connection pooling
+DATABASES['default']['OPTIONS']['MAX_CONNS'] = 20
+DATABASES['default']['OPTIONS']['MIN_CONNS'] = 5
+
+# Query optimization
+DATABASES['default']['OPTIONS']['CONN_HEALTH_CHECKS'] = True
+DATABASES['default']['OPTIONS']['AUTOCOMMIT'] = True
+
+# Read replica configuration (if needed)
+DATABASE_ROUTERS = ['apps.common.routers.DatabaseRouter']
+```
+
+#### Caching Strategy
+```python
+# Cache middleware
+MIDDLEWARE = [
+    'django.middleware.cache.UpdateCacheMiddleware',  # First
+    'django.middleware.common.CommonMiddleware',
+    # ... other middleware
+    'django.middleware.cache.FetchFromCacheMiddleware',  # Last
+]
+
+# Cache timeout configuration
+CACHE_MIDDLEWARE_SECONDS = 300  # 5 minutes
+CACHE_MIDDLEWARE_KEY_PREFIX = 'totetaxi'
+
+# Per-view caching
+CACHES['default']['TIMEOUT'] = 300
+CACHES['default']['OPTIONS'] = {
+    'MAX_ENTRIES': 1000,
+    'CULL_FREQUENCY': 3,
+}
+```
+
+#### Background Jobs Configuration
+```python
+# Celery production settings
+CELERY_TASK_ROUTES = {
+    'apps.payments.tasks.*': {'queue': 'payments'},
+    'apps.logistics.tasks.*': {'queue': 'logistics'},
+    'apps.notifications.tasks.*': {'queue': 'notifications'},
+}
+
+CELERY_WORKER_CONCURRENCY = 4
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+CELERY_TASK_TIME_LIMIT = 300  # 5 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutes
+```
+
+### Monitoring and Health Checks
+
+#### Health Check Endpoint (`apps/common/views.py`)
+```python
+from django.http import JsonResponse
+from django.db import connection
+from django.core.cache import cache
+import redis
+
+def health_check(request):
+    """System health check for load balancers"""
+    health_status = {
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat(),
+        'services': {}
+    }
+    
+    # Database health
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        health_status['services']['database'] = 'healthy'
+    except Exception as e:
+        health_status['services']['database'] = f'unhealthy: {str(e)}'
+        health_status['status'] = 'degraded'
+    
+    # Cache health
+    try:
+        cache.set('health_check', 'ok', 10)
+        if cache.get('health_check') == 'ok':
+            health_status['services']['cache'] = 'healthy'
+        else:
+            health_status['services']['cache'] = 'unhealthy'
+            health_status['status'] = 'degraded'
+    except Exception as e:
+        health_status['services']['cache'] = f'unhealthy: {str(e)}'
+        health_status['status'] = 'degraded'
+    
+    # External service health (Stripe, Onfleet)
+    health_status['services']['stripe'] = 'configured'
+    health_status['services']['onfleet'] = 'configured' if not settings.ONFLEET_MOCK_MODE else 'mocked'
+    
+    return JsonResponse(health_status)
+```
+
+### Security Configuration
+
+#### Production Security Settings
+```python
+# HTTPS enforcement
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Session security
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "js.stripe.com")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_FONT_SRC = ("'self'", "data:")
+CSP_IMG_SRC = ("'self'", "data:", "*.stripe.com")
+CSP_CONNECT_SRC = ("'self'", "api.stripe.com")
+
+# Rate limiting
+RATELIMIT_ENABLE = True
+RATELIMIT_USE_CACHE = 'default'
+```
+
+This comprehensive living documentation provides complete executive function over the ToteTaxi Django backend, enabling independent development, feature extension, and system modification across all business domains and technical components.

@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-23 17:32:35.005079
-# Files: 66
+# Generated: 2025-09-25 15:49:09.674181
+# Files: 69
 
 # ==== next-env.d.ts ====
 
@@ -1869,9 +1869,508 @@ export default function ServicesPage() {
 }
 ```
 
+# ==== src/app/staff/bookings/[id]/page.tsx ====
+
+```
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { StaffLayout } from '@/components/staff/staff-layout';
+import { apiClient } from '@/lib/api-client';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+
+interface Address {
+  address_line_1: string;
+  address_line_2: string;
+  city: string;
+  state: string;
+  zip_code: string;
+}
+
+interface BookingFormData {
+  status: string;
+  pickup_date: string;
+  pickup_time: string;
+  special_instructions: string;
+  coi_required: boolean;
+  pickup_address: Address;
+  delivery_address: Address;
+}
+
+export default function BookingDetailPage() {
+  const { isAuthenticated, isLoading } = useStaffAuthStore();
+  const router = useRouter();
+  const params = useParams();
+  const bookingId = params.id as string;
+  const queryClient = useQueryClient();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<BookingFormData>({
+    status: '',
+    pickup_date: '',
+    pickup_time: '',
+    special_instructions: '',
+    coi_required: false,
+    pickup_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    },
+    delivery_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    }
+  });
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/staff/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  const { data: booking, isLoading: bookingLoading } = useQuery({
+    queryKey: ['staff', 'booking', bookingId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/staff/bookings/${bookingId}/`);
+      return response.data;
+    },
+    enabled: !!bookingId && isAuthenticated
+  });
+
+  const updateBookingMutation = useMutation({
+    mutationFn: async (updates: Partial<BookingFormData>) => {
+      const response = await apiClient.patch(`/api/staff/bookings/${bookingId}/`, updates);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'booking', bookingId] });
+      setIsEditing(false);
+    }
+  });
+
+  // Initialize form data when booking loads
+  useEffect(() => {
+    if (booking?.booking) {
+      setFormData({
+        status: booking.booking.status || '',
+        pickup_date: booking.booking.pickup_date || '',
+        pickup_time: booking.booking.pickup_time || '',
+        special_instructions: booking.booking.special_instructions || '',
+        coi_required: booking.booking.coi_required || false,
+        pickup_address: booking.booking.pickup_address || {
+          address_line_1: '',
+          address_line_2: '',
+          city: '',
+          state: '',
+          zip_code: ''
+        },
+        delivery_address: booking.booking.delivery_address || {
+          address_line_1: '',
+          address_line_2: '',
+          city: '',
+          state: '',
+          zip_code: ''
+        }
+      });
+    }
+  }, [booking]);
+
+  const handleSave = () => {
+    const updates: Partial<BookingFormData> = {};
+    if (formData.status !== booking?.booking?.status) updates.status = formData.status;
+    if (formData.pickup_date !== booking?.booking?.pickup_date) updates.pickup_date = formData.pickup_date;
+    if (formData.pickup_time !== booking?.booking?.pickup_time) updates.pickup_time = formData.pickup_time;
+    if (formData.special_instructions !== booking?.booking?.special_instructions) updates.special_instructions = formData.special_instructions;
+    if (formData.coi_required !== booking?.booking?.coi_required) updates.coi_required = formData.coi_required;
+    
+    // Check if addresses changed
+    if (JSON.stringify(formData.pickup_address) !== JSON.stringify(booking?.booking?.pickup_address)) {
+      updates.pickup_address = formData.pickup_address;
+    }
+    if (JSON.stringify(formData.delivery_address) !== JSON.stringify(booking?.booking?.delivery_address)) {
+      updates.delivery_address = formData.delivery_address;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateBookingMutation.mutate(updates);
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  const statusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const pickupTimeOptions = [
+    { value: 'morning', label: '8 AM - 11 AM' },
+    { value: 'morning_specific', label: 'Specific 1-hour window' },
+    { value: 'no_time_preference', label: 'No time preference' },
+  ];
+
+  const stateOptions = [
+    { value: 'NY', label: 'New York' },
+    { value: 'CT', label: 'Connecticut' },
+    { value: 'NJ', label: 'New Jersey' },
+  ];
+
+  if (isLoading || !isAuthenticated || bookingLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy-900"></div>
+      </div>
+    );
+  }
+
+  return (
+    <StaffLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-serif font-bold text-navy-900">
+              Booking #{booking?.booking?.booking_number}
+            </h1>
+            <p className="text-navy-600 mt-1">
+              {booking?.booking?.service_type} • {booking?.customer?.name || 'Guest Customer'}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            {!isEditing ? (
+              <Button variant="primary" onClick={() => setIsEditing(true)}>
+                Edit Booking
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={handleSave}
+                  disabled={updateBookingMutation.isPending}
+                >
+                  {updateBookingMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
+            <Button variant="outline" onClick={() => router.back()}>
+              ← Back to Bookings
+            </Button>
+          </div>
+        </div>
+
+        {booking && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Booking Information */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Booking Information</h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isEditing ? (
+                  <>
+                    <Select
+                      label="Status"
+                      options={statusOptions}
+                      value={formData.status}
+                      onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    />
+                    <Input
+                      label="Pickup Date"
+                      type="date"
+                      value={formData.pickup_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, pickup_date: e.target.value }))}
+                    />
+                    <Select
+                      label="Pickup Time"
+                      options={pickupTimeOptions}
+                      value={formData.pickup_time}
+                      onChange={(e) => setFormData(prev => ({ ...prev, pickup_time: e.target.value }))}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-navy-900 mb-1">
+                        Special Instructions
+                      </label>
+                      <textarea
+                        value={formData.special_instructions}
+                        onChange={(e) => setFormData(prev => ({ ...prev, special_instructions: e.target.value }))}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="coi_required"
+                        checked={formData.coi_required}
+                        onChange={(e) => setFormData(prev => ({ ...prev, coi_required: e.target.checked }))}
+                        className="mr-2"
+                      />
+                      <label htmlFor="coi_required" className="text-sm text-navy-900">
+                        COI Required
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-navy-800"><strong className="text-navy-900">Booking #:</strong> {booking.booking?.booking_number}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Service:</strong> {booking.booking?.service_type}</div>
+                    <div className="text-navy-800">
+                      <strong className="text-navy-900">Status:</strong> 
+                      <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        booking.booking?.status === 'completed' 
+                          ? 'bg-green-100 text-green-800'
+                          : booking.booking?.status === 'paid'
+                          ? 'bg-blue-100 text-blue-800'
+                          : booking.booking?.status === 'confirmed'
+                          ? 'bg-purple-100 text-purple-800'
+                          : booking.booking?.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {booking.booking?.status}
+                      </span>
+                    </div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Time:</strong> {booking.booking?.pickup_time}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Total:</strong> ${booking.booking?.total_price_dollars}</div>
+                    {booking.booking?.special_instructions && (
+                      <div className="text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
+                    )}
+                    {booking.booking?.coi_required && (
+                      <div className="text-orange-600 font-medium">COI Required</div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Customer Information */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Customer Information</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {booking.customer && (
+                  <>
+                    <div className="text-navy-800"><strong className="text-navy-900">Name:</strong> {booking.customer.name}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Email:</strong> {booking.customer.email}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Phone:</strong> {booking.customer.phone}</div>
+                    <div className="text-navy-800">
+                      <strong className="text-navy-900">VIP Status:</strong> 
+                      <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        booking.customer.is_vip ? 'bg-gold-100 text-gold-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {booking.customer.is_vip ? 'VIP Customer' : 'Standard Customer'}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => router.push(`/staff/customers/${booking.customer.id}`)}
+                    >
+                      View Customer Details
+                    </Button>
+                  </>
+                )}
+                {booking.guest_checkout && (
+                  <>
+                    <div className="text-navy-800"><strong className="text-navy-900">Name:</strong> {booking.guest_checkout.first_name} {booking.guest_checkout.last_name}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Email:</strong> {booking.guest_checkout.email}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Phone:</strong> {booking.guest_checkout.phone}</div>
+                    <div className="text-navy-600 text-sm">Guest Customer (no account)</div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Address Editing Section - Only shown when editing */}
+            {isEditing ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Edit Pickup Address</h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="Street Address"
+                      value={formData.pickup_address.address_line_1}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, address_line_1: e.target.value }
+                      }))}
+                    />
+                    <Input
+                      label="Apartment, Suite, etc."
+                      value={formData.pickup_address.address_line_2}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, address_line_2: e.target.value }
+                      }))}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="City"
+                        value={formData.pickup_address.city}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          pickup_address: { ...prev.pickup_address, city: e.target.value }
+                        }))}
+                      />
+                      <Select
+                        label="State"
+                        options={stateOptions}
+                        value={formData.pickup_address.state}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          pickup_address: { ...prev.pickup_address, state: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <Input
+                      label="ZIP Code"
+                      value={formData.pickup_address.zip_code}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, zip_code: e.target.value }
+                      }))}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Edit Delivery Address</h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="Street Address"
+                      value={formData.delivery_address.address_line_1}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, address_line_1: e.target.value }
+                      }))}
+                    />
+                    <Input
+                      label="Apartment, Suite, etc."
+                      value={formData.delivery_address.address_line_2}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, address_line_2: e.target.value }
+                      }))}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="City"
+                        value={formData.delivery_address.city}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          delivery_address: { ...prev.delivery_address, city: e.target.value }
+                        }))}
+                      />
+                      <Select
+                        label="State"
+                        options={stateOptions}
+                        value={formData.delivery_address.state}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          delivery_address: { ...prev.delivery_address, state: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <Input
+                      label="ZIP Code"
+                      value={formData.delivery_address.zip_code}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, zip_code: e.target.value }
+                      }))}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                {/* Static Address Display */}
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-navy-800">
+                      <div>{booking.booking?.pickup_address?.address_line_1}</div>
+                      {booking.booking?.pickup_address?.address_line_2 && (
+                        <div>{booking.booking.pickup_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-navy-800">
+                      <div>{booking.booking?.delivery_address?.address_line_1}</div>
+                      {booking.booking?.delivery_address?.address_line_2 && (
+                        <div>{booking.booking.delivery_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {/* Payment Information */}
+            {booking.payment && (
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <h3 className="text-lg font-medium text-navy-900">Payment Information</h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-navy-800">
+                    <div><strong className="text-navy-900">Status:</strong> {booking.payment.status}</div>
+                    <div><strong className="text-navy-900">Amount:</strong> ${booking.payment.amount_dollars}</div>
+                    <div><strong className="text-navy-900">Payment ID:</strong> {booking.payment.id}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    </StaffLayout>
+  );
+}
+```
+
 # ==== src/app/staff/bookings/page.tsx ====
 
 ```
+// frontend/src/app/staff/bookings/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -1909,13 +2408,14 @@ export default function StaffBookingsPage() {
 # ==== src/app/staff/calendar/page.tsx ====
 
 ```
+// frontend/src/app/staff/calendar/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { BookingCalendar } from '@/components/staff/booking-calendar'; // ADD THIS
 
 export default function StaffCalendarPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
@@ -1937,17 +2437,277 @@ export default function StaffCalendarPage() {
 
   return (
     <StaffLayout>
+      <BookingCalendar /> {/* CHANGE THIS */}
+    </StaffLayout>
+  );
+}
+```
+
+# ==== src/app/staff/customers/[id]/page.tsx ====
+
+```
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { StaffLayout } from '@/components/staff/staff-layout';
+import { apiClient } from '@/lib/api-client';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+export default function CustomerDetailPage() {
+  const { isAuthenticated, isLoading } = useStaffAuthStore();
+  const router = useRouter();
+  const params = useParams();
+  const customerId = params.id as string;
+  const queryClient = useQueryClient();
+
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/staff/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  const { data: customer, isLoading: customerLoading } = useQuery({
+    queryKey: ['staff', 'customer', customerId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/staff/customers/${customerId}/`);
+      return response.data;
+    },
+    enabled: !!customerId && isAuthenticated
+  });
+
+  const updateNotesMutation = useMutation({
+    mutationFn: async (newNotes: string) => {
+      const response = await apiClient.patch(`/api/staff/customers/${customerId}/notes/`, {
+        notes: newNotes
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'customer', customerId] });
+      setIsEditingNotes(false);
+    }
+  });
+
+  useEffect(() => {
+    if (customer?.notes) {
+      setNotes(customer.notes);
+    }
+  }, [customer]);
+
+  const handleSaveNotes = () => {
+    updateNotesMutation.mutate(notes);
+  };
+
+  if (isLoading || !isAuthenticated || customerLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy-900"></div>
+      </div>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <StaffLayout>
+        <div className="text-center py-12">
+          <h1 className="text-2xl font-bold text-navy-900">Customer Not Found</h1>
+          <p className="text-navy-600 mt-2">The requested customer could not be found.</p>
+          <Button 
+            variant="primary" 
+            onClick={() => router.push('/staff/customers')}
+            className="mt-4"
+          >
+            Back to Customers
+          </Button>
+        </div>
+      </StaffLayout>
+    );
+  }
+
+  return (
+    <StaffLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Booking Calendar
-        </h1>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-navy-600">
-              Calendar functionality will be implemented here. This page should now load without logging you out.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-serif font-bold text-navy-900">{customer.name}</h1>
+            <p className="text-navy-600 mt-1">{customer.email}</p>
+          </div>
+          <Button variant="outline" onClick={() => router.push('/staff/customers')}>
+            ← Back to Customers
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Customer Information */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-medium text-navy-900">Customer Information</h3>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-navy-800"><strong className="text-navy-900">Name:</strong> {customer.name}</div>
+              <div className="text-navy-800"><strong className="text-navy-900">Email:</strong> {customer.email}</div>
+              <div className="text-navy-800"><strong className="text-navy-900">Phone:</strong> {customer.phone}</div>
+              <div className="text-navy-800">
+                <strong className="text-navy-900">VIP Status:</strong> 
+                <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  customer.is_vip ? 'bg-gold-100 text-gold-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {customer.is_vip ? 'VIP Customer' : 'Standard Customer'}
+                </span>
+              </div>
+              <div className="text-navy-800"><strong className="text-navy-900">Member Since:</strong> {new Date(customer.created_at).toLocaleDateString()}</div>
+            </CardContent>
+          </Card>
+
+          {/* Customer Stats */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-medium text-navy-900">Customer Stats</h3>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-navy-50 rounded-lg">
+                  <div className="text-2xl font-bold text-navy-900">{customer.total_bookings}</div>
+                  <div className="text-sm text-navy-600">Total Bookings</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-700">${customer.total_spent_dollars}</div>
+                  <div className="text-sm text-navy-600">Total Spent</div>
+                </div>
+              </div>
+              {customer.last_booking_at && (
+                <div className="text-navy-800">
+                  <strong className="text-navy-900">Last Booking:</strong> {new Date(customer.last_booking_at).toLocaleDateString()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Customer Notes */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium text-navy-900">Customer Notes</h3>
+                {!isEditingNotes && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditingNotes(true)}
+                  >
+                    {customer.notes ? 'Edit Notes' : 'Add Notes'}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isEditingNotes ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add notes about this customer..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
+                  />
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="primary" 
+                      onClick={handleSaveNotes}
+                      disabled={updateNotesMutation.isPending}
+                    >
+                      {updateNotesMutation.isPending ? 'Saving...' : 'Save Notes'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsEditingNotes(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-navy-800">
+                  {customer.notes || (
+                    <em className="text-navy-500">No notes added yet. Click Edit to add customer notes.</em>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Saved Addresses */}
+          {customer.saved_addresses && customer.saved_addresses.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Saved Addresses</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {customer.saved_addresses.map((address: any, index: number) => (
+                    <div key={address.id} className="p-4 border border-gray-200 rounded-lg">
+                      <div className="text-navy-800">
+                        <div className="font-medium">Address {index + 1}</div>
+                        <div>{address.address_line_1}</div>
+                        {address.address_line_2 && <div>{address.address_line_2}</div>}
+                        <div>{address.city}, {address.state} {address.zip_code}</div>
+                        {address.is_primary && (
+                          <div className="text-sm text-green-600 mt-1">Primary Address</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Bookings */}
+          {customer.recent_bookings && customer.recent_bookings.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Recent Bookings</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {customer.recent_bookings.map((booking: any) => (
+                    <div key={booking.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
+                      <div>
+                        <div className="font-medium text-navy-900">{booking.booking_number}</div>
+                        <div className="text-sm text-navy-600">
+                          {booking.service_type} • {new Date(booking.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium text-navy-900">${booking.total_price_dollars}</div>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          booking.status === 'completed' 
+                            ? 'bg-green-100 text-green-800'
+                            : booking.status === 'paid'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {booking.status}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/staff/bookings/${booking.id}`)}
+                      >
+                        View Booking
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </StaffLayout>
   );
@@ -1957,6 +2717,7 @@ export default function StaffCalendarPage() {
 # ==== src/app/staff/customers/page.tsx ====
 
 ```
+// frontend/src/app/staff/customers/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -1994,6 +2755,7 @@ export default function StaffCustomersPage() {
 # ==== src/app/staff/dashboard/page.tsx ====
 
 ```
+// frontend/src/app/staff/customers/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -2031,6 +2793,7 @@ export default function StaffDashboardPage() {
 # ==== src/app/staff/login/page.tsx ====
 
 ```
+// frontend/src/app/staff/login/page.tsx
 import { StaffLoginForm } from '@/components/staff/staff-login-form';
 
 export default function StaffLoginPage() {
@@ -2041,6 +2804,7 @@ export default function StaffLoginPage() {
 # ==== src/app/staff/logistics/page.tsx ====
 
 ```
+// frontend/src/app/staff/customers/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -2089,6 +2853,7 @@ export default function StaffLogisticsPage() {
 # ==== src/app/staff/reports/page.tsx ====
 
 ```
+// frontend/src/app/staff/customers/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -2137,6 +2902,7 @@ export default function StaffReportsPage() {
 # ==== src/app/terms/page.tsx ====
 
 ```
+// frontend/src/app/terms/page.tsx
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -6790,14 +7556,16 @@ export function QueryProvider({ children }: QueryProviderProps) {
 # ==== src/components/staff/booking-calendar.tsx ====
 
 ```
+// src/components/staff/booking-calendar.tsx
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { BookingDetailModal } from './booking-detail-modal';
 
 interface CalendarBooking {
   id: string;
@@ -6814,8 +7582,6 @@ interface CalendarDay {
   date: string;
   available: boolean;
   is_weekend: boolean;
-  capacity_used: number;
-  max_capacity: number;
   bookings: CalendarBooking[];
   surcharges: Array<{ name: string; type: string; description: string }>;
 }
@@ -6826,65 +7592,100 @@ interface CalendarData {
   end_date: string;
 }
 
+type ViewMode = 'month' | 'week' | 'day';
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function BookingCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const router = useRouter();
 
-  // Get start of month for API call
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  // Get date range based on view mode
+  const getDateRange = () => {
+    if (viewMode === 'month') {
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      return { startDate: startOfMonth, endDate: endOfMonth };
+    } else if (viewMode === 'week') {
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Go to Sunday
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // Go to Saturday
+      return { startDate: startOfWeek, endDate: endOfWeek };
+    } else {
+      // Day view
+      return { startDate: new Date(currentDate), endDate: new Date(currentDate) };
+    }
+  };
+
+  const { startDate, endDate } = getDateRange();
 
   const { data: calendarData, isLoading } = useQuery({
-    queryKey: ['calendar', 'availability', startOfMonth.toISOString().split('T')[0]],
+    queryKey: ['calendar', 'availability', viewMode, startDate.toISOString().split('T')[0]],
     queryFn: async (): Promise<CalendarData> => {
       const response = await apiClient.get('/api/public/calendar/availability/', {
         params: {
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0]
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0]
         }
       });
       return response.data;
     }
   });
 
-  const { data: bookingsData } = useQuery({
-    queryKey: ['staff', 'bookings', 'calendar', startOfMonth.toISOString().split('T')[0]],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/staff/bookings/', {
-        params: {
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0]
-        }
-      });
-      return response.data;
-    }
-  });
-
-  // Navigate months
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  // Navigate based on view mode
+  const navigate = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
+    if (viewMode === 'month') {
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+    } else if (viewMode === 'week') {
+      if (direction === 'prev') {
+        newDate.setDate(newDate.getDate() - 7);
+      } else {
+        newDate.setDate(newDate.getDate() + 7);
+      }
     } else {
-      newDate.setMonth(newDate.getMonth() + 1);
+      // Day view
+      if (direction === 'prev') {
+        newDate.setDate(newDate.getDate() - 1);
+      } else {
+        newDate.setDate(newDate.getDate() + 1);
+      }
     }
     setCurrentDate(newDate);
   };
 
-  // Get calendar grid
-  const getCalendarDays = () => {
+  // Handle day click - switch to day view
+  const handleDayClick = (dateStr: string) => {
+    const clickedDate = new Date(dateStr);
+    setCurrentDate(clickedDate);
+    setViewMode('day');
+  };
+
+  // Handle booking click
+  const handleBookingClick = (booking: CalendarBooking, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger day selection
+    setSelectedBooking(booking.id);
+  };
+
+  // Get calendar grid for month view
+  const getMonthCalendarDays = () => {
     if (!calendarData) return [];
     
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
     const startDate = new Date(firstDayOfMonth);
     startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
     
@@ -6909,18 +7710,76 @@ export function BookingCalendar() {
     return days;
   };
 
-  const calendarDays = getCalendarDays();
-
-  // Get capacity color
-  const getCapacityColor = (day: any) => {
-    if (!day.data) return 'bg-gray-100';
-    const { capacity_used, max_capacity } = day.data;
-    const utilization = capacity_used / max_capacity;
+  // Get week days for week view
+  const getWeekDays = () => {
+    if (!calendarData) return [];
     
-    if (utilization >= 1) return 'bg-red-100 border-red-300';
-    if (utilization >= 0.8) return 'bg-amber-100 border-amber-300';
-    if (utilization >= 0.5) return 'bg-yellow-100 border-yellow-300';
+    const days = [];
+    const weekStart = new Date(startDate);
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(weekStart);
+      currentDay.setDate(weekStart.getDate() + i);
+      const dateStr = currentDay.toISOString().split('T')[0];
+      const dayData = calendarData.availability.find(day => day.date === dateStr);
+      
+      days.push({
+        date: new Date(currentDay),
+        dateStr,
+        isToday: dateStr === new Date().toISOString().split('T')[0],
+        data: dayData
+      });
+    }
+    
+    return days;
+  };
+
+  // Get single day for day view
+  const getDayData = () => {
+    if (!calendarData) return null;
+    
+    const dateStr = currentDate.toISOString().split('T')[0];
+    const dayData = calendarData.availability.find(day => day.date === dateStr);
+    
+    return {
+      date: new Date(currentDate),
+      dateStr,
+      isToday: dateStr === new Date().toISOString().split('T')[0],
+      data: dayData
+    };
+  };
+
+  // Get booking color based on count
+  const getBookingColor = (day: any) => {
+    if (!day.data || !day.data.bookings) return 'bg-gray-50';
+    
+    const bookingCount = day.data.bookings.length;
+    if (bookingCount >= 5) return 'bg-red-100 border-red-300';
+    if (bookingCount >= 3) return 'bg-amber-100 border-amber-300';
+    if (bookingCount >= 1) return 'bg-yellow-100 border-yellow-300';
     return 'bg-green-100 border-green-300';
+  };
+
+  // Get display title based on view mode
+  const getDisplayTitle = () => {
+    if (viewMode === 'month') {
+      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (viewMode === 'week') {
+      const weekStart = new Date(startDate);
+      const weekEnd = new Date(endDate);
+      if (weekStart.getMonth() === weekEnd.getMonth()) {
+        return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}-${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+      } else {
+        return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} - ${MONTHS[weekEnd.getMonth()]} ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+      }
+    } else {
+      return currentDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
   };
 
   if (isLoading) {
@@ -6931,6 +7790,253 @@ export function BookingCalendar() {
     );
   }
 
+  const renderMonthView = () => {
+    const calendarDays = getMonthCalendarDays();
+    
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-7 gap-0">
+            {/* Header row */}
+            {WEEKDAYS_SHORT.map(day => (
+              <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-navy-800 text-center border-b">
+                {day}
+              </div>
+            ))}
+            
+            {/* Calendar days */}
+            {calendarDays.map((day, index) => (
+              <div
+                key={index}
+                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
+                  !day.isCurrentMonth ? 'opacity-30' : ''
+                } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
+                onClick={() => handleDayClick(day.dateStr)}
+              >
+                <div className="flex items-start justify-between">
+                  <span className={`text-sm font-medium ${
+                    day.isCurrentMonth ? 'text-navy-800' : 'text-navy-400'
+                  }`}>
+                    {day.date.getDate()}
+                  </span>
+                  
+                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
+                    <span className="text-amber-600 text-xs">!</span>
+                  )}
+                </div>
+                
+                {day.data && (
+                  <div className="mt-1 space-y-1">
+                    {day.data.bookings?.slice(0, 2).map(booking => (
+                      <div
+                        key={booking.id}
+                        className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-75 ${
+                          booking.status === 'pending'
+                            ? 'bg-amber-200 text-amber-800'
+                            : booking.status === 'confirmed'
+                            ? 'bg-blue-200 text-blue-800'
+                            : 'bg-green-200 text-green-800'
+                        }`}
+                        onClick={(e) => handleBookingClick(booking, e)}
+                      >
+                        {booking.booking_number}
+                      </div>
+                    ))}
+                    
+                    {day.data.bookings && day.data.bookings.length > 2 && (
+                      <div className="text-xs text-navy-600">
+                        +{day.data.bookings.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderWeekView = () => {
+    const weekDays = getWeekDays();
+    
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-7 gap-0">
+            {/* Header row */}
+            {weekDays.map((day, index) => (
+              <div key={index} className="bg-gray-50 px-3 py-3 text-sm font-medium text-navy-800 text-center border-b">
+                <div className="font-semibold">{WEEKDAYS_SHORT[index]}</div>
+                <div className={`text-lg mt-1 ${day.isToday ? 'text-navy-900 font-bold' : 'text-navy-600'}`}>
+                  {day.date.getDate()}
+                </div>
+              </div>
+            ))}
+            
+            {/* Week days */}
+            {weekDays.map((day, index) => (
+              <div
+                key={index}
+                className={`min-h-[200px] p-3 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
+                  day.isToday ? 'ring-2 ring-navy-500' : ''
+                }`}
+                onClick={() => handleDayClick(day.dateStr)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
+                    <span className="text-amber-600 text-xs bg-amber-100 px-1 rounded">Surcharge</span>
+                  )}
+                </div>
+                
+                {day.data && (
+                  <div className="space-y-2">
+                    {day.data.bookings?.map(booking => (
+                      <div
+                        key={booking.id}
+                        className={`text-xs p-2 rounded cursor-pointer hover:opacity-75 ${
+                          booking.status === 'pending'
+                            ? 'bg-amber-200 text-amber-800'
+                            : booking.status === 'confirmed'
+                            ? 'bg-blue-200 text-blue-800'
+                            : booking.status === 'paid'
+                            ? 'bg-green-200 text-green-800'
+                            : 'bg-gray-200 text-gray-800'
+                        }`}
+                        onClick={(e) => handleBookingClick(booking, e)}
+                      >
+                        <div className="font-semibold">{booking.booking_number}</div>
+                        <div className="text-xs mt-1">{booking.customer_name}</div>
+                        <div className="text-xs">{booking.service_type}</div>
+                        <div className="text-xs">${booking.total_price_dollars}</div>
+                        {booking.coi_required && (
+                          <div className="text-xs text-orange-600 font-medium">COI Required</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDayView = () => {
+    const dayData = getDayData();
+    
+    if (!dayData?.data || !dayData.data.bookings || dayData.data.bookings.length === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-medium text-navy-900">
+              {dayData?.date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </h3>
+          </CardHeader>
+          <CardContent className="p-12 text-center">
+            <p className="text-navy-600">No bookings scheduled for this date</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <h3 className="text-lg font-medium text-navy-900">
+            {dayData.date.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h3>
+          <p className="text-navy-600">{dayData.data.bookings.length} bookings scheduled</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dayData.data.bookings.map(booking => (
+            <Card key={booking.id} variant="elevated">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="font-semibold text-navy-900">{booking.booking_number}</h4>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        booking.status === 'completed' 
+                          ? 'bg-green-100 text-green-800'
+                          : booking.status === 'paid'
+                          ? 'bg-blue-100 text-blue-800'
+                          : booking.status === 'confirmed'
+                          ? 'bg-purple-100 text-purple-800'
+                          : booking.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm text-navy-700">
+                      <div>
+                        <p><strong className="text-navy-900">Customer:</strong> {booking.customer_name}</p>
+                        <p><strong className="text-navy-900">Service:</strong> {booking.service_type}</p>
+                        <p><strong className="text-navy-900">Time:</strong> {booking.pickup_time}</p>
+                      </div>
+                      <div>
+                        <p><strong className="text-navy-900">Total:</strong> ${booking.total_price_dollars}</p>
+                        {booking.coi_required && (
+                          <p className="text-orange-600 font-medium">COI Required</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col space-y-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => handleBookingClick(booking, e)}
+                    >
+                      Quick Edit
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => router.push(`/staff/bookings/${booking.id}`)}
+                    >
+                      Full Details
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {dayData.data.surcharges && dayData.data.surcharges.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <h4 className="font-medium text-amber-800 mb-2">Active Surcharges</h4>
+                {dayData.data.surcharges.map((surcharge, index) => (
+                  <p key={index} className="text-sm text-amber-700">
+                    • {surcharge.name}: {surcharge.description}
+                  </p>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Calendar Header */}
@@ -6939,21 +8045,39 @@ export function BookingCalendar() {
           <h1 className="text-2xl font-serif font-bold text-navy-900">
             Booking Calendar
           </h1>
+          
+          {/* View Mode Selector */}
+          <div className="flex items-center space-x-2 bg-navy-100 rounded-lg p-1">
+            {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
+              <button
+                key={mode}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === mode 
+                    ? 'bg-navy-900 text-white' 
+                    : 'text-navy-700 hover:bg-navy-200'
+                }`}
+                onClick={() => setViewMode(mode)}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
+          </div>
+          
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigateMonth('prev')}
+              onClick={() => navigate('prev')}
             >
               ←
             </Button>
-            <h2 className="text-lg font-medium min-w-[140px] text-center">
-              {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+            <h2 className="text-lg font-medium min-w-[200px] text-center text-navy-900">
+              {getDisplayTitle()}
             </h2>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigateMonth('next')}
+              onClick={() => navigate('next')}
             >
               →
             </Button>
@@ -6973,121 +8097,488 @@ export function BookingCalendar() {
           <div className="flex items-center space-x-6 text-sm">
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-              <span>Available</span>
+              <span className="text-navy-700">No bookings</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></div>
-              <span>Moderate</span>
+              <span className="text-navy-700">Light (1-2)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-amber-100 border border-amber-300 rounded"></div>
-              <span>Busy</span>
+              <span className="text-navy-700">Busy (3-4)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-              <span>Full</span>
+              <span className="text-navy-700">Heavy (5+)</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Calendar Grid */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="grid grid-cols-7 gap-0">
-            {/* Header row */}
-            {WEEKDAYS.map(day => (
-              <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500 text-center border-b">
-                {day}
-              </div>
-            ))}
-            
-            {/* Calendar days */}
-            {calendarDays.map((day, index) => (
-              <div
-                key={index}
-                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getCapacityColor(day)} ${
-                  !day.isCurrentMonth ? 'opacity-30' : ''
-                } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
-                onClick={() => setSelectedDate(day.dateStr)}
-              >
-                <div className="flex items-start justify-between">
-                  <span className={`text-sm font-medium ${
-                    day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                  }`}>
-                    {day.date.getDate()}
-                  </span>
-                  
-                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
-                    <span className="text-amber-600 text-xs">!</span>
-                  )}
-                </div>
-                
-                {day.data && (
-                  <div className="mt-1 space-y-1">
-                    <div className="text-xs text-gray-600">
-                      {day.data.capacity_used}/{day.data.max_capacity} bookings
-                    </div>
-                    
-                    {day.data.bookings?.slice(0, 2).map(booking => (
-                      <div
-                        key={booking.id}
-                        className={`text-xs p-1 rounded truncate ${
-                          booking.status === 'pending'
-                            ? 'bg-amber-200 text-amber-800'
-                            : booking.status === 'confirmed'
-                            ? 'bg-blue-200 text-blue-800'
-                            : 'bg-green-200 text-green-800'
-                        }`}
-                      >
-                        {booking.booking_number}
-                      </div>
-                    ))}
-                    
-                    {day.data.bookings && day.data.bookings.length > 2 && (
-                      <div className="text-xs text-gray-500">
-                        +{day.data.bookings.length - 2} more
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Calendar Views */}
+      {viewMode === 'month' && renderMonthView()}
+      {viewMode === 'week' && renderWeekView()}
+      {viewMode === 'day' && renderDayView()}
 
-      {/* Selected Date Details */}
-      {selectedDate && (
-        <SelectedDateDetails
-          date={selectedDate}
-          onClose={() => setSelectedDate(null)}
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <BookingDetailModal
+          bookingId={selectedBooking}
+          isOpen={!!selectedBooking}
+          onClose={() => setSelectedBooking(null)}
         />
       )}
     </div>
   );
 }
+```
 
-function SelectedDateDetails({ date, onClose }: { date: string; onClose: () => void }) {
+# ==== src/components/staff/booking-detail-modal.tsx ====
+
+```
+// src/components/staff/booking-detail-modal.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { Modal } from '@/components/ui/modal';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+
+interface BookingDetailModalProps {
+  bookingId: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface Address {
+  address_line_1: string;
+  address_line_2: string;
+  city: string;
+  state: string;
+  zip_code: string;
+}
+
+interface BookingFormData {
+  status: string;
+  pickup_date: string;
+  pickup_time: string;
+  special_instructions: string;
+  coi_required: boolean;
+  pickup_address: Address;
+  delivery_address: Address;
+}
+
+interface BookingDetail {
+  booking: {
+    id: string;
+    booking_number: string;
+    service_type: string;
+    status: string;
+    pickup_date: string;
+    pickup_time: string;
+    pickup_address: Address;
+    delivery_address: Address;
+    special_instructions: string;
+    coi_required: boolean;
+    total_price_dollars: number;
+    pricing_breakdown: any;
+    created_at: string;
+    updated_at: string;
+  };
+  customer?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    is_vip: boolean;
+  };
+  guest_checkout?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
+  payment?: {
+    id: string;
+    status: string;
+    amount_dollars: number;
+  };
+}
+
+export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetailModalProps) {
+  const [activeTab, setActiveTab] = useState('general');
+  const [formData, setFormData] = useState<BookingFormData>({
+    status: '',
+    pickup_date: '',
+    pickup_time: '',
+    special_instructions: '',
+    coi_required: false,
+    pickup_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    },
+    delivery_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    }
+  });
+  
+  const queryClient = useQueryClient();
+
+  const { data: bookingDetail, isLoading } = useQuery({
+    queryKey: ['staff', 'booking', bookingId],
+    queryFn: async (): Promise<BookingDetail> => {
+      const response = await apiClient.get(`/api/staff/bookings/${bookingId}/`);
+      return response.data;
+    },
+    enabled: isOpen && !!bookingId,
+  });
+
+  const updateBookingMutation = useMutation({
+    mutationFn: async (updates: Partial<BookingFormData>) => {
+      const response = await apiClient.patch(`/api/staff/bookings/${bookingId}/`, updates);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['calendar', 'availability'] });
+      queryClient.invalidateQueries({ queryKey: ['staff', 'bookings'] });
+    }
+  });
+
+  useEffect(() => {
+    if (bookingDetail) {
+      setFormData({
+        status: bookingDetail.booking.status,
+        pickup_date: bookingDetail.booking.pickup_date,
+        pickup_time: bookingDetail.booking.pickup_time,
+        special_instructions: bookingDetail.booking.special_instructions || '',
+        coi_required: bookingDetail.booking.coi_required,
+        pickup_address: { ...bookingDetail.booking.pickup_address },
+        delivery_address: { ...bookingDetail.booking.delivery_address },
+      });
+    }
+  }, [bookingDetail]);
+
+  const handleSave = () => {
+    // Only send changed fields
+    const updates: Partial<BookingFormData> = {};
+    if (formData.status !== bookingDetail?.booking.status) {
+      updates.status = formData.status;
+    }
+    if (Object.keys(updates).length > 0) {
+      updateBookingMutation.mutate(updates);
+    }
+  };
+
+  const statusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const pickupTimeOptions = [
+    { value: 'morning', label: '8 AM - 11 AM' },
+    { value: 'morning_specific', label: 'Specific 1-hour window' },
+    { value: 'no_time_preference', label: 'No time preference' },
+  ];
+
+  const stateOptions = [
+    { value: 'NY', label: 'New York' },
+    { value: 'CT', label: 'Connecticut' },
+    { value: 'NJ', label: 'New Jersey' },
+  ];
+
+  const tabs = [
+    { id: 'general', label: 'General' },
+    { id: 'addresses', label: 'Addresses' },
+    { id: 'services', label: 'Services' },
+    { id: 'pricing', label: 'Pricing' },
+    { id: 'customer', label: 'Customer' },
+  ];
+
+  if (isLoading || !bookingDetail) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} size="xl" title="Loading...">
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-navy-900"></div>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <h3 className="text-lg font-medium">
-          {new Date(date).toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </h3>
-        <Button variant="ghost" onClick={onClose}>
-          ×
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">Detailed booking information for this date would appear here.</p>
-      </CardContent>
-    </Card>
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      size="xl" 
+      title={`Booking ${bookingDetail.booking.booking_number}`}
+      description={`${bookingDetail.booking.service_type} • ${bookingDetail.customer?.name || 'Guest'}`}
+    >
+      <div className="space-y-6">
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <div className="flex space-x-8">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-navy-500 text-navy-600'
+                    : 'border-transparent text-navy-500 hover:text-navy-700 hover:border-navy-300'
+                }`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="max-h-96 overflow-y-auto">
+          {activeTab === 'general' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  label="Status"
+                  options={statusOptions}
+                  value={formData.status}
+                  onChange={(e) => setFormData((prev: BookingFormData) => ({ ...prev, status: e.target.value }))}
+                />
+                <Input
+                  label="Service Type"
+                  value={bookingDetail.booking.service_type}
+                  disabled
+                  className="bg-gray-100"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Pickup Date"
+                  type="date"
+                  value={formData.pickup_date}
+                  onChange={(e) => setFormData((prev: BookingFormData) => ({ ...prev, pickup_date: e.target.value }))}
+                />
+                <Select
+                  label="Pickup Time"
+                  options={pickupTimeOptions}
+                  value={formData.pickup_time}
+                  onChange={(e) => setFormData((prev: BookingFormData) => ({ ...prev, pickup_time: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-navy-900 mb-1">
+                  Special Instructions
+                </label>
+                <textarea
+                  value={formData.special_instructions}
+                  onChange={(e) => setFormData((prev: BookingFormData) => ({ ...prev, special_instructions: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="coi_required"
+                  checked={formData.coi_required}
+                  onChange={(e) => setFormData((prev: BookingFormData) => ({ ...prev, coi_required: e.target.checked }))}
+                  className="mr-2"
+                />
+                <label htmlFor="coi_required" className="text-sm text-navy-900">
+                  COI Required
+                </label>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'addresses' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Input
+                    label="Street Address"
+                    value={formData.pickup_address.address_line_1}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      pickup_address: { ...prev.pickup_address, address_line_1: e.target.value }
+                    }))}
+                  />
+                  <Input
+                    label="Apartment, Suite, etc."
+                    value={formData.pickup_address.address_line_2}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      pickup_address: { ...prev.pickup_address, address_line_2: e.target.value }
+                    }))}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="City"
+                      value={formData.pickup_address.city}
+                      onChange={(e) => setFormData((prev: BookingFormData) => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, city: e.target.value }
+                      }))}
+                    />
+                    <Select
+                      label="State"
+                      options={stateOptions}
+                      value={formData.pickup_address.state}
+                      onChange={(e) => setFormData((prev: BookingFormData) => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, state: e.target.value }
+                      }))}
+                    />
+                  </div>
+                  <Input
+                    label="ZIP Code"
+                    value={formData.pickup_address.zip_code}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      pickup_address: { ...prev.pickup_address, zip_code: e.target.value }
+                    }))}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Input
+                    label="Street Address"
+                    value={formData.delivery_address.address_line_1}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      delivery_address: { ...prev.delivery_address, address_line_1: e.target.value }
+                    }))}
+                  />
+                  <Input
+                    label="Apartment, Suite, etc."
+                    value={formData.delivery_address.address_line_2}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      delivery_address: { ...prev.delivery_address, address_line_2: e.target.value }
+                    }))}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="City"
+                      value={formData.delivery_address.city}
+                      onChange={(e) => setFormData((prev: BookingFormData) => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, city: e.target.value }
+                      }))}
+                    />
+                    <Select
+                      label="State"
+                      options={stateOptions}
+                      value={formData.delivery_address.state}
+                      onChange={(e) => setFormData((prev: BookingFormData) => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, state: e.target.value }
+                      }))}
+                    />
+                  </div>
+                  <Input
+                    label="ZIP Code"
+                    value={formData.delivery_address.zip_code}
+                    onChange={(e) => setFormData((prev: BookingFormData) => ({
+                      ...prev,
+                      delivery_address: { ...prev.delivery_address, zip_code: e.target.value }
+                    }))}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'customer' && (
+            <div className="space-y-4">
+              {bookingDetail.customer ? (
+                <Card>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p><strong>Name:</strong> {bookingDetail.customer.name}</p>
+                      <p><strong>Email:</strong> {bookingDetail.customer.email}</p>
+                      <p><strong>Phone:</strong> {bookingDetail.customer.phone}</p>
+                      <p><strong>VIP Status:</strong> {bookingDetail.customer.is_vip ? 'Yes' : 'No'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : bookingDetail.guest_checkout ? (
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Guest Customer</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p><strong>Name:</strong> {bookingDetail.guest_checkout.first_name} {bookingDetail.guest_checkout.last_name}</p>
+                      <p><strong>Email:</strong> {bookingDetail.guest_checkout.email}</p>
+                      <p><strong>Phone:</strong> {bookingDetail.guest_checkout.phone}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <p>No customer information available</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'pricing' && (
+            <Card>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Total:</span>
+                    <span className="font-semibold">${bookingDetail.booking.total_price_dollars}</span>
+                  </div>
+                  <div className="text-sm text-navy-600">
+                    <p>Created: {new Date(bookingDetail.booking.created_at).toLocaleString()}</p>
+                    <p>Updated: {new Date(bookingDetail.booking.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleSave}
+            disabled={updateBookingMutation.isPending}
+          >
+            {updateBookingMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 ```
@@ -7731,12 +9222,12 @@ function CustomerDetailPanel({ customer }: { customer: CustomerProfile }) {
 # ==== src/components/staff/index.ts ====
 
 ```
-// Staff component exports
 // frontend/src/components/staff/index.ts
 export { StaffLoginForm } from './staff-login-form';
 export { StaffDashboardOverview } from './staff-dashboard-overview';
 export { BookingManagement } from './booking-management';
 export { BookingCalendar } from './booking-calendar';
+export { BookingDetailModal } from './booking-detail-modal'; // Add this line
 export { CustomerManagement } from './customer-management';
 export { StaffLayout } from './staff-layout';
 ```
