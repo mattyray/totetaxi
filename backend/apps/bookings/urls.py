@@ -18,4 +18,6 @@ urlpatterns = [
     
     # Booking status lookup
     path('booking-status/<str:booking_number>/', views.BookingStatusView.as_view(), name='booking-status'),
+    path('calendar/availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
+
 ]

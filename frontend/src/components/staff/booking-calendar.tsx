@@ -22,8 +22,6 @@ interface CalendarDay {
   date: string;
   available: boolean;
   is_weekend: boolean;
-  capacity_used: number;
-  max_capacity: number;
   bookings: CalendarBooking[];
   surcharges: Array<{ name: string; type: string; description: string }>;
 }
@@ -119,15 +117,14 @@ export function BookingCalendar() {
 
   const calendarDays = getCalendarDays();
 
-  // Get capacity color
-  const getCapacityColor = (day: any) => {
-    if (!day.data) return 'bg-gray-100';
-    const { capacity_used, max_capacity } = day.data;
-    const utilization = capacity_used / max_capacity;
+  // Get booking color based on count instead of capacity
+  const getBookingColor = (day: any) => {
+    if (!day.data || !day.data.bookings) return 'bg-gray-100';
     
-    if (utilization >= 1) return 'bg-red-100 border-red-300';
-    if (utilization >= 0.8) return 'bg-amber-100 border-amber-300';
-    if (utilization >= 0.5) return 'bg-yellow-100 border-yellow-300';
+    const bookingCount = day.data.bookings.length;
+    if (bookingCount >= 5) return 'bg-red-100 border-red-300';
+    if (bookingCount >= 3) return 'bg-amber-100 border-amber-300';
+    if (bookingCount >= 1) return 'bg-yellow-100 border-yellow-300';
     return 'bg-green-100 border-green-300';
   };
 
@@ -175,25 +172,25 @@ export function BookingCalendar() {
         </div>
       </div>
 
-      {/* Calendar Legend */}
+      {/* Updated Calendar Legend */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center space-x-6 text-sm">
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-              <span>Available</span>
+              <span>No bookings</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></div>
-              <span>Moderate</span>
+              <span>Light (1-2)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-amber-100 border border-amber-300 rounded"></div>
-              <span>Busy</span>
+              <span>Busy (3-4)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-              <span>Full</span>
+              <span>Heavy (5+)</span>
             </div>
           </div>
         </CardContent>
@@ -214,7 +211,7 @@ export function BookingCalendar() {
             {calendarDays.map((day, index) => (
               <div
                 key={index}
-                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getCapacityColor(day)} ${
+                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
                   !day.isCurrentMonth ? 'opacity-30' : ''
                 } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
                 onClick={() => setSelectedDate(day.dateStr)}
@@ -233,9 +230,7 @@ export function BookingCalendar() {
                 
                 {day.data && (
                   <div className="mt-1 space-y-1">
-                    <div className="text-xs text-gray-600">
-                      {day.data.capacity_used}/{day.data.max_capacity} bookings
-                    </div>
+                    {/* Removed booking count display */}
                     
                     {day.data.bookings?.slice(0, 2).map(booking => (
                       <div

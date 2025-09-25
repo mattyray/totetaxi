@@ -229,10 +229,9 @@ class PricingPreviewView(APIView):
             'details': details,
             'pickup_date': pickup_date
         })
-
-
+    
 class CalendarAvailabilityView(APIView):
-    """Enhanced calendar data with booking counts and details for staff dashboard"""
+    """Calendar data with booking details - no capacity limits"""
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
@@ -255,10 +254,6 @@ class CalendarAvailabilityView(APIView):
                 pickup_date=current_date,
                 deleted_at__isnull=True
             ).select_related('customer', 'guest_checkout')
-            
-            # Calculate capacity (adjust this logic based on your business rules)
-            max_capacity = 10  # You can make this dynamic based on date/day of week
-            capacity_used = bookings_today.count()
             
             # Get surcharges for this date
             surcharges = []
@@ -286,12 +281,11 @@ class CalendarAvailabilityView(APIView):
             
             availability.append({
                 'date': current_date.isoformat(),
-                'available': capacity_used < max_capacity,
+                'available': True,  # Always available - no capacity limits
                 'is_weekend': current_date.weekday() >= 5,
-                'capacity_used': capacity_used,
-                'max_capacity': max_capacity,
                 'bookings': booking_list,
                 'surcharges': surcharges
+                # Removed: 'capacity_used', 'max_capacity'
             })
             
             current_date += timedelta(days=1)
@@ -301,7 +295,6 @@ class CalendarAvailabilityView(APIView):
             'start_date': start_date.isoformat(),
             'end_date': end_date.isoformat()
         })
-
 
 class GuestBookingCreateView(generics.CreateAPIView):
     """Create booking for guest (non-authenticated) users with payment integration"""
