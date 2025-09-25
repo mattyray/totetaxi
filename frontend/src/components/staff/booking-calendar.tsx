@@ -1,11 +1,12 @@
+// frontend/src/components/staff/booking-calendar.tsx
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { BookingDetailModal } from './booking-detail-modal';
 
 interface CalendarBooking {
   id: string;
@@ -32,6 +33,8 @@ interface CalendarData {
   end_date: string;
 }
 
+type ViewMode = 'month' | 'week' | 'day';
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -42,7 +45,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function BookingCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
 
   // Get start of month for API call
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -52,19 +56,6 @@ export function BookingCalendar() {
     queryKey: ['calendar', 'availability', startOfMonth.toISOString().split('T')[0]],
     queryFn: async (): Promise<CalendarData> => {
       const response = await apiClient.get('/api/public/calendar/availability/', {
-        params: {
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0]
-        }
-      });
-      return response.data;
-    }
-  });
-
-  const { data: bookingsData } = useQuery({
-    queryKey: ['staff', 'bookings', 'calendar', startOfMonth.toISOString().split('T')[0]],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/staff/bookings/', {
         params: {
           start_date: startOfMonth.toISOString().split('T')[0],
           end_date: endOfMonth.toISOString().split('T')[0]
@@ -85,12 +76,17 @@ export function BookingCalendar() {
     setCurrentDate(newDate);
   };
 
+  // Handle booking click
+  const handleBookingClick = (booking: CalendarBooking, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger day selection
+    setSelectedBooking(booking.id);
+  };
+
   // Get calendar grid
   const getCalendarDays = () => {
     if (!calendarData) return [];
     
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
     const startDate = new Date(firstDayOfMonth);
     startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay());
     
@@ -119,7 +115,7 @@ export function BookingCalendar() {
 
   // Get booking color based on count instead of capacity
   const getBookingColor = (day: any) => {
-    if (!day.data || !day.data.bookings) return 'bg-gray-100';
+    if (!day.data || !day.data.bookings) return 'bg-gray-50';
     
     const bookingCount = day.data.bookings.length;
     if (bookingCount >= 5) return 'bg-red-100 border-red-300';
@@ -136,6 +132,70 @@ export function BookingCalendar() {
     );
   }
 
+  const renderMonthView = () => (
+    <Card>
+      <CardContent className="p-0">
+        <div className="grid grid-cols-7 gap-0">
+          {/* Header row */}
+          {WEEKDAYS.map(day => (
+            <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-navy-800 text-center border-b">
+              {day}
+            </div>
+          ))}
+          
+          {/* Calendar days */}
+          {calendarDays.map((day, index) => (
+            <div
+              key={index}
+              className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
+                !day.isCurrentMonth ? 'opacity-30' : ''
+              } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
+              onClick={() => setSelectedDate(day.dateStr)}
+            >
+              <div className="flex items-start justify-between">
+                <span className={`text-sm font-medium ${
+                  day.isCurrentMonth ? 'text-navy-800' : 'text-navy-400'
+                }`}>
+                  {day.date.getDate()}
+                </span>
+                
+                {day.data?.surcharges && day.data.surcharges.length > 0 && (
+                  <span className="text-amber-600 text-xs">!</span>
+                )}
+              </div>
+              
+              {day.data && (
+                <div className="mt-1 space-y-1">
+                  {day.data.bookings?.slice(0, 2).map(booking => (
+                    <div
+                      key={booking.id}
+                      className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-75 ${
+                        booking.status === 'pending'
+                          ? 'bg-amber-200 text-amber-800'
+                          : booking.status === 'confirmed'
+                          ? 'bg-blue-200 text-blue-800'
+                          : 'bg-green-200 text-green-800'
+                      }`}
+                      onClick={(e) => handleBookingClick(booking, e)}
+                    >
+                      {booking.booking_number}
+                    </div>
+                  ))}
+                  
+                  {day.data.bookings && day.data.bookings.length > 2 && (
+                    <div className="text-xs text-navy-600">
+                      +{day.data.bookings.length - 2} more
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       {/* Calendar Header */}
@@ -144,6 +204,24 @@ export function BookingCalendar() {
           <h1 className="text-2xl font-serif font-bold text-navy-900">
             Booking Calendar
           </h1>
+          
+          {/* View Mode Selector */}
+          <div className="flex items-center space-x-2 bg-navy-100 rounded-lg p-1">
+            {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
+              <button
+                key={mode}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === mode 
+                    ? 'bg-navy-900 text-white' 
+                    : 'text-navy-700 hover:bg-navy-200'
+                }`}
+                onClick={() => setViewMode(mode)}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
+          </div>
+          
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
@@ -152,7 +230,7 @@ export function BookingCalendar() {
             >
               ←
             </Button>
-            <h2 className="text-lg font-medium min-w-[140px] text-center">
+            <h2 className="text-lg font-medium min-w-[140px] text-center text-navy-900">
               {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h2>
             <Button
@@ -178,118 +256,37 @@ export function BookingCalendar() {
           <div className="flex items-center space-x-6 text-sm">
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-              <span>No bookings</span>
+              <span className="text-navy-700">No bookings</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></div>
-              <span>Light (1-2)</span>
+              <span className="text-navy-700">Light (1-2)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-amber-100 border border-amber-300 rounded"></div>
-              <span>Busy (3-4)</span>
+              <span className="text-navy-700">Busy (3-4)</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-              <span>Heavy (5+)</span>
+              <span className="text-navy-700">Heavy (5+)</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Calendar Grid */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="grid grid-cols-7 gap-0">
-            {/* Header row */}
-            {WEEKDAYS.map(day => (
-              <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500 text-center border-b">
-                {day}
-              </div>
-            ))}
-            
-            {/* Calendar days */}
-            {calendarDays.map((day, index) => (
-              <div
-                key={index}
-                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
-                  !day.isCurrentMonth ? 'opacity-30' : ''
-                } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
-                onClick={() => setSelectedDate(day.dateStr)}
-              >
-                <div className="flex items-start justify-between">
-                  <span className={`text-sm font-medium ${
-                    day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                  }`}>
-                    {day.date.getDate()}
-                  </span>
-                  
-                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
-                    <span className="text-amber-600 text-xs">!</span>
-                  )}
-                </div>
-                
-                {day.data && (
-                  <div className="mt-1 space-y-1">
-                    {/* Removed booking count display */}
-                    
-                    {day.data.bookings?.slice(0, 2).map(booking => (
-                      <div
-                        key={booking.id}
-                        className={`text-xs p-1 rounded truncate ${
-                          booking.status === 'pending'
-                            ? 'bg-amber-200 text-amber-800'
-                            : booking.status === 'confirmed'
-                            ? 'bg-blue-200 text-blue-800'
-                            : 'bg-green-200 text-green-800'
-                        }`}
-                      >
-                        {booking.booking_number}
-                      </div>
-                    ))}
-                    
-                    {day.data.bookings && day.data.bookings.length > 2 && (
-                      <div className="text-xs text-gray-500">
-                        +{day.data.bookings.length - 2} more
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Calendar Views */}
+      {viewMode === 'month' && renderMonthView()}
+      {viewMode === 'week' && <div className="text-center py-12 text-navy-600">Week view coming soon...</div>}
+      {viewMode === 'day' && <div className="text-center py-12 text-navy-600">Day view coming soon...</div>}
 
-      {/* Selected Date Details */}
-      {selectedDate && (
-        <SelectedDateDetails
-          date={selectedDate}
-          onClose={() => setSelectedDate(null)}
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <BookingDetailModal
+          bookingId={selectedBooking}
+          isOpen={!!selectedBooking}
+          onClose={() => setSelectedBooking(null)}
         />
       )}
     </div>
-  );
-}
-
-function SelectedDateDetails({ date, onClose }: { date: string; onClose: () => void }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <h3 className="text-lg font-medium">
-          {new Date(date).toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </h3>
-        <Button variant="ghost" onClick={onClose}>
-          ×
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">Detailed booking information for this date would appear here.</p>
-      </CardContent>
-    </Card>
   );
 }
