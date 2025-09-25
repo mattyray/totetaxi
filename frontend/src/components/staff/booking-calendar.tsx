@@ -1,8 +1,9 @@
-// src/components/staff/booking-calendar.tsx - UPDATE the existing file
+// src/components/staff/booking-calendar.tsx
 'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ export function BookingCalendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const router = useRouter();
 
   // Get date range based on view mode
   const getDateRange = () => {
@@ -106,6 +108,13 @@ export function BookingCalendar() {
       }
     }
     setCurrentDate(newDate);
+  };
+
+  // Handle day click - switch to day view
+  const handleDayClick = (dateStr: string) => {
+    const clickedDate = new Date(dateStr);
+    setCurrentDate(clickedDate);
+    setViewMode('day');
   };
 
   // Handle booking click
@@ -244,7 +253,7 @@ export function BookingCalendar() {
                 className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
                   !day.isCurrentMonth ? 'opacity-30' : ''
                 } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
-                onClick={() => setSelectedDate(day.dateStr)}
+                onClick={() => handleDayClick(day.dateStr)}
               >
                 <div className="flex items-start justify-between">
                   <span className={`text-sm font-medium ${
@@ -315,7 +324,7 @@ export function BookingCalendar() {
                 className={`min-h-[200px] p-3 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
                   day.isToday ? 'ring-2 ring-navy-500' : ''
                 }`}
-                onClick={() => setSelectedDate(day.dateStr)}
+                onClick={() => handleDayClick(day.dateStr)}
               >
                 <div className="flex items-start justify-between mb-2">
                   {day.data?.surcharges && day.data.surcharges.length > 0 && (
@@ -359,8 +368,114 @@ export function BookingCalendar() {
   };
 
   const renderDayView = () => {
+    const dayData = getDayData();
+    
+    if (!dayData?.data || !dayData.data.bookings || dayData.data.bookings.length === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-medium text-navy-900">
+              {dayData?.date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </h3>
+          </CardHeader>
+          <CardContent className="p-12 text-center">
+            <p className="text-navy-600">No bookings scheduled for this date</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
-      <div className="text-center py-12 text-navy-600">Day view coming soon...</div>
+      <Card>
+        <CardHeader>
+          <h3 className="text-lg font-medium text-navy-900">
+            {dayData.date.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h3>
+          <p className="text-navy-600">{dayData.data.bookings.length} bookings scheduled</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dayData.data.bookings.map(booking => (
+            <Card key={booking.id} variant="elevated">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="font-semibold text-navy-900">{booking.booking_number}</h4>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        booking.status === 'completed' 
+                          ? 'bg-green-100 text-green-800'
+                          : booking.status === 'paid'
+                          ? 'bg-blue-100 text-blue-800'
+                          : booking.status === 'confirmed'
+                          ? 'bg-purple-100 text-purple-800'
+                          : booking.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm text-navy-700">
+                      <div>
+                        <p><strong className="text-navy-900">Customer:</strong> {booking.customer_name}</p>
+                        <p><strong className="text-navy-900">Service:</strong> {booking.service_type}</p>
+                        <p><strong className="text-navy-900">Time:</strong> {booking.pickup_time}</p>
+                      </div>
+                      <div>
+                        <p><strong className="text-navy-900">Total:</strong> ${booking.total_price_dollars}</p>
+                        {booking.coi_required && (
+                          <p className="text-orange-600 font-medium">COI Required</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col space-y-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => handleBookingClick(booking, e)}
+                    >
+                      Quick Edit
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => router.push(`/staff/bookings/${booking.id}`)}
+                    >
+                      Full Details
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {dayData.data.surcharges && dayData.data.surcharges.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <h4 className="font-medium text-amber-800 mb-2">Active Surcharges</h4>
+                {dayData.data.surcharges.map((surcharge, index) => (
+                  <p key={index} className="text-sm text-amber-700">
+                    • {surcharge.name}: {surcharge.description}
+                  </p>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
     );
   };
 
@@ -418,7 +533,7 @@ export function BookingCalendar() {
         </div>
       </div>
 
-      {/* Updated Calendar Legend */}
+      {/* Calendar Legend */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center space-x-6 text-sm">
