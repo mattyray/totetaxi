@@ -1,4 +1,4 @@
-// frontend/src/components/staff/booking-calendar.tsx
+// src/components/staff/booking-calendar.tsx - UPDATE the existing file
 'use client';
 
 import { useState } from 'react';
@@ -40,7 +40,8 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function BookingCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -48,30 +49,61 @@ export function BookingCalendar() {
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
 
-  // Get start of month for API call
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  // Get date range based on view mode
+  const getDateRange = () => {
+    if (viewMode === 'month') {
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      return { startDate: startOfMonth, endDate: endOfMonth };
+    } else if (viewMode === 'week') {
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Go to Sunday
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // Go to Saturday
+      return { startDate: startOfWeek, endDate: endOfWeek };
+    } else {
+      // Day view
+      return { startDate: new Date(currentDate), endDate: new Date(currentDate) };
+    }
+  };
+
+  const { startDate, endDate } = getDateRange();
 
   const { data: calendarData, isLoading } = useQuery({
-    queryKey: ['calendar', 'availability', startOfMonth.toISOString().split('T')[0]],
+    queryKey: ['calendar', 'availability', viewMode, startDate.toISOString().split('T')[0]],
     queryFn: async (): Promise<CalendarData> => {
       const response = await apiClient.get('/api/public/calendar/availability/', {
         params: {
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0]
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0]
         }
       });
       return response.data;
     }
   });
 
-  // Navigate months
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  // Navigate based on view mode
+  const navigate = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
+    if (viewMode === 'month') {
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+    } else if (viewMode === 'week') {
+      if (direction === 'prev') {
+        newDate.setDate(newDate.getDate() - 7);
+      } else {
+        newDate.setDate(newDate.getDate() + 7);
+      }
     } else {
-      newDate.setMonth(newDate.getMonth() + 1);
+      // Day view
+      if (direction === 'prev') {
+        newDate.setDate(newDate.getDate() - 1);
+      } else {
+        newDate.setDate(newDate.getDate() + 1);
+      }
     }
     setCurrentDate(newDate);
   };
@@ -82,8 +114,8 @@ export function BookingCalendar() {
     setSelectedBooking(booking.id);
   };
 
-  // Get calendar grid
-  const getCalendarDays = () => {
+  // Get calendar grid for month view
+  const getMonthCalendarDays = () => {
     if (!calendarData) return [];
     
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -111,9 +143,46 @@ export function BookingCalendar() {
     return days;
   };
 
-  const calendarDays = getCalendarDays();
+  // Get week days for week view
+  const getWeekDays = () => {
+    if (!calendarData) return [];
+    
+    const days = [];
+    const weekStart = new Date(startDate);
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(weekStart);
+      currentDay.setDate(weekStart.getDate() + i);
+      const dateStr = currentDay.toISOString().split('T')[0];
+      const dayData = calendarData.availability.find(day => day.date === dateStr);
+      
+      days.push({
+        date: new Date(currentDay),
+        dateStr,
+        isToday: dateStr === new Date().toISOString().split('T')[0],
+        data: dayData
+      });
+    }
+    
+    return days;
+  };
 
-  // Get booking color based on count instead of capacity
+  // Get single day for day view
+  const getDayData = () => {
+    if (!calendarData) return null;
+    
+    const dateStr = currentDate.toISOString().split('T')[0];
+    const dayData = calendarData.availability.find(day => day.date === dateStr);
+    
+    return {
+      date: new Date(currentDate),
+      dateStr,
+      isToday: dateStr === new Date().toISOString().split('T')[0],
+      data: dayData
+    };
+  };
+
+  // Get booking color based on count
   const getBookingColor = (day: any) => {
     if (!day.data || !day.data.bookings) return 'bg-gray-50';
     
@@ -124,6 +193,28 @@ export function BookingCalendar() {
     return 'bg-green-100 border-green-300';
   };
 
+  // Get display title based on view mode
+  const getDisplayTitle = () => {
+    if (viewMode === 'month') {
+      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (viewMode === 'week') {
+      const weekStart = new Date(startDate);
+      const weekEnd = new Date(endDate);
+      if (weekStart.getMonth() === weekEnd.getMonth()) {
+        return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}-${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+      } else {
+        return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} - ${MONTHS[weekEnd.getMonth()]} ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+      }
+    } else {
+      return currentDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -132,69 +223,146 @@ export function BookingCalendar() {
     );
   }
 
-  const renderMonthView = () => (
-    <Card>
-      <CardContent className="p-0">
-        <div className="grid grid-cols-7 gap-0">
-          {/* Header row */}
-          {WEEKDAYS.map(day => (
-            <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-navy-800 text-center border-b">
-              {day}
-            </div>
-          ))}
-          
-          {/* Calendar days */}
-          {calendarDays.map((day, index) => (
-            <div
-              key={index}
-              className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
-                !day.isCurrentMonth ? 'opacity-30' : ''
-              } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
-              onClick={() => setSelectedDate(day.dateStr)}
-            >
-              <div className="flex items-start justify-between">
-                <span className={`text-sm font-medium ${
-                  day.isCurrentMonth ? 'text-navy-800' : 'text-navy-400'
-                }`}>
-                  {day.date.getDate()}
-                </span>
-                
-                {day.data?.surcharges && day.data.surcharges.length > 0 && (
-                  <span className="text-amber-600 text-xs">!</span>
-                )}
+  const renderMonthView = () => {
+    const calendarDays = getMonthCalendarDays();
+    
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-7 gap-0">
+            {/* Header row */}
+            {WEEKDAYS_SHORT.map(day => (
+              <div key={day} className="bg-gray-50 px-3 py-2 text-sm font-medium text-navy-800 text-center border-b">
+                {day}
               </div>
-              
-              {day.data && (
-                <div className="mt-1 space-y-1">
-                  {day.data.bookings?.slice(0, 2).map(booking => (
-                    <div
-                      key={booking.id}
-                      className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-75 ${
-                        booking.status === 'pending'
-                          ? 'bg-amber-200 text-amber-800'
-                          : booking.status === 'confirmed'
-                          ? 'bg-blue-200 text-blue-800'
-                          : 'bg-green-200 text-green-800'
-                      }`}
-                      onClick={(e) => handleBookingClick(booking, e)}
-                    >
-                      {booking.booking_number}
-                    </div>
-                  ))}
+            ))}
+            
+            {/* Calendar days */}
+            {calendarDays.map((day, index) => (
+              <div
+                key={index}
+                className={`min-h-[120px] p-2 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
+                  !day.isCurrentMonth ? 'opacity-30' : ''
+                } ${day.isToday ? 'ring-2 ring-navy-500' : ''}`}
+                onClick={() => setSelectedDate(day.dateStr)}
+              >
+                <div className="flex items-start justify-between">
+                  <span className={`text-sm font-medium ${
+                    day.isCurrentMonth ? 'text-navy-800' : 'text-navy-400'
+                  }`}>
+                    {day.date.getDate()}
+                  </span>
                   
-                  {day.data.bookings && day.data.bookings.length > 2 && (
-                    <div className="text-xs text-navy-600">
-                      +{day.data.bookings.length - 2} more
-                    </div>
+                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
+                    <span className="text-amber-600 text-xs">!</span>
                   )}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
+                
+                {day.data && (
+                  <div className="mt-1 space-y-1">
+                    {day.data.bookings?.slice(0, 2).map(booking => (
+                      <div
+                        key={booking.id}
+                        className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-75 ${
+                          booking.status === 'pending'
+                            ? 'bg-amber-200 text-amber-800'
+                            : booking.status === 'confirmed'
+                            ? 'bg-blue-200 text-blue-800'
+                            : 'bg-green-200 text-green-800'
+                        }`}
+                        onClick={(e) => handleBookingClick(booking, e)}
+                      >
+                        {booking.booking_number}
+                      </div>
+                    ))}
+                    
+                    {day.data.bookings && day.data.bookings.length > 2 && (
+                      <div className="text-xs text-navy-600">
+                        +{day.data.bookings.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderWeekView = () => {
+    const weekDays = getWeekDays();
+    
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-7 gap-0">
+            {/* Header row */}
+            {weekDays.map((day, index) => (
+              <div key={index} className="bg-gray-50 px-3 py-3 text-sm font-medium text-navy-800 text-center border-b">
+                <div className="font-semibold">{WEEKDAYS_SHORT[index]}</div>
+                <div className={`text-lg mt-1 ${day.isToday ? 'text-navy-900 font-bold' : 'text-navy-600'}`}>
+                  {day.date.getDate()}
+                </div>
+              </div>
+            ))}
+            
+            {/* Week days */}
+            {weekDays.map((day, index) => (
+              <div
+                key={index}
+                className={`min-h-[200px] p-3 border-r border-b cursor-pointer hover:bg-gray-50 ${getBookingColor(day)} ${
+                  day.isToday ? 'ring-2 ring-navy-500' : ''
+                }`}
+                onClick={() => setSelectedDate(day.dateStr)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  {day.data?.surcharges && day.data.surcharges.length > 0 && (
+                    <span className="text-amber-600 text-xs bg-amber-100 px-1 rounded">Surcharge</span>
+                  )}
+                </div>
+                
+                {day.data && (
+                  <div className="space-y-2">
+                    {day.data.bookings?.map(booking => (
+                      <div
+                        key={booking.id}
+                        className={`text-xs p-2 rounded cursor-pointer hover:opacity-75 ${
+                          booking.status === 'pending'
+                            ? 'bg-amber-200 text-amber-800'
+                            : booking.status === 'confirmed'
+                            ? 'bg-blue-200 text-blue-800'
+                            : booking.status === 'paid'
+                            ? 'bg-green-200 text-green-800'
+                            : 'bg-gray-200 text-gray-800'
+                        }`}
+                        onClick={(e) => handleBookingClick(booking, e)}
+                      >
+                        <div className="font-semibold">{booking.booking_number}</div>
+                        <div className="text-xs mt-1">{booking.customer_name}</div>
+                        <div className="text-xs">{booking.service_type}</div>
+                        <div className="text-xs">${booking.total_price_dollars}</div>
+                        {booking.coi_required && (
+                          <div className="text-xs text-orange-600 font-medium">COI Required</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDayView = () => {
+    return (
+      <div className="text-center py-12 text-navy-600">Day view coming soon...</div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -226,17 +394,17 @@ export function BookingCalendar() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigateMonth('prev')}
+              onClick={() => navigate('prev')}
             >
               ←
             </Button>
-            <h2 className="text-lg font-medium min-w-[140px] text-center text-navy-900">
-              {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+            <h2 className="text-lg font-medium min-w-[200px] text-center text-navy-900">
+              {getDisplayTitle()}
             </h2>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigateMonth('next')}
+              onClick={() => navigate('next')}
             >
               →
             </Button>
@@ -276,8 +444,8 @@ export function BookingCalendar() {
 
       {/* Calendar Views */}
       {viewMode === 'month' && renderMonthView()}
-      {viewMode === 'week' && <div className="text-center py-12 text-navy-600">Week view coming soon...</div>}
-      {viewMode === 'day' && <div className="text-center py-12 text-navy-600">Day view coming soon...</div>}
+      {viewMode === 'week' && renderWeekView()}
+      {viewMode === 'day' && renderDayView()}
 
       {/* Booking Detail Modal */}
       {selectedBooking && (
