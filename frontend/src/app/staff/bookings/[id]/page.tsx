@@ -1,4 +1,3 @@
-// frontend/src/app/staff/bookings/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -26,6 +25,8 @@ interface BookingFormData {
   pickup_time: string;
   special_instructions: string;
   coi_required: boolean;
+  pickup_address: Address;
+  delivery_address: Address;
 }
 
 export default function BookingDetailPage() {
@@ -42,6 +43,20 @@ export default function BookingDetailPage() {
     pickup_time: '',
     special_instructions: '',
     coi_required: false,
+    pickup_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    },
+    delivery_address: {
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      zip_code: ''
+    }
   });
 
   useEffect(() => {
@@ -79,6 +94,20 @@ export default function BookingDetailPage() {
         pickup_time: booking.booking.pickup_time || '',
         special_instructions: booking.booking.special_instructions || '',
         coi_required: booking.booking.coi_required || false,
+        pickup_address: booking.booking.pickup_address || {
+          address_line_1: '',
+          address_line_2: '',
+          city: '',
+          state: '',
+          zip_code: ''
+        },
+        delivery_address: booking.booking.delivery_address || {
+          address_line_1: '',
+          address_line_2: '',
+          city: '',
+          state: '',
+          zip_code: ''
+        }
       });
     }
   }, [booking]);
@@ -90,6 +119,14 @@ export default function BookingDetailPage() {
     if (formData.pickup_time !== booking?.booking?.pickup_time) updates.pickup_time = formData.pickup_time;
     if (formData.special_instructions !== booking?.booking?.special_instructions) updates.special_instructions = formData.special_instructions;
     if (formData.coi_required !== booking?.booking?.coi_required) updates.coi_required = formData.coi_required;
+    
+    // Check if addresses changed
+    if (JSON.stringify(formData.pickup_address) !== JSON.stringify(booking?.booking?.pickup_address)) {
+      updates.pickup_address = formData.pickup_address;
+    }
+    if (JSON.stringify(formData.delivery_address) !== JSON.stringify(booking?.booking?.delivery_address)) {
+      updates.delivery_address = formData.delivery_address;
+    }
 
     if (Object.keys(updates).length > 0) {
       updateBookingMutation.mutate(updates);
@@ -110,6 +147,12 @@ export default function BookingDetailPage() {
     { value: 'morning', label: '8 AM - 11 AM' },
     { value: 'morning_specific', label: 'Specific 1-hour window' },
     { value: 'no_time_preference', label: 'No time preference' },
+  ];
+
+  const stateOptions = [
+    { value: 'NY', label: 'New York' },
+    { value: 'CT', label: 'Connecticut' },
+    { value: 'NJ', label: 'New Jersey' },
   ];
 
   if (isLoading || !isAuthenticated || bookingLoading) {
@@ -283,40 +326,149 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Addresses */}
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
-              </CardHeader>
-              <CardContent>
-                <div className="text-navy-800">
-                  <div>{booking.booking?.pickup_address?.address_line_1}</div>
-                  {booking.booking?.pickup_address?.address_line_2 && (
-                    <div>{booking.booking.pickup_address.address_line_2}</div>
-                  )}
-                  <div>
-                    {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Address Editing Section - Only shown when editing */}
+            {isEditing ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Edit Pickup Address</h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="Street Address"
+                      value={formData.pickup_address.address_line_1}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, address_line_1: e.target.value }
+                      }))}
+                    />
+                    <Input
+                      label="Apartment, Suite, etc."
+                      value={formData.pickup_address.address_line_2}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, address_line_2: e.target.value }
+                      }))}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="City"
+                        value={formData.pickup_address.city}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          pickup_address: { ...prev.pickup_address, city: e.target.value }
+                        }))}
+                      />
+                      <Select
+                        label="State"
+                        options={stateOptions}
+                        value={formData.pickup_address.state}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          pickup_address: { ...prev.pickup_address, state: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <Input
+                      label="ZIP Code"
+                      value={formData.pickup_address.zip_code}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        pickup_address: { ...prev.pickup_address, zip_code: e.target.value }
+                      }))}
+                    />
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
-              </CardHeader>
-              <CardContent>
-                <div className="text-navy-800">
-                  <div>{booking.booking?.delivery_address?.address_line_1}</div>
-                  {booking.booking?.delivery_address?.address_line_2 && (
-                    <div>{booking.booking.delivery_address.address_line_2}</div>
-                  )}
-                  <div>
-                    {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Edit Delivery Address</h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="Street Address"
+                      value={formData.delivery_address.address_line_1}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, address_line_1: e.target.value }
+                      }))}
+                    />
+                    <Input
+                      label="Apartment, Suite, etc."
+                      value={formData.delivery_address.address_line_2}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, address_line_2: e.target.value }
+                      }))}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="City"
+                        value={formData.delivery_address.city}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          delivery_address: { ...prev.delivery_address, city: e.target.value }
+                        }))}
+                      />
+                      <Select
+                        label="State"
+                        options={stateOptions}
+                        value={formData.delivery_address.state}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          delivery_address: { ...prev.delivery_address, state: e.target.value }
+                        }))}
+                      />
+                    </div>
+                    <Input
+                      label="ZIP Code"
+                      value={formData.delivery_address.zip_code}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        delivery_address: { ...prev.delivery_address, zip_code: e.target.value }
+                      }))}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                {/* Static Address Display */}
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-navy-800">
+                      <div>{booking.booking?.pickup_address?.address_line_1}</div>
+                      {booking.booking?.pickup_address?.address_line_2 && (
+                        <div>{booking.booking.pickup_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-navy-800">
+                      <div>{booking.booking?.delivery_address?.address_line_1}</div>
+                      {booking.booking?.delivery_address?.address_line_2 && (
+                        <div>{booking.booking.delivery_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
 
             {/* Payment Information */}
             {booking.payment && (
