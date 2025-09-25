@@ -1,4 +1,3 @@
-# backend/apps/customers/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -8,6 +7,7 @@ from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
+from django.core.exceptions import ValidationError
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
     CustomerRegistrationSerializer, 
@@ -20,14 +20,33 @@ from .serializers import (
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerRegistrationView(generics.CreateAPIView):
-    """Register new customer account"""
+    """Register new customer account with hybrid account prevention"""
     serializer_class = CustomerRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        
+        # Check if user already exists with staff profile
+        email = serializer.validated_data['email']
+        try:
+            existing_user = User.objects.get(email__iexact=email)
+            if hasattr(existing_user, 'staff_profile'):
+                return Response(
+                    {'error': 'This email is already registered as a staff account. Please use a different email or contact support.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except User.DoesNotExist:
+            pass  # This is what we want - new email
+        
+        try:
+            user = serializer.save()
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         return Response({
             'message': 'Account created successfully',
@@ -39,7 +58,7 @@ class CustomerRegistrationView(generics.CreateAPIView):
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerLoginView(APIView):
-    """Customer login endpoint"""
+    """Customer login endpoint with profile type validation"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -47,6 +66,29 @@ class CustomerLoginView(APIView):
         serializer.is_valid(raise_exception=True)
         
         user = serializer.validated_data['user']
+        
+        # Ensure user has customer profile (not staff)
+        if not hasattr(user, 'customer_profile'):
+            if hasattr(user, 'staff_profile'):
+                return Response(
+                    {'error': 'This is a staff account. Please use the staff login.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': 'Account does not have a customer profile.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Additional security: Check for hybrid accounts
+        try:
+            CustomerProfile.ensure_single_profile_type(user)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         login(request, user)
         
         return Response({
@@ -59,20 +101,40 @@ class CustomerLoginView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Customer logout endpoint - CSRF exempt to handle logout failures gracefully"""
-    permission_classes = [permissions.AllowAny]  # Changed from IsAuthenticated
+    """Enhanced customer logout endpoint with complete session cleanup"""
+    permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        # Logout even if user is not authenticated (cleanup)
+        # Always logout, even if not authenticated (cleanup)
         logout(request)
-        return Response({'message': 'Logout successful'})
+        
+        # Force session cleanup
+        if hasattr(request, 'session'):
+            request.session.flush()
+        
+        response = Response({'message': 'Logout successful'})
+        
+        # Clear all possible auth cookies
+        auth_cookies = ['sessionid', 'csrftoken']
+        for cookie_name in auth_cookies:
+            response.delete_cookie(cookie_name)
+            # Also try with domain
+            response.delete_cookie(cookie_name, domain='.totetaxi.com')
+        
+        return response
 
 
 class CurrentUserView(APIView):
-    """Get current authenticated user info"""
+    """Get current authenticated user info with profile validation"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
+        # Ensure profile integrity
+        try:
+            CustomerProfile.ensure_single_profile_type(request.user)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
@@ -95,11 +157,18 @@ class CSRFTokenView(APIView):
 
 
 class CustomerProfileView(generics.RetrieveUpdateAPIView):
-    """Customer profile management"""
+    """Customer profile management with validation"""
     serializer_class = CustomerProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
+        # Ensure profile integrity
+        try:
+            CustomerProfile.ensure_single_profile_type(self.request.user)
+        except ValidationError as e:
+            from django.http import Http404
+            raise Http404(str(e))
+        
         return self.request.user.customer_profile
 
 

@@ -1,8 +1,8 @@
-# backend/apps/customers/models.py
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
@@ -47,6 +47,18 @@ class CustomerProfile(models.Model):
     class Meta:
         db_table = 'customers_profile'
     
+    def clean(self):
+        """Prevent hybrid accounts - users cannot have both staff and customer profiles"""
+        if self.user and hasattr(self.user, 'staff_profile'):
+            raise ValidationError(
+                f"User {self.user.email} already has a staff profile. "
+                "Users cannot have both staff and customer profiles."
+            )
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"Profile: {self.user.get_full_name()}"
     
@@ -60,6 +72,15 @@ class CustomerProfile(models.Model):
         self.total_spent_cents += booking_total_cents
         self.last_booking_at = timezone.now()
         self.save()
+
+    @classmethod
+    def ensure_single_profile_type(cls, user):
+        """Ensure user only has one type of profile"""
+        if hasattr(user, 'staff_profile') and hasattr(user, 'customer_profile'):
+            raise ValidationError(
+                f"User {user.email} cannot have both staff and customer profiles. "
+                "Please remove one profile type."
+            )
 
 
 class SavedAddress(models.Model):

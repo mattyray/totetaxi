@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 
 
@@ -37,8 +38,13 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Passwords don't match")
         
-        if User.objects.filter(email=attrs['email']).exists():
-            raise serializers.ValidationError("User with this email already exists")
+        # Check if email already exists
+        if User.objects.filter(email__iexact=attrs['email']).exists():
+            existing_user = User.objects.get(email__iexact=attrs['email'])
+            if hasattr(existing_user, 'staff_profile'):
+                raise serializers.ValidationError("This email is already registered as a staff account. Please use a different email.")
+            else:
+                raise serializers.ValidationError("User with this email already exists")
         
         return attrs
     
@@ -47,22 +53,29 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         validated_data.pop('password_confirm')
         phone = validated_data.pop('phone', '')
         
-        # Create User (use email as username for customers)
-        user = User.objects.create_user(
-            username=validated_data['email'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name']
-        )
-        
-        # Create CustomerProfile
-        CustomerProfile.objects.create(
-            user=user,
-            phone=phone
-        )
-        
-        return user
+        try:
+            # Create User (use email as username for customers)
+            user = User.objects.create_user(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name']
+            )
+            
+            # Create CustomerProfile with validation
+            CustomerProfile.objects.create(
+                user=user,
+                phone=phone
+            )
+            
+            return user
+            
+        except ValidationError as e:
+            # Clean up user if profile creation fails
+            if 'user' in locals():
+                user.delete()
+            raise serializers.ValidationError(str(e))
 
 
 class CustomerLoginSerializer(serializers.Serializer):
@@ -81,9 +94,18 @@ class CustomerLoginSerializer(serializers.Serializer):
                 if not user.is_active:
                     raise serializers.ValidationError("User account is disabled")
                 
-                # Ensure user has a customer profile
+                # Ensure user has a customer profile (not staff)
                 if not hasattr(user, 'customer_profile'):
-                    raise serializers.ValidationError("This is not a customer account")
+                    if hasattr(user, 'staff_profile'):
+                        raise serializers.ValidationError("This is a staff account. Please use the staff login.")
+                    else:
+                        raise serializers.ValidationError("This is not a customer account")
+                
+                # Additional hybrid account check
+                try:
+                    CustomerProfile.ensure_single_profile_type(user)
+                except ValidationError as e:
+                    raise serializers.ValidationError(str(e))
                 
                 attrs['user'] = user
                 return attrs
@@ -104,3 +126,15 @@ class SavedAddressSerializer(serializers.ModelSerializer):
             'formatted_address', 'times_used', 'last_used_at', 'is_active'
         )
         read_only_fields = ('id', 'times_used', 'last_used_at')
+
+
+class CustomerPaymentMethodSerializer(serializers.ModelSerializer):
+    display_name = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = CustomerPaymentMethod
+        fields = (
+            'id', 'stripe_payment_method_id', 'card_brand', 'card_last_four',
+            'card_exp_month', 'card_exp_year', 'display_name', 'is_default', 'is_active'
+        )
+        read_only_fields = ('id', 'stripe_payment_method_id')

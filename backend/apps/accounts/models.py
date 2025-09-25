@@ -1,7 +1,7 @@
-# backend/apps/accounts/models.py
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
@@ -38,6 +38,18 @@ class StaffProfile(models.Model):
         db_table = 'accounts_staff_profile'
         verbose_name = 'Staff Profile'
         verbose_name_plural = 'Staff Profiles'
+    
+    def clean(self):
+        """Prevent hybrid accounts - users cannot have both staff and customer profiles"""
+        if self.user and hasattr(self.user, 'customer_profile'):
+            raise ValidationError(
+                f"User {self.user.email} already has a customer profile. "
+                "Users cannot have both staff and customer profiles."
+            )
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.role})"
@@ -85,6 +97,15 @@ class StaffProfile(models.Model):
             return timezone.now() < self.account_locked_until
         return False
 
+    @classmethod
+    def ensure_single_profile_type(cls, user):
+        """Ensure user only has one type of profile"""
+        if hasattr(user, 'staff_profile') and hasattr(user, 'customer_profile'):
+            raise ValidationError(
+                f"User {user.email} cannot have both staff and customer profiles. "
+                "Please remove one profile type."
+            )
+
 
 class StaffAction(models.Model):
     """Audit log for staff actions - required for compliance"""
@@ -99,6 +120,8 @@ class StaffAction(models.Model):
         ('upload_document', 'Upload Document'),
         ('send_notification', 'Send Notification'),
         ('export_data', 'Export Data'),
+        ('view_dashboard', 'View Dashboard'),
+        ('modify_customer', 'Modify Customer'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -137,16 +160,16 @@ class StaffAction(models.Model):
     @classmethod
     def log_action(cls, staff_user, action_type, description, request=None, customer_id=None, booking_id=None):
         """Helper method to log staff actions with proper IP detection"""
-        from ipware import get_client_ip
-        
         ip_address = '127.0.0.1'  # default fallback
         user_agent = ''
         
         if request:
-            # Use django-ipware for robust IP detection
-            client_ip, is_routable = get_client_ip(request)
-            if client_ip:
-                ip_address = client_ip
+            # Get client IP from request
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip_address = request.META.get('REMOTE_ADDR', '127.0.0.1')
             
             user_agent = request.META.get('HTTP_USER_AGENT', '')
         
