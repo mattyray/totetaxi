@@ -5,14 +5,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { DjangoUser, CustomerProfile } from '@/types';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -21,13 +18,6 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-interface LoginResponse {
-  message: string;
-  user: DjangoUser;
-  customer_profile: CustomerProfile;
-  csrf_token: string;
-}
-
 const TEST_USER = {
   email: 'dev.tester@totetaxi.local',
   password: 'DevTest2024!'
@@ -35,13 +25,13 @@ const TEST_USER = {
 
 export function LoginForm() {
   const router = useRouter();
-  const { setAuth, setLoading } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     setValue
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -52,29 +42,22 @@ export function LoginForm() {
     setValue('password', TEST_USER.password);
   };
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginFormData): Promise<LoginResponse> => {
-      const response = await apiClient.post('/api/customer/auth/login/', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      setAuth(data.user, data.customer_profile);
-      router.push('/dashboard');
-    },
-    onError: (error: any) => {
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.message ||
-                          'Login failed. Please check your credentials.';
-      setApiError(errorMessage);
-      setLoading(false);
-    },
-  });
-
   const onSubmit = async (data: LoginFormData) => {
     setApiError('');
-    setLoading(true);
-    loginMutation.mutate(data);
+    
+    try {
+      const result = await login(data.email, data.password);
+      
+      if (result.success) {
+        console.log('Login successful, redirecting to dashboard');
+        router.push('/dashboard');
+      } else {
+        setApiError(result.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
@@ -98,7 +81,7 @@ export function LoginForm() {
                 onClick={fillTestUser}
                 className="text-xs"
               >
-                🧪 Fill Test User
+                Fill Test User
               </Button>
             </div>
           )}
@@ -147,9 +130,9 @@ export function LoginForm() {
               variant="primary"
               size="lg"
               className="w-full"
-              disabled={isSubmitting || loginMutation.isPending}
+              disabled={isLoading}
             >
-              {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
 
             <div className="text-center pt-4 border-t border-cream-200">
