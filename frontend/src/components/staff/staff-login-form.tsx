@@ -2,7 +2,6 @@
 // frontend/src/components/staff/staff-login-form.tsx
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,7 +9,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
-import { apiClient } from '@/lib/api-client';
 
 const staffLoginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -21,36 +19,33 @@ type StaffLoginForm = z.infer<typeof staffLoginSchema>;
 
 export function StaffLoginForm() {
   const router = useRouter();
-  const { setAuth, setLoading } = useStaffAuthStore();
+  const { login, isLoading } = useStaffAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }
+    formState: { errors }
   } = useForm<StaffLoginForm>({
     resolver: zodResolver(staffLoginSchema)
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: StaffLoginForm) => {
-      const response = await apiClient.post('/api/staff/auth/login/', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      setAuth(data.user, data.staff_profile);
-      router.push('/staff/dashboard');
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.error || 'Login failed. Please try again.';
-      setApiError(message);
-    }
-  });
-
-  const onSubmit = (data: StaffLoginForm) => {
+  const onSubmit = async (data: StaffLoginForm) => {
     setApiError('');
-    setLoading(true);
-    loginMutation.mutate(data);
+    
+    try {
+      const result = await login(data.username, data.password);
+      
+      if (result.success) {
+        console.log('Staff login successful, redirecting to dashboard');
+        router.push('/staff/dashboard');
+      } else {
+        setApiError(result.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (error) {
+      console.error('Staff login error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
@@ -110,9 +105,9 @@ export function StaffLoginForm() {
                 variant="primary"
                 size="lg"
                 className="w-full"
-                disabled={isSubmitting || loginMutation.isPending}
+                disabled={isLoading}
               >
-                {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+                {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
           </CardContent>
