@@ -5,14 +5,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { DjangoUser, CustomerProfile } from '@/types';
 
 const registerSchema = z.object({
   first_name: z.string().min(1, 'First name is required').max(150, 'First name too long'),
@@ -32,102 +29,41 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-interface RegisterResponse {
-  message: string;
-  user: DjangoUser;
-  customer_profile: CustomerProfile;
-  csrf_token: string;
-}
-
 export function RegisterForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { setAuth, setLoading } = useAuthStore();
+  const { register: registerUser, isLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: RegisterFormData): Promise<RegisterResponse> => {
-      console.log('🔍 SENDING REGISTRATION REQUEST');
-      console.log('📤 Request data:', { ...data, password: '[HIDDEN]', password_confirm: '[HIDDEN]' });
-      
-      const response = await apiClient.post('/api/customer/auth/register/', data);
-      
-      console.log('📥 Registration response:', {
-        status: response.status,
-        message: response.data.message
-      });
-      
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log('🎉 REGISTRATION SUCCESS!');
-      console.log('👤 New user:', data.user);
-      
-      try {
-        // ✅ CRITICAL FIX: Clear all React Query cache before setting new auth
-        queryClient.clear();
-        console.log('🧹 Cleared all React Query cache to prevent cross-user data contamination');
-        
-        // Small delay to ensure cache is cleared
-        setTimeout(() => {
-          setAuth(data.user, data.customer_profile);
-          console.log('✅ Auth state updated successfully');
-          router.push('/dashboard?welcome=true');
-        }, 100);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error in success handler';
-        console.error('❌ Error in onSuccess handler:', err);
-        setApiError(`Registration succeeded but login failed: ${errorMessage}`);
-      }
-    },
-    onError: (error: any) => {
-      console.log('❌ REGISTRATION ERROR');
-      console.log('📊 Error details:', error.response?.data);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        
-        // Handle field-specific errors
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData.email) {
-          errorMessage = Array.isArray(errorData.email) 
-            ? errorData.email[0] 
-            : errorData.email;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-      }
-      
-      setApiError(errorMessage);
-      setLoading(false);
-    },
-  });
-
   const onSubmit = async (data: RegisterFormData) => {
-    console.log('🚀 REGISTRATION FORM SUBMITTED');
+    console.log('Registration form submitted');
     setApiError('');
-    setLoading(true);
     
     try {
-      registerMutation.mutate(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown submit error';
-      console.error('❌ Submit error:', err);
-      setApiError(`Submit error: ${errorMessage}`);
-      setLoading(false);
+      const result = await registerUser({
+        email: data.email,
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone
+      });
+      
+      if (result.success) {
+        console.log('Registration successful, redirecting to login');
+        router.push('/login?message=Registration successful! Please sign in with your new account.');
+      } else {
+        setApiError(result.error || 'Registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -259,9 +195,9 @@ export function RegisterForm() {
             variant="primary"
             size="lg"
             className="w-full"
-            disabled={isSubmitting || registerMutation.isPending}
+            disabled={isLoading}
           >
-            {isSubmitting || registerMutation.isPending ? 'Creating Account...' : 'Create Account'}
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </Button>
 
           {/* Login Link */}
