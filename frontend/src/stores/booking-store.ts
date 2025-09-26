@@ -83,10 +83,10 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 3; // Increment for security changes
+const STORE_VERSION = 3;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
-// SECURITY: Data validation and sanitization
+// FIXED: Less aggressive sanitization - preserve customer_info during typing
 const sanitizeBookingData = (data: Partial<BookingData>): Partial<BookingData> => {
   const sanitized: Partial<BookingData> = {};
   
@@ -152,21 +152,14 @@ const sanitizeBookingData = (data: Partial<BookingData>): Partial<BookingData> =
     sanitized.delivery_address = sanitizeAddress(data.delivery_address);
   }
   
-  // SECURITY: Validate customer info but don't store sensitive data
+  // FIXED: Always preserve customer_info during form editing (less aggressive validation)
   if (data.customer_info) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[\d\s\-\(\)\+]{10,15}$/;
-    
-    if (data.customer_info.email && emailRegex.test(data.customer_info.email)) {
-      sanitized.customer_info = {
-        first_name: data.customer_info.first_name?.substring(0, 50).trim() || '',
-        last_name: data.customer_info.last_name?.substring(0, 50).trim() || '',
-        email: data.customer_info.email.trim(),
-        phone: data.customer_info.phone && phoneRegex.test(data.customer_info.phone) 
-          ? data.customer_info.phone.trim() 
-          : ''
-      };
-    }
+    sanitized.customer_info = {
+      first_name: (data.customer_info.first_name || '').substring(0, 50).trim(),
+      last_name: (data.customer_info.last_name || '').substring(0, 50).trim(),
+      email: (data.customer_info.email || '').trim(),
+      phone: (data.customer_info.phone || '').trim()
+    };
   }
   
   // Validate pricing data (read-only, from server)
@@ -204,7 +197,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       lastResetTimestamp: Date.now(),
 
       setCurrentStep: (step) => {
-        // Validate step range
         const validStep = Math.max(0, Math.min(step, 5));
         set({ currentStep: validStep });
       },
@@ -231,10 +223,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
-      // SECURITY: Enhanced with validation
       updateBookingData: (data) => {
         const sanitizedData = sanitizeBookingData(data);
-        console.log('Updating booking data with sanitized input');
         
         set((state) => ({
           bookingData: { ...state.bookingData, ...sanitizedData }
@@ -244,7 +234,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {
-        // Sanitize error messages
         const sanitizedField = field.substring(0, 50);
         const sanitizedMessage = message.substring(0, 200);
         
@@ -262,7 +251,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       clearErrors: () => set({ errors: {} }),
       
       setBookingComplete: (bookingNumber) => {
-        // Validate booking number format
         const sanitizedBookingNumber = bookingNumber?.substring(0, 20).trim();
         if (sanitizedBookingNumber) {
           set({
@@ -272,7 +260,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }
       },
       
-      // SECURITY: Race condition protection
       initializeForUser: (providedUserId?, isGuest?) => {
         const userId = providedUserId?.substring(0, 50) || 'guest';
         const guestMode = isGuest !== undefined ? isGuest : true;
@@ -281,11 +268,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
         
-        // SECURITY: Prevent rapid user switching attacks
         const timeSinceLastReset = state.lastResetTimestamp ? 
           Date.now() - state.lastResetTimestamp : Infinity;
         
-        if (timeSinceLastReset < 1000) { // Prevent rapid resets
+        if (timeSinceLastReset < 1000) {
           console.warn('Ignoring rapid user initialization');
           return;
         }
@@ -344,13 +330,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }
       },
       
-      // SECURITY: Nuclear option for security incidents
       secureReset: () => {
         console.log('SECURITY: Performing secure reset of booking wizard');
         
         if (typeof window !== 'undefined') {
           try {
-            // Remove all totetaxi booking-related keys
             const allKeys = Object.keys(localStorage);
             allKeys
               .filter(key => key.startsWith('totetaxi-booking'))
@@ -442,7 +426,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         return persistedState;
       },
-      // SECURITY: Exclude PII from localStorage persistence
       partialize: (state) => ({
         bookingData: {
           ...state.bookingData,

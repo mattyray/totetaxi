@@ -42,6 +42,7 @@ export function DateTimeStep() {
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
+  const [currentMonth, setCurrentMonth] = useState(new Date()); // FIXED: Add month navigation
 
   const { data: availability } = useQuery({
     queryKey: ['availability', 'calendar'],
@@ -86,22 +87,43 @@ export function DateTimeStep() {
     }
   }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_item_ids]);
 
+  // FIXED: Update pricing data in booking store when mutation succeeds
+  useEffect(() => {
+    if (pricingMutation.data?.pricing) {
+      updateBookingData({ pricing_data: pricingMutation.data.pricing });
+    }
+  }, [pricingMutation.data, updateBookingData]);
+
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     updateBookingData({ pickup_date: date });
   };
 
+  // FIXED: Immediate pricing updates on time selection
   const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
+    const newHour = time === 'morning_specific' ? specificHour : undefined;
+    
     updateBookingData({ 
       pickup_time: time,
-      specific_pickup_hour: time === 'morning_specific' ? specificHour : undefined
+      specific_pickup_hour: newHour
     });
+    
+    // Trigger immediate pricing update
+    if (selectedDate && bookingData.service_type) {
+      setTimeout(() => pricingMutation.mutate(), 100);
+    }
   };
 
+  // FIXED: Immediate pricing updates on hour selection
   const handleSpecificHourSelect = (hour: number) => {
     setSpecificHour(hour);
     updateBookingData({ specific_pickup_hour: hour });
+    
+    // Trigger immediate pricing update
+    if (selectedDate && bookingData.service_type && selectedTime === 'morning_specific') {
+      setTimeout(() => pricingMutation.mutate(), 100);
+    }
   };
 
   const handleContinue = () => {
@@ -111,13 +133,20 @@ export function DateTimeStep() {
     nextStep();
   };
 
-  const getNext30Days = () => {
-    const days = [];
+  // FIXED: Dynamic month days instead of hardcoded 30 days
+  const getMonthDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
     const today = new Date();
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      days.push(date);
+    today.setHours(0, 0, 0, 0);
+    
+    const days = [];
+    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+      if (d >= today) { // Only show today and future dates
+        days.push(new Date(d));
+      }
     }
     return days;
   };
@@ -144,9 +173,41 @@ export function DateTimeStep() {
   return (
     <div className="space-y-6">
       <div>
+        {/* FIXED: Month navigation header */}
+        <div className="flex justify-between items-center mb-4">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const prev = new Date(currentMonth);
+              prev.setMonth(prev.getMonth() - 1);
+              const today = new Date();
+              if (prev.getFullYear() > today.getFullYear() || 
+                  (prev.getFullYear() === today.getFullYear() && prev.getMonth() >= today.getMonth())) {
+                setCurrentMonth(prev);
+              }
+            }}
+            disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+          >
+            ← Previous
+          </Button>
+          <h3 className="text-lg font-medium text-navy-900">
+            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </h3>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const next = new Date(currentMonth);
+              next.setMonth(next.getMonth() + 1);
+              setCurrentMonth(next);
+            }}
+          >
+            Next →
+          </Button>
+        </div>
+
         <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
         <div className="grid grid-cols-7 gap-2">
-          {getNext30Days().map((date) => {
+          {getMonthDays().map((date) => {
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
             const isSelected = selectedDate === dateStr;
@@ -176,7 +237,6 @@ export function DateTimeStep() {
           })}
         </div>
         
-        {/* Simplified Legend - Only Surcharge indicator */}
         <div className="flex items-center justify-center mt-3 text-sm">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
@@ -185,7 +245,6 @@ export function DateTimeStep() {
         </div>
       </div>
 
-      {/* Selected Date Info - No capacity display */}
       {selectedDate && (
         <Card variant="default">
           <CardContent>
@@ -198,16 +257,14 @@ export function DateTimeStep() {
                   day: 'numeric' 
                 })}
               </h4>
-              {/* Surcharge notices - FILTERED by current service type */}
               {getDayInfo(new Date(selectedDate + 'T00:00:00'))?.surcharges
                 ?.filter((surcharge) => {
-                  // Only show surcharges relevant to current service type
                   if (bookingData.service_type === 'mini_move') {
                     return surcharge.description.includes('Mini Move');
                   } else if (bookingData.service_type === 'standard_delivery') {
                     return surcharge.description.includes('Standard Delivery');
                   }
-                  return true; // Show all for other service types
+                  return true;
                 })
                 .map((surcharge, index) => (
                   <div key={index} className="mt-2 text-sm text-orange-600">
@@ -246,8 +303,8 @@ export function DateTimeStep() {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="font-medium text-navy-900">No Time Preference</div>
-                <div className="text-sm text-navy-600">Flexible timing - we'll coordinate with you</div>
+                <div className="font-medium text-navy-900">Flexible Morning Timing</div>
+                <div className="text-sm text-navy-600">8-11 AM pickup window - we'll coordinate the exact time with you</div>
               </button>
             )}
 

@@ -10,27 +10,41 @@ import { Input } from '@/components/ui/input';
 
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
+  // FIXED: Better authentication detection and immediate skip
   useEffect(() => {
+    console.log('Customer Info Step - Auth state:', { isAuthenticated, isGuestMode, hasUser: !!user });
+    
     if (isAuthenticated && !isGuestMode) {
-      console.warn('CustomerInfoStep - auto-advancing authenticated user');
+      console.log('CustomerInfoStep - authenticated user detected, advancing immediately');
+      nextStep();
+      return;
+    }
+    
+    // FIXED: Also check if user exists in auth store
+    if (user && !isGuestMode) {
+      console.log('CustomerInfoStep - user found in store, advancing');
       nextStep();
     }
-  }, [isAuthenticated, isGuestMode, nextStep]);
+  }, [isAuthenticated, isGuestMode, nextStep, user]);
 
-  if (isAuthenticated && !isGuestMode) {
+  if ((isAuthenticated && !isGuestMode) || (user && !isGuestMode)) {
     return null;
   }
 
+  // FIXED: Better field change handler that ensures customer_info always exists
   const handleFieldChange = (field: string, value: string) => {
+    const currentInfo = bookingData.customer_info || {
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: ''
+    };
+    
     updateBookingData({
       customer_info: {
-        first_name: bookingData.customer_info?.first_name || '',
-        last_name: bookingData.customer_info?.last_name || '',
-        email: bookingData.customer_info?.email || '',
-        phone: bookingData.customer_info?.phone || '',
-        ...bookingData.customer_info,
+        ...currentInfo,
         [field]: value
       }
     });
