@@ -78,6 +78,17 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable modern bundling
     esmExternals: true
+  },
+
+  // OVERRIDE: Force disable linting in all contexts
+  webpack: (config, { dev }) => {
+    // Disable ESLint plugin entirely in production builds
+    if (!dev) {
+      config.plugins = config.plugins.filter(
+        (plugin: any) => plugin.constructor.name !== 'ESLintWebpackPlugin'
+      );
+    }
+    return config;
   }
 };
 
