@@ -6,7 +6,8 @@
 │   │   ├── accounts
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── 0001_initial.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_alter_staffaction_action_type.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -39,6 +40,11 @@
 │   │   │   ├── tests.py
 │   │   │   └── views.py
 │   │   ├── customers
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── clean_delete_user.py
+│   │   │   │   └── __init__.py
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
@@ -137,6 +143,7 @@
 │   ├── pyproject.toml
 │   ├── pytest.ini
 │   ├── README.md
+│   ├── recreate_services.py
 │   ├── requirements.txt
 │   └── staff_cookies.txt
 ├── frontend
@@ -269,4 +276,4 @@
 ├── project_structure.txt
 └── README.md
 
-66 directories, 204 files
+68 directories, 209 files

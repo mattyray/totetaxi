@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-25 15:48:54
-# Total files: 111
+# Created: 2025-09-26 09:53:39
+# Total files: 116
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -512,6 +512,184 @@ markers =
     integration: marks tests as integration tests
 ```
 
+# ==== recreate_services.py ====
+
+```python
+# backend/recreate_services.py
+# Service Catalog Recreation Script
+# Run this after fresh database migration: python manage.py shell < recreate_services.py
+
+from apps.services.models import *
+
+print("🚀 Creating service catalog...")
+
+# Mini Move Packages
+print("📦 Creating Mini Move Packages...")
+MiniMovePackage.objects.create(
+    package_type='petite',
+    name='Petite',
+    description='15 items <50 lbs. Shared van with COI available for +$50.',
+    base_price_cents=99500,
+    max_items=15,
+    max_weight_per_item_lbs=50,
+    coi_included=False,
+    coi_fee_cents=5000,
+    priority_scheduling=False,
+    protective_wrapping=False,
+    is_most_popular=False,
+    is_active=True
+)
+
+
+MiniMovePackage.objects.create(
+    package_type='standard',
+    name='Standard',
+    description='30 items <50 lbs. COI included, protective wrapping, priority scheduling.',
+    base_price_cents=172500,
+    max_items=30,
+    max_weight_per_item_lbs=50,
+    coi_included=True,
+    coi_fee_cents=0,
+    priority_scheduling=True,
+    protective_wrapping=True,
+    is_most_popular=True,
+    is_active=True
+)
+
+MiniMovePackage.objects.create(
+    package_type='full',
+    name='Full Move',
+    description='Van exclusive, unlimited items within van capacity. Direct pickup-to-delivery.',
+    base_price_cents=249000,
+    max_items=None,
+    max_weight_per_item_lbs=50,
+    coi_included=True,
+    coi_fee_cents=0,
+    priority_scheduling=True,
+    protective_wrapping=True,
+    is_most_popular=False,
+    is_active=True
+)
+
+# Specialty Items
+print("🏄 Creating Specialty Items...")
+SpecialtyItem.objects.create(
+    item_type='peloton',
+    name='Peloton / Large Equipment',
+    description='Peloton bikes and large equipment moving',
+    price_cents=50000,
+    requires_van_schedule=True,
+    special_handling=True,
+    is_active=True
+)
+
+SpecialtyItem.objects.create(
+    item_type='surfboard',
+    name='Surfboard',
+    description='Professional surfboard transport',
+    price_cents=35000,
+    requires_van_schedule=True,
+    special_handling=True,
+    is_active=True
+)
+
+SpecialtyItem.objects.create(
+    item_type='crib',
+    name='Crib',
+    description='Foldable crib delivery (may vary for non-foldable)',
+    price_cents=35000,
+    requires_van_schedule=True,
+    special_handling=True,
+    is_active=True
+)
+
+SpecialtyItem.objects.create(
+    item_type='wardrobe_box',
+    name='Wardrobe Box',
+    description='Professional wardrobe box handling',
+    price_cents=27500,
+    requires_van_schedule=True,
+    special_handling=True,
+    is_active=True
+)
+
+# Standard Delivery Config
+print("🚚 Creating Standard Delivery Config...")
+StandardDeliveryConfig.objects.create(
+    price_per_item_cents=9500,
+    minimum_items=1,
+    minimum_charge_cents=28500,
+    same_day_flat_rate_cents=36000,
+    max_weight_per_item_lbs=50,
+    is_active=True
+)
+
+# Surcharge Rules
+print("💰 Creating Surcharge Rules...")
+SurchargeRule.objects.create(
+    surcharge_type='weekend',
+    name='Mini Move Weekend Surcharge',
+    description='Weekend surcharge for Mini Move packages - $175 for Sat/Sun bookings',
+    applies_to_service_type='mini_move',
+    calculation_type='fixed_amount',
+    percentage=None,
+    fixed_amount_cents=17500,
+    specific_date=None,
+    applies_saturday=True,
+    applies_sunday=True,
+    is_active=True
+)
+
+SurchargeRule.objects.create(
+    surcharge_type='weekend',
+    name='Standard Delivery Weekend Surcharge',
+    description='Weekend surcharge for Standard Delivery service - $50 for Sat/Sun bookings',
+    applies_to_service_type='standard_delivery',
+    calculation_type='fixed_amount',
+    percentage=None,
+    fixed_amount_cents=5000,
+    specific_date=None,
+    applies_saturday=True,
+    applies_sunday=True,
+    is_active=True
+)
+
+SurchargeRule.objects.create(
+    surcharge_type='geographic',
+    name='CT/NJ Distance Surcharge',
+    description='Additional charge for CT/NJ pickups (30+ min outside Manhattan)',
+    applies_to_service_type='all',
+    calculation_type='fixed_amount',
+    percentage=None,
+    fixed_amount_cents=22000,
+    specific_date=None,
+    applies_saturday=False,
+    applies_sunday=False,
+    is_active=True
+)
+
+SurchargeRule.objects.create(
+    surcharge_type='geographic',
+    name='Amagansett/Montauk Surcharge',
+    description='Additional charge for Amagansett/Montauk deliveries',
+    applies_to_service_type='all',
+    calculation_type='fixed_amount',
+    percentage=None,
+    fixed_amount_cents=12000,
+    specific_date=None,
+    applies_saturday=False,
+    applies_sunday=False,
+    is_active=True
+)
+
+print("✅ Service catalog created successfully!")
+print(f"📦 {MiniMovePackage.objects.count()} Mini Move Packages")
+print(f"🏄 {SpecialtyItem.objects.count()} Specialty Items") 
+print(f"🚚 {StandardDeliveryConfig.objects.count()} Standard Delivery Configs")
+print(f"💰 {SurchargeRule.objects.count()} Surcharge Rules")
+print(f"📋 {OrganizingService.objects.count()} Organizing Services (from migration)")
+```
+
 # ==== requirements.txt ====
 
 ```
@@ -970,24 +1148,71 @@ application = get_wsgi_application()
 # ==== apps/accounts/admin.py ====
 
 ```python
-# backend/apps/accounts/admin.py
 from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.contrib import messages
 from .models import StaffProfile, StaffAction
+
 
 @admin.register(StaffProfile)
 class StaffProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'department', 'can_approve_refunds', 'can_manage_staff', 'can_view_financial_reports')
-    list_filter = ('role', 'department')
-    search_fields = ('user__username', 'user__email')
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = ('user', 'user_email', 'role', 'department', 'can_approve_refunds', 'can_manage_staff', 'is_active', 'created_at')
+    list_filter = ('role', 'department', 'is_active', 'created_at')
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = ('can_approve_refunds', 'can_manage_staff', 'can_view_financial_reports', 'is_account_locked', 'created_at', 'updated_at')
+    
+    fieldsets = (
+        ('User Information', {
+            'fields': ('user', 'role', 'department', 'phone')
+        }),
+        ('Permissions', {
+            'fields': ('can_approve_refunds', 'can_manage_staff', 'can_view_financial_reports'),
+            'classes': ('collapse',)
+        }),
+        ('Security', {
+            'fields': ('login_attempts', 'account_locked_until', 'is_account_locked', 'last_login_ip'),
+            'classes': ('collapse',)
+        }),
+        ('Management', {
+            'fields': ('is_active', 'hire_date', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+        except ValidationError as e:
+            messages.error(request, f"Cannot save staff profile: {e}")
+            raise
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
+
 
 @admin.register(StaffAction)
 class StaffActionAdmin(admin.ModelAdmin):
-    list_display = ('staff_user', 'action_type', 'created_at', 'ip_address')
+    list_display = ('staff_user', 'action_type', 'created_at', 'ip_address', 'customer_id', 'booking_id')
     list_filter = ('action_type', 'created_at')
-    search_fields = ('staff_user__username', 'description')
-    readonly_fields = ('created_at',)
+    search_fields = ('staff_user__username', 'staff_user__email', 'description', 'ip_address')
+    readonly_fields = ('staff_user', 'action_type', 'description', 'ip_address', 'user_agent', 'customer_id', 'booking_id', 'created_at')
     ordering = ('-created_at',)
+    
+    def has_add_permission(self, request):
+        # Staff actions should only be created programmatically
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        # Staff actions should be immutable audit logs
+        return False
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('staff_user')
 ```
 
 # ==== apps/accounts/apps.py ====
@@ -1064,6 +1289,29 @@ class Migration(migrations.Migration):
     ]
 ```
 
+# ==== apps/accounts/migrations/0002_alter_staffaction_action_type.py ====
+
+```python
+# Generated by Django 5.2.5 on 2025-09-25 23:09
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('accounts', '0001_initial'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='staffaction',
+            name='action_type',
+            field=models.CharField(choices=[('login', 'Login'), ('logout', 'Logout'), ('view_customer', 'View Customer'), ('modify_booking', 'Modify Booking'), ('process_refund', 'Process Refund'), ('approve_refund', 'Approve Refund'), ('upload_document', 'Upload Document'), ('send_notification', 'Send Notification'), ('export_data', 'Export Data'), ('view_dashboard', 'View Dashboard'), ('modify_customer', 'Modify Customer')], max_length=30),
+        ),
+    ]
+```
+
 # ==== apps/accounts/migrations/__init__.py ====
 
 ```python
@@ -1076,6 +1324,7 @@ class Migration(migrations.Migration):
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
@@ -1112,6 +1361,18 @@ class StaffProfile(models.Model):
         db_table = 'accounts_staff_profile'
         verbose_name = 'Staff Profile'
         verbose_name_plural = 'Staff Profiles'
+    
+    def clean(self):
+        """Prevent hybrid accounts - users cannot have both staff and customer profiles"""
+        if self.user and hasattr(self.user, 'customer_profile'):
+            raise ValidationError(
+                f"User {self.user.email} already has a customer profile. "
+                "Users cannot have both staff and customer profiles."
+            )
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.role})"
@@ -1159,6 +1420,15 @@ class StaffProfile(models.Model):
             return timezone.now() < self.account_locked_until
         return False
 
+    @classmethod
+    def ensure_single_profile_type(cls, user):
+        """Ensure user only has one type of profile"""
+        if hasattr(user, 'staff_profile') and hasattr(user, 'customer_profile'):
+            raise ValidationError(
+                f"User {user.email} cannot have both staff and customer profiles. "
+                "Please remove one profile type."
+            )
+
 
 class StaffAction(models.Model):
     """Audit log for staff actions - required for compliance"""
@@ -1173,6 +1443,8 @@ class StaffAction(models.Model):
         ('upload_document', 'Upload Document'),
         ('send_notification', 'Send Notification'),
         ('export_data', 'Export Data'),
+        ('view_dashboard', 'View Dashboard'),
+        ('modify_customer', 'Modify Customer'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1211,16 +1483,16 @@ class StaffAction(models.Model):
     @classmethod
     def log_action(cls, staff_user, action_type, description, request=None, customer_id=None, booking_id=None):
         """Helper method to log staff actions with proper IP detection"""
-        from ipware import get_client_ip
-        
         ip_address = '127.0.0.1'  # default fallback
         user_agent = ''
         
         if request:
-            # Use django-ipware for robust IP detection
-            client_ip, is_routable = get_client_ip(request)
-            if client_ip:
-                ip_address = client_ip
+            # Get client IP from request
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip_address = request.META.get('REMOTE_ADDR', '127.0.0.1')
             
             user_agent = request.META.get('HTTP_USER_AGENT', '')
         
@@ -1238,9 +1510,9 @@ class StaffAction(models.Model):
 # ==== apps/accounts/serializers.py ====
 
 ```python
-# backend/apps/accounts/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from .models import StaffProfile, StaffAction
 
 
@@ -1255,12 +1527,16 @@ class StaffProfileSerializer(serializers.ModelSerializer):
     user = StaffUserSerializer(read_only=True)
     full_name = serializers.ReadOnlyField()
     email = serializers.ReadOnlyField()
+    can_approve_refunds = serializers.ReadOnlyField()
+    can_manage_staff = serializers.ReadOnlyField()
+    can_view_financial_reports = serializers.ReadOnlyField()
     
     class Meta:
         model = StaffProfile
         fields = (
             'id', 'user', 'role', 'department', 'hire_date', 'phone',
-            'full_name', 'email', 'is_active', 'created_at'
+            'full_name', 'email', 'is_active', 'can_approve_refunds',
+            'can_manage_staff', 'can_view_financial_reports', 'created_at'
         )
         read_only_fields = ('id', 'created_at')
 
@@ -1292,6 +1568,59 @@ class StaffActionSerializer(serializers.ModelSerializer):
     
     def get_staff_user_name(self, obj):
         return obj.staff_user.get_full_name() if obj.staff_user else None
+
+
+class StaffCreateSerializer(serializers.Serializer):
+    """Serializer for creating staff accounts with hybrid prevention"""
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8, write_only=True)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    role = serializers.ChoiceField(choices=StaffProfile.ROLE_CHOICES)
+    department = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    
+    def validate(self, attrs):
+        # Check if email already exists
+        if User.objects.filter(email__iexact=attrs['email']).exists():
+            existing_user = User.objects.get(email__iexact=attrs['email'])
+            if hasattr(existing_user, 'customer_profile'):
+                raise serializers.ValidationError("This email is already registered as a customer account. Please use a different email.")
+            else:
+                raise serializers.ValidationError("User with this email already exists")
+        
+        # Check if username already exists
+        if User.objects.filter(username=attrs['username']).exists():
+            raise serializers.ValidationError("Username already exists")
+        
+        return attrs
+    
+    def create(self, validated_data):
+        # Extract staff profile fields
+        role = validated_data.pop('role')
+        department = validated_data.pop('department', '')
+        phone = validated_data.pop('phone', '')
+        
+        try:
+            # Create User
+            user = User.objects.create_user(**validated_data)
+            
+            # Create StaffProfile with validation
+            StaffProfile.objects.create(
+                user=user,
+                role=role,
+                department=department,
+                phone=phone
+            )
+            
+            return user
+            
+        except ValidationError as e:
+            # Clean up user if profile creation fails
+            if 'user' in locals():
+                user.delete()
+            raise serializers.ValidationError(str(e))
 ```
 
 # ==== apps/accounts/tests.py ====
@@ -1329,6 +1658,7 @@ urlpatterns = [
 # ==== apps/accounts/views.py ====
 
 ```python
+# backend/apps/accounts/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -3540,6 +3870,8 @@ from django.shortcuts import render
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.core.exceptions import ValidationError
+from django.contrib import messages
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 
 
@@ -3547,10 +3879,24 @@ class CustomerProfileInline(admin.StackedInline):
     model = CustomerProfile
     can_delete = False
     verbose_name_plural = 'Customer Profile'
+    readonly_fields = ('total_bookings', 'total_spent_cents', 'last_booking_at', 'created_at', 'updated_at')
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+        except ValidationError as e:
+            messages.error(request, f"Cannot save customer profile: {e}")
+            raise
 
 
 class CustomUserAdmin(BaseUserAdmin):
     inlines = (CustomerProfileInline,)
+    
+    def get_inline_instances(self, request, obj=None):
+        """Only show CustomerProfile inline for users without staff profiles"""
+        if obj and hasattr(obj, 'staff_profile'):
+            return []
+        return super().get_inline_instances(request, obj)
 
 
 # Re-register UserAdmin
@@ -3560,26 +3906,44 @@ admin.site.register(User, CustomUserAdmin)
 
 @admin.register(CustomerProfile)
 class CustomerProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'total_bookings', 'total_spent_dollars', 'is_vip', 'last_booking_at')
-    list_filter = ('is_vip', 'preferred_pickup_time', 'email_notifications')
-    search_fields = ('user__email', 'user__first_name', 'user__last_name')
+    list_display = ('user', 'user_email', 'total_bookings', 'total_spent_dollars', 'is_vip', 'last_booking_at', 'created_at')
+    list_filter = ('is_vip', 'preferred_pickup_time', 'email_notifications', 'created_at')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'phone')
     readonly_fields = ('total_bookings', 'total_spent_cents', 'last_booking_at', 'created_at', 'updated_at')
+    
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = 'Email'
+    user_email.admin_order_field = 'user__email'
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+        except ValidationError as e:
+            messages.error(request, f"Cannot save: {e}")
+            raise
 
 
 @admin.register(SavedAddress)
 class SavedAddressAdmin(admin.ModelAdmin):
-    list_display = ('user', 'nickname', 'city', 'state', 'times_used', 'is_active')
-    list_filter = ('state', 'is_active', 'city')
+    list_display = ('user', 'nickname', 'city', 'state', 'times_used', 'is_active', 'created_at')
+    list_filter = ('state', 'is_active', 'city', 'created_at')
     search_fields = ('user__email', 'nickname', 'city', 'address_line_1')
     readonly_fields = ('times_used', 'last_used_at', 'created_at', 'updated_at')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
 
 
 @admin.register(CustomerPaymentMethod)
 class CustomerPaymentMethodAdmin(admin.ModelAdmin):
     list_display = ('user', 'display_name', 'is_default', 'is_active', 'created_at')
-    list_filter = ('card_brand', 'is_default', 'is_active')
+    list_filter = ('card_brand', 'is_default', 'is_active', 'created_at')
     search_fields = ('user__email', 'card_last_four')
     readonly_fields = ('stripe_payment_method_id', 'created_at')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
 ```
 
 # ==== apps/customers/apps.py ====
@@ -3864,6 +4228,7 @@ class QuickBookingSerializer(serializers.Serializer):
 # ==== apps/customers/booking_views.py ====
 
 ```python
+# backend/apps/customers/booking_views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -4102,6 +4467,135 @@ class BookingPreferencesView(APIView):
         return SavedAddressSerializer(most_used).data if most_used else None
 ```
 
+# ==== apps/customers/management/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/customers/management/commands/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/customers/management/commands/clean_delete_user.py ====
+
+```python
+from django.core.management.base import BaseCommand
+from django.contrib.auth.models import User
+from apps.bookings.models import Booking, GuestCheckout
+from apps.payments.models import Payment
+from django.db import transaction
+
+
+class Command(BaseCommand):
+    help = 'Completely delete a user and all associated data for clean testing'
+    
+    def add_arguments(self, parser):
+        parser.add_argument('email', type=str, help='Email of user to delete')
+        parser.add_argument(
+            '--dry-run', 
+            action='store_true',
+            help='Show what would be deleted without actually deleting'
+        )
+    
+    def handle(self, *args, **options):
+        email = options['email']
+        dry_run = options['dry_run']
+        
+        if dry_run:
+            self.stdout.write(self.style.WARNING(f"DRY RUN - No data will actually be deleted"))
+        
+        self.stdout.write(f"🔍 Searching for user: {email}")
+        
+        # Track what we'll delete
+        deletion_summary = {
+            'users': 0,
+            'bookings': 0,
+            'payments': 0,
+            'guest_checkouts': 0,
+            'saved_addresses': 0,
+            'payment_methods': 0
+        }
+        
+        with transaction.atomic():
+            # Find authenticated user
+            try:
+                user = User.objects.get(email__iexact=email)
+                self.stdout.write(f"✅ Found user: {user.get_full_name()} (ID: {user.id})")
+                
+                # Check profile type
+                if hasattr(user, 'customer_profile'):
+                    self.stdout.write("   👤 Customer Profile")
+                    deletion_summary['saved_addresses'] = user.saved_addresses.count()
+                    deletion_summary['payment_methods'] = user.payment_methods.count()
+                
+                if hasattr(user, 'staff_profile'):
+                    self.stdout.write("   👮 Staff Profile")
+                
+                # Count bookings
+                user_bookings = user.bookings.all()
+                deletion_summary['bookings'] = user_bookings.count()
+                
+                # Count payments
+                booking_ids = [str(b.id) for b in user_bookings]
+                user_payments = Payment.objects.filter(booking_id__in=booking_ids)
+                deletion_summary['payments'] = user_payments.count()
+                
+                if not dry_run:
+                    # Delete user (cascades to profile, bookings, addresses, etc.)
+                    user.delete()
+                    deletion_summary['users'] = 1
+                    self.stdout.write(self.style.SUCCESS(f"✅ Deleted authenticated user and cascaded data"))
+                else:
+                    self.stdout.write(f"   Would delete user and {deletion_summary['bookings']} bookings")
+            
+            except User.DoesNotExist:
+                self.stdout.write("❌ No authenticated user found with that email")
+            
+            # Find guest checkout records
+            guest_checkouts = GuestCheckout.objects.filter(email__iexact=email)
+            deletion_summary['guest_checkouts'] = guest_checkouts.count()
+            
+            if guest_checkouts.exists():
+                self.stdout.write(f"✅ Found {guest_checkouts.count()} guest checkout records")
+                
+                if not dry_run:
+                    # Delete associated bookings first, then guest records
+                    for guest in guest_checkouts:
+                        if hasattr(guest, 'booking') and guest.booking:
+                            guest.booking.delete()
+                    guest_checkouts.delete()
+                    self.stdout.write(self.style.SUCCESS("✅ Deleted guest checkout records"))
+                else:
+                    self.stdout.write(f"   Would delete {guest_checkouts.count()} guest records")
+            
+            # Raise exception to rollback if dry run
+            if dry_run:
+                self.stdout.write(self.style.WARNING("DRY RUN - Rolling back transaction"))
+                raise transaction.TransactionManagementError("Dry run - rollback")
+        
+        # Print summary
+        self.stdout.write("\n" + "="*50)
+        if dry_run:
+            self.stdout.write(self.style.WARNING("📋 WOULD DELETE:"))
+        else:
+            self.stdout.write(self.style.SUCCESS("📋 DELETED:"))
+        
+        self.stdout.write(f"   👤 Users: {deletion_summary['users']}")
+        self.stdout.write(f"   📦 Bookings: {deletion_summary['bookings']}")  
+        self.stdout.write(f"   💳 Payments: {deletion_summary['payments']}")
+        self.stdout.write(f"   👻 Guest Checkouts: {deletion_summary['guest_checkouts']}")
+        self.stdout.write(f"   📍 Saved Addresses: {deletion_summary['saved_addresses']}")
+        self.stdout.write(f"   💰 Payment Methods: {deletion_summary['payment_methods']}")
+        
+        if not dry_run:
+            self.stdout.write(self.style.SUCCESS(f"\n🧹 Email {email} completely cleaned from system"))
+        else:
+            self.stdout.write(self.style.WARNING(f"\n🔍 Run without --dry-run to actually delete"))
+```
+
 # ==== apps/customers/migrations/0001_initial.py ====
 
 ```python
@@ -4225,6 +4719,7 @@ import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
@@ -4269,6 +4764,18 @@ class CustomerProfile(models.Model):
     class Meta:
         db_table = 'customers_profile'
     
+    def clean(self):
+        """Prevent hybrid accounts - users cannot have both staff and customer profiles"""
+        if self.user and hasattr(self.user, 'staff_profile'):
+            raise ValidationError(
+                f"User {self.user.email} already has a staff profile. "
+                "Users cannot have both staff and customer profiles."
+            )
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"Profile: {self.user.get_full_name()}"
     
@@ -4282,6 +4789,15 @@ class CustomerProfile(models.Model):
         self.total_spent_cents += booking_total_cents
         self.last_booking_at = timezone.now()
         self.save()
+
+    @classmethod
+    def ensure_single_profile_type(cls, user):
+        """Ensure user only has one type of profile"""
+        if hasattr(user, 'staff_profile') and hasattr(user, 'customer_profile'):
+            raise ValidationError(
+                f"User {user.email} cannot have both staff and customer profiles. "
+                "Please remove one profile type."
+            )
 
 
 class SavedAddress(models.Model):
@@ -4375,6 +4891,7 @@ class CustomerPaymentMethod(models.Model):
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 
 
@@ -4411,8 +4928,13 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Passwords don't match")
         
-        if User.objects.filter(email=attrs['email']).exists():
-            raise serializers.ValidationError("User with this email already exists")
+        # Check if email already exists
+        if User.objects.filter(email__iexact=attrs['email']).exists():
+            existing_user = User.objects.get(email__iexact=attrs['email'])
+            if hasattr(existing_user, 'staff_profile'):
+                raise serializers.ValidationError("This email is already registered as a staff account. Please use a different email.")
+            else:
+                raise serializers.ValidationError("User with this email already exists")
         
         return attrs
     
@@ -4421,22 +4943,29 @@ class CustomerRegistrationSerializer(serializers.Serializer):
         validated_data.pop('password_confirm')
         phone = validated_data.pop('phone', '')
         
-        # Create User (use email as username for customers)
-        user = User.objects.create_user(
-            username=validated_data['email'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name']
-        )
-        
-        # Create CustomerProfile
-        CustomerProfile.objects.create(
-            user=user,
-            phone=phone
-        )
-        
-        return user
+        try:
+            # Create User (use email as username for customers)
+            user = User.objects.create_user(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name']
+            )
+            
+            # Create CustomerProfile with validation
+            CustomerProfile.objects.create(
+                user=user,
+                phone=phone
+            )
+            
+            return user
+            
+        except ValidationError as e:
+            # Clean up user if profile creation fails
+            if 'user' in locals():
+                user.delete()
+            raise serializers.ValidationError(str(e))
 
 
 class CustomerLoginSerializer(serializers.Serializer):
@@ -4455,9 +4984,18 @@ class CustomerLoginSerializer(serializers.Serializer):
                 if not user.is_active:
                     raise serializers.ValidationError("User account is disabled")
                 
-                # Ensure user has a customer profile
+                # Ensure user has a customer profile (not staff)
                 if not hasattr(user, 'customer_profile'):
-                    raise serializers.ValidationError("This is not a customer account")
+                    if hasattr(user, 'staff_profile'):
+                        raise serializers.ValidationError("This is a staff account. Please use the staff login.")
+                    else:
+                        raise serializers.ValidationError("This is not a customer account")
+                
+                # Additional hybrid account check
+                try:
+                    CustomerProfile.ensure_single_profile_type(user)
+                except ValidationError as e:
+                    raise serializers.ValidationError(str(e))
                 
                 attrs['user'] = user
                 return attrs
@@ -4478,6 +5016,18 @@ class SavedAddressSerializer(serializers.ModelSerializer):
             'formatted_address', 'times_used', 'last_used_at', 'is_active'
         )
         read_only_fields = ('id', 'times_used', 'last_used_at')
+
+
+class CustomerPaymentMethodSerializer(serializers.ModelSerializer):
+    display_name = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = CustomerPaymentMethod
+        fields = (
+            'id', 'stripe_payment_method_id', 'card_brand', 'card_last_four',
+            'card_exp_month', 'card_exp_year', 'display_name', 'is_default', 'is_active'
+        )
+        read_only_fields = ('id', 'stripe_payment_method_id')
 ```
 
 # ==== apps/customers/tests.py ====
@@ -4535,6 +5085,7 @@ from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
+from django.core.exceptions import ValidationError
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
     CustomerRegistrationSerializer, 
@@ -4547,14 +5098,35 @@ from .serializers import (
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerRegistrationView(generics.CreateAPIView):
-    """Register new customer account"""
+    """Register new customer account with hybrid account prevention"""
     serializer_class = CustomerRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        
+        # Check if user already exists with staff profile
+        email = serializer.validated_data['email']
+        try:
+            existing_user = User.objects.get(email__iexact=email)
+            if hasattr(existing_user, 'staff_profile'):
+                return Response(
+                    {'error': 'This email is already registered as a staff account. Please use a different email or contact support.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except User.DoesNotExist:
+            pass  # This is what we want - new email
+        
+        try:
+            user = serializer.save()
+            # FIXED: Automatically log in the user after registration
+            login(request, user)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         return Response({
             'message': 'Account created successfully',
@@ -4566,7 +5138,7 @@ class CustomerRegistrationView(generics.CreateAPIView):
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerLoginView(APIView):
-    """Customer login endpoint"""
+    """Customer login endpoint with profile type validation"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -4574,6 +5146,29 @@ class CustomerLoginView(APIView):
         serializer.is_valid(raise_exception=True)
         
         user = serializer.validated_data['user']
+        
+        # Ensure user has customer profile (not staff)
+        if not hasattr(user, 'customer_profile'):
+            if hasattr(user, 'staff_profile'):
+                return Response(
+                    {'error': 'This is a staff account. Please use the staff login.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            else:
+                return Response(
+                    {'error': 'Account does not have a customer profile.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Additional security: Check for hybrid accounts
+        try:
+            CustomerProfile.ensure_single_profile_type(user)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         login(request, user)
         
         return Response({
@@ -4586,20 +5181,40 @@ class CustomerLoginView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Customer logout endpoint - CSRF exempt to handle logout failures gracefully"""
-    permission_classes = [permissions.AllowAny]  # Changed from IsAuthenticated
+    """Enhanced customer logout endpoint with complete session cleanup"""
+    permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        # Logout even if user is not authenticated (cleanup)
+        # Always logout, even if not authenticated (cleanup)
         logout(request)
-        return Response({'message': 'Logout successful'})
+        
+        # Force session cleanup
+        if hasattr(request, 'session'):
+            request.session.flush()
+        
+        response = Response({'message': 'Logout successful'})
+        
+        # Clear all possible auth cookies
+        auth_cookies = ['sessionid', 'csrftoken']
+        for cookie_name in auth_cookies:
+            response.delete_cookie(cookie_name)
+            # Also try with domain
+            response.delete_cookie(cookie_name, domain='.totetaxi.com')
+        
+        return response
 
 
 class CurrentUserView(APIView):
-    """Get current authenticated user info"""
+    """Get current authenticated user info with profile validation"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
+        # Ensure profile integrity
+        try:
+            CustomerProfile.ensure_single_profile_type(request.user)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
         if hasattr(request.user, 'customer_profile'):
             return Response({
                 'user': UserSerializer(request.user).data,
@@ -4622,11 +5237,18 @@ class CSRFTokenView(APIView):
 
 
 class CustomerProfileView(generics.RetrieveUpdateAPIView):
-    """Customer profile management"""
+    """Customer profile management with validation"""
     serializer_class = CustomerProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
+        # Ensure profile integrity
+        try:
+            CustomerProfile.ensure_single_profile_type(self.request.user)
+        except ValidationError as e:
+            from django.http import Http404
+            raise Http404(str(e))
+        
         return self.request.user.customer_profile
 
 
@@ -4702,6 +5324,74 @@ class CustomerNotesUpdateView(APIView):
             'message': 'Customer notes updated successfully',
             'notes': customer_profile.notes
         })
+
+
+class CustomerDashboardView(APIView):
+    """Enhanced customer dashboard with booking insights"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'customer_profile'):
+            return Response(
+                {'error': 'This is not a customer account'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        customer_profile = request.user.customer_profile
+        
+        all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
+        recent_bookings = all_bookings[:5]
+        
+        pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
+        completed_bookings = all_bookings.filter(status='completed').count()
+        
+        saved_addresses = request.user.saved_addresses.filter(is_active=True)
+        payment_methods = request.user.payment_methods.filter(is_active=True)
+        
+        popular_addresses = saved_addresses.order_by('-times_used')[:3]
+        
+        return Response({
+            'customer_profile': {
+                'name': request.user.get_full_name(),
+                'email': request.user.email,
+                'phone': customer_profile.phone,
+                'is_vip': customer_profile.is_vip,
+                'total_bookings': customer_profile.total_bookings,
+                'total_spent_dollars': customer_profile.total_spent_dollars,
+                'last_booking_at': customer_profile.last_booking_at
+            },
+            'booking_summary': {
+                'pending_bookings': pending_bookings,
+                'completed_bookings': completed_bookings,
+                'total_bookings': all_bookings.count()
+            },
+            'recent_bookings': [], # CustomerBookingDetailSerializer(recent_bookings, many=True).data,
+            'saved_addresses_count': saved_addresses.count(),
+            'payment_methods_count': payment_methods.count(),
+            'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
+        })
+
+
+class BookingPreferencesView(APIView):
+    """Manage customer booking preferences"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        customer_profile = request.user.customer_profile
+        
+        return Response({
+            'preferred_pickup_time': customer_profile.preferred_pickup_time,
+            'email_notifications': customer_profile.email_notifications,
+            'sms_notifications': customer_profile.sms_notifications,
+            'default_addresses': {
+                'most_used_pickup': self._get_most_used_address('pickup'),
+                'most_used_delivery': self._get_most_used_address('delivery')
+            }
+        })
+    
+    def _get_most_used_address(self, address_type):
+        most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
+        return SavedAddressSerializer(most_used).data if most_used else None
 ```
 
 # ==== apps/documents/__init__.py ====
@@ -6560,6 +7250,7 @@ class PaymentConfirmView(APIView):
 # ==== apps/services/admin.py ====
 
 ```python
+# backend/apps/services/admin.py
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
@@ -7097,6 +7788,7 @@ class Migration(migrations.Migration):
 # ==== apps/services/models.py ====
 
 ```python
+# backend/apps/services/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -7440,6 +8132,7 @@ class SurchargeRule(models.Model):
 # ==== apps/services/serializers.py ====
 
 ```python
+# backend/apps/services/serializers.py
 from rest_framework import serializers
 from .models import (
     MiniMovePackage, 
