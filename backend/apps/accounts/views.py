@@ -10,6 +10,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
+from django_ratelimit.decorators import ratelimit
 from .models import StaffProfile, StaffAction
 from .serializers import (
     StaffLoginSerializer,
@@ -22,8 +23,10 @@ from apps.customers.models import CustomerProfile
 from apps.payments.models import Payment, Refund
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
+@method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='post')
 class StaffLoginView(APIView):
-    """Staff authentication endpoint"""
+    """Staff authentication endpoint with rate limiting protection"""
     permission_classes = [permissions.AllowAny]
     
     @method_decorator(ensure_csrf_cookie)
@@ -87,8 +90,9 @@ class StaffLoginView(APIView):
             )
 
 
+@method_decorator(ratelimit(key='user', rate='10/m', method='POST', block=True), name='post')
 class StaffLogoutView(APIView):
-    """Staff logout endpoint"""
+    """Staff logout endpoint with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
@@ -104,8 +108,9 @@ class StaffLogoutView(APIView):
         return Response({'message': 'Logout successful'})
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class StaffDashboardView(APIView):
-    """Staff operations dashboard with KPIs"""
+    """Staff operations dashboard with KPIs and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -199,8 +204,9 @@ class StaffDashboardView(APIView):
         return urgent_data
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 class CustomerManagementView(APIView):
-    """Staff customer management - list and search customers"""
+    """Staff customer management with rate limiting - list and search customers"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -275,8 +281,9 @@ class CustomerManagementView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class CustomerDetailView(APIView):
-    """Staff view for individual customer details"""
+    """Staff view for individual customer details with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, customer_id):
@@ -332,8 +339,9 @@ class CustomerDetailView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
-    """Update customer notes - staff only"""
+    """Update customer notes with rate limiting - staff only"""
     permission_classes = [permissions.IsAuthenticated]
     
     def patch(self, request, customer_id):
@@ -367,8 +375,9 @@ class CustomerNotesUpdateView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class BookingManagementView(APIView):
-    """Enhanced staff booking management with date range support"""
+    """Enhanced staff booking management with rate limiting and date range support"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -379,8 +388,8 @@ class BookingManagementView(APIView):
         # Get query parameters
         status_filter = request.query_params.get('status', None)
         date_filter = request.query_params.get('date', None)
-        start_date = request.query_params.get('start_date', None)  # NEW
-        end_date = request.query_params.get('end_date', None)      # NEW
+        start_date = request.query_params.get('start_date', None)
+        end_date = request.query_params.get('end_date', None)
         search = request.query_params.get('search', None)
         
         # Build queryset
@@ -392,7 +401,7 @@ class BookingManagementView(APIView):
         if date_filter:
             bookings = bookings.filter(pickup_date=date_filter)
         
-        # NEW: Date range filtering for calendar
+        # Date range filtering for calendar
         if start_date and end_date:
             bookings = bookings.filter(
                 pickup_date__gte=start_date,
@@ -438,8 +447,8 @@ class BookingManagementView(APIView):
             'filters': {
                 'status': status_filter,
                 'date': date_filter,
-                'start_date': start_date,    # NEW
-                'end_date': end_date,        # NEW
+                'start_date': start_date,
+                'end_date': end_date,
                 'search': search
             }
         })
@@ -450,8 +459,10 @@ class BookingManagementView(APIView):
         return payment.status if payment else 'not_created'
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
+@method_decorator(ratelimit(key='user', rate='10/m', method='PATCH', block=True), name='patch')
 class BookingDetailView(APIView):
-    """Staff view for individual booking details and management"""
+    """Staff view for individual booking details and management with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, booking_id):

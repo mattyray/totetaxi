@@ -1,15 +1,5 @@
-// frontend/next.config.ts
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  // Existing config
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Security headers - protect against common web attacks
   async headers() {
     return [
@@ -79,6 +69,6 @@ const nextConfig: NextConfig = {
     // Enable modern bundling
     esmExternals: true
   }
-};
+}
 
-export default nextConfig;
+module.exports = nextConfig

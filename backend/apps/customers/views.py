@@ -1,3 +1,4 @@
+# backend/apps/customers/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -8,6 +9,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.exceptions import ValidationError
+from django_ratelimit.decorators import ratelimit
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
     CustomerRegistrationSerializer, 
@@ -18,9 +20,11 @@ from .serializers import (
 )
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='create')
+@method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='create')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerRegistrationView(generics.CreateAPIView):
-    """Register new customer account with hybrid account prevention"""
+    """Register new customer account with hybrid account prevention and rate limiting"""
     serializer_class = CustomerRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     
@@ -42,7 +46,7 @@ class CustomerRegistrationView(generics.CreateAPIView):
         
         try:
             user = serializer.save()
-            # FIXED: Automatically log in the user after registration
+            # Automatically log in the user after registration
             login(request, user)
         except ValidationError as e:
             return Response(
@@ -58,9 +62,11 @@ class CustomerRegistrationView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True), name='post')
+@method_decorator(ratelimit(key='header:user-agent', rate='15/m', method='POST', block=True), name='post')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerLoginView(APIView):
-    """Customer login endpoint with profile type validation"""
+    """Customer login endpoint with profile type validation and rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -101,9 +107,10 @@ class CustomerLoginView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user_or_ip', rate='20/m', method='POST', block=True), name='post')
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Enhanced customer logout endpoint with complete session cleanup"""
+    """Enhanced customer logout endpoint with complete session cleanup and rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -126,8 +133,9 @@ class CustomerLogoutView(APIView):
         return response
 
 
+@method_decorator(ratelimit(key='user', rate='60/m', method='GET', block=True), name='get')
 class CurrentUserView(APIView):
-    """Get current authenticated user info with profile validation"""
+    """Get current authenticated user info with profile validation and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -147,8 +155,9 @@ class CurrentUserView(APIView):
             return Response({'error': 'Not a customer account'}, status=status.HTTP_403_FORBIDDEN)
 
 
+@method_decorator(ratelimit(key='ip', rate='100/m', method='GET', block=True), name='get')
 class CSRFTokenView(APIView):
-    """Get CSRF token for authenticated requests"""
+    """Get CSRF token for authenticated requests with rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     @method_decorator(ensure_csrf_cookie)
@@ -158,8 +167,9 @@ class CSRFTokenView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method=['GET', 'PATCH'], block=True), name='dispatch')
 class CustomerProfileView(generics.RetrieveUpdateAPIView):
-    """Customer profile management with validation"""
+    """Customer profile management with validation and rate limiting"""
     serializer_class = CustomerProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -174,8 +184,9 @@ class CustomerProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user.customer_profile
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method=['GET', 'POST'], block=True), name='dispatch')
 class SavedAddressListCreateView(generics.ListCreateAPIView):
-    """List and create saved addresses"""
+    """List and create saved addresses with rate limiting"""
     serializer_class = SavedAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -186,8 +197,9 @@ class SavedAddressListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method=['GET', 'PATCH', 'DELETE'], block=True), name='dispatch')
 class SavedAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, delete saved address"""
+    """Retrieve, update, delete saved address with rate limiting"""
     serializer_class = SavedAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -195,8 +207,9 @@ class SavedAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
         return self.request.user.saved_addresses.all()
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class CustomerBookingListView(generics.ListAPIView):
-    """Customer booking history"""
+    """Customer booking history with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
@@ -223,8 +236,9 @@ class CustomerBookingListView(generics.ListAPIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
-    """Update customer notes - staff only"""
+    """Update customer notes with rate limiting - staff only"""
     permission_classes = [permissions.IsAuthenticated]
     
     def patch(self, request, customer_id):
@@ -248,8 +262,9 @@ class CustomerNotesUpdateView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 class CustomerDashboardView(APIView):
-    """Enhanced customer dashboard with booking insights"""
+    """Enhanced customer dashboard with booking insights and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -287,15 +302,16 @@ class CustomerDashboardView(APIView):
                 'completed_bookings': completed_bookings,
                 'total_bookings': all_bookings.count()
             },
-            'recent_bookings': [], # CustomerBookingDetailSerializer(recent_bookings, many=True).data,
+            'recent_bookings': [],
             'saved_addresses_count': saved_addresses.count(),
             'payment_methods_count': payment_methods.count(),
             'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
         })
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class BookingPreferencesView(APIView):
-    """Manage customer booking preferences"""
+    """Manage customer booking preferences with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):

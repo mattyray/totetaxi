@@ -1,0 +1,58 @@
+# Multi-stage build for production optimization
+FROM python:3.11-slim as builder
+
+# Build dependencies
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Production stage
+FROM python:3.11-slim
+
+# Create non-root user for security
+RUN adduser --disabled-password --gecos '' appuser
+
+# Copy dependencies from builder stage
+COPY --from=builder /root/.local /home/appuser/.local
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONPATH=/app
+
+# Install only essential system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client \
+        curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove
+
+# Set work directory
+WORKDIR /app
+
+# Copy project files
+COPY --chown=appuser:appuser . /app/
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs /app/staticfiles /app/media \
+    && chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Collect static files
+RUN python manage.py collectstatic --no-input
+
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/api/customer/csrf-token/ || exit 1
+
+EXPOSE 8000
+
+# Use production-ready entrypoint
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+
+# Default to Gunicorn with optimized worker configuration
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "sync", "--max-requests", "1000", "--max-requests-jitter", "100"]
