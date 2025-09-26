@@ -42,6 +42,8 @@ class CustomerRegistrationView(generics.CreateAPIView):
         
         try:
             user = serializer.save()
+            # FIXED: Automatically log in the user after registration
+            login(request, user)
         except ValidationError as e:
             return Response(
                 {'error': str(e)},
@@ -244,3 +246,71 @@ class CustomerNotesUpdateView(APIView):
             'message': 'Customer notes updated successfully',
             'notes': customer_profile.notes
         })
+
+
+class CustomerDashboardView(APIView):
+    """Enhanced customer dashboard with booking insights"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'customer_profile'):
+            return Response(
+                {'error': 'This is not a customer account'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        customer_profile = request.user.customer_profile
+        
+        all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
+        recent_bookings = all_bookings[:5]
+        
+        pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
+        completed_bookings = all_bookings.filter(status='completed').count()
+        
+        saved_addresses = request.user.saved_addresses.filter(is_active=True)
+        payment_methods = request.user.payment_methods.filter(is_active=True)
+        
+        popular_addresses = saved_addresses.order_by('-times_used')[:3]
+        
+        return Response({
+            'customer_profile': {
+                'name': request.user.get_full_name(),
+                'email': request.user.email,
+                'phone': customer_profile.phone,
+                'is_vip': customer_profile.is_vip,
+                'total_bookings': customer_profile.total_bookings,
+                'total_spent_dollars': customer_profile.total_spent_dollars,
+                'last_booking_at': customer_profile.last_booking_at
+            },
+            'booking_summary': {
+                'pending_bookings': pending_bookings,
+                'completed_bookings': completed_bookings,
+                'total_bookings': all_bookings.count()
+            },
+            'recent_bookings': [], # CustomerBookingDetailSerializer(recent_bookings, many=True).data,
+            'saved_addresses_count': saved_addresses.count(),
+            'payment_methods_count': payment_methods.count(),
+            'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
+        })
+
+
+class BookingPreferencesView(APIView):
+    """Manage customer booking preferences"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        customer_profile = request.user.customer_profile
+        
+        return Response({
+            'preferred_pickup_time': customer_profile.preferred_pickup_time,
+            'email_notifications': customer_profile.email_notifications,
+            'sms_notifications': customer_profile.sms_notifications,
+            'default_addresses': {
+                'most_used_pickup': self._get_most_used_address('pickup'),
+                'most_used_delivery': self._get_most_used_address('delivery')
+            }
+        })
+    
+    def _get_most_used_address(self, address_type):
+        most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
+        return SavedAddressSerializer(most_used).data if most_used else None
