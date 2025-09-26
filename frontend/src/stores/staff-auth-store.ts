@@ -38,6 +38,7 @@ interface StaffAuthActions {
   login: (username: string, password: string) => Promise<{ success: boolean; user?: StaffUser; error?: string }>;
   logout: () => Promise<void>;
   validateSession: () => Promise<boolean>;
+  secureReset: () => void;
 }
 
 const initialState: StaffAuthState = {
@@ -63,9 +64,9 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         });
       },
 
-      // ✅ ENHANCED: Coordinated auth clearing
+      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
-        console.log('🧹 Clearing staff auth state');
+        console.log('Clearing staff auth state');
         
         if (typeof window !== 'undefined') {
           const keysToRemove = [
@@ -75,7 +76,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           keysToRemove.forEach(key => {
             try {
               localStorage.removeItem(key);
-              console.log(`✓ Cleared ${key}`);
+              console.log(`Cleared ${key}`);
             } catch (e) {
               console.warn(`Failed to remove ${key}:`, e);
             }
@@ -84,14 +85,14 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         
         // Clear React Query cache
         queryClient.clear();
-        console.log('✓ Cleared React Query cache');
+        console.log('Cleared React Query cache');
         
         set(initialState);
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
-      // ✅ NEW: Staff login method using api-client
+      // New: Staff login method using api-client
       login: async (username: string, password: string) => {
         set({ isLoading: true });
         
@@ -116,13 +117,13 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // ✅ NEW: Staff logout with coordination
+      // New: Staff logout with coordination
       logout: async () => {
-        console.log('🚪 Staff logout initiated');
+        console.log('Staff logout initiated');
         
         try {
           await apiClient.post('/api/staff/auth/logout/');
-          console.log('✓ Staff logout API call successful');
+          console.log('Staff logout API call successful');
         } catch (error) {
           console.warn('Staff logout API failed:', error);
         }
@@ -134,13 +135,13 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         try {
           const { useAuthStore } = await import('@/stores/auth-store');
           useAuthStore.getState().clearAuth();
-          console.log('✓ Customer auth cleared during staff logout');
+          console.log('Customer auth cleared during staff logout');
         } catch (e) {
           console.warn('Could not clear customer auth:', e);
         }
       },
 
-      // ✅ NEW: Staff session validation
+      // New: Staff session validation
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -160,11 +161,37 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           return false;
         } catch (error: any) {
           if (error.response?.status === 401) {
-            console.log('🚨 Staff session validation failed - clearing auth');
+            console.log('Staff session validation failed - clearing auth');
             get().clearAuth();
           }
           return false;
         }
+      },
+
+      // New: Security reset method
+      secureReset: () => {
+        console.log('SECURITY: Performing secure reset of staff auth');
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Remove all totetaxi staff-related keys
+            const allKeys = Object.keys(localStorage);
+            allKeys
+              .filter(key => key.startsWith('totetaxi-staff'))
+              .forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`SECURITY: Cleared ${key}`);
+              });
+          } catch (e) {
+            console.warn('Could not perform secure localStorage clear:', e);
+          }
+        }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('SECURITY: Cleared React Query cache');
+        
+        set(initialState);
       }
     }),
     {

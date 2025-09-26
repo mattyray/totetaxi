@@ -22,6 +22,7 @@ interface AuthActions {
   logout: () => Promise<void>;
   validateSession: () => Promise<boolean>;
   clearSessionIfIncognito: () => void;
+  secureReset: () => void;
 }
 
 interface RegisterData {
@@ -58,9 +59,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         });
       },
 
-      // ✅ ENHANCED: Coordinated auth clearing
+      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
-        console.log('🧹 Clearing customer auth state');
+        console.log('Clearing customer auth state');
         
         if (typeof window !== 'undefined') {
           const keysToRemove = [
@@ -72,7 +73,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           keysToRemove.forEach(key => {
             try {
               localStorage.removeItem(key);
-              console.log(`✓ Cleared ${key}`);
+              console.log(`Cleared ${key}`);
             } catch (e) {
               console.warn(`Failed to remove ${key}:`, e);
             }
@@ -81,7 +82,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         
         // Clear React Query cache
         queryClient.clear();
-        console.log('✓ Cleared React Query cache');
+        console.log('Cleared React Query cache');
         
         set(initialState);
       },
@@ -94,7 +95,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           : null
       })),
 
-      // ✅ ENHANCED: Use api-client instead of manual fetch
+      // Enhanced: Use api-client instead of manual fetch
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
@@ -119,7 +120,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // ✅ ENHANCED: Use api-client instead of manual fetch
+      // Enhanced: Use api-client instead of manual fetch
       register: async (data: RegisterData) => {
         set({ isLoading: true });
         
@@ -143,13 +144,13 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // ✅ ENHANCED: Coordinated logout with staff store
+      // Enhanced: Coordinated logout with staff store
       logout: async () => {
-        console.log('🚪 Customer logout initiated');
+        console.log('Customer logout initiated');
         
         try {
           await apiClient.post('/api/customer/auth/logout/');
-          console.log('✓ Customer logout API call successful');
+          console.log('Customer logout API call successful');
         } catch (error) {
           console.warn('Customer logout API failed:', error);
         }
@@ -161,7 +162,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         try {
           const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
           useStaffAuthStore.getState().clearAuth();
-          console.log('✓ Staff auth cleared during customer logout');
+          console.log('Staff auth cleared during customer logout');
         } catch (e) {
           console.warn('Could not clear staff auth:', e);
         }
@@ -171,14 +172,14 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           try {
             const { useBookingWizard } = await import('@/stores/booking-store');
             useBookingWizard.getState().resetWizard();
-            console.log('✓ Booking wizard cleared');
+            console.log('Booking wizard cleared');
           } catch (e) {
             console.warn('Could not clear booking wizard:', e);
           }
         }
       },
 
-      // ✅ NEW: Session validation method
+      // New: Session validation method
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -202,7 +203,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           return false;
         } catch (error: any) {
           if (error.response?.status === 401) {
-            console.log('🚨 Session validation failed - clearing auth');
+            console.log('Session validation failed - clearing auth');
             get().clearAuth();
           }
           return false;
@@ -213,6 +214,32 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
+      },
+
+      // New: Security reset method
+      secureReset: () => {
+        console.log('SECURITY: Performing secure reset of customer auth');
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Remove all totetaxi-related keys
+            const allKeys = Object.keys(localStorage);
+            allKeys
+              .filter(key => key.startsWith('totetaxi-'))
+              .forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`SECURITY: Cleared ${key}`);
+              });
+          } catch (e) {
+            console.warn('Could not perform secure localStorage clear:', e);
+          }
+        }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('SECURITY: Cleared React Query cache');
+        
+        set(initialState);
       }
     }),
     {
