@@ -92,7 +92,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
 
-      // New: Staff login method using api-client
+      // FIXED: Staff login method with correct response mapping
       login: async (username: string, password: string) => {
         set({ isLoading: true });
         
@@ -103,8 +103,9 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           });
 
           if (response.status === 200) {
-            const { user, profile } = response.data;
-            get().setAuth(user, profile);
+            // FIXED: Backend returns 'staff_profile', not 'profile'
+            const { user, staff_profile } = response.data;
+            get().setAuth(user, staff_profile);
             return { success: true, user };
           } else {
             set({ isLoading: false });
@@ -117,7 +118,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // New: Staff logout with coordination
+      // Enhanced: Staff logout with coordination
       logout: async () => {
         console.log('Staff logout initiated');
         
@@ -141,7 +142,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // New: Staff session validation
+      // Enhanced: Staff session validation
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -168,7 +169,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // New: Security reset method
+      // Security reset method
       secureReset: () => {
         console.log('SECURITY: Performing secure reset of staff auth');
         
