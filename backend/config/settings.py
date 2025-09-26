@@ -1,5 +1,3 @@
-# backend/config/settings.py
-# Django settings for ToteTaxi project.
 import os
 import environ
 from pathlib import Path
@@ -26,23 +24,13 @@ FLY_APP_NAME = env('FLY_APP_NAME', default='')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
 
-# Add Fly.io hostnames and internal networks
+# Add Fly.io hostnames
 if FLY_APP_NAME:
     ALLOWED_HOSTS.extend([
         f'{FLY_APP_NAME}.fly.dev',
         f'{FLY_APP_NAME}.internal',
         '.fly.dev',
     ])
-
-# FIX: Add Fly.io internal network ranges for health checks
-ALLOWED_HOSTS.extend([
-    '172.16.0.0/12',    # Fly.io internal networks
-    '172.17.0.0/16', 
-    '172.18.0.0/16',
-    '172.19.0.0/16',    # This covers the failing IP
-    '172.20.0.0/16',
-    '10.0.0.0/8',       # Additional private networks
-])
 
 # Application definition
 DJANGO_APPS = [
@@ -59,7 +47,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_celery_beat',
     'drf_yasg',
-    'django_ratelimit',  # ADD THIS - needed for rate limiting
+    'django_ratelimit',  # ADDED: Rate limiting support
 ]
 
 # LOCAL_APPS - All ToteTaxi apps
@@ -131,6 +119,22 @@ if database_url:
         conn_health_checks=True,
     )
 
+# CACHES - Redis configuration for rate limiting
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://redis:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,  # Don't break if Redis unavailable
+        }
+    }
+}
+
+# Rate limiting configuration
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_ENABLE = True
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -188,10 +192,6 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# Rate limiting configuration
-RATELIMIT_USE_CACHE = 'default'
-RATELIMIT_ENABLE = True
-
 # CSRF Settings - Enhanced Security
 CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
@@ -247,30 +247,19 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Caching configuration for rate limiting
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': env('REDIS_URL', default='redis://redis:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
-}
-
 # Security Settings for Production
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_OPTIONS_NOSNIFF = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# Logging
+# Logging with rate limiting
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

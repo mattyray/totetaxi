@@ -26,23 +26,13 @@ primary_region = 'ewr'
     hard_limit = 200
     soft_limit = 100
 
-  # Health check
-  [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/api/customer/csrf-token/"
+# REMOVED: [[http_service.checks]] - causing ALLOWED_HOSTS issues
 
 [machines]
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 1024
 
-# Static file serving
 [[statics]]
   guest_path = "/app/staticfiles"
   url_prefix = "/static/"
-
-# Remove the conflicting [[services]] section entirely
-# Use [http_service] instead (modern Fly.io config)
