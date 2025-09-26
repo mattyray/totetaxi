@@ -9,16 +9,12 @@ export const apiClient = axios.create({
   }
 });
 
-// Request interceptor for CSRF token with smart endpoint detection
+// Request interceptor for CSRF token - use customer endpoint for all requests
 apiClient.interceptors.request.use(async (config) => {
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
-      // Smart CSRF endpoint selection based on request URL
-      const csrfEndpoint = config.url?.includes('/staff/') 
-        ? '/api/staff/csrf-token/' 
-        : '/api/customer/csrf-token/';
-        
-      const csrfResponse = await axios.get(`${config.baseURL}${csrfEndpoint}`, {
+      // FIXED: Use customer CSRF endpoint for all requests (staff endpoint doesn't exist)
+      const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
         withCredentials: true
       });
       config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;

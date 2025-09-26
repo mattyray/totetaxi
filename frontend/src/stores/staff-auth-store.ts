@@ -103,7 +103,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           });
 
           if (response.status === 200) {
-            // FIXED: Backend returns 'staff_profile', not 'profile'
+            // Backend returns 'staff_profile', not 'profile'
             const { user, staff_profile } = response.data;
             get().setAuth(user, staff_profile);
             return { success: true, user };
@@ -197,7 +197,19 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
     }),
     {
       name: 'totetaxi-staff-auth',
-      version: 1, // Add version for future migrations
+      version: 2, // FIXED: Increment version to trigger migration
+      // FIXED: Add migration function to handle version changes
+      migrate: (persistedState: any, version: number) => {
+        console.log(`Staff auth migrating from version ${version} to 2`);
+        
+        if (version < 2) {
+          // Reset to initial state for major auth changes
+          console.log('Staff auth reset due to version upgrade');
+          return initialState;
+        }
+        
+        return persistedState;
+      },
       partialize: (state) => ({
         user: state.user,
         staffProfile: state.staffProfile,

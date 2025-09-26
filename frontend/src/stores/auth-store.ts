@@ -244,7 +244,19 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     }),
     {
       name: 'totetaxi-auth',
-      version: 1, // Add version for future migrations
+      version: 2, // FIXED: Increment version to trigger migration
+      // FIXED: Add migration function to handle version changes
+      migrate: (persistedState: any, version: number) => {
+        console.log(`Customer auth migrating from version ${version} to 2`);
+        
+        if (version < 2) {
+          // Reset to initial state for major auth changes
+          console.log('Customer auth reset due to version upgrade');
+          return initialState;
+        }
+        
+        return persistedState;
+      },
       partialize: (state) => ({
         user: state.user,
         customerProfile: state.customerProfile,
