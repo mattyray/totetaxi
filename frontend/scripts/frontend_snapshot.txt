@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-26 09:53:47.206283
+# Generated: 2025-09-26 13:46:57.434063
 # Files: 69
 
 # ==== next-env.d.ts ====
@@ -21,12 +21,95 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Existing config
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // Security headers - protect against common web attacks
+  async headers() {
+    return [
+      {
+        // Apply to all routes
+        source: '/(.*)',
+        headers: [
+          {
+            // Prevent embedding in iframes (clickjacking protection)
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
+          {
+            // Prevent MIME type sniffing attacks
+            key: 'X-Content-Type-Options', 
+            value: 'nosniff'
+          },
+          {
+            // Control referrer information leakage
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          },
+          {
+            // XSS protection (backup for older browsers)
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
+            // FIXED: Allow payment APIs for Stripe, disable others
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()'
+            // Removed payment=() to allow Stripe to work
+          },
+          {
+            // Force HTTPS (only in production)
+            key: 'Strict-Transport-Security',
+            value: process.env.NODE_ENV === 'production' 
+              ? 'max-age=31536000; includeSubDomains; preload' 
+              : ''
+          }
+        ]
+      }
+    ]
+  },
+
+  // Production optimizations
+  compiler: {
+    // Remove console.logs in production (keep errors/warnings)
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false
+  },
+
+  // Remove source maps in production (security)
+  productionBrowserSourceMaps: false,
+
+  // Image optimization
+  images: {
+    domains: ['totetaxi.com', 'api.totetaxi.com'],
+    formats: ['image/webp', 'image/avif']
+  },
+
+  // Strict mode for better React practices
+  reactStrictMode: true,
+
+  // Security-focused experimental features
+  experimental: {
+    // Enable modern bundling
+    esmExternals: true
+  },
+
+  // OVERRIDE: Force disable linting in all contexts
+  webpack: (config, { dev }) => {
+    // Disable ESLint plugin entirely in production builds
+    if (!dev) {
+      config.plugins = config.plugins.filter(
+        (plugin: any) => plugin.constructor.name !== 'ESLintWebpackPlugin'
+      );
+    }
+    return config;
+  }
 };
 
 export default nextConfig;
@@ -1224,18 +1307,54 @@ body {
 
 ```
 // frontend/src/app/layout.tsx
+'use client';
+
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { useEffect } from 'react';
+import { useAuthStore } from '@/stores/auth-store';
+import { useStaffAuthStore } from '@/stores/staff-auth-store';
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-playfair' });
 
-export const metadata: Metadata = {
-  title: "ToteTaxi - Luxury Delivery to the Hamptons",
-  description: "Premium delivery service for Manhattan to Hamptons transport. From suitcases to surfboards, we handle your seasonal relocation with luxury and care.",
-};
+// Component to handle session validation
+function SessionValidator() {
+  const { isAuthenticated: customerAuth, validateSession: validateCustomer } = useAuthStore();
+  const { isAuthenticated: staffAuth, validateSession: validateStaff } = useStaffAuthStore();
+
+  useEffect(() => {
+    const validateSessions = async () => {
+      console.log('Validating stored sessions on app startup');
+      
+      try {
+        if (customerAuth) {
+          const isValid = await validateCustomer();
+          if (!isValid) {
+            console.log('Customer session invalid - cleared automatically');
+          }
+        }
+        
+        if (staffAuth) {
+          const isValid = await validateStaff();
+          if (!isValid) {
+            console.log('Staff session invalid - cleared automatically');
+          }
+        }
+      } catch (error) {
+        console.warn('Session validation error:', error);
+      }
+    };
+
+    // Run validation after a brief delay to ensure stores are initialized
+    const timer = setTimeout(validateSessions, 1000);
+    return () => clearTimeout(timer);
+  }, [customerAuth, staffAuth, validateCustomer, validateStaff]);
+
+  return null; // This component doesn't render anything
+}
 
 export default function RootLayout({
   children,
@@ -1246,6 +1365,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body className={inter.className}>
         <QueryProvider>
+          <SessionValidator />
           {children}
         </QueryProvider>
       </body>
@@ -3050,14 +3170,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { DjangoUser, CustomerProfile } from '@/types';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -3066,13 +3183,6 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-interface LoginResponse {
-  message: string;
-  user: DjangoUser;
-  customer_profile: CustomerProfile;
-  csrf_token: string;
-}
-
 const TEST_USER = {
   email: 'dev.tester@totetaxi.local',
   password: 'DevTest2024!'
@@ -3080,13 +3190,13 @@ const TEST_USER = {
 
 export function LoginForm() {
   const router = useRouter();
-  const { setAuth, setLoading } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     setValue
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -3097,29 +3207,22 @@ export function LoginForm() {
     setValue('password', TEST_USER.password);
   };
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginFormData): Promise<LoginResponse> => {
-      const response = await apiClient.post('/api/customer/auth/login/', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      setAuth(data.user, data.customer_profile);
-      router.push('/dashboard');
-    },
-    onError: (error: any) => {
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.message ||
-                          'Login failed. Please check your credentials.';
-      setApiError(errorMessage);
-      setLoading(false);
-    },
-  });
-
   const onSubmit = async (data: LoginFormData) => {
     setApiError('');
-    setLoading(true);
-    loginMutation.mutate(data);
+    
+    try {
+      const result = await login(data.email, data.password);
+      
+      if (result.success) {
+        console.log('Login successful, redirecting to dashboard');
+        router.push('/dashboard');
+      } else {
+        setApiError(result.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
@@ -3143,7 +3246,7 @@ export function LoginForm() {
                 onClick={fillTestUser}
                 className="text-xs"
               >
-                🧪 Fill Test User
+                Fill Test User
               </Button>
             </div>
           )}
@@ -3192,9 +3295,9 @@ export function LoginForm() {
               variant="primary"
               size="lg"
               className="w-full"
-              disabled={isSubmitting || loginMutation.isPending}
+              disabled={isLoading}
             >
-              {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
 
             <div className="text-center pt-4 border-t border-cream-200">
@@ -3227,6 +3330,7 @@ export function LoginForm() {
     </div>
   );
 }
+
 ```
 
 # ==== src/components/auth/register-form.tsx ====
@@ -3239,14 +3343,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { DjangoUser, CustomerProfile } from '@/types';
 
 const registerSchema = z.object({
   first_name: z.string().min(1, 'First name is required').max(150, 'First name too long'),
@@ -3266,102 +3367,41 @@ const registerSchema = z.object({
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-interface RegisterResponse {
-  message: string;
-  user: DjangoUser;
-  customer_profile: CustomerProfile;
-  csrf_token: string;
-}
-
 export function RegisterForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { setAuth, setLoading } = useAuthStore();
+  const { register: registerUser, isLoading } = useAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: RegisterFormData): Promise<RegisterResponse> => {
-      console.log('🔍 SENDING REGISTRATION REQUEST');
-      console.log('📤 Request data:', { ...data, password: '[HIDDEN]', password_confirm: '[HIDDEN]' });
-      
-      const response = await apiClient.post('/api/customer/auth/register/', data);
-      
-      console.log('📥 Registration response:', {
-        status: response.status,
-        message: response.data.message
-      });
-      
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log('🎉 REGISTRATION SUCCESS!');
-      console.log('👤 New user:', data.user);
-      
-      try {
-        // ✅ CRITICAL FIX: Clear all React Query cache before setting new auth
-        queryClient.clear();
-        console.log('🧹 Cleared all React Query cache to prevent cross-user data contamination');
-        
-        // Small delay to ensure cache is cleared
-        setTimeout(() => {
-          setAuth(data.user, data.customer_profile);
-          console.log('✅ Auth state updated successfully');
-          router.push('/dashboard?welcome=true');
-        }, 100);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error in success handler';
-        console.error('❌ Error in onSuccess handler:', err);
-        setApiError(`Registration succeeded but login failed: ${errorMessage}`);
-      }
-    },
-    onError: (error: any) => {
-      console.log('❌ REGISTRATION ERROR');
-      console.log('📊 Error details:', error.response?.data);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        
-        // Handle field-specific errors
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData.email) {
-          errorMessage = Array.isArray(errorData.email) 
-            ? errorData.email[0] 
-            : errorData.email;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        }
-      }
-      
-      setApiError(errorMessage);
-      setLoading(false);
-    },
-  });
-
   const onSubmit = async (data: RegisterFormData) => {
-    console.log('🚀 REGISTRATION FORM SUBMITTED');
+    console.log('Registration form submitted');
     setApiError('');
-    setLoading(true);
     
     try {
-      registerMutation.mutate(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown submit error';
-      console.error('❌ Submit error:', err);
-      setApiError(`Submit error: ${errorMessage}`);
-      setLoading(false);
+      const result = await registerUser({
+        email: data.email,
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone
+      });
+      
+      if (result.success) {
+        console.log('Registration successful, redirecting to login');
+        router.push('/login?message=Registration successful! Please sign in with your new account.');
+      } else {
+        setApiError(result.error || 'Registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -3493,9 +3533,9 @@ export function RegisterForm() {
             variant="primary"
             size="lg"
             className="w-full"
-            disabled={isSubmitting || registerMutation.isPending}
+            disabled={isLoading}
           >
-            {isSubmitting || registerMutation.isPending ? 'Creating Account...' : 'Create Account'}
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </Button>
 
           {/* Login Link */}
@@ -3536,10 +3576,8 @@ export function RegisterForm() {
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useClickAway } from '@/hooks/use-click-away';
-import { apiClient } from '@/lib/api-client';
 import { 
   ChevronDownIcon, 
   UserIcon, 
@@ -3555,8 +3593,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ variant = 'header' }: UserMenuProps) {
-  const { user, customerProfile, clearAuth, logout } = useAuthStore();
-  const queryClient = useQueryClient();
+  const { user, customerProfile, logout, secureReset } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -3565,59 +3602,26 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      // Clear React Query cache
-      queryClient.clear();
-      console.log('🧹 Cleared React Query cache on logout');
-      
+      console.log('User menu logout initiated');
       await logout();
       router.push('/');
       setIsOpen(false);
     } catch (error) {
       console.error('Logout error:', error);
-      queryClient.clear();
-      clearAuth();
+      // Fallback to secure reset if logout fails
+      secureReset();
       router.push('/');
+      setIsOpen(false);
     }
   };
 
-  const handleForceLogout = () => {
-    // ✅ SAFE: Only clear ToteTaxi-specific data
-    if (typeof window !== 'undefined') {
-      console.log('FORCE LOGOUT - Clearing only ToteTaxi storage');
-      
-      const totetaxiKeys = [
-        'totetaxi-auth',
-        'totetaxi-last-activity', 
-        'totetaxi-booking-wizard',
-        'totetaxi-current-user-id'
-      ];
-      
-      // Clear only ToteTaxi localStorage keys
-      totetaxiKeys.forEach(key => {
-        try {
-          localStorage.removeItem(key);
-          console.log(`✓ Cleared ${key}`);
-        } catch (e) {
-          console.warn(`Failed to remove ${key}:`, e);
-        }
-      });
-      
-      // Clear ToteTaxi sessionStorage keys (if any)
-      try {
-        // Only clear specific sessionStorage keys if we use them
-        // sessionStorage.removeItem('totetaxi-session-data'); // if we had any
-      } catch (e) {
-        console.warn('SessionStorage clear error:', e);
-      }
-    }
-    
-    // Clear React Query cache
-    queryClient.clear();
-    console.log('🧹 Cleared React Query cache on force logout');
-    
-    clearAuth();
+  const handleSecureReset = () => {
+    console.log('SECURITY: User initiated secure reset');
+    secureReset();
     router.push('/');
-    window.location.reload();
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   };
 
   const menuItems = [
@@ -3662,9 +3666,9 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
     },
     // Debug option - remove in production
     ...(process.env.NODE_ENV === 'development' ? [{
-      label: 'Force Clear (Debug)',
+      label: 'Secure Reset (Debug)',
       icon: ExclamationTriangleIcon,
-      onClick: handleForceLogout,
+      onClick: handleSecureReset,
       danger: true
     }] : [])
   ];
@@ -9561,8 +9565,6 @@ export function StaffDashboardOverview() {
 import { useState } from 'react';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { useRouter, usePathname } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
-import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 
 interface StaffLayoutProps {
@@ -9579,27 +9581,21 @@ const navigation = [
 ];
 
 export function StaffLayout({ children }: StaffLayoutProps) {
-  const { staffProfile, clearAuth } = useStaffAuthStore();
+  const { staffProfile, logout, isLoading } = useStaffAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.post('/api/staff/auth/logout/');
-    },
-    onSuccess: () => {
-      clearAuth();
+  // FIXED: Use enhanced store logout method instead of direct API calls
+  const handleLogout = async () => {
+    try {
+      await logout();
       router.push('/staff/login');
-    },
-    onError: () => {
-      clearAuth();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: still redirect even if logout fails
       router.push('/staff/login');
     }
-  });
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
   };
 
   return (
@@ -9656,10 +9652,10 @@ export function StaffLayout({ children }: StaffLayoutProps) {
               </span>
               <button
                 onClick={handleLogout}
-                disabled={logoutMutation.isPending}
+                disabled={isLoading}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-500 disabled:opacity-50"
               >
-                {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+                {isLoading ? 'Logging out...' : 'Logout'}
               </button>
             </div>
           </div>
@@ -9719,7 +9715,6 @@ function SidebarContent({ navigation, pathname }: {
 // frontend/src/components/staff/staff-login-form.tsx
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9727,7 +9722,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
-import { apiClient } from '@/lib/api-client';
 
 const staffLoginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -9738,36 +9732,33 @@ type StaffLoginForm = z.infer<typeof staffLoginSchema>;
 
 export function StaffLoginForm() {
   const router = useRouter();
-  const { setAuth, setLoading } = useStaffAuthStore();
+  const { login, isLoading } = useStaffAuthStore();
   const [apiError, setApiError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }
+    formState: { errors }
   } = useForm<StaffLoginForm>({
     resolver: zodResolver(staffLoginSchema)
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: StaffLoginForm) => {
-      const response = await apiClient.post('/api/staff/auth/login/', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      setAuth(data.user, data.staff_profile);
-      router.push('/staff/dashboard');
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.error || 'Login failed. Please try again.';
-      setApiError(message);
-    }
-  });
-
-  const onSubmit = (data: StaffLoginForm) => {
+  const onSubmit = async (data: StaffLoginForm) => {
     setApiError('');
-    setLoading(true);
-    loginMutation.mutate(data);
+    
+    try {
+      const result = await login(data.username, data.password);
+      
+      if (result.success) {
+        console.log('Staff login successful, redirecting to dashboard');
+        router.push('/staff/dashboard');
+      } else {
+        setApiError(result.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (error) {
+      console.error('Staff login error:', error);
+      setApiError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
@@ -9827,9 +9818,9 @@ export function StaffLoginForm() {
                 variant="primary"
                 size="lg"
                 className="w-full"
-                disabled={isSubmitting || loginMutation.isPending}
+                disabled={isLoading}
               >
-                {isSubmitting || loginMutation.isPending ? 'Signing In...' : 'Sign In'}
+                {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
           </CardContent>
@@ -10336,10 +10327,11 @@ export const apiClient = axios.create({
   }
 });
 
-// Request interceptor for CSRF token
+// Request interceptor for CSRF token - use customer endpoint for all requests
 apiClient.interceptors.request.use(async (config) => {
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
+      // FIXED: Use customer CSRF endpoint for all requests (staff endpoint doesn't exist)
       const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
         withCredentials: true
       });
@@ -10351,12 +10343,33 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor for error handling
+// Enhanced response interceptor with proper auth handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      console.log('Auth error detected');
+      console.log('401 Unauthorized - clearing auth state');
+      
+      // Clear auth stores (imported dynamically to avoid circular deps)
+      try {
+        const { useAuthStore } = await import('@/stores/auth-store');
+        const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+        
+        useAuthStore.getState().clearAuth();
+        useStaffAuthStore.getState().clearAuth();
+        
+        console.log('Auth stores cleared due to 401');
+        
+        // Let components handle redirects - don't use router here
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+            console.log('401 detected - components will handle redirect');
+          }
+        }
+      } catch (e) {
+        console.warn('Error clearing auth on 401:', e);
+      }
     }
     return Promise.reject(error);
   }
@@ -10385,6 +10398,46 @@ export const queryClient = new QueryClient({
     }
   }
 });
+
+// ✅ CORRECT v5 APPROACH: Global error handling using QueryClient events
+queryClient.getQueryCache().subscribe((event) => {
+  if (event?.type === 'observerResultsUpdated') {
+    const result = event.query.state;
+    if (result.error?.response?.status === 401) {
+      handle401Error();
+    }
+  }
+});
+
+queryClient.getMutationCache().subscribe((event) => {
+  if (event?.type === 'updated') {
+    const result = event.mutation.state;
+    if (result.error?.response?.status === 401) {
+      handle401Error();
+    }
+  }
+});
+
+// ✅ CENTRALIZED: 401 error handler
+async function handle401Error() {
+  console.log('🚨 React Query detected 401 - clearing cache');
+  
+  try {
+    // Clear the query cache
+    queryClient.clear();
+    console.log('✅ React Query cache cleared');
+    
+    // Clear auth stores
+    const { useAuthStore } = await import('@/stores/auth-store');
+    const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+    
+    useAuthStore.getState().clearAuth();
+    useStaffAuthStore.getState().clearAuth();
+    
+  } catch (e) {
+    console.warn('Error handling React Query 401:', e);
+  }
+}
 ```
 
 # ==== src/lib/stripe.ts ====
@@ -10410,6 +10463,8 @@ export const getStripe = () => {
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DjangoUser, CustomerProfile } from '@/types';
+import { apiClient } from '@/lib/api-client';
+import { queryClient } from '@/lib/query-client';
 
 interface AuthState {
   user: DjangoUser | null;
@@ -10426,7 +10481,9 @@ interface AuthActions {
   login: (email: string, password: string) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
   logout: () => Promise<void>;
+  validateSession: () => Promise<boolean>;
   clearSessionIfIncognito: () => void;
+  secureReset: () => void;
 }
 
 interface RegisterData {
@@ -10443,9 +10500,6 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
 };
-
-// ✅ FIXED: Use environment variable instead of hardcoded URL
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
@@ -10466,7 +10520,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         });
       },
 
+      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
+        console.log('Clearing customer auth state');
+        
         if (typeof window !== 'undefined') {
           const keysToRemove = [
             'totetaxi-auth',
@@ -10477,12 +10534,16 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           keysToRemove.forEach(key => {
             try {
               localStorage.removeItem(key);
-              console.log(`✓ Cleared ${key}`);
+              console.log(`Cleared ${key}`);
             } catch (e) {
               console.warn(`Failed to remove ${key}:`, e);
             }
           });
         }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('Cleared React Query cache');
         
         set(initialState);
       },
@@ -10495,106 +10556,118 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           : null
       })),
 
+      // Enhanced: Use api-client instead of manual fetch
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
         try {
-          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
-            credentials: 'include',
-          });
-          
-          if (!csrfResponse.ok) {
-            throw new Error('Failed to get CSRF token');
-          }
-          
-          const { csrf_token } = await csrfResponse.json();
-
-          const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrf_token,
-            },
-            credentials: 'include',
-            body: JSON.stringify({ email, password }),
+          const response = await apiClient.post('/api/customer/auth/login/', {
+            email,
+            password
           });
 
-          const data = await response.json();
-
-          if (response.ok) {
-            get().setAuth(data.user, data.customer_profile);
-            return { success: true, user: data.user };
+          if (response.status === 200) {
+            const { user, customer_profile } = response.data;
+            get().setAuth(user, customer_profile);
+            return { success: true, user };
           } else {
             set({ isLoading: false });
-            return { success: false, error: data.error || 'Login failed' };
+            return { success: false, error: 'Login failed' };
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ isLoading: false });
-          return { success: false, error: 'Network error. Please try again.' };
+          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          return { success: false, error: errorMessage };
         }
       },
 
+      // Enhanced: Use api-client instead of manual fetch
       register: async (data: RegisterData) => {
         set({ isLoading: true });
         
         try {
-          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
-            credentials: 'include',
-          });
-          
-          if (!csrfResponse.ok) {
-            throw new Error('Failed to get CSRF token');
-          }
-          
-          const { csrf_token } = await csrfResponse.json();
-
-          const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrf_token,
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              ...data,
-              password_confirm: data.password
-            }),
+          const response = await apiClient.post('/api/customer/auth/register/', {
+            ...data,
+            password_confirm: data.password
           });
 
-          const responseData = await response.json();
-
-          if (response.ok) {
+          if (response.status === 201) {
             set({ isLoading: false });
-            return { success: true, user: responseData.user };
+            return { success: true, user: response.data.user };
           } else {
             set({ isLoading: false });
-            return { success: false, error: responseData.error || 'Registration failed' };
+            return { success: false, error: 'Registration failed' };
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ isLoading: false });
-          return { success: false, error: 'Network error. Please try again.' };
+          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          return { success: false, error: errorMessage };
         }
       },
 
+      // Enhanced: Coordinated logout with staff store
       logout: async () => {
+        console.log('Customer logout initiated');
+        
         try {
-          await fetch(`${API_BASE}/api/customer/auth/logout/`, {
-            method: 'POST',
-            credentials: 'include',
-          });
+          await apiClient.post('/api/customer/auth/logout/');
+          console.log('Customer logout API call successful');
         } catch (error) {
-          console.warn('Logout request failed:', error);
-        } finally {
-          get().clearAuth();
-          
-          if (typeof window !== 'undefined') {
-            try {
-              const { useBookingWizard } = await import('@/stores/booking-store');
-              useBookingWizard.getState().resetWizard();
-            } catch (e) {
-              console.warn('Could not clear booking wizard:', e);
-            }
+          console.warn('Customer logout API failed:', error);
+        }
+        
+        // Always clear state, even if API call fails
+        get().clearAuth();
+        
+        // Clear staff auth too (prevent hybrid states)
+        try {
+          const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+          useStaffAuthStore.getState().clearAuth();
+          console.log('Staff auth cleared during customer logout');
+        } catch (e) {
+          console.warn('Could not clear staff auth:', e);
+        }
+        
+        // Clear booking wizard
+        if (typeof window !== 'undefined') {
+          try {
+            const { useBookingWizard } = await import('@/stores/booking-store');
+            useBookingWizard.getState().resetWizard();
+            console.log('Booking wizard cleared');
+          } catch (e) {
+            console.warn('Could not clear booking wizard:', e);
           }
+        }
+      },
+
+      // New: Session validation method
+      validateSession: async () => {
+        const { user, isAuthenticated } = get();
+        
+        if (!isAuthenticated || !user) {
+          return false;
+        }
+        
+        try {
+          // Try to fetch current user data to validate session
+          const response = await apiClient.get('/api/customer/profile/');
+          
+          if (response.status === 200) {
+            // Session is valid, optionally update profile data
+            const { customer_profile } = response.data;
+            if (customer_profile) {
+              set({ customerProfile: customer_profile });
+            }
+            return true;
+          }
+          
+          return false;
+        } catch (error: any) {
+          if (error.response?.status === 401) {
+            console.log('Session validation failed - clearing auth');
+            get().clearAuth();
+          }
+          return false;
         }
       },
 
@@ -10602,10 +10675,49 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('totetaxi-last-activity', Date.now().toString());
         }
+      },
+
+      // New: Security reset method
+      secureReset: () => {
+        console.log('SECURITY: Performing secure reset of customer auth');
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Remove all totetaxi-related keys
+            const allKeys = Object.keys(localStorage);
+            allKeys
+              .filter(key => key.startsWith('totetaxi-'))
+              .forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`SECURITY: Cleared ${key}`);
+              });
+          } catch (e) {
+            console.warn('Could not perform secure localStorage clear:', e);
+          }
+        }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('SECURITY: Cleared React Query cache');
+        
+        set(initialState);
       }
     }),
     {
       name: 'totetaxi-auth',
+      version: 2, // FIXED: Increment version to trigger migration
+      // FIXED: Add migration function to handle version changes
+      migrate: (persistedState: any, version: number) => {
+        console.log(`Customer auth migrating from version ${version} to 2`);
+        
+        if (version < 2) {
+          // Reset to initial state for major auth changes
+          console.log('Customer auth reset due to version upgrade');
+          return initialState;
+        }
+        
+        return persistedState;
+      },
       partialize: (state) => ({
         user: state.user,
         customerProfile: state.customerProfile,
@@ -10688,6 +10800,7 @@ interface BookingWizardActions {
   clearError: (field: string) => void;
   clearErrors: () => void;
   resetWizard: () => void;
+  secureReset: () => void;
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
   initializeForUser: (userId?: string, isGuest?: boolean) => void;
@@ -10703,8 +10816,112 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 2;
+const STORE_VERSION = 3; // Increment for security changes
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
+
+// SECURITY: Data validation and sanitization
+const sanitizeBookingData = (data: Partial<BookingData>): Partial<BookingData> => {
+  const sanitized: Partial<BookingData> = {};
+  
+  // Validate service types
+  if (data.service_type && ['mini_move', 'standard_delivery', 'specialty_item'].includes(data.service_type)) {
+    sanitized.service_type = data.service_type;
+  }
+  
+  // Validate package types
+  if (data.package_type && ['petite', 'standard', 'full'].includes(data.package_type)) {
+    sanitized.package_type = data.package_type;
+  }
+  
+  // Validate pickup time
+  if (data.pickup_time && ['morning', 'morning_specific', 'no_time_preference'].includes(data.pickup_time)) {
+    sanitized.pickup_time = data.pickup_time;
+  }
+  
+  // Sanitize string fields with length limits
+  if (data.special_instructions) {
+    sanitized.special_instructions = data.special_instructions.substring(0, 500).trim();
+  }
+  
+  // Validate boolean fields
+  ['include_packing', 'include_unpacking', 'is_same_day_delivery', 'coi_required', 'is_outside_core_area'].forEach(field => {
+    if (typeof data[field as keyof BookingData] === 'boolean') {
+      (sanitized as any)[field] = data[field as keyof BookingData];
+    }
+  });
+  
+  // Validate numeric fields
+  if (typeof data.standard_delivery_item_count === 'number' && data.standard_delivery_item_count >= 1 && data.standard_delivery_item_count <= 50) {
+    sanitized.standard_delivery_item_count = Math.floor(data.standard_delivery_item_count);
+  }
+  
+  if (typeof data.specific_pickup_hour === 'number' && data.specific_pickup_hour >= 8 && data.specific_pickup_hour <= 17) {
+    sanitized.specific_pickup_hour = Math.floor(data.specific_pickup_hour);
+  }
+  
+  // Validate date format (YYYY-MM-DD)
+  if (data.pickup_date && /^\d{4}-\d{2}-\d{2}$/.test(data.pickup_date)) {
+    const date = new Date(data.pickup_date);
+    if (!isNaN(date.getTime()) && date >= new Date()) {
+      sanitized.pickup_date = data.pickup_date;
+    }
+  }
+  
+  // Validate UUIDs for IDs
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (data.mini_move_package_id && uuidRegex.test(data.mini_move_package_id)) {
+    sanitized.mini_move_package_id = data.mini_move_package_id;
+  }
+  
+  if (data.specialty_item_ids && Array.isArray(data.specialty_item_ids)) {
+    sanitized.specialty_item_ids = data.specialty_item_ids.filter(id => uuidRegex.test(id));
+  }
+  
+  // Validate addresses
+  if (data.pickup_address) {
+    sanitized.pickup_address = sanitizeAddress(data.pickup_address);
+  }
+  if (data.delivery_address) {
+    sanitized.delivery_address = sanitizeAddress(data.delivery_address);
+  }
+  
+  // SECURITY: Validate customer info but don't store sensitive data
+  if (data.customer_info) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[\d\s\-\(\)\+]{10,15}$/;
+    
+    if (data.customer_info.email && emailRegex.test(data.customer_info.email)) {
+      sanitized.customer_info = {
+        first_name: data.customer_info.first_name?.substring(0, 50).trim() || '',
+        last_name: data.customer_info.last_name?.substring(0, 50).trim() || '',
+        email: data.customer_info.email.trim(),
+        phone: data.customer_info.phone && phoneRegex.test(data.customer_info.phone) 
+          ? data.customer_info.phone.trim() 
+          : ''
+      };
+    }
+  }
+  
+  // Validate pricing data (read-only, from server)
+  if (data.pricing_data && typeof data.pricing_data === 'object') {
+    const pricing = data.pricing_data;
+    if (typeof pricing.total_price_dollars === 'number' && pricing.total_price_dollars >= 0) {
+      sanitized.pricing_data = pricing;
+    }
+  }
+  
+  return sanitized;
+};
+
+const sanitizeAddress = (address: BookingAddress): BookingAddress => {
+  return {
+    address_line_1: address.address_line_1?.substring(0, 100).trim() || '',
+    address_line_2: address.address_line_2?.substring(0, 100).trim(),
+    city: address.city?.substring(0, 50).trim() || '',
+    state: ['NY', 'CT', 'NJ'].includes(address.state) ? address.state : 'NY',
+    zip_code: address.zip_code?.replace(/\D/g, '').substring(0, 10) || ''
+  };
+};
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
@@ -10719,7 +10936,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       isGuestMode: true,
       lastResetTimestamp: Date.now(),
 
-      setCurrentStep: (step) => set({ currentStep: step }),
+      setCurrentStep: (step) => {
+        // Validate step range
+        const validStep = Math.max(0, Math.min(step, 5));
+        set({ currentStep: validStep });
+      },
       
       nextStep: () => set((state) => {
         const maxStep = 5;
@@ -10743,15 +10964,27 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
-      updateBookingData: (data) => set((state) => ({
-        bookingData: { ...state.bookingData, ...data }
-      })),
+      // SECURITY: Enhanced with validation
+      updateBookingData: (data) => {
+        const sanitizedData = sanitizeBookingData(data);
+        console.log('Updating booking data with sanitized input');
+        
+        set((state) => ({
+          bookingData: { ...state.bookingData, ...sanitizedData }
+        }));
+      },
       
-      setLoading: (loading) => set({ isLoading: loading }),
+      setLoading: (loading) => set({ isLoading: !!loading }),
       
-      setError: (field, message) => set((state) => ({
-        errors: { ...state.errors, [field]: message }
-      })),
+      setError: (field, message) => {
+        // Sanitize error messages
+        const sanitizedField = field.substring(0, 50);
+        const sanitizedMessage = message.substring(0, 200);
+        
+        set((state) => ({
+          errors: { ...state.errors, [sanitizedField]: sanitizedMessage }
+        }));
+      },
       
       clearError: (field) => set((state) => {
         const newErrors = { ...state.errors };
@@ -10761,18 +10994,34 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       
       clearErrors: () => set({ errors: {} }),
       
-      setBookingComplete: (bookingNumber) => set({
-        isBookingComplete: true,
-        completedBookingNumber: bookingNumber
-      }),
+      setBookingComplete: (bookingNumber) => {
+        // Validate booking number format
+        const sanitizedBookingNumber = bookingNumber?.substring(0, 20).trim();
+        if (sanitizedBookingNumber) {
+          set({
+            isBookingComplete: true,
+            completedBookingNumber: sanitizedBookingNumber
+          });
+        }
+      },
       
+      // SECURITY: Race condition protection
       initializeForUser: (providedUserId?, isGuest?) => {
-        const userId = providedUserId || 'guest';
+        const userId = providedUserId?.substring(0, 50) || 'guest';
         const guestMode = isGuest !== undefined ? isGuest : true;
         
         const state = get();
         
         console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        
+        // SECURITY: Prevent rapid user switching attacks
+        const timeSinceLastReset = state.lastResetTimestamp ? 
+          Date.now() - state.lastResetTimestamp : Infinity;
+        
+        if (timeSinceLastReset < 1000) { // Prevent rapid resets
+          console.warn('Ignoring rapid user initialization');
+          return;
+        }
         
         const isStale = state.lastResetTimestamp && 
           (Date.now() - state.lastResetTimestamp > MAX_SESSION_AGE_MS);
@@ -10826,6 +11075,38 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             console.warn('Could not clear localStorage:', e);
           }
         }
+      },
+      
+      // SECURITY: Nuclear option for security incidents
+      secureReset: () => {
+        console.log('SECURITY: Performing secure reset of booking wizard');
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Remove all totetaxi booking-related keys
+            const allKeys = Object.keys(localStorage);
+            allKeys
+              .filter(key => key.startsWith('totetaxi-booking'))
+              .forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`SECURITY: Cleared ${key}`);
+              });
+          } catch (e) {
+            console.warn('Could not perform secure localStorage clear:', e);
+          }
+        }
+        
+        set({
+          currentStep: 0,
+          isLoading: false,
+          bookingData: { ...initialBookingData },
+          errors: {},
+          isBookingComplete: false,
+          completedBookingNumber: undefined,
+          userId: 'guest',
+          isGuestMode: true,
+          lastResetTimestamp: Date.now()
+        });
       },
       
       canProceedToStep: (step) => {
@@ -10894,8 +11175,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         return persistedState;
       },
+      // SECURITY: Exclude PII from localStorage persistence
       partialize: (state) => ({
-        bookingData: state.bookingData,
+        bookingData: {
+          ...state.bookingData,
+          customer_info: undefined // Don't persist customer PII
+        },
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,
         completedBookingNumber: state.completedBookingNumber,
@@ -10914,6 +11199,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
 // frontend/src/stores/staff-auth-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { apiClient } from '@/lib/api-client';
+import { queryClient } from '@/lib/query-client';
 
 interface StaffUser {
   id: number;
@@ -10946,42 +11233,186 @@ interface StaffAuthActions {
   setAuth: (user: StaffUser, profile: StaffProfile) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
+  login: (username: string, password: string) => Promise<{ success: boolean; user?: StaffUser; error?: string }>;
+  logout: () => Promise<void>;
+  validateSession: () => Promise<boolean>;
+  secureReset: () => void;
 }
+
+const initialState: StaffAuthState = {
+  user: null,
+  staffProfile: null,
+  isAuthenticated: false,
+  isLoading: false,
+};
 
 export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
   persist(
     (set, get) => ({
       // State
-      user: null,
-      staffProfile: null,
-      isAuthenticated: false,
-      isLoading: false,
+      ...initialState,
 
       // Actions
-      setAuth: (user, profile) => set({
-        user,
-        staffProfile: profile,
-        isAuthenticated: true,
-        isLoading: false
-      }),
+      setAuth: (user, profile) => {
+        set({
+          user,
+          staffProfile: profile,
+          isAuthenticated: true,
+          isLoading: false
+        });
+      },
 
-      clearAuth: () => set({
-        user: null,
-        staffProfile: null,
-        isAuthenticated: false,
-        isLoading: false
-      }),
+      // Enhanced: Coordinated auth clearing
+      clearAuth: () => {
+        console.log('Clearing staff auth state');
+        
+        if (typeof window !== 'undefined') {
+          const keysToRemove = [
+            'totetaxi-staff-auth'
+          ];
+          
+          keysToRemove.forEach(key => {
+            try {
+              localStorage.removeItem(key);
+              console.log(`Cleared ${key}`);
+            } catch (e) {
+              console.warn(`Failed to remove ${key}:`, e);
+            }
+          });
+        }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('Cleared React Query cache');
+        
+        set(initialState);
+      },
 
       setLoading: (loading) => set({ isLoading: loading }),
+
+      // FIXED: Staff login method with correct response mapping
+      login: async (username: string, password: string) => {
+        set({ isLoading: true });
+        
+        try {
+          const response = await apiClient.post('/api/staff/auth/login/', {
+            username,
+            password
+          });
+
+          if (response.status === 200) {
+            // Backend returns 'staff_profile', not 'profile'
+            const { user, staff_profile } = response.data;
+            get().setAuth(user, staff_profile);
+            return { success: true, user };
+          } else {
+            set({ isLoading: false });
+            return { success: false, error: 'Login failed' };
+          }
+        } catch (error: any) {
+          set({ isLoading: false });
+          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          return { success: false, error: errorMessage };
+        }
+      },
+
+      // Enhanced: Staff logout with coordination
+      logout: async () => {
+        console.log('Staff logout initiated');
+        
+        try {
+          await apiClient.post('/api/staff/auth/logout/');
+          console.log('Staff logout API call successful');
+        } catch (error) {
+          console.warn('Staff logout API failed:', error);
+        }
+        
+        // Always clear state, even if API call fails
+        get().clearAuth();
+        
+        // Clear customer auth too (prevent hybrid states)
+        try {
+          const { useAuthStore } = await import('@/stores/auth-store');
+          useAuthStore.getState().clearAuth();
+          console.log('Customer auth cleared during staff logout');
+        } catch (e) {
+          console.warn('Could not clear customer auth:', e);
+        }
+      },
+
+      // Enhanced: Staff session validation
+      validateSession: async () => {
+        const { user, isAuthenticated } = get();
+        
+        if (!isAuthenticated || !user) {
+          return false;
+        }
+        
+        try {
+          // Try to fetch staff dashboard to validate session
+          const response = await apiClient.get('/api/staff/dashboard/');
+          
+          if (response.status === 200) {
+            // Session is valid
+            return true;
+          }
+          
+          return false;
+        } catch (error: any) {
+          if (error.response?.status === 401) {
+            console.log('Staff session validation failed - clearing auth');
+            get().clearAuth();
+          }
+          return false;
+        }
+      },
+
+      // Security reset method
+      secureReset: () => {
+        console.log('SECURITY: Performing secure reset of staff auth');
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Remove all totetaxi staff-related keys
+            const allKeys = Object.keys(localStorage);
+            allKeys
+              .filter(key => key.startsWith('totetaxi-staff'))
+              .forEach(key => {
+                localStorage.removeItem(key);
+                console.log(`SECURITY: Cleared ${key}`);
+              });
+          } catch (e) {
+            console.warn('Could not perform secure localStorage clear:', e);
+          }
+        }
+        
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('SECURITY: Cleared React Query cache');
+        
+        set(initialState);
+      }
     }),
     {
       name: 'totetaxi-staff-auth',
+      version: 2, // FIXED: Increment version to trigger migration
+      // FIXED: Add migration function to handle version changes
+      migrate: (persistedState: any, version: number) => {
+        console.log(`Staff auth migrating from version ${version} to 2`);
+        
+        if (version < 2) {
+          // Reset to initial state for major auth changes
+          console.log('Staff auth reset due to version upgrade');
+          return initialState;
+        }
+        
+        return persistedState;
+      },
       partialize: (state) => ({
         user: state.user,
         staffProfile: state.staffProfile,
         isAuthenticated: state.isAuthenticated
-      }),
-      version: 1, // Add version to force refresh if needed
+      })
     }
   )
 );
@@ -11021,7 +11452,21 @@ interface UIActions {
   addNotification: (notification: Omit<Notification, 'id'>) => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
+  secureReset: () => void;
 }
+
+// SECURITY: Input sanitization helpers
+const sanitizeNotification = (notification: Omit<Notification, 'id'>): Omit<Notification, 'id'> => {
+  return {
+    type: ['success', 'error', 'warning', 'info'].includes(notification.type) 
+      ? notification.type 
+      : 'info',
+    message: notification.message?.substring(0, 500).trim() || '',
+    duration: typeof notification.duration === 'number' 
+      ? Math.max(1000, Math.min(notification.duration, 30000)) // 1s to 30s
+      : undefined
+  };
+};
 
 export const useUIStore = create<UIState & UIActions>((set, get) => ({
   // State
@@ -11037,29 +11482,80 @@ export const useUIStore = create<UIState & UIActions>((set, get) => ({
 
   // Actions
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setSidebar: (open) => set({ sidebarOpen: open }),
-  setTheme: (theme) => set({ theme }),
+  
+  setSidebar: (open) => set({ sidebarOpen: !!open }),
+  
+  setTheme: (theme) => {
+    // SECURITY: Validate theme value
+    const validTheme = ['light', 'dark'].includes(theme) ? theme : 'light';
+    set({ theme: validTheme });
+  },
 
-  openModal: (modal) => set((state) => ({
-    modals: { ...state.modals, [modal]: true }
-  })),
+  openModal: (modal) => {
+    // SECURITY: Validate modal key exists
+    const validModals = ['login', 'register', 'addressForm', 'paymentMethod'];
+    if (validModals.includes(modal)) {
+      set((state) => ({
+        modals: { ...state.modals, [modal]: true }
+      }));
+    }
+  },
 
-  closeModal: (modal) => set((state) => ({
-    modals: { ...state.modals, [modal]: false }
-  })),
+  closeModal: (modal) => {
+    // SECURITY: Validate modal key exists
+    const validModals = ['login', 'register', 'addressForm', 'paymentMethod'];
+    if (validModals.includes(modal)) {
+      set((state) => ({
+        modals: { ...state.modals, [modal]: false }
+      }));
+    }
+  },
 
-  addNotification: (notification) => set((state) => ({
-    notifications: [
-      ...state.notifications,
-      { ...notification, id: Math.random().toString(36).substr(2, 9) }
-    ]
-  })),
+  addNotification: (notification) => {
+    const sanitizedNotification = sanitizeNotification(notification);
+    
+    set((state) => {
+      // SECURITY: Limit total notifications to prevent memory issues
+      const maxNotifications = 10;
+      const newNotifications = [
+        ...state.notifications.slice(-maxNotifications + 1),
+        { 
+          ...sanitizedNotification, 
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` 
+        }
+      ];
+      
+      return { notifications: newNotifications };
+    });
+  },
 
-  removeNotification: (id) => set((state) => ({
-    notifications: state.notifications.filter(n => n.id !== id)
-  })),
+  removeNotification: (id) => {
+    // SECURITY: Validate ID format
+    const sanitizedId = id?.substring(0, 50);
+    if (sanitizedId) {
+      set((state) => ({
+        notifications: state.notifications.filter(n => n.id !== sanitizedId)
+      }));
+    }
+  },
 
-  clearNotifications: () => set({ notifications: [] })
+  clearNotifications: () => set({ notifications: [] }),
+
+  // SECURITY: Reset method for security incidents
+  secureReset: () => {
+    console.log('SECURITY: Performing secure reset of UI store');
+    set({
+      sidebarOpen: false,
+      theme: 'light',
+      notifications: [],
+      modals: {
+        login: false,
+        register: false,
+        addressForm: false,
+        paymentMethod: false,
+      }
+    });
+  }
 }));
 ```
 

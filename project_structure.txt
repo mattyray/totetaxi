@@ -135,8 +135,10 @@
 │   ├── .env.example
 │   ├── .gitignore
 │   ├── cookies.txt
+│   ├── docker-compose.prod.yml
 │   ├── docker-compose.yml
 │   ├── Dockerfile
+│   ├── Dockerfile.prod
 │   ├── fly.toml
 │   ├── gunicorn.conf.py
 │   ├── manage.py
@@ -276,4 +278,4 @@
 ├── project_structure.txt
 └── README.md
 
-68 directories, 209 files
+68 directories, 211 files

@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-26 09:53:39
-# Total files: 116
+# Created: 2025-09-26 13:46:50
+# Total files: 117
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -235,6 +235,150 @@ CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers
 totetaxi-backend.fly.dev	FALSE	/	TRUE	1789848067	csrftoken	gKVTP9PScbQqDkZkmqwAYrOgUQhGagRD
 ```
 
+# ==== docker-compose.prod.yml ====
+
+```yaml
+name: totetaxi-production
+
+services:
+  # PostgreSQL Database - Internal only for security
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-totetaxi}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - internal
+    restart: unless-stopped
+    # No external ports - database is internal only
+
+  # Redis for Celery - Internal only with authentication
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - internal
+    restart: unless-stopped
+
+  # Django Backend with Gunicorn
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --worker-class sync --max-requests 1000 --access-logfile - --error-logfile -
+    volumes:
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    ports:
+      - "8005:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-totetaxi}?sslmode=prefer
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+    networks:
+      - internal
+      - external
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A config worker -l info --concurrency 4 --max-tasks-per-child 1000
+    volumes:
+      - logs_volume:/app/logs
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-totetaxi}?sslmode=prefer
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+    networks:
+      - internal
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-totetaxi}?sslmode=prefer
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+    networks:
+      - internal
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  redis_data:
+    driver: local
+  logs_volume:
+    driver: local
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge
+```
+
 # ==== docker-compose.yml ====
 
 ```yaml
@@ -340,26 +484,25 @@ volumes:
 # ==== fly.toml ====
 
 ```toml
-# fly.toml app configuration file generated for totetaxi-backend on 2025-09-20T13:38:23-04:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
+# fly.toml app configuration file
 app = 'totetaxi-backend'
 primary_region = 'ewr'
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = 'Dockerfile.prod'
 
 [env]
+  DEBUG = "False"
+  DJANGO_LOG_LEVEL = "INFO"
   DJANGO_SETTINGS_MODULE = 'config.settings'
   PORT = '8000'
   PYTHONUNBUFFERED = '1'
+  PYTHONPATH = '/app'
 
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = 'off'
+  auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
   processes = ['app']
@@ -369,34 +512,16 @@ primary_region = 'ewr'
     hard_limit = 200
     soft_limit = 100
 
-[[services]]
-  protocol = 'tcp'
-  internal_port = 8000
-  processes = ['app']
+# REMOVED: [[http_service.checks]] - causing ALLOWED_HOSTS issues
 
-  [[services.ports]]
-    port = 80
-    handlers = ['http']
-    force_https = true
-
-  [[services.ports]]
-    port = 443
-    handlers = ['tls', 'http']
-
-  [services.concurrency]
-    type = 'connections'
-    hard_limit = 25
-    soft_limit = 20
-
-  [[services.tcp_checks]]
-    interval = '15s'
-    timeout = '2s'
-    grace_period = '10s'
-
-[[vm]]
-  memory = '1gb'
+[machines]
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 1024
+
+[[statics]]
+  guest_path = "/app/staticfiles"
+  url_prefix = "/static/"
 ```
 
 # ==== gunicorn.conf.py ====
@@ -741,6 +866,10 @@ factory-boy==3.3.0
 # Production Server
 gunicorn==23.0.0
 whitenoise==6.7.0
+
+django-ratelimit==4.1.0
+django-redis==5.4.0
+
 ```
 
 # ==== staff_cookies.txt ====
@@ -863,6 +992,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_celery_beat',
     'drf_yasg',
+    'django_ratelimit',  # ADDED: Rate limiting support
 ]
 
 # LOCAL_APPS - All ToteTaxi apps
@@ -933,6 +1063,22 @@ if database_url:
         conn_max_age=600,
         conn_health_checks=True,
     )
+
+# CACHES - Redis configuration for rate limiting
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://redis:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,  # Don't break if Redis unavailable
+        }
+    }
+}
+
+# Rate limiting configuration
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_ENABLE = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -1058,7 +1204,7 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# Logging
+# Logging with rate limiting
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -1089,8 +1235,14 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+        'django_ratelimit': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
+
 # Stripe Configuration
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
@@ -1670,6 +1822,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
+from django_ratelimit.decorators import ratelimit
 from .models import StaffProfile, StaffAction
 from .serializers import (
     StaffLoginSerializer,
@@ -1682,8 +1835,10 @@ from apps.customers.models import CustomerProfile
 from apps.payments.models import Payment, Refund
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
+@method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='post')
 class StaffLoginView(APIView):
-    """Staff authentication endpoint"""
+    """Staff authentication endpoint with rate limiting protection"""
     permission_classes = [permissions.AllowAny]
     
     @method_decorator(ensure_csrf_cookie)
@@ -1747,8 +1902,9 @@ class StaffLoginView(APIView):
             )
 
 
+@method_decorator(ratelimit(key='user', rate='10/m', method='POST', block=True), name='post')
 class StaffLogoutView(APIView):
-    """Staff logout endpoint"""
+    """Staff logout endpoint with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
@@ -1764,8 +1920,9 @@ class StaffLogoutView(APIView):
         return Response({'message': 'Logout successful'})
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class StaffDashboardView(APIView):
-    """Staff operations dashboard with KPIs"""
+    """Staff operations dashboard with KPIs and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -1859,8 +2016,9 @@ class StaffDashboardView(APIView):
         return urgent_data
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 class CustomerManagementView(APIView):
-    """Staff customer management - list and search customers"""
+    """Staff customer management with rate limiting - list and search customers"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -1935,8 +2093,9 @@ class CustomerManagementView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class CustomerDetailView(APIView):
-    """Staff view for individual customer details"""
+    """Staff view for individual customer details with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, customer_id):
@@ -1992,8 +2151,9 @@ class CustomerDetailView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
-    """Update customer notes - staff only"""
+    """Update customer notes with rate limiting - staff only"""
     permission_classes = [permissions.IsAuthenticated]
     
     def patch(self, request, customer_id):
@@ -2027,8 +2187,9 @@ class CustomerNotesUpdateView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class BookingManagementView(APIView):
-    """Enhanced staff booking management with date range support"""
+    """Enhanced staff booking management with rate limiting and date range support"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -2039,8 +2200,8 @@ class BookingManagementView(APIView):
         # Get query parameters
         status_filter = request.query_params.get('status', None)
         date_filter = request.query_params.get('date', None)
-        start_date = request.query_params.get('start_date', None)  # NEW
-        end_date = request.query_params.get('end_date', None)      # NEW
+        start_date = request.query_params.get('start_date', None)
+        end_date = request.query_params.get('end_date', None)
         search = request.query_params.get('search', None)
         
         # Build queryset
@@ -2052,7 +2213,7 @@ class BookingManagementView(APIView):
         if date_filter:
             bookings = bookings.filter(pickup_date=date_filter)
         
-        # NEW: Date range filtering for calendar
+        # Date range filtering for calendar
         if start_date and end_date:
             bookings = bookings.filter(
                 pickup_date__gte=start_date,
@@ -2098,8 +2259,8 @@ class BookingManagementView(APIView):
             'filters': {
                 'status': status_filter,
                 'date': date_filter,
-                'start_date': start_date,    # NEW
-                'end_date': end_date,        # NEW
+                'start_date': start_date,
+                'end_date': end_date,
                 'search': search
             }
         })
@@ -2110,8 +2271,10 @@ class BookingManagementView(APIView):
         return payment.status if payment else 'not_created'
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
+@method_decorator(ratelimit(key='user', rate='10/m', method='PATCH', block=True), name='patch')
 class BookingDetailView(APIView):
-    """Staff view for individual booking details and management"""
+    """Staff view for individual booking details and management with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, booking_id):
@@ -5076,6 +5239,7 @@ urlpatterns = [
 # ==== apps/customers/views.py ====
 
 ```python
+# backend/apps/customers/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -5086,6 +5250,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.exceptions import ValidationError
+from django_ratelimit.decorators import ratelimit
 from .models import CustomerProfile, SavedAddress
 from .serializers import (
     CustomerRegistrationSerializer, 
@@ -5096,9 +5261,11 @@ from .serializers import (
 )
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='create')
+@method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='create')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerRegistrationView(generics.CreateAPIView):
-    """Register new customer account with hybrid account prevention"""
+    """Register new customer account with hybrid account prevention and rate limiting"""
     serializer_class = CustomerRegistrationSerializer
     permission_classes = [permissions.AllowAny]
     
@@ -5120,7 +5287,7 @@ class CustomerRegistrationView(generics.CreateAPIView):
         
         try:
             user = serializer.save()
-            # FIXED: Automatically log in the user after registration
+            # Automatically log in the user after registration
             login(request, user)
         except ValidationError as e:
             return Response(
@@ -5136,9 +5303,11 @@ class CustomerRegistrationView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True), name='post')
+@method_decorator(ratelimit(key='header:user-agent', rate='15/m', method='POST', block=True), name='post')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomerLoginView(APIView):
-    """Customer login endpoint with profile type validation"""
+    """Customer login endpoint with profile type validation and rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -5179,9 +5348,10 @@ class CustomerLoginView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user_or_ip', rate='20/m', method='POST', block=True), name='post')
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerLogoutView(APIView):
-    """Enhanced customer logout endpoint with complete session cleanup"""
+    """Enhanced customer logout endpoint with complete session cleanup and rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -5204,8 +5374,9 @@ class CustomerLogoutView(APIView):
         return response
 
 
+@method_decorator(ratelimit(key='user', rate='60/m', method='GET', block=True), name='get')
 class CurrentUserView(APIView):
-    """Get current authenticated user info with profile validation"""
+    """Get current authenticated user info with profile validation and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -5225,8 +5396,9 @@ class CurrentUserView(APIView):
             return Response({'error': 'Not a customer account'}, status=status.HTTP_403_FORBIDDEN)
 
 
+@method_decorator(ratelimit(key='ip', rate='100/m', method='GET', block=True), name='get')
 class CSRFTokenView(APIView):
-    """Get CSRF token for authenticated requests"""
+    """Get CSRF token for authenticated requests with rate limiting"""
     permission_classes = [permissions.AllowAny]
     
     @method_decorator(ensure_csrf_cookie)
@@ -5236,8 +5408,9 @@ class CSRFTokenView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method=['GET', 'PATCH'], block=True), name='dispatch')
 class CustomerProfileView(generics.RetrieveUpdateAPIView):
-    """Customer profile management with validation"""
+    """Customer profile management with validation and rate limiting"""
     serializer_class = CustomerProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -5252,8 +5425,9 @@ class CustomerProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user.customer_profile
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method=['GET', 'POST'], block=True), name='dispatch')
 class SavedAddressListCreateView(generics.ListCreateAPIView):
-    """List and create saved addresses"""
+    """List and create saved addresses with rate limiting"""
     serializer_class = SavedAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -5264,8 +5438,9 @@ class SavedAddressListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method=['GET', 'PATCH', 'DELETE'], block=True), name='dispatch')
 class SavedAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update, delete saved address"""
+    """Retrieve, update, delete saved address with rate limiting"""
     serializer_class = SavedAddressSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -5273,8 +5448,9 @@ class SavedAddressDetailView(generics.RetrieveUpdateDestroyAPIView):
         return self.request.user.saved_addresses.all()
 
 
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class CustomerBookingListView(generics.ListAPIView):
-    """Customer booking history"""
+    """Customer booking history with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
@@ -5301,8 +5477,9 @@ class CustomerBookingListView(generics.ListAPIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
-    """Update customer notes - staff only"""
+    """Update customer notes with rate limiting - staff only"""
     permission_classes = [permissions.IsAuthenticated]
     
     def patch(self, request, customer_id):
@@ -5326,8 +5503,9 @@ class CustomerNotesUpdateView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 class CustomerDashboardView(APIView):
-    """Enhanced customer dashboard with booking insights"""
+    """Enhanced customer dashboard with booking insights and rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -5365,15 +5543,16 @@ class CustomerDashboardView(APIView):
                 'completed_bookings': completed_bookings,
                 'total_bookings': all_bookings.count()
             },
-            'recent_bookings': [], # CustomerBookingDetailSerializer(recent_bookings, many=True).data,
+            'recent_bookings': [],
             'saved_addresses_count': saved_addresses.count(),
             'payment_methods_count': payment_methods.count(),
             'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
         })
 
 
+@method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class BookingPreferencesView(APIView):
-    """Manage customer booking preferences"""
+    """Manage customer booking preferences with rate limiting"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
@@ -8493,6 +8672,27 @@ fi
 # Run migrations
 echo "Running database migrations..."
 python manage.py migrate --no-input
+
+# Collect static files (in case not done in Dockerfile)
+echo "Collecting static files..."
+python manage.py collectstatic --no-input --clear || true
+
+# Create cache table if needed
+python manage.py createcachetable || true
+
+# Create superuser if specified (optional)
+if [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    echo "Creating superuser..."
+    python manage.py shell -c "
+from django.contrib.auth import get_user_model
+User = get_user_model()
+if not User.objects.filter(email='$DJANGO_SUPERUSER_EMAIL').exists():
+    User.objects.create_superuser('$DJANGO_SUPERUSER_EMAIL', '$DJANGO_SUPERUSER_EMAIL', '$DJANGO_SUPERUSER_PASSWORD')
+    print('Superuser created')
+else:
+    print('Superuser already exists')
+" || true
+fi
 
 echo "Starting application..."
 exec "$@"
