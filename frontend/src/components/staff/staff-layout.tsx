@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { useRouter, usePathname } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
-import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 
 interface StaffLayoutProps {
@@ -21,27 +19,21 @@ const navigation = [
 ];
 
 export function StaffLayout({ children }: StaffLayoutProps) {
-  const { staffProfile, clearAuth } = useStaffAuthStore();
+  const { staffProfile, logout, isLoading } = useStaffAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.post('/api/staff/auth/logout/');
-    },
-    onSuccess: () => {
-      clearAuth();
+  // FIXED: Use enhanced store logout method instead of direct API calls
+  const handleLogout = async () => {
+    try {
+      await logout();
       router.push('/staff/login');
-    },
-    onError: () => {
-      clearAuth();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback: still redirect even if logout fails
       router.push('/staff/login');
     }
-  });
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
   };
 
   return (
@@ -98,10 +90,10 @@ export function StaffLayout({ children }: StaffLayoutProps) {
               </span>
               <button
                 onClick={handleLogout}
-                disabled={logoutMutation.isPending}
+                disabled={isLoading}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-navy-500 disabled:opacity-50"
               >
-                {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+                {isLoading ? 'Logging out...' : 'Logout'}
               </button>
             </div>
           </div>
