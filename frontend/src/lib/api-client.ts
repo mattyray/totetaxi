@@ -24,12 +24,41 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor for error handling
+// ✅ ENHANCED: Response interceptor with proper auth handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      console.log('Auth error detected');
+      console.log('🚨 401 Unauthorized - clearing auth state');
+      
+      // Clear auth stores (imported dynamically to avoid circular deps)
+      try {
+        const { useAuthStore } = await import('@/stores/auth-store');
+        const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+        
+        useAuthStore.getState().clearAuth();
+        useStaffAuthStore.getState().clearAuth();
+        
+        console.log('✅ Auth stores cleared due to 401');
+        
+        // Only redirect if we're not already on login pages
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+            // Use Next.js router if available, otherwise fallback
+            try {
+              const { useRouter } = await import('next/navigation');
+              const router = useRouter();
+              router.push('/login');
+            } catch {
+              // Fallback for cases where useRouter isn't available
+              window.location.href = '/login';
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error clearing auth on 401:', e);
+      }
     }
     return Promise.reject(error);
   }
