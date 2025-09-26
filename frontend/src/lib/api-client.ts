@@ -9,11 +9,16 @@ export const apiClient = axios.create({
   }
 });
 
-// Request interceptor for CSRF token
+// Request interceptor for CSRF token with smart endpoint detection
 apiClient.interceptors.request.use(async (config) => {
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
-      const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
+      // Smart CSRF endpoint selection based on request URL
+      const csrfEndpoint = config.url?.includes('/staff/') 
+        ? '/api/staff/csrf-token/' 
+        : '/api/customer/csrf-token/';
+        
+      const csrfResponse = await axios.get(`${config.baseURL}${csrfEndpoint}`, {
         withCredentials: true
       });
       config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
@@ -24,12 +29,12 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ✅ ENHANCED: Response interceptor with proper auth handling
+// Enhanced response interceptor with proper auth handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      console.log('🚨 401 Unauthorized - clearing auth state');
+      console.log('401 Unauthorized - clearing auth state');
       
       // Clear auth stores (imported dynamically to avoid circular deps)
       try {
@@ -39,21 +44,13 @@ apiClient.interceptors.response.use(
         useAuthStore.getState().clearAuth();
         useStaffAuthStore.getState().clearAuth();
         
-        console.log('✅ Auth stores cleared due to 401');
+        console.log('Auth stores cleared due to 401');
         
-        // Only redirect if we're not already on login pages
+        // Let components handle redirects - don't use router here
         if (typeof window !== 'undefined') {
           const currentPath = window.location.pathname;
           if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            // Use Next.js router if available, otherwise fallback
-            try {
-              const { useRouter } = await import('next/navigation');
-              const router = useRouter();
-              router.push('/login');
-            } catch {
-              // Fallback for cases where useRouter isn't available
-              window.location.href = '/login';
-            }
+            console.log('401 detected - components will handle redirect');
           }
         }
       } catch (e) {
