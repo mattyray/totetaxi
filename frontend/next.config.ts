@@ -38,9 +38,10 @@ const nextConfig: NextConfig = {
             value: '1; mode=block'
           },
           {
-            // Disable dangerous browser features
+            // FIXED: Allow payment APIs for Stripe, disable others
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=()'
+            value: 'camera=(), microphone=(), geolocation=()'
+            // Removed payment=() to allow Stripe to work
           },
           {
             // Force HTTPS (only in production)
