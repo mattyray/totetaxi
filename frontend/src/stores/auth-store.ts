@@ -2,6 +2,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DjangoUser, CustomerProfile } from '@/types';
+import { apiClient } from '@/lib/api-client';
+import { queryClient } from '@/lib/query-client';
 
 interface AuthState {
   user: DjangoUser | null;
@@ -18,6 +20,7 @@ interface AuthActions {
   login: (email: string, password: string) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; user?: DjangoUser; error?: string }>;
   logout: () => Promise<void>;
+  validateSession: () => Promise<boolean>;
   clearSessionIfIncognito: () => void;
 }
 
@@ -35,9 +38,6 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
 };
-
-// ✅ FIXED: Use environment variable instead of hardcoded URL
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
@@ -58,7 +58,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         });
       },
 
+      // ✅ ENHANCED: Coordinated auth clearing
       clearAuth: () => {
+        console.log('🧹 Clearing customer auth state');
+        
         if (typeof window !== 'undefined') {
           const keysToRemove = [
             'totetaxi-auth',
@@ -76,6 +79,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
         }
         
+        // Clear React Query cache
+        queryClient.clear();
+        console.log('✓ Cleared React Query cache');
+        
         set(initialState);
       },
 
@@ -87,106 +94,118 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           : null
       })),
 
+      // ✅ ENHANCED: Use api-client instead of manual fetch
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
         try {
-          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
-            credentials: 'include',
-          });
-          
-          if (!csrfResponse.ok) {
-            throw new Error('Failed to get CSRF token');
-          }
-          
-          const { csrf_token } = await csrfResponse.json();
-
-          const response = await fetch(`${API_BASE}/api/customer/auth/login/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrf_token,
-            },
-            credentials: 'include',
-            body: JSON.stringify({ email, password }),
+          const response = await apiClient.post('/api/customer/auth/login/', {
+            email,
+            password
           });
 
-          const data = await response.json();
-
-          if (response.ok) {
-            get().setAuth(data.user, data.customer_profile);
-            return { success: true, user: data.user };
+          if (response.status === 200) {
+            const { user, customer_profile } = response.data;
+            get().setAuth(user, customer_profile);
+            return { success: true, user };
           } else {
             set({ isLoading: false });
-            return { success: false, error: data.error || 'Login failed' };
+            return { success: false, error: 'Login failed' };
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ isLoading: false });
-          return { success: false, error: 'Network error. Please try again.' };
+          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          return { success: false, error: errorMessage };
         }
       },
 
+      // ✅ ENHANCED: Use api-client instead of manual fetch
       register: async (data: RegisterData) => {
         set({ isLoading: true });
         
         try {
-          const csrfResponse = await fetch(`${API_BASE}/api/customer/csrf-token/`, {
-            credentials: 'include',
-          });
-          
-          if (!csrfResponse.ok) {
-            throw new Error('Failed to get CSRF token');
-          }
-          
-          const { csrf_token } = await csrfResponse.json();
-
-          const response = await fetch(`${API_BASE}/api/customer/auth/register/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrf_token,
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              ...data,
-              password_confirm: data.password
-            }),
+          const response = await apiClient.post('/api/customer/auth/register/', {
+            ...data,
+            password_confirm: data.password
           });
 
-          const responseData = await response.json();
-
-          if (response.ok) {
+          if (response.status === 201) {
             set({ isLoading: false });
-            return { success: true, user: responseData.user };
+            return { success: true, user: response.data.user };
           } else {
             set({ isLoading: false });
-            return { success: false, error: responseData.error || 'Registration failed' };
+            return { success: false, error: 'Registration failed' };
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ isLoading: false });
-          return { success: false, error: 'Network error. Please try again.' };
+          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          return { success: false, error: errorMessage };
         }
       },
 
+      // ✅ ENHANCED: Coordinated logout with staff store
       logout: async () => {
+        console.log('🚪 Customer logout initiated');
+        
         try {
-          await fetch(`${API_BASE}/api/customer/auth/logout/`, {
-            method: 'POST',
-            credentials: 'include',
-          });
+          await apiClient.post('/api/customer/auth/logout/');
+          console.log('✓ Customer logout API call successful');
         } catch (error) {
-          console.warn('Logout request failed:', error);
-        } finally {
-          get().clearAuth();
-          
-          if (typeof window !== 'undefined') {
-            try {
-              const { useBookingWizard } = await import('@/stores/booking-store');
-              useBookingWizard.getState().resetWizard();
-            } catch (e) {
-              console.warn('Could not clear booking wizard:', e);
-            }
+          console.warn('Customer logout API failed:', error);
+        }
+        
+        // Always clear state, even if API call fails
+        get().clearAuth();
+        
+        // Clear staff auth too (prevent hybrid states)
+        try {
+          const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+          useStaffAuthStore.getState().clearAuth();
+          console.log('✓ Staff auth cleared during customer logout');
+        } catch (e) {
+          console.warn('Could not clear staff auth:', e);
+        }
+        
+        // Clear booking wizard
+        if (typeof window !== 'undefined') {
+          try {
+            const { useBookingWizard } = await import('@/stores/booking-store');
+            useBookingWizard.getState().resetWizard();
+            console.log('✓ Booking wizard cleared');
+          } catch (e) {
+            console.warn('Could not clear booking wizard:', e);
           }
+        }
+      },
+
+      // ✅ NEW: Session validation method
+      validateSession: async () => {
+        const { user, isAuthenticated } = get();
+        
+        if (!isAuthenticated || !user) {
+          return false;
+        }
+        
+        try {
+          // Try to fetch current user data to validate session
+          const response = await apiClient.get('/api/customer/profile/');
+          
+          if (response.status === 200) {
+            // Session is valid, optionally update profile data
+            const { customer_profile } = response.data;
+            if (customer_profile) {
+              set({ customerProfile: customer_profile });
+            }
+            return true;
+          }
+          
+          return false;
+        } catch (error: any) {
+          if (error.response?.status === 401) {
+            console.log('🚨 Session validation failed - clearing auth');
+            get().clearAuth();
+          }
+          return false;
         }
       },
 
@@ -198,6 +217,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     }),
     {
       name: 'totetaxi-auth',
+      version: 1, // Add version for future migrations
       partialize: (state) => ({
         user: state.user,
         customerProfile: state.customerProfile,
