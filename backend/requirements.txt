@@ -48,4 +48,5 @@ gunicorn==23.0.0
 whitenoise==6.7.0
 
 django-ratelimit==4.1.0
-django-redis==5.0.8
+django-redis==5.4.0
+
