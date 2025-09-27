@@ -37,17 +37,39 @@ class ServiceCatalogView(APIView):
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
-        mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
+        print("=" * 50)
+        print("DEBUG: ServiceCatalogView.get() called")
+        
+        # Debug: Verify the model import
+        print(f"DEBUG: OrganizingService model: {OrganizingService}")
+        print(f"DEBUG: OrganizingService._meta.app_label: {OrganizingService._meta.app_label}")
+        print(f"DEBUG: OrganizingService._meta.db_table: {OrganizingService._meta.db_table}")
+        
+        # Query organizing services with debug info
         organizing_services = OrganizingService.objects.filter(is_active=True).order_by('mini_move_tier', 'is_packing_service')
+        print(f"DEBUG: Raw organizing services query count: {organizing_services.count()}")
+        print(f"DEBUG: Organizing services IDs: {list(organizing_services.values_list('id', 'name', 'mini_move_tier', 'is_active'))}")
+        
+        # Test serialization
+        organizing_serializer = OrganizingServiceSerializer(organizing_services, many=True)
+        serialized_organizing = organizing_serializer.data
+        print(f"DEBUG: Serialized organizing services count: {len(serialized_organizing)}")
+        print(f"DEBUG: Serialized organizing services: {serialized_organizing}")
+        
+        # Query other services (keeping existing code)
+        mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         specialty_items = SpecialtyItem.objects.filter(is_active=True)
         standard_config = StandardDeliveryConfig.objects.filter(is_active=True).first()
         
         response_data = {
             'mini_move_packages': MiniMovePackageSerializer(mini_move_packages, many=True).data,
-            'organizing_services': OrganizingServiceSerializer(organizing_services, many=True).data,
+            'organizing_services': serialized_organizing,  # Use the debug-traced version
             'specialty_items': SpecialtyItemSerializer(specialty_items, many=True).data,
             'standard_delivery': StandardDeliveryConfigSerializer(standard_config).data if standard_config else None
         }
+        
+        print(f"DEBUG: Final response organizing_services count: {len(response_data['organizing_services'])}")
+        print("=" * 50)
         
         return Response(response_data)
 

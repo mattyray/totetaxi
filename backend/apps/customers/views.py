@@ -330,3 +330,5 @@ class BookingPreferencesView(APIView):
     def _get_most_used_address(self, address_type):
         most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None
+    
+    
