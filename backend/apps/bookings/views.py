@@ -443,3 +443,33 @@ class OrganizingServiceDetailView(APIView):
                 {'error': 'Organizing service not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+class FixOrganizingServicesView(APIView):
+    """TEMPORARY: Create missing organizing services in production"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        from apps.services.models import OrganizingService
+        
+        organizing_services = [
+            {'service_type': 'petite_packing', 'mini_move_tier': 'petite', 'name': 'Petite Packing', 'description': '1/2 day (up to 4 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).', 'price_cents': 140000, 'duration_hours': 4, 'organizer_count': 2, 'supplies_allowance_cents': 25000, 'is_packing_service': True, 'is_active': True},
+            {'service_type': 'petite_unpacking', 'mini_move_tier': 'petite', 'name': 'Petite Unpacking', 'description': '1/2 day (up to 4 hours) with 2 organizers. Organizing light (no supplies).', 'price_cents': 113000, 'duration_hours': 4, 'organizer_count': 2, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True},
+            {'service_type': 'standard_packing', 'mini_move_tier': 'standard', 'name': 'Standard Packing', 'description': '1 day (up to 8 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).', 'price_cents': 253500, 'duration_hours': 8, 'organizer_count': 2, 'supplies_allowance_cents': 25000, 'is_packing_service': True, 'is_active': True},
+            {'service_type': 'standard_unpacking', 'mini_move_tier': 'standard', 'name': 'Standard Unpacking', 'description': '1 day (up to 8 hours) with 2 organizers. Organizing light (no supplies).', 'price_cents': 226500, 'duration_hours': 8, 'organizer_count': 2, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True},
+            {'service_type': 'full_packing', 'mini_move_tier': 'full', 'name': 'Full Packing', 'description': '1 day (up to 8 hours) with 4 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $500).', 'price_cents': 507000, 'duration_hours': 8, 'organizer_count': 4, 'supplies_allowance_cents': 50000, 'is_packing_service': True, 'is_active': True},
+            {'service_type': 'full_unpacking', 'mini_move_tier': 'full', 'name': 'Full Unpacking', 'description': '1 day (up to 8 hours) with 4 organizers. Organizing light (no supplies).', 'price_cents': 452500, 'duration_hours': 8, 'organizer_count': 4, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True}
+        ]
+        
+        created = 0
+        for service_data in organizing_services:
+            service, was_created = OrganizingService.objects.get_or_create(
+                service_type=service_data['service_type'],
+                defaults=service_data
+            )
+            if was_created:
+                created += 1
+        
+        return Response({
+            'message': f'Created {created} organizing services',
+            'total_count': OrganizingService.objects.count()
+        })
