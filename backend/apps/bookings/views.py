@@ -87,6 +87,9 @@ class PricingPreviewView(APIView):
         surcharge_cents = 0
         coi_fee_cents = 0
         organizing_total_cents = 0
+        organizing_tax_cents = 0
+        geographic_surcharge_cents = 0
+        time_window_surcharge_cents = 0
         details = {}
         
         if service_type == 'mini_move':
@@ -108,13 +111,15 @@ class PricingPreviewView(APIView):
                     
                     organizing_services_breakdown = []
                     
+                    # FIXED: Better error handling and debugging for organizing services
                     if include_packing:
-                        try:
-                            packing_service = OrganizingService.objects.get(
-                                mini_move_tier=package.package_type,
-                                is_packing_service=True,
-                                is_active=True
-                            )
+                        packing_service = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=True,
+                            is_active=True
+                        ).first()
+                        
+                        if packing_service:
                             organizing_total_cents += packing_service.price_cents
                             organizing_services_breakdown.append({
                                 'service': 'packing',
@@ -124,18 +129,22 @@ class PricingPreviewView(APIView):
                                 'organizer_count': packing_service.organizer_count,
                                 'supplies_allowance_dollars': packing_service.supplies_allowance_dollars
                             })
-                        except OrganizingService.DoesNotExist:
+                        else:
+                            print(f"DEBUG: No packing service found for tier {package.package_type}")
+                            available_services = OrganizingService.objects.filter(is_active=True).values_list('mini_move_tier', 'is_packing_service')
+                            print(f"DEBUG: Available services: {list(available_services)}")
                             return Response({
                                 'error': f'Packing service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
                     
                     if include_unpacking:
-                        try:
-                            unpacking_service = OrganizingService.objects.get(
-                                mini_move_tier=package.package_type,
-                                is_packing_service=False,
-                                is_active=True
-                            )
+                        unpacking_service = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=False,
+                            is_active=True
+                        ).first()
+                        
+                        if unpacking_service:
                             organizing_total_cents += unpacking_service.price_cents
                             organizing_services_breakdown.append({
                                 'service': 'unpacking',
@@ -145,10 +154,25 @@ class PricingPreviewView(APIView):
                                 'organizer_count': unpacking_service.organizer_count,
                                 'supplies_allowance_dollars': 0
                             })
-                        except OrganizingService.DoesNotExist:
+                        else:
+                            print(f"DEBUG: No unpacking service found for tier {package.package_type}")
                             return Response({
                                 'error': f'Unpacking service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    # Calculate tax on organizing services (8.25%)
+                    if organizing_total_cents > 0:
+                        organizing_tax_cents = int(organizing_total_cents * 0.0825)
+                    
+                    # Calculate time window surcharge for specific hour selection
+                    pickup_time = serializer.validated_data.get('pickup_time', 'morning')
+                    if pickup_time == 'morning_specific' and package.package_type == 'standard':
+                        time_window_surcharge_cents = 17500  # $175
+                    
+                    # Calculate geographic surcharge
+                    is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
+                    if is_outside_core_area:
+                        geographic_surcharge_cents = 17500  # $175
                     
                     if organizing_services_breakdown:
                         details['organizing_services'] = organizing_services_breakdown
@@ -197,6 +221,7 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
         
+        # Calculate weekend surcharges
         is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
         if pickup_date and base_price_cents > 0 and not is_same_day:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
@@ -215,7 +240,7 @@ class PricingPreviewView(APIView):
             if surcharge_details:
                 details['surcharges'] = surcharge_details
         
-        total_price_cents = base_price_cents + surcharge_cents + coi_fee_cents + organizing_total_cents
+        total_price_cents = base_price_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
         
         return Response({
             'service_type': service_type,
@@ -224,6 +249,9 @@ class PricingPreviewView(APIView):
                 'surcharge_dollars': surcharge_cents / 100,
                 'coi_fee_dollars': coi_fee_cents / 100,
                 'organizing_total_dollars': organizing_total_cents / 100,
+                'organizing_tax_dollars': organizing_tax_cents / 100,
+                'geographic_surcharge_dollars': geographic_surcharge_cents / 100,
+                'time_window_surcharge_dollars': time_window_surcharge_cents / 100,
                 'total_price_dollars': total_price_cents / 100
             },
             'details': details,
@@ -285,7 +313,6 @@ class CalendarAvailabilityView(APIView):
                 'is_weekend': current_date.weekday() >= 5,
                 'bookings': booking_list,
                 'surcharges': surcharges
-                # Removed: 'capacity_used', 'max_capacity'
             })
             
             current_date += timedelta(days=1)
