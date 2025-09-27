@@ -122,8 +122,8 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep } = useBookingWizard();
-  const { isAuthenticated } = useAuthStore();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode } = useBookingWizard();
+  const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
@@ -133,23 +133,15 @@ export function ReviewPaymentStep() {
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
-  // ENHANCED DEBUG INFO
   useEffect(() => {
     console.log('=== REVIEW PAYMENT STEP DEBUG ===');
-    console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
-    console.log('Stripe Key Available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-    console.log('Stripe Key Length:', process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.length);
-    console.log('Environment:', process.env.NODE_ENV);
     console.log('Is Authenticated:', isAuthenticated);
-    console.log('Client Secret State:', clientSecret);
-    console.log('Show Payment State:', showPayment);
-    console.log('Stripe Promise:', !!stripePromise);
-    console.log('Booking Complete State:', bookingComplete);
-    console.log('Booking Data:', bookingData);
+    console.log('Is Guest Mode:', isGuestMode);
+    console.log('User:', user);
     console.log('Customer Info:', bookingData.customer_info);
-    console.log('Is Guest Mode (inferred):', !isAuthenticated);
+    console.log('Has Customer Info:', !!bookingData.customer_info);
     console.log('==================================');
-  }, [clientSecret, showPayment, stripePromise, bookingComplete, isAuthenticated, bookingData]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
@@ -193,42 +185,69 @@ export function ReviewPaymentStep() {
         console.log('Customer info available:', !!bookingData.customer_info);
         console.log('Customer info details:', bookingData.customer_info);
         
-        if (!bookingData.customer_info) {
-          throw new Error('Customer information is required for guest bookings');
+        // FIXED: Better validation and fallback for guest bookings
+        if (!bookingData.customer_info || !bookingData.customer_info.email) {
+          console.error('CRITICAL: Guest booking missing customer info');
+          console.log('Available booking data keys:', Object.keys(bookingData));
+          
+          // Try to get customer info from user if authenticated
+          if (user && !bookingData.customer_info) {
+            console.log('Falling back to authenticated user data');
+            bookingRequest = {
+              first_name: user.first_name || 'Guest',
+              last_name: user.last_name || 'User',
+              email: user.email,
+              phone: '555-0000', // Default phone for authenticated users without profile
+              
+              service_type: bookingData.service_type,
+              mini_move_package_id: bookingData.mini_move_package_id,
+              include_packing: bookingData.include_packing,
+              include_unpacking: bookingData.include_unpacking,
+              standard_delivery_item_count: bookingData.standard_delivery_item_count,
+              is_same_day_delivery: bookingData.is_same_day_delivery,
+              specialty_item_ids: bookingData.specialty_item_ids,
+              
+              pickup_date: bookingData.pickup_date,
+              pickup_time: bookingData.pickup_time,
+              specific_pickup_hour: bookingData.specific_pickup_hour,
+              
+              pickup_address: bookingData.pickup_address,
+              delivery_address: bookingData.delivery_address,
+              
+              special_instructions: bookingData.special_instructions,
+              coi_required: bookingData.coi_required,
+              create_payment_intent: true,
+            };
+          } else {
+            throw new Error('Customer information is required for guest bookings. Please go back and fill out your contact information.');
+          }
+        } else {
+          bookingRequest = {
+            first_name: bookingData.customer_info.first_name,
+            last_name: bookingData.customer_info.last_name,
+            email: bookingData.customer_info.email,
+            phone: bookingData.customer_info.phone,
+            
+            service_type: bookingData.service_type,
+            mini_move_package_id: bookingData.mini_move_package_id,
+            include_packing: bookingData.include_packing,
+            include_unpacking: bookingData.include_unpacking,
+            standard_delivery_item_count: bookingData.standard_delivery_item_count,
+            is_same_day_delivery: bookingData.is_same_day_delivery,
+            specialty_item_ids: bookingData.specialty_item_ids,
+            
+            pickup_date: bookingData.pickup_date,
+            pickup_time: bookingData.pickup_time,
+            specific_pickup_hour: bookingData.specific_pickup_hour,
+            
+            pickup_address: bookingData.pickup_address,
+            delivery_address: bookingData.delivery_address,
+            
+            special_instructions: bookingData.special_instructions,
+            coi_required: bookingData.coi_required,
+            create_payment_intent: true,
+          };
         }
-        
-        bookingRequest = {
-          // Customer info
-          first_name: bookingData.customer_info.first_name,
-          last_name: bookingData.customer_info.last_name,
-          email: bookingData.customer_info.email,
-          phone: bookingData.customer_info.phone,
-          
-          // Service details
-          service_type: bookingData.service_type,
-          mini_move_package_id: bookingData.mini_move_package_id,
-          include_packing: bookingData.include_packing,
-          include_unpacking: bookingData.include_unpacking,
-          standard_delivery_item_count: bookingData.standard_delivery_item_count,
-          is_same_day_delivery: bookingData.is_same_day_delivery,
-          specialty_item_ids: bookingData.specialty_item_ids,
-          
-          // Scheduling
-          pickup_date: bookingData.pickup_date,
-          pickup_time: bookingData.pickup_time,
-          specific_pickup_hour: bookingData.specific_pickup_hour,
-          
-          // Addresses
-          pickup_address: bookingData.pickup_address,
-          delivery_address: bookingData.delivery_address,
-          
-          // Additional options
-          special_instructions: bookingData.special_instructions,
-          coi_required: bookingData.coi_required,
-          
-          // CRITICAL: Request payment intent for guests too
-          create_payment_intent: true,
-        };
       }
 
       console.log('ENDPOINT:', endpoint);
@@ -264,7 +283,6 @@ export function ReviewPaymentStep() {
         console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
         console.log('INCORRECTLY MARKING BOOKING AS COMPLETE WITHOUT PAYMENT');
         
-        // This path should only be taken for free bookings
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
@@ -323,20 +341,22 @@ export function ReviewPaymentStep() {
   };
 
   const handlePreviousStep = () => {
-    console.log('GOING TO PREVIOUS STEP');
+    console.log('Review step - going to previous step');
+    console.log('Current booking state:', { 
+      showPayment, 
+      clientSecret: !!clientSecret, 
+      bookingComplete,
+      isAuthenticated,
+      currentStep: 'review' 
+    });
+    
+    if (showPayment) {
+      setShowPayment(false);
+      setClientSecret('');
+    }
+    
     previousStep();
   };
-
-  // Debug state transitions
-  useEffect(() => {
-    console.log('STATE CHANGE:', {
-      bookingComplete,
-      showPayment,
-      clientSecret: !!clientSecret,
-      bookingNumber,
-      isLoading
-    });
-  }, [bookingComplete, showPayment, clientSecret, bookingNumber, isLoading]);
 
   if (bookingComplete) {
     console.log('RENDERING SUCCESS SCREEN');
@@ -363,7 +383,7 @@ export function ReviewPaymentStep() {
                 ) : (
                   <>
                     We'll send a confirmation email to{' '}
-                    <strong>{bookingData.customer_info?.email}</strong> with all the details.
+                    <strong>{bookingData.customer_info?.email || user?.email}</strong> with all the details.
                   </>
                 )}
               </p>
@@ -451,10 +471,28 @@ export function ReviewPaymentStep() {
     );
   }
 
+  // FIXED: Show warning if customer info is missing
+  if (!isAuthenticated && (!bookingData.customer_info || !bookingData.customer_info.email)) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent>
+            <h3 className="text-lg font-medium text-red-800 mb-2">Missing Customer Information</h3>
+            <p className="text-red-700 mb-4">
+              We need your contact information to complete this booking. Please go back and fill out the customer information step.
+            </p>
+            <Button variant="outline" onClick={handlePreviousStep}>
+              ← Go Back to Customer Info
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   console.log('RENDERING BOOKING SUMMARY FORM');
   return (
     <div className="space-y-6">
-      {/* Debug Panel - Remove in production */}
       {process.env.NODE_ENV === 'development' && (
         <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="p-4">
@@ -462,7 +500,7 @@ export function ReviewPaymentStep() {
             <div className="text-sm text-yellow-700 space-y-1">
               <div>Mode: {isAuthenticated ? 'Authenticated' : 'Guest'}</div>
               <div>Has Customer Info: {bookingData.customer_info ? 'Yes' : 'No'}</div>
-              <div>Customer Email: {bookingData.customer_info?.email || 'None'}</div>
+              <div>Customer Email: {bookingData.customer_info?.email || user?.email || 'None'}</div>
               <div>Service Type: {bookingData.service_type}</div>
               <div>Package ID: {bookingData.mini_move_package_id}</div>
               <div>Total Price: ${bookingData.pricing_data?.total_price_dollars || 'Not set'}</div>
@@ -536,15 +574,15 @@ export function ReviewPaymentStep() {
               </div>
             </div>
 
-            {!isAuthenticated && (
+            {!isAuthenticated && bookingData.customer_info && (
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">Contact Information</h4>
                 <div className="text-navy-700">
                   <div>
-                    {bookingData.customer_info?.first_name} {bookingData.customer_info?.last_name}
+                    {bookingData.customer_info.first_name} {bookingData.customer_info.last_name}
                   </div>
-                  <div>{bookingData.customer_info?.email}</div>
-                  <div>{bookingData.customer_info?.phone}</div>
+                  <div>{bookingData.customer_info.email}</div>
+                  <div>{bookingData.customer_info.phone}</div>
                 </div>
               </div>
             )}
@@ -720,7 +758,11 @@ export function ReviewPaymentStep() {
       </Card>
 
       <div className="flex justify-between items-center pt-4">
-        <Button variant="outline" onClick={handlePreviousStep}>
+        <Button 
+          variant="outline" 
+          onClick={handlePreviousStep}
+          disabled={isLoading || createBookingMutation.isPending}
+        >
           ← Previous
         </Button>
         
