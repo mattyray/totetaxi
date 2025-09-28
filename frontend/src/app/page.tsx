@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { BookingWizard } from '@/components/booking';
 import { Modal } from '@/components/ui/modal';
@@ -18,7 +18,7 @@ import { MobileDebug } from '@/components/debug/mobile-debug';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const openBookingWizard = () => {
     setShowBookingWizard(true);
@@ -28,25 +28,16 @@ export default function Home() {
     setShowBookingWizard(false);
   };
 
-  // Debug toggle for development
-  const toggleDebug = () => {
-    setShowDebug(!showDebug);
-  };
+  useEffect(() => {
+    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobile(checkMobile);
+  }, []);
 
   return (
     <>
       <MainLayout onBookNowClick={openBookingWizard}>
-        {/* Debug Component - Remove in production */}
-        {showDebug && <MobileDebug />}
-        
-        {/* Debug Toggle Button - Remove in production */}
-        <button
-          onClick={toggleDebug}
-          className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-2 rounded-full text-xs z-40"
-          style={{ display: process.env.NODE_ENV === 'development' ? 'block' : 'none' }}
-        >
-          Debug
-        </button>
+        {/* Show debug info only on mobile */}
+        {isMobile && <MobileDebug />}
 
         <HeroSection onBookNowClick={openBookingWizard} />
         <HowItWorksSection />

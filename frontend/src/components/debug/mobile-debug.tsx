@@ -21,11 +21,10 @@ export function MobileDebug() {
     };
 
     const info = {
-      timestamp: new Date().toISOString(),
       authentication: {
         isAuthenticated,
-        userEmail: user?.email || 'none',
-        userId: user?.id || 'none',
+        userEmail: user?.email || 'NONE',
+        userId: user?.id || 'NONE',
       },
       browser: {
         userAgent: navigator.userAgent,
@@ -33,40 +32,19 @@ export function MobileDebug() {
         cookieEnabled: navigator.cookieEnabled,
       },
       storage: {
-        localStorage: getAllLocalStorage(),
-        sessionStorage: sessionStorage.length,
+        localStorageItems: getAllLocalStorage(),
         cookies: document.cookie,
       },
-      page: {
-        url: window.location.href,
-        origin: window.location.origin,
-        pathname: window.location.pathname,
-      },
-      network: {
-        online: navigator.onLine,
-        connection: (navigator as any).connection?.effectiveType || 'unknown',
-      }
+      url: window.location.href,
     };
     
     setDebugInfo(info);
-    console.log('Mobile Debug Info:', info);
   }, [isAuthenticated, user]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-red-100 border-b-2 border-red-300 p-2 text-xs z-50 max-h-64 overflow-y-auto">
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-bold text-red-800">Mobile Debug Info</h3>
-        <button 
-          onClick={() => {
-            navigator.clipboard?.writeText(JSON.stringify(debugInfo, null, 2));
-            alert('Debug info copied to clipboard');
-          }}
-          className="bg-red-200 px-2 py-1 rounded text-red-800"
-        >
-          Copy
-        </button>
-      </div>
-      <pre className="whitespace-pre-wrap text-red-900 bg-white p-2 rounded">
+    <div className="fixed top-0 left-0 right-0 bg-yellow-100 p-4 text-xs z-50 max-h-96 overflow-y-auto">
+      <h3 className="font-bold mb-2">MOBILE DEBUG</h3>
+      <pre className="whitespace-pre-wrap">
         {JSON.stringify(debugInfo, null, 2)}
       </pre>
     </div>
