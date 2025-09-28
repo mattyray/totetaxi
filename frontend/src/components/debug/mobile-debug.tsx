@@ -42,9 +42,9 @@ export function MobileDebug() {
   }, [isAuthenticated, user]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-yellow-100 p-4 text-xs z-50 max-h-96 overflow-y-auto">
-      <h3 className="font-bold mb-2">MOBILE DEBUG</h3>
-      <pre className="whitespace-pre-wrap">
+    <div className="fixed top-0 left-0 right-0 bg-black text-white p-4 text-xs z-50 max-h-96 overflow-y-auto border-b-4 border-red-500">
+      <h3 className="font-bold mb-2 text-red-400">MOBILE DEBUG INFO</h3>
+      <pre className="whitespace-pre-wrap text-green-300">
         {JSON.stringify(debugInfo, null, 2)}
       </pre>
     </div>
