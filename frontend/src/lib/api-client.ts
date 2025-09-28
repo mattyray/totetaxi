@@ -1,4 +1,4 @@
-// frontend/src/lib/api-client.ts
+// src/lib/api-client.ts
 import axios from 'axios';
 
 export const apiClient = axios.create({
@@ -6,33 +6,65 @@ export const apiClient = axios.create({
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  timeout: 10000 // Add timeout for mobile networks
 });
 
-// Request interceptor for CSRF token - use customer endpoint for all requests
+// Enhanced request interceptor with mobile debugging
 apiClient.interceptors.request.use(async (config) => {
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
-      // FIXED: Use customer CSRF endpoint for all requests (staff endpoint doesn't exist)
+      console.log('🔄 Fetching CSRF token for:', config.method, config.url);
+      
       const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
-        withCredentials: true
+        withCredentials: true,
+        timeout: 5000
       });
-      config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
-    } catch (error) {
-      console.warn('Could not fetch CSRF token:', error);
+      
+      const token = csrfResponse.data.csrf_token;
+      console.log('🔑 CSRF token received:', token ? `${token.substring(0, 8)}...` : 'NONE');
+      console.log('🍪 Cookies in CSRF response:', document.cookie);
+      
+      if (token) {
+        config.headers['X-CSRFToken'] = token;
+        console.log('✅ CSRF token added to request headers');
+      } else {
+        console.error('❌ No CSRF token in response:', csrfResponse.data);
+      }
+    } catch (error: any) {
+      console.error('❌ CSRF token fetch failed:', {
+        message: error.message,
+        status: error.response?.status,
+        url: error.config?.url
+      });
     }
   }
+  
+  console.log('📤 Final request headers:', {
+    'X-CSRFToken': config.headers['X-CSRFToken'] ? 'SET' : 'MISSING',
+    'Content-Type': config.headers['Content-Type'],
+    cookies: document.cookie ? 'PRESENT' : 'MISSING'
+  });
+  
   return config;
 });
 
 // Enhanced response interceptor with proper auth handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API Response:', response.status, response.config.url);
+    return response;
+  },
   async (error) => {
+    console.error('❌ API Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      message: error.message
+    });
+
     if (error.response?.status === 401) {
-      console.log('401 Unauthorized - clearing auth state');
+      console.log('🔓 401 Unauthorized - clearing auth state');
       
-      // Clear auth stores (imported dynamically to avoid circular deps)
       try {
         const { useAuthStore } = await import('@/stores/auth-store');
         const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
@@ -40,19 +72,23 @@ apiClient.interceptors.response.use(
         useAuthStore.getState().clearAuth();
         useStaffAuthStore.getState().clearAuth();
         
-        console.log('Auth stores cleared due to 401');
+        console.log('🧹 Auth stores cleared due to 401');
         
-        // Let components handle redirects - don't use router here
         if (typeof window !== 'undefined') {
           const currentPath = window.location.pathname;
           if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            console.log('401 detected - components will handle redirect');
+            console.log('🔄 401 detected - components will handle redirect');
           }
         }
       } catch (e) {
-        console.warn('Error clearing auth on 401:', e);
+        console.warn('⚠️ Error clearing auth on 401:', e);
       }
     }
+
+    if (error.response?.status === 403) {
+      console.error('🚫 403 Forbidden - CSRF or permission issue');
+    }
+
     return Promise.reject(error);
   }
 );
