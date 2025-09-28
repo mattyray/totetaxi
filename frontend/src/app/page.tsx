@@ -14,9 +14,11 @@ import {
   TestimonialsSection
 } from '@/components/marketing';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
+import { MobileDebug } from '@/components/debug/mobile-debug';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   const openBookingWizard = () => {
     setShowBookingWizard(true);
@@ -26,9 +28,26 @@ export default function Home() {
     setShowBookingWizard(false);
   };
 
+  // Debug toggle for development
+  const toggleDebug = () => {
+    setShowDebug(!showDebug);
+  };
+
   return (
     <>
       <MainLayout onBookNowClick={openBookingWizard}>
+        {/* Debug Component - Remove in production */}
+        {showDebug && <MobileDebug />}
+        
+        {/* Debug Toggle Button - Remove in production */}
+        <button
+          onClick={toggleDebug}
+          className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-2 rounded-full text-xs z-40"
+          style={{ display: process.env.NODE_ENV === 'development' ? 'block' : 'none' }}
+        >
+          Debug
+        </button>
+
         <HeroSection onBookNowClick={openBookingWizard} />
         <HowItWorksSection />
         <WhatWeTransportSection />
