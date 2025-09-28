@@ -10,6 +10,26 @@ export function MobileDebug() {
   const { isAuthenticated, user } = useAuthStore();
   const [apiTests, setApiTests] = useState<any>({});
   const [isMinimized, setIsMinimized] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+
+  const copyToClipboard = async () => {
+    try {
+      const debugText = JSON.stringify(apiTests, null, 2);
+      await navigator.clipboard.writeText(debugText);
+      setCopyStatus('COPIED!');
+      setTimeout(() => setCopyStatus(''), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = JSON.stringify(apiTests, null, 2);
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopyStatus('COPIED!');
+      setTimeout(() => setCopyStatus(''), 2000);
+    }
+  };
 
   useEffect(() => {
     const testAPIs = async () => {
@@ -25,7 +45,7 @@ export function MobileDebug() {
 
       // Test 1: Direct CSRF token fetch
       try {
-        console.log('🧪 Testing CSRF token fetch...');
+        console.log('Testing CSRF token fetch...');
         const csrfResponse = await axios.get(`${baseURL}/api/customer/csrf-token/`, {
           withCredentials: true,
           timeout: 5000
@@ -48,7 +68,7 @@ export function MobileDebug() {
 
       // Test 2: Dashboard API (GET request)
       try {
-        console.log('🧪 Testing dashboard API...');
+        console.log('Testing dashboard API...');
         const dashResponse = await apiClient.get('/api/customer/dashboard/');
         tests.dashboardAPI = { 
           success: true, 
@@ -66,7 +86,7 @@ export function MobileDebug() {
 
       // Test 3: Bookings API (GET request)
       try {
-        console.log('🧪 Testing bookings API...');
+        console.log('Testing bookings API...');
         const bookingsResponse = await apiClient.get('/api/customer/bookings/');
         tests.bookingsAPI = { 
           success: true, 
@@ -91,7 +111,7 @@ export function MobileDebug() {
         localStorage: localStorage.getItem('auth-storage') ? 'PRESENT' : 'NONE'
       };
 
-      console.log('🔍 Mobile Debug Results:', tests);
+      console.log('Mobile Debug Results:', tests);
       setApiTests(tests);
     };
 
@@ -108,7 +128,7 @@ export function MobileDebug() {
         onClick={() => setIsMinimized(false)}
         className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-2 rounded z-50 shadow-lg"
       >
-        🐛 DEBUG
+        DEBUG
       </button>
     );
   }
@@ -116,19 +136,25 @@ export function MobileDebug() {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-black text-white p-3 text-xs z-50 max-h-80 overflow-y-auto border-t-4 border-red-500">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-red-400">🔍 MOBILE API DEBUG</h3>
-        <div className="flex gap-2">
+        <h3 className="font-bold text-red-400">MOBILE API DEBUG</h3>
+        <div className="flex gap-1">
+          <button 
+            onClick={copyToClipboard}
+            className="text-white bg-green-600 px-2 py-1 rounded text-xs"
+          >
+            {copyStatus || 'COPY'}
+          </button>
           <button 
             onClick={() => window.location.reload()}
             className="text-white bg-blue-600 px-2 py-1 rounded text-xs"
           >
-            🔄 RELOAD
+            RELOAD
           </button>
           <button 
             onClick={() => setIsMinimized(true)}
             className="text-white bg-red-600 px-2 py-1 rounded text-xs"
           >
-            ➖ MIN
+            MIN
           </button>
         </div>
       </div>
