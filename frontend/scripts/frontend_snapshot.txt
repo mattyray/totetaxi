@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-27 18:48:36.832054
+# Generated: 2025-09-28 10:29:44.974858
 # Files: 69
 
 # ==== next-env.d.ts ====
@@ -3851,13 +3851,13 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
   };
 
   return (
-    <Card variant="elevated">
-      <CardHeader>
+    <Card variant="elevated" className="p-8">
+      <CardHeader className="p-0 pb-6">
         <h3 className="text-lg font-medium text-navy-900">{title}</h3>
       </CardHeader>
       
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-0">
+        <div className="space-y-6">
           <Input
             label="Street Address"
             value={address?.address_line_1 || ''}
@@ -3874,7 +3874,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             placeholder="Apt 4B, Suite 200"
           />
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="City"
               value={address?.city || ''}
@@ -3884,8 +3884,8 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               required
             />
             
-            <div>
-              <label className="block text-sm font-medium text-navy-900 mb-1">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-navy-900">
                 State <span className="text-red-500">*</span>
               </label>
               <select
@@ -3906,6 +3906,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
           
           <Input
             label="ZIP Code"
+            mask="zip"
             value={address?.zip_code || ''}
             onChange={(e) => handleFieldChange('zip_code', e.target.value)}
             error={errors.zip_code}
@@ -3935,7 +3936,6 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  // Test data functions - production safe
   const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
     switch (route) {
       case 'manhattan-hamptons':
@@ -4022,9 +4022,8 @@ export function AddressStep() {
     bookingData.delivery_address?.zip_code;
 
   return (
-    <div className="space-y-6">
-      {/* Instructions with Test Data Buttons */}
-      <div className="text-center py-4">
+    <div className="space-y-8">
+      <div className="text-center">
         <p className="text-navy-700">
           Where should we pick up and deliver your items?
         </p>
@@ -4032,8 +4031,7 @@ export function AddressStep() {
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
         
-        {/* Production-Safe Test Data Buttons */}
-        <div className="mt-4 space-y-2">
+        <div className="mt-6 space-y-3">
           <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button 
@@ -4096,19 +4094,19 @@ export function AddressStep() {
         }}
       />
 
-      <Card variant="default">
-        <CardContent>
-          <label className="block text-sm font-medium text-navy-900 mb-2">
+      <Card variant="default" className="p-6">
+        <CardContent className="p-0">
+          <label className="block text-sm font-medium text-navy-900 mb-3">
             Special Instructions (Optional)
           </label>
           <textarea
             value={bookingData.special_instructions || ''}
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
             placeholder="Any special delivery instructions, building access codes, or notes for our team..."
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
+            rows={4}
+            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
-          <p className="text-sm text-navy-600 mt-1">
+          <p className="text-sm text-navy-600 mt-2">
             Include building access codes, doorman instructions, or any special handling requests.
           </p>
         </CardContent>
@@ -4464,13 +4462,13 @@ export function AuthChoiceStep() {
 # ==== src/components/booking/booking-wizard.tsx ====
 
 ```
-'use client';
 // frontend/src/components/booking/booking-wizard.tsx
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AuthChoiceStep } from './auth-choice-step';
 import { ServiceSelectionStep } from './service-selection-step';
@@ -4560,21 +4558,23 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 
   if (isBookingComplete && completedBookingNumber) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-serif font-bold text-navy-900 mb-2">
+            Booking Confirmed!
+          </h3>
+          <p className="text-navy-700 mb-4">
+            Your booking {completedBookingNumber} has been created successfully.
+          </p>
+          <p className="text-sm text-navy-600">
+            You'll receive a confirmation email shortly.
+          </p>
         </div>
-        <h3 className="text-xl font-serif font-bold text-navy-900 mb-2">
-          Booking Confirmed!
-        </h3>
-        <p className="text-navy-700 mb-4">
-          Your booking {completedBookingNumber} has been created successfully.
-        </p>
-        <p className="text-sm text-navy-600">
-          You'll receive a confirmation email shortly.
-        </p>
       </div>
     );
   }
@@ -4615,29 +4615,58 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
-            Book Your Luxury Move
-          </h1>
-          <p className="text-navy-700">
-            From Manhattan to the Hamptons with premium care
-          </p>
-          {isAuthenticated && currentStep > 0 && (
-            <p className="text-sm text-green-600 mt-2">
-              ✓ Logged in as {user?.first_name} {user?.last_name}
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="text-center">
+            <h1 className="text-2xl md:text-3xl font-serif font-bold text-navy-900">
+              Book Your Luxury Move
+            </h1>
+            <p className="text-navy-700 mt-1">
+              From Manhattan to the Hamptons with premium care
             </p>
+            {isAuthenticated && currentStep > 0 && (
+              <p className="text-sm text-green-600 mt-2">
+                ✓ Logged in as {user?.first_name} {user?.last_name}
+              </p>
+            )}
+          </div>
+
+          {/* Mobile Progress Dots */}
+          {currentStep > 0 && (
+            <div className="flex items-center justify-center mt-4 md:hidden">
+              <div className="flex space-x-2">
+                {displaySteps.map((step) => (
+                  <div
+                    key={step.actualStep}
+                    className={`w-3 h-3 rounded-full ${
+                      currentStep === step.actualStep 
+                        ? 'bg-navy-900' 
+                        : currentStep > step.actualStep
+                        ? 'bg-green-500'
+                        : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="ml-3 text-sm text-gray-600">
+                Step {getCurrentDisplayStep()} of {maxSteps}
+              </span>
+            </div>
           )}
         </div>
+      </div>
 
-        {currentStep > 0 && (
-          <div className="mb-8">
+      {/* Desktop Progress Bar */}
+      {currentStep > 0 && (
+        <div className="hidden md:block bg-white border-b border-gray-100">
+          <div className="max-w-5xl mx-auto px-4 py-6">
             <div className="flex items-center justify-between">
               {displaySteps.map((step, index) => (
                 <div key={step.actualStep} className="flex items-center">
                   <div className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
                     ${currentStep === step.actualStep 
                       ? 'bg-navy-900 text-white' 
                       : currentStep > step.actualStep
@@ -4649,7 +4678,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
                   </div>
                   
                   <span className={`
-                    ml-2 text-sm font-medium
+                    ml-3 text-sm font-medium
                     ${currentStep === step.actualStep ? 'text-navy-900' : 'text-navy-600'}
                   `}>
                     {step.title}
@@ -4657,7 +4686,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
                   
                   {index < displaySteps.length - 1 && (
                     <div className={`
-                      h-0.5 w-12 mx-4
+                      h-0.5 w-16 mx-6
                       ${currentStep > step.actualStep ? 'bg-green-500' : 'bg-gray-200'}
                     `} />
                   )}
@@ -4665,53 +4694,60 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
               ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <Card variant="elevated" className="mb-8">
-          <CardHeader>
-            <h2 className="text-xl font-serif font-bold text-navy-900">
+      {/* Main Content - No Card Wrapper */}
+      <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif font-bold text-navy-900 mb-6">
               {currentStep === 0 ? 'Get Started' : `Step ${getCurrentDisplayStep()}: ${getStepTitle()}`}
             </h2>
-          </CardHeader>
-          <CardContent>
-            {CurrentStepComponent && <CurrentStepComponent />}
-          </CardContent>
-        </Card>
-
-        {currentStep > 0 && (
-          <div className="flex justify-between items-center">
-            <div>
-              {currentStep > 1 && (
-                <Button 
-                  variant="outline" 
-                  onClick={previousStep}
-                  className="mr-4"
-                >
-                  ← Previous
-                </Button>
-              )}
-              <Button 
-                variant="ghost" 
-                onClick={handleStartOver}
-                className="text-navy-600"
-              >
-                Start Over
-              </Button>
-            </div>
             
-            <div>
-              {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+            {CurrentStepComponent && <CurrentStepComponent />}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Bottom Navigation */}
+      {currentStep > 0 && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 z-10">
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                {currentStep > 1 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={previousStep}
+                  >
+                    ← Previous
+                  </Button>
+                )}
                 <Button 
-                  variant="primary" 
-                  onClick={nextStep}
+                  variant="ghost" 
+                  onClick={handleStartOver}
+                  className="text-navy-600"
                 >
-                  Continue →
+                  Start Over
                 </Button>
-              )}
+              </div>
+              
+              <div>
+                {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+                  <Button 
+                    variant="primary" 
+                    onClick={nextStep}
+                    size="lg"
+                  >
+                    Continue →
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4723,7 +4759,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 // frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -4733,8 +4769,13 @@ import { Input } from '@/components/ui/input';
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
+  const [formData, setFormData] = useState({
+    first_name: bookingData.customer_info?.first_name || '',
+    last_name: bookingData.customer_info?.last_name || '',
+    email: bookingData.customer_info?.email || '',
+    phone: bookingData.customer_info?.phone || '',
+  });
 
-  // FIXED: Better authentication detection and immediate skip
   useEffect(() => {
     console.log('Customer Info Step - Auth state:', { isAuthenticated, isGuestMode, hasUser: !!user });
     
@@ -4744,7 +4785,6 @@ export function CustomerInfoStep() {
       return;
     }
     
-    // FIXED: Also check if user exists in auth store
     if (user && !isGuestMode) {
       console.log('CustomerInfoStep - user found in store, advancing');
       nextStep();
@@ -4755,47 +4795,44 @@ export function CustomerInfoStep() {
     return null;
   }
 
-  // FIXED: Better field change handler that ensures customer_info always exists
   const handleFieldChange = (field: string, value: string) => {
-    const currentInfo = bookingData.customer_info || {
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: ''
-    };
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
     
     updateBookingData({
-      customer_info: {
-        ...currentInfo,
-        [field]: value
-      }
+      customer_info: newFormData
     });
+    
     clearError(field);
   };
 
   const validateAndContinue = () => {
     let hasErrors = false;
 
-    if (!bookingData.customer_info?.first_name) {
+    if (!formData.first_name.trim()) {
       setError('first_name', 'First name is required');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.last_name) {
+    
+    if (!formData.last_name.trim()) {
       setError('last_name', 'Last name is required');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.email) {
+    
+    if (!formData.email.trim()) {
       setError('email', 'Email is required');
       hasErrors = true;
-    } else if (!/\S+@\S+\.\S+/.test(bookingData.customer_info.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       setError('email', 'Please enter a valid email address');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.phone) {
+    
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (!cleanPhone) {
       setError('phone', 'Phone number is required');
       hasErrors = true;
-    } else if (!/^[\+]?[1]?[-\s\.]?[\(]?[0-9]{3}[\)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4}$/.test(bookingData.customer_info.phone)) {
-      setError('phone', 'Please enter a valid phone number');
+    } else if (cleanPhone.length < 10) {
+      setError('phone', 'Phone number must be at least 10 digits');
       hasErrors = true;
     }
 
@@ -4805,70 +4842,75 @@ export function CustomerInfoStep() {
   };
 
   const canContinue = 
-    bookingData.customer_info?.first_name &&
-    bookingData.customer_info?.last_name &&
-    bookingData.customer_info?.email &&
-    bookingData.customer_info?.phone;
+    formData.first_name.trim() &&
+    formData.last_name.trim() &&
+    formData.email.trim() &&
+    formData.phone.replace(/\D/g, '').length >= 10;
 
   return (
-    <div className="space-y-6">
-      <div className="text-center py-4">
+    <div className="space-y-8">
+      <div className="text-center">
         <h3 className="text-lg font-medium text-navy-900 mb-2">Contact Information</h3>
         <p className="text-navy-700">
           We'll use this information to coordinate your pickup and delivery.
         </p>
       </div>
 
-      <Card variant="elevated">
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card variant="elevated" className="p-8">
+        <CardContent className="p-0">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="First Name"
-                value={bookingData.customer_info?.first_name || ''}
+                value={formData.first_name}
                 onChange={(e) => handleFieldChange('first_name', e.target.value)}
                 error={errors.first_name}
                 placeholder="John"
                 required
+                realTimeValidation={false}
               />
               
               <Input
                 label="Last Name"
-                value={bookingData.customer_info?.last_name || ''}
+                value={formData.last_name}
                 onChange={(e) => handleFieldChange('last_name', e.target.value)}
                 error={errors.last_name}
                 placeholder="Smith"
                 required
+                realTimeValidation={false}
               />
             </div>
             
             <Input
               label="Email Address"
               type="email"
-              value={bookingData.customer_info?.email || ''}
-              onChange={(e) => handleFieldChange('email', e.target.value)}
+              value={formData.email}
+              onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
               error={errors.email}
               placeholder="john.smith@email.com"
               helper="We'll send confirmation and tracking updates to this email"
               required
+              realTimeValidation={true}
             />
             
             <Input
               label="Phone Number"
               type="tel"
-              value={bookingData.customer_info?.phone || ''}
+              mask="phone"
+              value={formData.phone}
               onChange={(e) => handleFieldChange('phone', e.target.value)}
               error={errors.phone}
               placeholder="(555) 123-4567"
               helper="For pickup and delivery coordination"
               required
+              realTimeValidation={true}
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card variant="default" className="border-gold-200 bg-gold-50">
-        <CardContent>
+      <Card variant="default" className="border-gold-200 bg-gold-50 p-6">
+        <CardContent className="p-0">
           <div className="flex items-start">
             <div className="text-gold-600 mr-3 mt-1">🔒</div>
             <div>
@@ -4882,30 +4924,8 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      <Card variant="luxury">
-        <CardContent>
-          <div className="text-center">
-            <h4 className="font-serif text-lg font-bold text-navy-900 mb-2">
-              Join ToteTaxi VIP
-            </h4>
-            <p className="text-navy-700 text-sm mb-4">
-              Get priority scheduling, exclusive pricing, and seasonal storage benefits.
-            </p>
-            <label className="flex items-center justify-center">
-              <input
-                type="checkbox"
-                className="mr-2"
-              />
-              <span className="text-sm text-navy-900">
-                Yes, I want to join ToteTaxi VIP (free to join)
-              </span>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="text-center text-sm text-navy-600">
-        <p>
+      <div className="text-center">
+        <p className="text-sm text-navy-600">
           Already have an account? 
           <button className="text-navy-900 hover:underline ml-1">
             Sign in for faster checkout
@@ -4918,6 +4938,7 @@ export function CustomerInfoStep() {
           variant="primary" 
           onClick={validateAndContinue}
           disabled={!canContinue}
+          size="lg"
         >
           Continue to Review & Payment →
         </Button>
@@ -4925,8 +4946,6 @@ export function CustomerInfoStep() {
     </div>
   );
 }
-
-
 ```
 
 # ==== src/components/booking/date-time-step.tsx ====
@@ -4976,7 +4995,7 @@ export function DateTimeStep() {
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
-  const [currentMonth, setCurrentMonth] = useState(new Date()); // FIXED: Add month navigation
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const { data: availability } = useQuery({
     queryKey: ['availability', 'calendar'],
@@ -5021,7 +5040,6 @@ export function DateTimeStep() {
     }
   }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_item_ids]);
 
-  // FIXED: Update pricing data in booking store when mutation succeeds
   useEffect(() => {
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
@@ -5033,7 +5051,6 @@ export function DateTimeStep() {
     updateBookingData({ pickup_date: date });
   };
 
-  // FIXED: Immediate pricing updates on time selection
   const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
     const newHour = time === 'morning_specific' ? specificHour : undefined;
@@ -5043,18 +5060,15 @@ export function DateTimeStep() {
       specific_pickup_hour: newHour
     });
     
-    // Trigger immediate pricing update
     if (selectedDate && bookingData.service_type) {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
   };
 
-  // FIXED: Immediate pricing updates on hour selection
   const handleSpecificHourSelect = (hour: number) => {
     setSpecificHour(hour);
     updateBookingData({ specific_pickup_hour: hour });
     
-    // Trigger immediate pricing update
     if (selectedDate && bookingData.service_type && selectedTime === 'morning_specific') {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
@@ -5067,7 +5081,6 @@ export function DateTimeStep() {
     nextStep();
   };
 
-  // FIXED: Dynamic month days instead of hardcoded 30 days
   const getMonthDays = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -5078,7 +5091,7 @@ export function DateTimeStep() {
     
     const days = [];
     for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-      if (d >= today) { // Only show today and future dates
+      if (d >= today) {
         days.push(new Date(d));
       }
     }
@@ -5105,10 +5118,10 @@ export function DateTimeStep() {
   const canContinue = selectedDate && selectedTime;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Calendar Section */}
       <div>
-        {/* FIXED: Month navigation header */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
           <Button 
             variant="outline" 
             onClick={() => {
@@ -5124,7 +5137,7 @@ export function DateTimeStep() {
           >
             ← Previous
           </Button>
-          <h3 className="text-lg font-medium text-navy-900">
+          <h3 className="text-xl font-medium text-navy-900">
             {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h3>
           <Button 
@@ -5139,8 +5152,10 @@ export function DateTimeStep() {
           </Button>
         </div>
 
-        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
-        <div className="grid grid-cols-7 gap-2">
+        <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
+        
+        {/* Responsive Calendar Grid */}
+        <div className="grid grid-cols-7 gap-1 md:gap-4">
           {getMonthDays().map((date) => {
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
@@ -5152,7 +5167,8 @@ export function DateTimeStep() {
                 key={dateStr}
                 onClick={() => handleDateSelect(dateStr)}
                 className={`
-                  p-2 text-sm rounded-md border transition-all min-h-[60px] flex flex-col items-center justify-center
+                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                  h-16 md:h-20 flex flex-col items-center justify-center
                   ${isSelected 
                     ? 'bg-navy-900 text-white border-navy-900' 
                     : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
@@ -5171,17 +5187,17 @@ export function DateTimeStep() {
           })}
         </div>
         
-        <div className="flex items-center justify-center mt-3 text-sm">
+        <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
-            <span className="text-navy-600">Surcharge applies</span>
+            <span className="text-sm text-navy-600">Weekend surcharge applies</span>
           </div>
         </div>
       </div>
 
       {selectedDate && (
-        <Card variant="default">
-          <CardContent>
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
             <div className="text-center">
               <h4 className="font-medium text-navy-900 mb-2">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { 
@@ -5213,12 +5229,12 @@ export function DateTimeStep() {
 
       {selectedDate && (
         <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
+          <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
             
             <button
               onClick={() => handleTimeSelect('morning')}
-              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+              className={`w-full p-6 rounded-lg border-2 text-left transition-all ${
                 selectedTime === 'morning'
                   ? 'border-navy-500 bg-navy-50'
                   : 'border-gray-200 hover:border-gray-300'
@@ -5231,7 +5247,7 @@ export function DateTimeStep() {
             {packageType === 'petite' && (
               <button
                 onClick={() => handleTimeSelect('no_time_preference')}
-                className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                className={`w-full p-6 rounded-lg border-2 text-left transition-all ${
                   selectedTime === 'no_time_preference'
                     ? 'border-navy-500 bg-navy-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -5244,7 +5260,7 @@ export function DateTimeStep() {
 
             {(packageType === 'standard' || packageType === 'full') && (
               <div
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-6 rounded-lg border-2 transition-all ${
                   selectedTime === 'morning_specific'
                     ? 'border-navy-500 bg-navy-50'
                     : 'border-gray-200'
@@ -5267,12 +5283,12 @@ export function DateTimeStep() {
                 </button>
                 
                 {selectedTime === 'morning_specific' && (
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="mt-4 grid grid-cols-3 gap-3">
                     {[8, 9, 10].map((hour) => (
                       <button
                         key={hour}
                         onClick={() => handleSpecificHourSelect(hour)}
-                        className={`p-2 text-sm rounded border transition-all ${
+                        className={`p-3 text-sm rounded border-2 transition-all ${
                           specificHour === hour
                             ? 'bg-navy-900 text-white border-navy-900'
                             : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300'
@@ -5290,10 +5306,10 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-        <Card variant="luxury">
-          <CardContent>
-            <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
-            <div className="space-y-3">
+        <Card variant="luxury" className="p-8">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-navy-900 font-medium">Base Price:</span>
                 <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
@@ -5341,7 +5357,7 @@ export function DateTimeStep() {
                 </div>
               )}
 
-              <div className="border-t border-gray-200 pt-3">
+              <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-navy-900">Total:</span>
                   <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
@@ -5353,14 +5369,14 @@ export function DateTimeStep() {
       )}
 
       {selectedDate && (
-        <Card variant="default">
-          <CardContent>
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
             <label className="flex items-center">
               <input
                 type="checkbox"
                 checked={bookingData.coi_required || false}
                 onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
-                className="mr-3"
+                className="mr-3 h-4 w-4"
               />
               <div>
                 <span className="font-medium text-navy-900">
@@ -10141,9 +10157,8 @@ export { Select } from './select';
 ```
 // frontend/src/components/ui/input.tsx
 import { cn } from '@/utils/cn';
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { InputHTMLAttributes, forwardRef, useState } from 'react';
 
-// Easy to change input styling
 const inputVariants = {
   variant: {
     default: 'border-gray-300 focus:border-navy-500 focus:ring-navy-500',
@@ -10157,15 +10172,53 @@ const inputVariants = {
   }
 };
 
-// Fixed: Added text-gray-900 for dark, readable text and placeholder styling
 const baseStyles = 'block w-full rounded-md shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400 bg-white';
+
+// Utility functions for input masking
+const formatPhoneNumber = (value: string) => {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length >= 10) {
+    return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6,10)}`;
+  }
+  if (cleaned.length >= 6) return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+  if (cleaned.length >= 3) return `(${cleaned.slice(0,3)}) ${cleaned.slice(3)}`;
+  return cleaned;
+};
+
+const formatZipCode = (value: string) => {
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length > 5) {
+    return `${cleaned.slice(0,5)}-${cleaned.slice(5,9)}`;
+  }
+  return cleaned;
+};
+
+const validateEmail = (email: string) => {
+  if (!email) return '';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return 'Please enter a valid email address (e.g., name@example.com)';
+  if (email.includes('..')) return 'Email cannot contain consecutive dots';
+  if (email.length > 254) return 'Email address is too long';
+  return '';
+};
+
+const validatePhone = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.length < 10) return 'Phone number must be at least 10 digits';
+  if (cleaned.length > 11) return 'Phone number is too long';
+  return '';
+};
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   variant?: keyof typeof inputVariants.variant;
   inputSize?: keyof typeof inputVariants.size;
   label?: string;
   error?: string;
+  success?: string;
   helper?: string;
+  mask?: 'phone' | 'zip';
+  realTimeValidation?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({
@@ -10173,14 +10226,52 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   inputSize = 'md',
   label,
   error,
+  success,
   helper,
+  mask,
+  realTimeValidation = false,
   className,
+  onChange,
+  value,
+  type,
   ...props
 }, ref) => {
-  const actualVariant = error ? 'error' : variant;
+  const [internalValue, setInternalValue] = useState(value || '');
+  const [validationError, setValidationError] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let newValue = e.target.value;
+    
+    // Apply input masking
+    if (mask === 'phone') {
+      newValue = formatPhoneNumber(newValue);
+    } else if (mask === 'zip') {
+      newValue = formatZipCode(newValue);
+    }
+    
+    setInternalValue(newValue);
+    
+    // Real-time validation
+    if (realTimeValidation) {
+      let validationErr = '';
+      if (type === 'email') {
+        validationErr = validateEmail(newValue);
+      } else if (mask === 'phone') {
+        validationErr = validatePhone(newValue);
+      }
+      setValidationError(validationErr);
+    }
+    
+    // Create new event with formatted value
+    const newEvent = { ...e, target: { ...e.target, value: newValue } };
+    onChange?.(newEvent);
+  };
+
+  const displayValue = value !== undefined ? value : internalValue;
+  const actualVariant = error || validationError ? 'error' : success ? 'success' : variant;
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {label && (
         <label className="block text-sm font-medium text-navy-900">
           {label}
@@ -10189,6 +10280,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       <input
         ref={ref}
+        type={type}
+        value={displayValue}
+        onChange={handleChange}
         className={cn(
           baseStyles,
           inputVariants.variant[actualVariant],
@@ -10197,10 +10291,23 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         )}
         {...props}
       />
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
+      {(error || validationError) && (
+        <p className="text-sm text-red-600 flex items-center">
+          <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          {error || validationError}
+        </p>
       )}
-      {helper && !error && (
+      {success && !error && !validationError && (
+        <p className="text-sm text-green-600 flex items-center">
+          <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          {success}
+        </p>
+      )}
+      {helper && !error && !validationError && !success && (
         <p className="text-sm text-gray-500">{helper}</p>
       )}
     </div>

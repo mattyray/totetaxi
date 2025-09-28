@@ -103,6 +103,10 @@
 │   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── services
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
@@ -278,4 +282,4 @@
 ├── project_structure.txt
 └── README.md
 
-68 directories, 211 files
+70 directories, 213 files
