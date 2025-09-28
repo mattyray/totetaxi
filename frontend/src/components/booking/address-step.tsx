@@ -64,13 +64,13 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
   };
 
   return (
-    <Card variant="elevated">
-      <CardHeader>
+    <Card variant="elevated" className="p-8">
+      <CardHeader className="p-0 pb-6">
         <h3 className="text-lg font-medium text-navy-900">{title}</h3>
       </CardHeader>
       
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-0">
+        <div className="space-y-6">
           <Input
             label="Street Address"
             value={address?.address_line_1 || ''}
@@ -87,7 +87,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             placeholder="Apt 4B, Suite 200"
           />
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="City"
               value={address?.city || ''}
@@ -97,8 +97,8 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               required
             />
             
-            <div>
-              <label className="block text-sm font-medium text-navy-900 mb-1">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-navy-900">
                 State <span className="text-red-500">*</span>
               </label>
               <select
@@ -119,6 +119,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
           
           <Input
             label="ZIP Code"
+            mask="zip"
             value={address?.zip_code || ''}
             onChange={(e) => handleFieldChange('zip_code', e.target.value)}
             error={errors.zip_code}
@@ -148,7 +149,6 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  // Test data functions - production safe
   const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
     switch (route) {
       case 'manhattan-hamptons':
@@ -235,9 +235,8 @@ export function AddressStep() {
     bookingData.delivery_address?.zip_code;
 
   return (
-    <div className="space-y-6">
-      {/* Instructions with Test Data Buttons */}
-      <div className="text-center py-4">
+    <div className="space-y-8">
+      <div className="text-center">
         <p className="text-navy-700">
           Where should we pick up and deliver your items?
         </p>
@@ -245,8 +244,7 @@ export function AddressStep() {
           We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
         </p>
         
-        {/* Production-Safe Test Data Buttons */}
-        <div className="mt-4 space-y-2">
+        <div className="mt-6 space-y-3">
           <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button 
@@ -309,19 +307,19 @@ export function AddressStep() {
         }}
       />
 
-      <Card variant="default">
-        <CardContent>
-          <label className="block text-sm font-medium text-navy-900 mb-2">
+      <Card variant="default" className="p-6">
+        <CardContent className="p-0">
+          <label className="block text-sm font-medium text-navy-900 mb-3">
             Special Instructions (Optional)
           </label>
           <textarea
             value={bookingData.special_instructions || ''}
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
             placeholder="Any special delivery instructions, building access codes, or notes for our team..."
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
+            rows={4}
+            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
-          <p className="text-sm text-navy-600 mt-1">
+          <p className="text-sm text-navy-600 mt-2">
             Include building access codes, doorman instructions, or any special handling requests.
           </p>
         </CardContent>

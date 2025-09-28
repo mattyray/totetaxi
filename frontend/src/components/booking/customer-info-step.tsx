@@ -1,7 +1,7 @@
 // frontend/src/components/booking/customer-info-step.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,8 +11,13 @@ import { Input } from '@/components/ui/input';
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
+  const [formData, setFormData] = useState({
+    first_name: bookingData.customer_info?.first_name || '',
+    last_name: bookingData.customer_info?.last_name || '',
+    email: bookingData.customer_info?.email || '',
+    phone: bookingData.customer_info?.phone || '',
+  });
 
-  // FIXED: Better authentication detection and immediate skip
   useEffect(() => {
     console.log('Customer Info Step - Auth state:', { isAuthenticated, isGuestMode, hasUser: !!user });
     
@@ -22,7 +27,6 @@ export function CustomerInfoStep() {
       return;
     }
     
-    // FIXED: Also check if user exists in auth store
     if (user && !isGuestMode) {
       console.log('CustomerInfoStep - user found in store, advancing');
       nextStep();
@@ -33,47 +37,44 @@ export function CustomerInfoStep() {
     return null;
   }
 
-  // FIXED: Better field change handler that ensures customer_info always exists
   const handleFieldChange = (field: string, value: string) => {
-    const currentInfo = bookingData.customer_info || {
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: ''
-    };
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
     
     updateBookingData({
-      customer_info: {
-        ...currentInfo,
-        [field]: value
-      }
+      customer_info: newFormData
     });
+    
     clearError(field);
   };
 
   const validateAndContinue = () => {
     let hasErrors = false;
 
-    if (!bookingData.customer_info?.first_name) {
+    if (!formData.first_name.trim()) {
       setError('first_name', 'First name is required');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.last_name) {
+    
+    if (!formData.last_name.trim()) {
       setError('last_name', 'Last name is required');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.email) {
+    
+    if (!formData.email.trim()) {
       setError('email', 'Email is required');
       hasErrors = true;
-    } else if (!/\S+@\S+\.\S+/.test(bookingData.customer_info.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       setError('email', 'Please enter a valid email address');
       hasErrors = true;
     }
-    if (!bookingData.customer_info?.phone) {
+    
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (!cleanPhone) {
       setError('phone', 'Phone number is required');
       hasErrors = true;
-    } else if (!/^[\+]?[1]?[-\s\.]?[\(]?[0-9]{3}[\)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4}$/.test(bookingData.customer_info.phone)) {
-      setError('phone', 'Please enter a valid phone number');
+    } else if (cleanPhone.length < 10) {
+      setError('phone', 'Phone number must be at least 10 digits');
       hasErrors = true;
     }
 
@@ -83,70 +84,75 @@ export function CustomerInfoStep() {
   };
 
   const canContinue = 
-    bookingData.customer_info?.first_name &&
-    bookingData.customer_info?.last_name &&
-    bookingData.customer_info?.email &&
-    bookingData.customer_info?.phone;
+    formData.first_name.trim() &&
+    formData.last_name.trim() &&
+    formData.email.trim() &&
+    formData.phone.replace(/\D/g, '').length >= 10;
 
   return (
-    <div className="space-y-6">
-      <div className="text-center py-4">
+    <div className="space-y-8">
+      <div className="text-center">
         <h3 className="text-lg font-medium text-navy-900 mb-2">Contact Information</h3>
         <p className="text-navy-700">
           We'll use this information to coordinate your pickup and delivery.
         </p>
       </div>
 
-      <Card variant="elevated">
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card variant="elevated" className="p-8">
+        <CardContent className="p-0">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="First Name"
-                value={bookingData.customer_info?.first_name || ''}
+                value={formData.first_name}
                 onChange={(e) => handleFieldChange('first_name', e.target.value)}
                 error={errors.first_name}
                 placeholder="John"
                 required
+                realTimeValidation={false}
               />
               
               <Input
                 label="Last Name"
-                value={bookingData.customer_info?.last_name || ''}
+                value={formData.last_name}
                 onChange={(e) => handleFieldChange('last_name', e.target.value)}
                 error={errors.last_name}
                 placeholder="Smith"
                 required
+                realTimeValidation={false}
               />
             </div>
             
             <Input
               label="Email Address"
               type="email"
-              value={bookingData.customer_info?.email || ''}
-              onChange={(e) => handleFieldChange('email', e.target.value)}
+              value={formData.email}
+              onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
               error={errors.email}
               placeholder="john.smith@email.com"
               helper="We'll send confirmation and tracking updates to this email"
               required
+              realTimeValidation={true}
             />
             
             <Input
               label="Phone Number"
               type="tel"
-              value={bookingData.customer_info?.phone || ''}
+              mask="phone"
+              value={formData.phone}
               onChange={(e) => handleFieldChange('phone', e.target.value)}
               error={errors.phone}
               placeholder="(555) 123-4567"
               helper="For pickup and delivery coordination"
               required
+              realTimeValidation={true}
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card variant="default" className="border-gold-200 bg-gold-50">
-        <CardContent>
+      <Card variant="default" className="border-gold-200 bg-gold-50 p-6">
+        <CardContent className="p-0">
           <div className="flex items-start">
             <div className="text-gold-600 mr-3 mt-1">🔒</div>
             <div>
@@ -160,30 +166,8 @@ export function CustomerInfoStep() {
         </CardContent>
       </Card>
 
-      <Card variant="luxury">
-        <CardContent>
-          <div className="text-center">
-            <h4 className="font-serif text-lg font-bold text-navy-900 mb-2">
-              Join ToteTaxi VIP
-            </h4>
-            <p className="text-navy-700 text-sm mb-4">
-              Get priority scheduling, exclusive pricing, and seasonal storage benefits.
-            </p>
-            <label className="flex items-center justify-center">
-              <input
-                type="checkbox"
-                className="mr-2"
-              />
-              <span className="text-sm text-navy-900">
-                Yes, I want to join ToteTaxi VIP (free to join)
-              </span>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="text-center text-sm text-navy-600">
-        <p>
+      <div className="text-center">
+        <p className="text-sm text-navy-600">
           Already have an account? 
           <button className="text-navy-900 hover:underline ml-1">
             Sign in for faster checkout
@@ -196,6 +180,7 @@ export function CustomerInfoStep() {
           variant="primary" 
           onClick={validateAndContinue}
           disabled={!canContinue}
+          size="lg"
         >
           Continue to Review & Payment →
         </Button>
@@ -203,4 +188,3 @@ export function CustomerInfoStep() {
     </div>
   );
 }
-

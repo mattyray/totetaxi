@@ -42,7 +42,7 @@ export function DateTimeStep() {
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
-  const [currentMonth, setCurrentMonth] = useState(new Date()); // FIXED: Add month navigation
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const { data: availability } = useQuery({
     queryKey: ['availability', 'calendar'],
@@ -87,7 +87,6 @@ export function DateTimeStep() {
     }
   }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_item_ids]);
 
-  // FIXED: Update pricing data in booking store when mutation succeeds
   useEffect(() => {
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
@@ -99,7 +98,6 @@ export function DateTimeStep() {
     updateBookingData({ pickup_date: date });
   };
 
-  // FIXED: Immediate pricing updates on time selection
   const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
     const newHour = time === 'morning_specific' ? specificHour : undefined;
@@ -109,18 +107,15 @@ export function DateTimeStep() {
       specific_pickup_hour: newHour
     });
     
-    // Trigger immediate pricing update
     if (selectedDate && bookingData.service_type) {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
   };
 
-  // FIXED: Immediate pricing updates on hour selection
   const handleSpecificHourSelect = (hour: number) => {
     setSpecificHour(hour);
     updateBookingData({ specific_pickup_hour: hour });
     
-    // Trigger immediate pricing update
     if (selectedDate && bookingData.service_type && selectedTime === 'morning_specific') {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
@@ -133,7 +128,6 @@ export function DateTimeStep() {
     nextStep();
   };
 
-  // FIXED: Dynamic month days instead of hardcoded 30 days
   const getMonthDays = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -144,7 +138,7 @@ export function DateTimeStep() {
     
     const days = [];
     for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-      if (d >= today) { // Only show today and future dates
+      if (d >= today) {
         days.push(new Date(d));
       }
     }
@@ -171,10 +165,10 @@ export function DateTimeStep() {
   const canContinue = selectedDate && selectedTime;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Calendar Section */}
       <div>
-        {/* FIXED: Month navigation header */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
           <Button 
             variant="outline" 
             onClick={() => {
@@ -190,7 +184,7 @@ export function DateTimeStep() {
           >
             ← Previous
           </Button>
-          <h3 className="text-lg font-medium text-navy-900">
+          <h3 className="text-xl font-medium text-navy-900">
             {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h3>
           <Button 
@@ -205,8 +199,10 @@ export function DateTimeStep() {
           </Button>
         </div>
 
-        <h3 className="text-lg font-medium text-navy-900 mb-4">Select Date</h3>
-        <div className="grid grid-cols-7 gap-2">
+        <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
+        
+        {/* Responsive Calendar Grid */}
+        <div className="grid grid-cols-7 gap-1 md:gap-4">
           {getMonthDays().map((date) => {
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
@@ -218,7 +214,8 @@ export function DateTimeStep() {
                 key={dateStr}
                 onClick={() => handleDateSelect(dateStr)}
                 className={`
-                  p-2 text-sm rounded-md border transition-all min-h-[60px] flex flex-col items-center justify-center
+                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                  h-16 md:h-20 flex flex-col items-center justify-center
                   ${isSelected 
                     ? 'bg-navy-900 text-white border-navy-900' 
                     : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
@@ -237,17 +234,17 @@ export function DateTimeStep() {
           })}
         </div>
         
-        <div className="flex items-center justify-center mt-3 text-sm">
+        <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-orange-100 rounded mr-2"></div>
-            <span className="text-navy-600">Surcharge applies</span>
+            <span className="text-sm text-navy-600">Weekend surcharge applies</span>
           </div>
         </div>
       </div>
 
       {selectedDate && (
-        <Card variant="default">
-          <CardContent>
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
             <div className="text-center">
               <h4 className="font-medium text-navy-900 mb-2">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { 
@@ -279,12 +276,12 @@ export function DateTimeStep() {
 
       {selectedDate && (
         <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Pickup Time</h3>
+          <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
             
             <button
               onClick={() => handleTimeSelect('morning')}
-              className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+              className={`w-full p-6 rounded-lg border-2 text-left transition-all ${
                 selectedTime === 'morning'
                   ? 'border-navy-500 bg-navy-50'
                   : 'border-gray-200 hover:border-gray-300'
@@ -297,7 +294,7 @@ export function DateTimeStep() {
             {packageType === 'petite' && (
               <button
                 onClick={() => handleTimeSelect('no_time_preference')}
-                className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                className={`w-full p-6 rounded-lg border-2 text-left transition-all ${
                   selectedTime === 'no_time_preference'
                     ? 'border-navy-500 bg-navy-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -310,7 +307,7 @@ export function DateTimeStep() {
 
             {(packageType === 'standard' || packageType === 'full') && (
               <div
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-6 rounded-lg border-2 transition-all ${
                   selectedTime === 'morning_specific'
                     ? 'border-navy-500 bg-navy-50'
                     : 'border-gray-200'
@@ -333,12 +330,12 @@ export function DateTimeStep() {
                 </button>
                 
                 {selectedTime === 'morning_specific' && (
-                  <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="mt-4 grid grid-cols-3 gap-3">
                     {[8, 9, 10].map((hour) => (
                       <button
                         key={hour}
                         onClick={() => handleSpecificHourSelect(hour)}
-                        className={`p-2 text-sm rounded border transition-all ${
+                        className={`p-3 text-sm rounded border-2 transition-all ${
                           specificHour === hour
                             ? 'bg-navy-900 text-white border-navy-900'
                             : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300'
@@ -356,10 +353,10 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-        <Card variant="luxury">
-          <CardContent>
-            <h3 className="text-lg font-medium text-navy-900 mb-4">Pricing Summary</h3>
-            <div className="space-y-3">
+        <Card variant="luxury" className="p-8">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-navy-900 font-medium">Base Price:</span>
                 <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
@@ -407,7 +404,7 @@ export function DateTimeStep() {
                 </div>
               )}
 
-              <div className="border-t border-gray-200 pt-3">
+              <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-navy-900">Total:</span>
                   <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
@@ -419,14 +416,14 @@ export function DateTimeStep() {
       )}
 
       {selectedDate && (
-        <Card variant="default">
-          <CardContent>
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
             <label className="flex items-center">
               <input
                 type="checkbox"
                 checked={bookingData.coi_required || false}
                 onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
-                className="mr-3"
+                className="mr-3 h-4 w-4"
               />
               <div>
                 <span className="font-medium text-navy-900">

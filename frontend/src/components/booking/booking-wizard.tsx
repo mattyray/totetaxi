@@ -1,10 +1,10 @@
-'use client';
 // frontend/src/components/booking/booking-wizard.tsx
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AuthChoiceStep } from './auth-choice-step';
 import { ServiceSelectionStep } from './service-selection-step';
@@ -94,21 +94,23 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
 
   if (isBookingComplete && completedBookingNumber) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-serif font-bold text-navy-900 mb-2">
+            Booking Confirmed!
+          </h3>
+          <p className="text-navy-700 mb-4">
+            Your booking {completedBookingNumber} has been created successfully.
+          </p>
+          <p className="text-sm text-navy-600">
+            You'll receive a confirmation email shortly.
+          </p>
         </div>
-        <h3 className="text-xl font-serif font-bold text-navy-900 mb-2">
-          Booking Confirmed!
-        </h3>
-        <p className="text-navy-700 mb-4">
-          Your booking {completedBookingNumber} has been created successfully.
-        </p>
-        <p className="text-sm text-navy-600">
-          You'll receive a confirmation email shortly.
-        </p>
       </div>
     );
   }
@@ -149,29 +151,58 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-cream-50 to-cream-100 p-8 min-h-full">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
-            Book Your Luxury Move
-          </h1>
-          <p className="text-navy-700">
-            From Manhattan to the Hamptons with premium care
-          </p>
-          {isAuthenticated && currentStep > 0 && (
-            <p className="text-sm text-green-600 mt-2">
-              ✓ Logged in as {user?.first_name} {user?.last_name}
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="text-center">
+            <h1 className="text-2xl md:text-3xl font-serif font-bold text-navy-900">
+              Book Your Luxury Move
+            </h1>
+            <p className="text-navy-700 mt-1">
+              From Manhattan to the Hamptons with premium care
             </p>
+            {isAuthenticated && currentStep > 0 && (
+              <p className="text-sm text-green-600 mt-2">
+                ✓ Logged in as {user?.first_name} {user?.last_name}
+              </p>
+            )}
+          </div>
+
+          {/* Mobile Progress Dots */}
+          {currentStep > 0 && (
+            <div className="flex items-center justify-center mt-4 md:hidden">
+              <div className="flex space-x-2">
+                {displaySteps.map((step) => (
+                  <div
+                    key={step.actualStep}
+                    className={`w-3 h-3 rounded-full ${
+                      currentStep === step.actualStep 
+                        ? 'bg-navy-900' 
+                        : currentStep > step.actualStep
+                        ? 'bg-green-500'
+                        : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="ml-3 text-sm text-gray-600">
+                Step {getCurrentDisplayStep()} of {maxSteps}
+              </span>
+            </div>
           )}
         </div>
+      </div>
 
-        {currentStep > 0 && (
-          <div className="mb-8">
+      {/* Desktop Progress Bar */}
+      {currentStep > 0 && (
+        <div className="hidden md:block bg-white border-b border-gray-100">
+          <div className="max-w-5xl mx-auto px-4 py-6">
             <div className="flex items-center justify-between">
               {displaySteps.map((step, index) => (
                 <div key={step.actualStep} className="flex items-center">
                   <div className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
                     ${currentStep === step.actualStep 
                       ? 'bg-navy-900 text-white' 
                       : currentStep > step.actualStep
@@ -183,7 +214,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
                   </div>
                   
                   <span className={`
-                    ml-2 text-sm font-medium
+                    ml-3 text-sm font-medium
                     ${currentStep === step.actualStep ? 'text-navy-900' : 'text-navy-600'}
                   `}>
                     {step.title}
@@ -191,7 +222,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
                   
                   {index < displaySteps.length - 1 && (
                     <div className={`
-                      h-0.5 w-12 mx-4
+                      h-0.5 w-16 mx-6
                       ${currentStep > step.actualStep ? 'bg-green-500' : 'bg-gray-200'}
                     `} />
                   )}
@@ -199,53 +230,60 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
               ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <Card variant="elevated" className="mb-8">
-          <CardHeader>
-            <h2 className="text-xl font-serif font-bold text-navy-900">
+      {/* Main Content - No Card Wrapper */}
+      <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif font-bold text-navy-900 mb-6">
               {currentStep === 0 ? 'Get Started' : `Step ${getCurrentDisplayStep()}: ${getStepTitle()}`}
             </h2>
-          </CardHeader>
-          <CardContent>
-            {CurrentStepComponent && <CurrentStepComponent />}
-          </CardContent>
-        </Card>
-
-        {currentStep > 0 && (
-          <div className="flex justify-between items-center">
-            <div>
-              {currentStep > 1 && (
-                <Button 
-                  variant="outline" 
-                  onClick={previousStep}
-                  className="mr-4"
-                >
-                  ← Previous
-                </Button>
-              )}
-              <Button 
-                variant="ghost" 
-                onClick={handleStartOver}
-                className="text-navy-600"
-              >
-                Start Over
-              </Button>
-            </div>
             
-            <div>
-              {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+            {CurrentStepComponent && <CurrentStepComponent />}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Bottom Navigation */}
+      {currentStep > 0 && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 z-10">
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                {currentStep > 1 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={previousStep}
+                  >
+                    ← Previous
+                  </Button>
+                )}
                 <Button 
-                  variant="primary" 
-                  onClick={nextStep}
+                  variant="ghost" 
+                  onClick={handleStartOver}
+                  className="text-navy-600"
                 >
-                  Continue →
+                  Start Over
                 </Button>
-              )}
+              </div>
+              
+              <div>
+                {currentStep < maxSteps && canProceedToStep(currentStep + 1) && (
+                  <Button 
+                    variant="primary" 
+                    onClick={nextStep}
+                    size="lg"
+                  >
+                    Continue →
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
