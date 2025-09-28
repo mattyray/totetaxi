@@ -1,3 +1,4 @@
+# config/settings.py
 import os
 import environ
 from pathlib import Path
@@ -192,34 +193,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# CSRF Settings - Enhanced Security
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
-CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='Lax')
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-])
-
-# Add Fly.io to CSRF trusted origins
-if FLY_APP_NAME:
-    CSRF_TRUSTED_ORIGINS.extend([
-        f'https://{FLY_APP_NAME}.fly.dev',
-    ])
-
-# Session Settings - FIXED FOR PERSISTENT SESSIONS
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='Lax')
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
-SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
-SESSION_COOKIE_NAME = 'totetaxi_sessionid'
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
-
-# CORS settings
+# CORS settings - FIXED FOR MOBILE CROSS-DOMAIN
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
 ])
 
 # Add Fly.io to CORS allowed origins if needed
@@ -239,6 +217,31 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# CSRF Settings - FIXED FOR MOBILE CROSS-DOMAIN
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
+CSRF_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
+])
+
+# Add Fly.io to CSRF trusted origins
+if FLY_APP_NAME:
+    CSRF_TRUSTED_ORIGINS.extend([
+        f'https://{FLY_APP_NAME}.fly.dev',
+    ])
+
+# Session Settings - FIXED FOR MOBILE CROSS-DOMAIN
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
+SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
+SESSION_COOKIE_NAME = 'totetaxi_sessionid'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
+
 # Celery Configuration
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
@@ -247,7 +250,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Security Settings for Production
+# Security Settings for Production - FIXED FOR CROSS-DOMAIN
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
@@ -256,8 +259,8 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_PRELOAD = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True  # Required with SameSite=None
+    CSRF_COOKIE_SECURE = True     # Required with SameSite=None
 
 # Logging with rate limiting
 LOGGING = {
