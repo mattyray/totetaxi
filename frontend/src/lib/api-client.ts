@@ -1,5 +1,17 @@
-// src/lib/api-client.ts
+// src/lib/api-client.ts - FIXED VERSION
 import axios from 'axios';
+
+// Get session cookie value for manual header
+function getSessionId() {
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'sessionid') {
+      return value;
+    }
+  }
+  return null;
+}
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
@@ -7,88 +19,54 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000 // Add timeout for mobile networks
+  timeout: 10000
 });
 
-// Enhanced request interceptor with mobile debugging
+// Enhanced request interceptor with mobile session fix
 apiClient.interceptors.request.use(async (config) => {
+  // MOBILE FIX: Manually add session cookie to headers
+  const sessionId = getSessionId();
+  if (sessionId) {
+    config.headers['Cookie'] = `sessionid=${sessionId}`;
+    console.log('📱 Mobile: Added session cookie to headers');
+  }
+
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
-      console.log('🔄 Fetching CSRF token for:', config.method, config.url);
-      
       const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
         withCredentials: true,
+        headers: sessionId ? { 'Cookie': `sessionid=${sessionId}` } : {},
         timeout: 5000
       });
       
       const token = csrfResponse.data.csrf_token;
-      console.log('🔑 CSRF token received:', token ? `${token.substring(0, 8)}...` : 'NONE');
-      console.log('🍪 Cookies in CSRF response:', document.cookie);
-      
       if (token) {
         config.headers['X-CSRFToken'] = token;
-        console.log('✅ CSRF token added to request headers');
-      } else {
-        console.error('❌ No CSRF token in response:', csrfResponse.data);
       }
-    } catch (error: any) {
-      console.error('❌ CSRF token fetch failed:', {
-        message: error.message,
-        status: error.response?.status,
-        url: error.config?.url
-      });
+    } catch (error) {
+      console.error('CSRF token fetch failed:', error);
     }
   }
-  
-  console.log('📤 Final request headers:', {
-    'X-CSRFToken': config.headers['X-CSRFToken'] ? 'SET' : 'MISSING',
-    'Content-Type': config.headers['Content-Type'],
-    cookies: document.cookie ? 'PRESENT' : 'MISSING'
-  });
   
   return config;
 });
 
-// Enhanced response interceptor with proper auth handling
+// Response interceptor stays the same
 apiClient.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Response:', response.status, response.config.url);
-    return response;
-  },
+  (response) => response,
   async (error) => {
-    console.error('❌ API Error:', {
-      status: error.response?.status,
-      url: error.config?.url,
-      message: error.message
-    });
-
     if (error.response?.status === 401) {
-      console.log('🔓 401 Unauthorized - clearing auth state');
-      
+      console.log('401 Unauthorized - clearing auth state');
       try {
         const { useAuthStore } = await import('@/stores/auth-store');
         const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
         
         useAuthStore.getState().clearAuth();
         useStaffAuthStore.getState().clearAuth();
-        
-        console.log('🧹 Auth stores cleared due to 401');
-        
-        if (typeof window !== 'undefined') {
-          const currentPath = window.location.pathname;
-          if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            console.log('🔄 401 detected - components will handle redirect');
-          }
-        }
       } catch (e) {
-        console.warn('⚠️ Error clearing auth on 401:', e);
+        console.warn('Error clearing auth on 401:', e);
       }
     }
-
-    if (error.response?.status === 403) {
-      console.error('🚫 403 Forbidden - CSRF or permission issue');
-    }
-
     return Promise.reject(error);
   }
 );
