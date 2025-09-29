@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-28 10:29:34
+# Created: 2025-09-29 10:31:20
 # Total files: 119
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -943,6 +943,7 @@ def debug_task(self):
 # ==== config/settings.py ====
 
 ```python
+# config/settings.py
 import os
 import environ
 from pathlib import Path
@@ -1137,34 +1138,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# CSRF Settings - Enhanced Security
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
-CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='Lax')
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-])
-
-# Add Fly.io to CSRF trusted origins
-if FLY_APP_NAME:
-    CSRF_TRUSTED_ORIGINS.extend([
-        f'https://{FLY_APP_NAME}.fly.dev',
-    ])
-
-# Session Settings - FIXED FOR PERSISTENT SESSIONS
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='Lax')
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
-SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
-SESSION_COOKIE_NAME = 'totetaxi_sessionid'
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
-
-# CORS settings
+# CORS settings - FIXED FOR MOBILE CROSS-DOMAIN
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
 ])
 
 # Add Fly.io to CORS allowed origins if needed
@@ -1184,6 +1162,31 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# CSRF Settings - FIXED FOR MOBILE CROSS-DOMAIN
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
+CSRF_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
+])
+
+# Add Fly.io to CSRF trusted origins
+if FLY_APP_NAME:
+    CSRF_TRUSTED_ORIGINS.extend([
+        f'https://{FLY_APP_NAME}.fly.dev',
+    ])
+
+# Session Settings - FIXED FOR MOBILE CROSS-DOMAIN
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
+SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
+SESSION_COOKIE_NAME = 'totetaxi_sessionid'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
+
 # Celery Configuration
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
@@ -1192,7 +1195,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Security Settings for Production
+# Security Settings for Production - FIXED FOR CROSS-DOMAIN
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
@@ -1201,8 +1204,8 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_PRELOAD = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True  # Required with SameSite=None
+    CSRF_COOKIE_SECURE = True     # Required with SameSite=None
 
 # Logging with rate limiting
 LOGGING = {
@@ -5284,6 +5287,7 @@ class CustomerPaymentMethodSerializer(serializers.ModelSerializer):
 # ==== apps/customers/urls.py ====
 
 ```python
+# backend/apps/customers/urls.py
 from django.urls import path
 from . import views, booking_views
 
@@ -5291,6 +5295,9 @@ from . import views, booking_views
 urlpatterns = [
     # CSRF token endpoint
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
+    
+    # DEBUG endpoint
+    path('debug/', views.MobileDebugView.as_view(), name='mobile-debug'),
     
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),
@@ -5304,8 +5311,8 @@ urlpatterns = [
     path('addresses/<uuid:pk>/', views.SavedAddressDetailView.as_view(), name='saved-address-detail'),
     
     # Enhanced customer dashboard and preferences
-    path('dashboard/', booking_views.CustomerDashboardView.as_view(), name='customer-dashboard'),
-    path('preferences/', booking_views.BookingPreferencesView.as_view(), name='booking-preferences'),
+    path('dashboard/', views.CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('preferences/', views.BookingPreferencesView.as_view(), name='booking-preferences'),
     
     # Authenticated booking management
     path('bookings/', views.CustomerBookingListView.as_view(), name='customer-bookings'),
@@ -5323,6 +5330,7 @@ urlpatterns = [
 ```python
 # backend/apps/customers/views.py
 from rest_framework import generics, status, permissions
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -5654,7 +5662,96 @@ class BookingPreferencesView(APIView):
         most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None
     
+    # Add this to the end of backend/apps/customers/views.py
+
+@method_decorator(ratelimit(key='ip', rate='10/m', method='GET', block=True), name='get')
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class MobileDebugView(APIView):
+    """Mobile debugging view to diagnose cookie and authentication issues"""
+    permission_classes = [permissions.AllowAny]
     
+    def get(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get request details
+        origin = request.META.get('HTTP_ORIGIN', 'NO_ORIGIN')
+        host = request.META.get('HTTP_HOST', 'NO_HOST')
+        user_agent = request.META.get('HTTP_USER_AGENT', 'NO_UA')
+        
+        # Log detailed request information
+        logger.info(f"Mobile Debug Request:")
+        logger.info(f"  Origin: {origin}")
+        logger.info(f"  Host: {host}")
+        logger.info(f"  User-Agent: {user_agent}")
+        logger.info(f"  Session Key: {request.session.session_key}")
+        logger.info(f"  User Authenticated: {request.user.is_authenticated}")
+        logger.info(f"  Cookies in request: {dict(request.COOKIES)}")
+        
+        # Force session creation if none exists
+        if not request.session.session_key:
+            request.session.create()
+            logger.info(f"Created new session: {request.session.session_key}")
+        
+        # Prepare response data
+        response_data = {
+            'debug_info': {
+                'timestamp': request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')),
+                'origin': origin,
+                'host': host,
+                'session_key': request.session.session_key,
+                'csrf_token': get_token(request),
+                'cookies_received': dict(request.COOKIES),
+                'user_authenticated': request.user.is_authenticated,
+                'user_id': request.user.id if request.user.is_authenticated else None,
+                'cors_settings': {
+                    'allowed_origins': getattr(settings, 'CORS_ALLOWED_ORIGINS', []),
+                    'trusted_origins': getattr(settings, 'CSRF_TRUSTED_ORIGINS', []),
+                },
+                'cookie_settings': {
+                    'session_samesite': getattr(settings, 'SESSION_COOKIE_SAMESITE', 'unknown'),
+                    'csrf_samesite': getattr(settings, 'CSRF_COOKIE_SAMESITE', 'unknown'),
+                    'session_secure': getattr(settings, 'SESSION_COOKIE_SECURE', 'unknown'),
+                    'csrf_secure': getattr(settings, 'CSRF_COOKIE_SECURE', 'unknown'),
+                }
+            }
+        }
+        
+        # Create response
+        response = Response(response_data)
+        
+        # Manually set cookies with explicit mobile-friendly settings
+        if request.session.session_key:
+            response.set_cookie(
+                'totetaxi_sessionid',
+                request.session.session_key,
+                max_age=60 * 60 * 24 * 30,  # 30 days
+                secure=True,
+                httponly=True,
+                samesite='None',
+                domain=None
+            )
+            logger.info(f"Set custom session cookie: {request.session.session_key}")
+        
+        # Set CSRF cookie explicitly
+        csrf_token = get_token(request)
+        response.set_cookie(
+            'csrftoken',
+            csrf_token,
+            max_age=60 * 60 * 24 * 7,  # 1 week
+            secure=True,
+            httponly=False,
+            samesite='None',
+            domain=None
+        )
+        logger.info(f"Set CSRF cookie: {csrf_token[:10]}...")
+        
+        # Add CORS headers manually
+        response['Access-Control-Allow-Origin'] = origin
+        response['Access-Control-Allow-Credentials'] = 'true'
+        response['Vary'] = 'Origin'
+        
+        return response
 ```
 
 # ==== apps/documents/__init__.py ====

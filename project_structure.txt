@@ -154,6 +154,32 @@
 │   └── staff_cookies.txt
 ├── frontend
 │   ├── public
+│   │   ├── assets
+│   │   │   ├── images
+│   │   │   │   ├── AirportControlTower.png
+│   │   │   │   ├── BabyStrollerBlue.jpg
+│   │   │   │   ├── BeachBallPink.jpg
+│   │   │   │   ├── BeachUmbrellaChair.jpg
+│   │   │   │   ├── CharterBusGray.jpg
+│   │   │   │   ├── HamptonsBeachHouse.jpg
+│   │   │   │   ├── HeroFallback.png
+│   │   │   │   ├── LuxuryLuggageCollection.png
+│   │   │   │   ├── ModernLuggageSet.jpg
+│   │   │   │   ├── MontaukLighthouseScene.jpg
+│   │   │   │   ├── NycSkylineView.jpg
+│   │   │   │   ├── PelotonExerciseBike.jpg
+│   │   │   │   ├── PinkBicycleBasket.jpg
+│   │   │   │   ├── PrivateJetPlane.jpg
+│   │   │   │   ├── ShippingBoxBrown.jpg
+│   │   │   │   ├── SouthFlorida.jpg
+│   │   │   │   ├── SportEquipmentGroup.png
+│   │   │   │   ├── StorageGarageWhite.jpg
+│   │   │   │   ├── StylishWomanLifestyle.jpg
+│   │   │   │   ├── StylishWomanToteBag.jpg
+│   │   │   │   ├── SummerDressesHangers.jpg
+│   │   │   │   ├── SurfboardStripes.jpg
+│   │   │   │   └── ToteTaxiVanBlue.jpg
+│   │   │   └── videos
 │   │   ├── file.svg
 │   │   ├── globe.svg
 │   │   ├── next.svg
@@ -213,6 +239,8 @@
 │   │   │   ├── layout.tsx
 │   │   │   ├── page.tsx
 │   │   │   └── site.webmanifest
+│   │   ├── assets
+│   │   │   └── images
 │   │   ├── components
 │   │   │   ├── auth
 │   │   │   │   ├── index.ts
@@ -231,10 +259,18 @@
 │   │   │   ├── dashboard
 │   │   │   │   ├── booking-history.tsx
 │   │   │   │   └── dashboard-overview.tsx
+│   │   │   ├── debug
+│   │   │   │   └── mobile-debug.tsx
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
 │   │   │   ├── marketing
-│   │   │   │   └── service-showcase.tsx
+│   │   │   │   ├── hero-section.tsx
+│   │   │   │   ├── how-it-works-section.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── service-areas-section.tsx
+│   │   │   │   ├── service-showcase.tsx
+│   │   │   │   ├── testimonials-section.tsx
+│   │   │   │   └── what-we-transport-section.tsx
 │   │   │   ├── providers
 │   │   │   │   └── query-provider.tsx
 │   │   │   ├── staff
@@ -270,6 +306,7 @@
 │   │       └── cn.ts
 │   ├── .gitignore
 │   ├── eslint.config.mjs
+│   ├── invoice.html
 │   ├── netlify.toml
 │   ├── next.config.ts
 │   ├── package.json
@@ -282,4 +319,4 @@
 ├── project_structure.txt
 └── README.md
 
-70 directories, 213 files
+76 directories, 244 files

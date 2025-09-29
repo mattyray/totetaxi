@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice - Eric Johnson</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+        .info-section {
+            margin-bottom: 30px;
+        }
+        .info-section h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .total-row {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .payment-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 5px;
+        }
+        @media print {
+            body {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>INVOICE</h1>
+        <p>Invoice Date: January 20, 2025</p>
+    </div>
+
+    <div class="info-section">
+        <h2>BILL TO:</h2>
+        <p><strong>Eric Johnson</strong></p>
+    </div>
+
+    <div class="info-section">
+        <h2>FROM:</h2>
+        <p><strong>Matt Raynor</strong></p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Hours</th>
+                <th>Rate</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Development Work</td>
+                <td>4.5</td>
+                <td>$40.00</td>
+                <td>$180.00</td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3" style="text-align: right;">Total Due:</td>
+                <td>$180.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="payment-info">
+        <h2>PAYMENT INSTRUCTIONS</h2>
+        <p><strong>Payment Method:</strong> Venmo</p>
+        <p><strong>Payable to:</strong> Matt Raynor</p>
+        <p><strong>Amount Due:</strong> $180.00</p>
+    </div>
+
+</body>
+</html>

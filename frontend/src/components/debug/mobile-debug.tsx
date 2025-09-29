@@ -1,4 +1,4 @@
-// src/components/debug/mobile-debug.tsx
+// src/components/debug/mobile-debug.tsx - MAKE SURE TO USE THIS VERSION
 'use client';
 
 import { useAuthStore } from '@/stores/auth-store';

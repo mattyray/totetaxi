@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-28 10:29:44.974858
-# Files: 69
+# Generated: 2025-09-29 10:31:36.374713
+# Files: 76
 
 # ==== next-env.d.ts ====
 
@@ -1397,20 +1397,27 @@ export default function LoginPage() {
 # ==== src/app/page.tsx ====
 
 ```
-// frontend/src/app/page.tsx - Using real ToteTaxi information
+// src/app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
-import { ServiceShowcase } from '@/components/marketing/service-showcase';
 import { BookingWizard } from '@/components/booking';
-import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
-import { Card, CardContent } from '@/components/ui/card';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import {
+  HeroSection,
+  HowItWorksSection,
+  WhatWeTransportSection,
+  ServiceAreasSection,
+  TestimonialsSection
+} from '@/components/marketing';
+import { ServiceShowcase } from '@/components/marketing/service-showcase';
+import { MobileDebug } from '@/components/debug/mobile-debug';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const openBookingWizard = () => {
     setShowBookingWizard(true);
@@ -1420,154 +1427,24 @@ export default function Home() {
     setShowBookingWizard(false);
   };
 
+  useEffect(() => {
+    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobile(checkMobile);
+  }, []);
+
   return (
     <>
       <MainLayout onBookNowClick={openBookingWizard}>
-        {/* Hero Section */}
-        <section className="py-24 bg-gradient-to-br from-cream-50 to-cream-100">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy-900 mb-6">
-              Door-to-Door Delivery Service
-            </h1>
-            <p className="text-xl text-navy-700 mb-4 max-w-3xl mx-auto">
-              Tote Taxi will deliver your luggage to and from the city stress-free.
-            </p>
-            <p className="text-lg text-navy-600 mb-8 max-w-2xl mx-auto">
-              From suitcases to surfboards, Pelotons to pop-up props — we handle it all between 
-              NYC, the Hamptons, South Florida, and all major airports.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="primary" size="lg" onClick={openBookingWizard}>
-                Book Now
-              </Button>
-              <Link href="/services">
-                <Button variant="outline" size="lg">
-                  View Services & Pricing
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/* Show debug info only on mobile */}
+        {isMobile && <MobileDebug />}
 
-        {/* How It Works - Simple 3 Step */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
-              Same Day Delivery Made Stress-Free
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <Card variant="elevated">
-                <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">📱</div>
-                    <h3 className="text-xl font-medium text-navy-900 mb-3">Pickup</h3>
-                    <p className="text-navy-700">Schedule a pickup and we&apos;ll come to you.</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card variant="elevated">
-                <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">✈️</div>
-                    <h3 className="text-xl font-medium text-navy-900 mb-3">Travel</h3>
-                    <p className="text-navy-700">You travel hands-free. Très chic!</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card variant="elevated">
-                <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">🚚</div>
-                    <h3 className="text-xl font-medium text-navy-900 mb-3">Delivery</h3>
-                    <p className="text-navy-700">We&apos;ll deliver to your desired destination.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Service Showcase */}
+        <HeroSection onBookNowClick={openBookingWizard} />
+        <HowItWorksSection />
+        <WhatWeTransportSection />
         <ServiceShowcase />
-
-        {/* Customer Testimonials */}
-        <section className="py-16 bg-cream-50">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
-              What Our Customers Say
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card variant="elevated">
-                <CardContent>
-                  <p className="text-navy-700 text-sm mb-4">
-                    &quot;I&apos;ve heard amazing things about Tote Taxi for awhile now and finally used it for 
-                    the first time today when I took Blade from JFK to Manhattan and LOVED it! 
-                    It was so easy and seamless!&quot;
-                  </p>
-                  <p className="font-medium text-navy-900">- Natalie M.</p>
-                </CardContent>
-              </Card>
-              
-              <Card variant="elevated">
-                <CardContent>
-                  <p className="text-navy-700 text-sm mb-4">
-                    &quot;We have been using Tote Taxi for the last three years when we come out to 
-                    East Hampton and when we head back to the city. They&apos;ve always been wonderful! 
-                    Makes moving bikes and extras easy and stress free!&quot;
-                  </p>
-                  <p className="font-medium text-navy-900">- Kimberly R.</p>
-                </CardContent>
-              </Card>
-              
-              <Card variant="elevated">
-                <CardContent>
-                  <p className="text-navy-700 text-sm mb-4">
-                    &quot;Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up 
-                    exactly on time, communicated well. I highly recommend their services.&quot;
-                  </p>
-                  <p className="font-medium text-navy-900">- Robyn M.</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Service Areas */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
-                Where We Deliver
-              </h2>
-              <p className="text-lg text-navy-700">
-                Comprehensive delivery service across multiple locations
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="text-center">
-                <div className="text-4xl mb-4">🏙️</div>
-                <h3 className="font-medium text-navy-900 mb-2">NYC</h3>
-                <p className="text-navy-600 text-sm">Manhattan, Brooklyn, and surrounding areas</p>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl mb-4">🏖️</div>
-                <h3 className="font-medium text-navy-900 mb-2">The Hamptons</h3>
-                <p className="text-navy-600 text-sm">East Hampton, Southampton, Montauk, and more</p>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl mb-4">✈️</div>
-                <h3 className="font-medium text-navy-900 mb-2">NYC Airports</h3>
-                <p className="text-navy-600 text-sm">JFK, LaGuardia, Newark</p>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl mb-4">🌴</div>
-                <h3 className="font-medium text-navy-900 mb-2">South Florida</h3>
-                <p className="text-navy-600 text-sm">Palm Beach, Miami, Boca Raton, Jupiter</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
+        <ServiceAreasSection />
+        <TestimonialsSection />
+        
         {/* Partnerships */}
         <section className="py-16 bg-cream-50">
           <div className="container mx-auto px-4">
@@ -1578,17 +1455,14 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
-                <div className="text-4xl mb-4">🚁</div>
                 <h3 className="font-medium text-navy-900 mb-2">BLADE</h3>
                 <p className="text-navy-600 text-sm">Official luggage delivery partner for helicopter transfers</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl mb-4">📚</div>
                 <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>
                 <p className="text-navy-600 text-sm">Trusted delivery partner</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl mb-4">🧳</div>
                 <h3 className="font-medium text-navy-900 mb-2">Luggage Free</h3>
                 <p className="text-navy-600 text-sm">Partner in luggage logistics</p>
               </div>
@@ -1596,7 +1470,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Call-to-Action Section */}
+        {/* Final CTA */}
         <section className="py-16 bg-navy-900 text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-serif font-bold mb-4">
@@ -1616,7 +1490,6 @@ export default function Home() {
         </section>
       </MainLayout>
 
-      {/* Booking Wizard Modal */}
       <Modal
         isOpen={showBookingWizard}
         onClose={closeBookingWizard}
@@ -7230,6 +7103,185 @@ export function DashboardOverview() {
 }
 ```
 
+# ==== src/components/debug/mobile-debug.tsx ====
+
+```
+// src/components/debug/mobile-debug.tsx - MAKE SURE TO USE THIS VERSION
+'use client';
+
+import { useAuthStore } from '@/stores/auth-store';
+import { useEffect, useState } from 'react';
+import { apiClient } from '@/lib/api-client';
+import axios from 'axios';
+
+export function MobileDebug() {
+  const { isAuthenticated, user } = useAuthStore();
+  const [apiTests, setApiTests] = useState<any>({});
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+
+  const copyToClipboard = async () => {
+    try {
+      const debugText = JSON.stringify(apiTests, null, 2);
+      await navigator.clipboard.writeText(debugText);
+      setCopyStatus('COPIED!');
+      setTimeout(() => setCopyStatus(''), 2000);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = JSON.stringify(apiTests, null, 2);
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopyStatus('COPIED!');
+      setTimeout(() => setCopyStatus(''), 2000);
+    }
+  };
+
+  useEffect(() => {
+    const testAPIs = async () => {
+      const tests: any = {
+        auth: { 
+          isAuthenticated, 
+          userEmail: user?.email || 'NONE',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
+
+      // DETAILED COOKIE ANALYSIS
+      const allCookies = document.cookie;
+      const cookieMap: any = {};
+      if (allCookies) {
+        allCookies.split(';').forEach(cookie => {
+          const [name, value] = cookie.trim().split('=');
+          cookieMap[name] = value;
+        });
+      }
+
+      tests.cookieDetails = {
+        raw: allCookies,
+        parsed: cookieMap,
+        sessionid: cookieMap.sessionid || 'MISSING',
+        csrftoken: cookieMap.csrftoken || 'MISSING',
+        totetaxi_sessionid: cookieMap.totetaxi_sessionid || 'MISSING',
+        count: Object.keys(cookieMap).length
+      };
+
+      // TEST 1: Call our custom debug endpoint
+      try {
+        const debugResponse = await axios.get(`${baseURL}/api/customer/debug/`, {
+          withCredentials: true,
+          timeout: 5000
+        });
+        
+        tests.debugEndpoint = {
+          status: debugResponse.status,
+          headers: {
+            'set-cookie': debugResponse.headers['set-cookie'] || 'NONE',
+            'access-control-allow-credentials': debugResponse.headers['access-control-allow-credentials'] || 'NONE',
+            'access-control-allow-origin': debugResponse.headers['access-control-allow-origin'] || 'NONE',
+          },
+          data: debugResponse.data,
+          cookiesAfter: document.cookie
+        };
+      } catch (err: any) {
+        tests.debugEndpoint = { 
+          error: err.message, 
+          status: err.response?.status,
+          responseHeaders: err.response?.headers || 'NONE'
+        };
+      }
+
+      // TEST 2: Dashboard API after debug endpoint
+      try {
+        const dashResponse = await apiClient.get('/api/customer/dashboard/');
+        tests.dashboardAPI = { 
+          success: true, 
+          status: dashResponse.status
+        };
+      } catch (err: any) {
+        tests.dashboardAPI = { 
+          success: false, 
+          error: err.message, 
+          status: err.response?.status
+        };
+      }
+
+      // TEST 3: Bookings API after debug endpoint
+      try {
+        const bookingsResponse = await apiClient.get('/api/customer/bookings/');
+        tests.bookingsAPI = { 
+          success: true, 
+          status: bookingsResponse.status
+        };
+      } catch (err: any) {
+        tests.bookingsAPI = { 
+          success: false, 
+          error: err.message, 
+          status: err.response?.status
+        };
+      }
+
+      // Environment details
+      tests.environment = {
+        origin: window.location.origin,
+        hostname: window.location.hostname,
+        protocol: window.location.protocol,
+        userAgent: navigator.userAgent.substring(0, 80) + '...',
+        baseURL: baseURL,
+        cookiesEnabled: navigator.cookieEnabled
+      };
+
+      setApiTests(tests);
+    };
+
+    if (isAuthenticated) {
+      testAPIs();
+    } else {
+      setApiTests({ auth: { isAuthenticated: false } });
+    }
+  }, [isAuthenticated, user]);
+
+  if (isMinimized) {
+    return (
+      <button 
+        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-2 rounded z-50 shadow-lg"
+      >
+        DEBUG
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-black text-white p-3 text-xs z-50 max-h-80 overflow-y-auto border-t-4 border-red-500">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-bold text-red-400">DEBUG ENDPOINT TEST</h3>
+        <div className="flex gap-1">
+          <button 
+            onClick={copyToClipboard}
+            className="text-white bg-green-600 px-2 py-1 rounded text-xs"
+          >
+            {copyStatus || 'COPY'}
+          </button>
+          <button 
+            onClick={() => setIsMinimized(true)}
+            className="text-white bg-red-600 px-2 py-1 rounded text-xs"
+          >
+            MIN
+          </button>
+        </div>
+      </div>
+      <pre className="whitespace-pre-wrap text-green-300 text-xs">
+        {JSON.stringify(apiTests, null, 2)}
+      </pre>
+    </div>
+  );
+}
+```
+
 # ==== src/components/layout/main-layout.tsx ====
 
 ```
@@ -7462,6 +7514,212 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
 }
 ```
 
+# ==== src/components/marketing/hero-section.tsx ====
+
+```
+// src/components/marketing/hero-section.tsx
+'use client';
+
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+
+interface HeroSectionProps {
+  onBookNowClick: () => void;
+}
+
+export function HeroSection({ onBookNowClick }: HeroSectionProps) {
+  return (
+    <section className="relative h-screen flex items-center justify-center overflow-hidden">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/assets/images/MontaukLighthouseScene.jpg)' }}
+      />
+      
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/20" />
+      
+      {/* Content */}
+      <div className="relative z-10 text-center text-white px-4">
+        <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">
+          Door-to-Door Delivery Service
+        </h1>
+        <p className="text-xl mb-4 max-w-3xl mx-auto">
+          Tote Taxi will deliver your luggage to and from the city stress-free.
+        </p>
+        <p className="text-lg mb-8 max-w-2xl mx-auto">
+          From suitcases to surfboards, Pelotons to pop-up props — we handle it all between 
+          NYC, the Hamptons, South Florida, and all major airports.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button variant="primary" size="lg" onClick={onBookNowClick}>
+            Book Now
+          </Button>
+          <Link href="/services">
+            <Button variant="outline" size="lg" className="bg-white/10 border-white text-white hover:bg-white hover:text-navy-900">
+              View Services & Pricing
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+```
+
+# ==== src/components/marketing/how-it-works-section.tsx ====
+
+```
+// src/components/marketing/how-it-works-section.tsx
+import Image from 'next/image';
+
+export function HowItWorksSection() {
+  return (
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+          Same Day Delivery Made Stress-Free
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Step 1 - Pickup */}
+          <div className="text-center">
+            <div className="mb-6 flex justify-center h-32 items-center">
+              <Image
+                src="/assets/images/ToteTaxiVanBlue.jpg"
+                alt="ToteTaxi Van"
+                width={120}
+                height={120}
+                className="object-contain w-auto h-auto max-h-28"
+              />
+            </div>
+            <h3 className="text-xl font-medium text-navy-900 mb-3">Pickup</h3>
+            <p className="text-navy-700">Schedule a pickup and we'll come to you.</p>
+          </div>
+
+          {/* Step 2 - Travel */}
+          <div className="text-center">
+            <div className="mb-6 flex justify-center h-32 items-center">
+              <Image
+                src="/assets/images/StylishWomanToteBag.jpg"
+                alt="Travel Hands-Free"
+                width={120}
+                height={120}
+                className="object-contain w-auto h-auto max-h-28"
+              />
+            </div>
+            <h3 className="text-xl font-medium text-navy-900 mb-3">Travel</h3>
+            <p className="text-navy-700">You travel hands-free. Très chic!</p>
+          </div>
+
+          {/* Step 3 - Delivery */}
+          <div className="text-center">
+            <div className="mb-6 flex justify-center h-32 items-center">
+              <Image
+                src="/assets/images/HamptonsBeachHouse.jpg"
+                alt="Hamptons Delivery"
+                width={120}
+                height={120}
+                className="object-contain w-auto h-auto max-h-28"
+              />
+            </div>
+            <h3 className="text-xl font-medium text-navy-900 mb-3">Delivery</h3>
+            <p className="text-navy-700">We'll deliver to your desired destination.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+```
+
+# ==== src/components/marketing/index.ts ====
+
+```
+// src/components/marketing/index.ts
+export { HeroSection } from './hero-section';
+export { HowItWorksSection } from './how-it-works-section';
+export { WhatWeTransportSection } from './what-we-transport-section';
+export { ServiceAreasSection } from './service-areas-section';
+export { TestimonialsSection } from './testimonials-section';
+```
+
+# ==== src/components/marketing/service-areas-section.tsx ====
+
+```
+// src/components/marketing/service-areas-section.tsx
+import Image from 'next/image';
+
+export function ServiceAreasSection() {
+  return (
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+            Where We Deliver
+          </h2>
+          <p className="text-lg text-navy-700">
+            Comprehensive delivery service across multiple locations
+          </p>
+        </div>
+
+        {/* Main Route Visualization */}
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-8 mb-12">
+          <div className="text-center">
+            <div className="h-40 flex items-center justify-center mb-4">
+              <Image
+                src="/assets/images/NycSkylineView.jpg"
+                alt="NYC Skyline"
+                width={200}
+                height={150}
+                className="object-contain w-auto h-auto max-h-36"
+              />
+            </div>
+            <h3 className="font-medium text-navy-900">NYC & Surrounding Areas</h3>
+          </div>
+          
+          <div className="hidden lg:block text-4xl text-navy-600">→</div>
+          <div className="lg:hidden text-4xl text-navy-600">↓</div>
+          
+          <div className="text-center">
+            <div className="h-40 flex items-center justify-center mb-4">
+              <Image
+                src="/assets/images/HamptonsBeachHouse.jpg"
+                alt="Hamptons Beach House"
+                width={200}
+                height={150}
+                className="object-contain w-auto h-auto max-h-36"
+              />
+            </div>
+            <h3 className="font-medium text-navy-900">The Hamptons</h3>
+          </div>
+        </div>
+
+        {/* Service Areas Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="text-center">
+            <h3 className="font-medium text-navy-900 mb-2">NYC</h3>
+            <p className="text-navy-600 text-sm">Manhattan, Brooklyn, and surrounding areas</p>
+          </div>
+          <div className="text-center">
+            <h3 className="font-medium text-navy-900 mb-2">The Hamptons</h3>
+            <p className="text-navy-600 text-sm">East Hampton, Southampton, Montauk, and more</p>
+          </div>
+          <div className="text-center">
+            <h3 className="font-medium text-navy-900 mb-2">NYC Airports</h3>
+            <p className="text-navy-600 text-sm">JFK, LaGuardia, Newark</p>
+          </div>
+          <div className="text-center">
+            <h3 className="font-medium text-navy-900 mb-2">South Florida</h3>
+            <p className="text-navy-600 text-sm">Palm Beach, Miami, Boca Raton, Jupiter</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+```
+
 # ==== src/components/marketing/service-showcase.tsx ====
 
 ```
@@ -7655,6 +7913,139 @@ export function ServiceShowcase() {
             </div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+```
+
+# ==== src/components/marketing/testimonials-section.tsx ====
+
+```
+// src/components/marketing/testimonials-section.tsx
+import { Card, CardContent } from '@/components/ui/card';
+
+export function TestimonialsSection() {
+  const testimonials = [
+    {
+      quote: "I've heard amazing things about Tote Taxi for awhile now and finally used it for the first time today when I took Blade from JFK to Manhattan and LOVED it! It was so easy and seamless!",
+      author: "Natalie M."
+    },
+    {
+      quote: "We have been using Tote Taxi for the last three years when we come out to East Hampton and when we head back to the city. They've always been wonderful! Makes moving bikes and extras easy and stress free!",
+      author: "Kimberly R."
+    },
+    {
+      quote: "Tote Taxi was a lifesaver! They were so easy to coordinate with, showed up exactly on time, communicated well. I highly recommend their services.",
+      author: "Robyn M."
+    },
+    {
+      quote: "Seamless and fast delivery between Palm Beach and Bridgehampton. The service was excellent, Danielle responded quickly and was flexible/accommodating to our needs for both pick up and delivery.",
+      author: "Samantha M."
+    },
+    {
+      quote: "Had them pick up a rental tux in NYC and drive it out on Labor Day weekend. Totally saved the wedding!",
+      author: "Richard M."
+    },
+    {
+      quote: "Danielle and her team helped us move many rolling racks of high end, delicate clothing from one NYC apartment to another. They were professional, timely and awesome to work with!",
+      author: "Lauren S."
+    }
+  ];
+
+  return (
+    <section className="py-16 bg-cream-50">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-serif font-bold text-navy-900 text-center mb-12">
+          What Our Customers Say
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {testimonials.map((testimonial, index) => (
+            <Card key={index} variant="elevated">
+              <CardContent>
+                <p className="text-navy-700 text-sm mb-4">
+                  &quot;{testimonial.quote}&quot;
+                </p>
+                <p className="font-medium text-navy-900">- {testimonial.author}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+```
+
+# ==== src/components/marketing/what-we-transport-section.tsx ====
+
+```
+// src/components/marketing/what-we-transport-section.tsx
+import Image from 'next/image';
+
+export function WhatWeTransportSection() {
+  const transportItems = [
+    {
+      image: '/assets/images/LuxuryLuggageCollection.png',
+      title: 'Weekend Essentials',
+      description: 'Suitcases, travel bags, and personal items'
+    },
+    {
+      image: '/assets/images/ModernLuggageSet.jpg',
+      title: 'Travel Luggage',
+      description: 'All types of luggage and carry-ons'
+    },
+    {
+      image: '/assets/images/PinkBicycleBasket.jpg',
+      title: 'Bicycles & Recreation',
+      description: 'Bikes, sports equipment, and gear'
+    },
+    {
+      image: '/assets/images/PelotonExerciseBike.jpg',
+      title: 'Fitness Equipment',
+      description: 'Pelotons, exercise bikes, and gym equipment'
+    },
+    {
+      image: '/assets/images/BabyStrollerBlue.jpg',
+      title: 'Family Items',
+      description: 'Strollers, baby gear, and kids toys'
+    },
+    {
+      image: '/assets/images/SummerDressesHangers.jpg',
+      title: 'Clothing & Garments',
+      description: 'Garment bags, clothing racks, and wardrobes'
+    }
+  ];
+
+  return (
+    <section className="py-16 bg-cream-50">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">
+            What We Transport
+          </h2>
+          <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+            From suitcases to surfboards, Pelotons to pop-up props — we handle it all
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {transportItems.map((item, index) => (
+            <div key={index} className="text-center bg-white rounded-lg p-6 shadow-sm">
+              <div className="mb-4 flex justify-center h-24 items-center">
+                <Image
+                  src={item.image}
+                  alt={item.title}
+                  width={100}
+                  height={100}
+                  className="object-contain w-auto h-auto max-h-20"
+                />
+              </div>
+              <h3 className="font-medium text-navy-900 mb-2">{item.title}</h3>
+              <p className="text-navy-600 text-sm">{item.description}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -10538,57 +10929,71 @@ export function useClickAway<T extends HTMLElement>(
 # ==== src/lib/api-client.ts ====
 
 ```
-// frontend/src/lib/api-client.ts
+// src/lib/api-client.ts - FIXED VERSION
 import axios from 'axios';
+
+// Get session cookie value for manual header
+function getSessionId() {
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'sessionid') {
+      return value;
+    }
+  }
+  return null;
+}
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  timeout: 10000
 });
 
-// Request interceptor for CSRF token - use customer endpoint for all requests
+// Enhanced request interceptor with mobile session fix
 apiClient.interceptors.request.use(async (config) => {
+  // MOBILE FIX: Manually add session cookie to headers
+  const sessionId = getSessionId();
+  if (sessionId) {
+    config.headers['Cookie'] = `sessionid=${sessionId}`;
+    console.log('📱 Mobile: Added session cookie to headers');
+  }
+
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     try {
-      // FIXED: Use customer CSRF endpoint for all requests (staff endpoint doesn't exist)
       const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
-        withCredentials: true
+        withCredentials: true,
+        headers: sessionId ? { 'Cookie': `sessionid=${sessionId}` } : {},
+        timeout: 5000
       });
-      config.headers['X-CSRFToken'] = csrfResponse.data.csrf_token;
+      
+      const token = csrfResponse.data.csrf_token;
+      if (token) {
+        config.headers['X-CSRFToken'] = token;
+      }
     } catch (error) {
-      console.warn('Could not fetch CSRF token:', error);
+      console.error('CSRF token fetch failed:', error);
     }
   }
+  
   return config;
 });
 
-// Enhanced response interceptor with proper auth handling
+// Response interceptor stays the same
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
       console.log('401 Unauthorized - clearing auth state');
-      
-      // Clear auth stores (imported dynamically to avoid circular deps)
       try {
         const { useAuthStore } = await import('@/stores/auth-store');
         const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
         
         useAuthStore.getState().clearAuth();
         useStaffAuthStore.getState().clearAuth();
-        
-        console.log('Auth stores cleared due to 401');
-        
-        // Let components handle redirects - don't use router here
-        if (typeof window !== 'undefined') {
-          const currentPath = window.location.pathname;
-          if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-            console.log('401 detected - components will handle redirect');
-          }
-        }
       } catch (e) {
         console.warn('Error clearing auth on 401:', e);
       }
