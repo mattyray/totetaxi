@@ -1,5 +1,6 @@
 # backend/apps/customers/views.py
 from rest_framework import generics, status, permissions
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -331,4 +332,93 @@ class BookingPreferencesView(APIView):
         most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None
     
+    # Add this to the end of backend/apps/customers/views.py
+
+@method_decorator(ratelimit(key='ip', rate='10/m', method='GET', block=True), name='get')
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class MobileDebugView(APIView):
+    """Mobile debugging view to diagnose cookie and authentication issues"""
+    permission_classes = [permissions.AllowAny]
     
+    def get(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get request details
+        origin = request.META.get('HTTP_ORIGIN', 'NO_ORIGIN')
+        host = request.META.get('HTTP_HOST', 'NO_HOST')
+        user_agent = request.META.get('HTTP_USER_AGENT', 'NO_UA')
+        
+        # Log detailed request information
+        logger.info(f"Mobile Debug Request:")
+        logger.info(f"  Origin: {origin}")
+        logger.info(f"  Host: {host}")
+        logger.info(f"  User-Agent: {user_agent}")
+        logger.info(f"  Session Key: {request.session.session_key}")
+        logger.info(f"  User Authenticated: {request.user.is_authenticated}")
+        logger.info(f"  Cookies in request: {dict(request.COOKIES)}")
+        
+        # Force session creation if none exists
+        if not request.session.session_key:
+            request.session.create()
+            logger.info(f"Created new session: {request.session.session_key}")
+        
+        # Prepare response data
+        response_data = {
+            'debug_info': {
+                'timestamp': request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')),
+                'origin': origin,
+                'host': host,
+                'session_key': request.session.session_key,
+                'csrf_token': get_token(request),
+                'cookies_received': dict(request.COOKIES),
+                'user_authenticated': request.user.is_authenticated,
+                'user_id': request.user.id if request.user.is_authenticated else None,
+                'cors_settings': {
+                    'allowed_origins': getattr(settings, 'CORS_ALLOWED_ORIGINS', []),
+                    'trusted_origins': getattr(settings, 'CSRF_TRUSTED_ORIGINS', []),
+                },
+                'cookie_settings': {
+                    'session_samesite': getattr(settings, 'SESSION_COOKIE_SAMESITE', 'unknown'),
+                    'csrf_samesite': getattr(settings, 'CSRF_COOKIE_SAMESITE', 'unknown'),
+                    'session_secure': getattr(settings, 'SESSION_COOKIE_SECURE', 'unknown'),
+                    'csrf_secure': getattr(settings, 'CSRF_COOKIE_SECURE', 'unknown'),
+                }
+            }
+        }
+        
+        # Create response
+        response = Response(response_data)
+        
+        # Manually set cookies with explicit mobile-friendly settings
+        if request.session.session_key:
+            response.set_cookie(
+                'totetaxi_sessionid',
+                request.session.session_key,
+                max_age=60 * 60 * 24 * 30,  # 30 days
+                secure=True,
+                httponly=True,
+                samesite='None',
+                domain=None
+            )
+            logger.info(f"Set custom session cookie: {request.session.session_key}")
+        
+        # Set CSRF cookie explicitly
+        csrf_token = get_token(request)
+        response.set_cookie(
+            'csrftoken',
+            csrf_token,
+            max_age=60 * 60 * 24 * 7,  # 1 week
+            secure=True,
+            httponly=False,
+            samesite='None',
+            domain=None
+        )
+        logger.info(f"Set CSRF cookie: {csrf_token[:10]}...")
+        
+        # Add CORS headers manually
+        response['Access-Control-Allow-Origin'] = origin
+        response['Access-Control-Allow-Credentials'] = 'true'
+        response['Vary'] = 'Origin'
+        
+        return response

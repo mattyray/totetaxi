@@ -1,3 +1,4 @@
+# backend/apps/customers/urls.py
 from django.urls import path
 from . import views, booking_views
 
@@ -5,6 +6,9 @@ from . import views, booking_views
 urlpatterns = [
     # CSRF token endpoint
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
+    
+    # DEBUG endpoint
+    path('debug/', views.MobileDebugView.as_view(), name='mobile-debug'),
     
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),
@@ -18,8 +22,8 @@ urlpatterns = [
     path('addresses/<uuid:pk>/', views.SavedAddressDetailView.as_view(), name='saved-address-detail'),
     
     # Enhanced customer dashboard and preferences
-    path('dashboard/', booking_views.CustomerDashboardView.as_view(), name='customer-dashboard'),
-    path('preferences/', booking_views.BookingPreferencesView.as_view(), name='booking-preferences'),
+    path('dashboard/', views.CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('preferences/', views.BookingPreferencesView.as_view(), name='booking-preferences'),
     
     # Authenticated booking management
     path('bookings/', views.CustomerBookingListView.as_view(), name='customer-bookings'),
