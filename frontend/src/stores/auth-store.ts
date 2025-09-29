@@ -1,4 +1,3 @@
-// frontend/src/stores/auth-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DjangoUser, CustomerProfile } from '@/types';
@@ -59,7 +58,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         });
       },
 
-      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
         console.log('Clearing customer auth state');
         
@@ -67,7 +65,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           const keysToRemove = [
             'totetaxi-auth',
             'totetaxi-last-activity',
-            'totetaxi-booking-wizard'
+            'totetaxi-booking-wizard',
+            'totetaxi-session-id',
+            'totetaxi-csrf-token'
           ];
           
           keysToRemove.forEach(key => {
@@ -80,7 +80,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('Cleared React Query cache');
         
@@ -95,7 +94,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           : null
       })),
 
-      // Enhanced: Use api-client instead of manual fetch
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
@@ -106,7 +104,17 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
 
           if (response.status === 200) {
-            const { user, customer_profile } = response.data;
+            const { user, customer_profile, session_id, csrf_token } = response.data;
+            
+            // Store session ID and CSRF token for mobile fallback
+            if (session_id) {
+              localStorage.setItem('totetaxi-session-id', session_id);
+              console.log('Stored session ID for mobile compatibility');
+            }
+            if (csrf_token) {
+              localStorage.setItem('totetaxi-csrf-token', csrf_token);
+            }
+            
             get().setAuth(user, customer_profile);
             return { success: true, user };
           } else {
@@ -120,7 +128,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // Enhanced: Use api-client instead of manual fetch
       register: async (data: RegisterData) => {
         set({ isLoading: true });
         
@@ -144,7 +151,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // Enhanced: Coordinated logout with staff store
       logout: async () => {
         console.log('Customer logout initiated');
         
@@ -155,10 +161,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           console.warn('Customer logout API failed:', error);
         }
         
-        // Always clear state, even if API call fails
         get().clearAuth();
         
-        // Clear staff auth too (prevent hybrid states)
         try {
           const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
           useStaffAuthStore.getState().clearAuth();
@@ -167,7 +171,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           console.warn('Could not clear staff auth:', e);
         }
         
-        // Clear booking wizard
         if (typeof window !== 'undefined') {
           try {
             const { useBookingWizard } = await import('@/stores/booking-store');
@@ -179,7 +182,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // New: Session validation method
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -188,11 +190,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
         
         try {
-          // Try to fetch current user data to validate session
           const response = await apiClient.get('/api/customer/profile/');
           
           if (response.status === 200) {
-            // Session is valid, optionally update profile data
             const { customer_profile } = response.data;
             if (customer_profile) {
               set({ customerProfile: customer_profile });
@@ -216,13 +216,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // New: Security reset method
       secureReset: () => {
         console.log('SECURITY: Performing secure reset of customer auth');
         
         if (typeof window !== 'undefined') {
           try {
-            // Remove all totetaxi-related keys
             const allKeys = Object.keys(localStorage);
             allKeys
               .filter(key => key.startsWith('totetaxi-'))
@@ -235,7 +233,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           }
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('SECURITY: Cleared React Query cache');
         
@@ -244,13 +241,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     }),
     {
       name: 'totetaxi-auth',
-      version: 2, // FIXED: Increment version to trigger migration
-      // FIXED: Add migration function to handle version changes
+      version: 2,
       migrate: (persistedState: any, version: number) => {
         console.log(`Customer auth migrating from version ${version} to 2`);
         
         if (version < 2) {
-          // Reset to initial state for major auth changes
           console.log('Customer auth reset due to version upgrade');
           return initialState;
         }

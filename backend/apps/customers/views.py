@@ -62,7 +62,6 @@ class CustomerRegistrationView(generics.CreateAPIView):
             'csrf_token': get_token(request)
         }, status=status.HTTP_201_CREATED)
 
-
 @method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True), name='post')
 @method_decorator(ratelimit(key='header:user-agent', rate='15/m', method='POST', block=True), name='post')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -104,9 +103,9 @@ class CustomerLoginView(APIView):
             'message': 'Login successful',
             'user': UserSerializer(user).data,
             'customer_profile': CustomerProfileSerializer(user.customer_profile).data,
+            'session_id': request.session.session_key,
             'csrf_token': get_token(request)
         })
-
 
 @method_decorator(ratelimit(key='user_or_ip', rate='20/m', method='POST', block=True), name='post')
 @method_decorator(csrf_exempt, name='dispatch')
