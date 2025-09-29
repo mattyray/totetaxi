@@ -8,7 +8,6 @@ urlpatterns = [
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
     
     # DEBUG endpoint
-    path('debug/', views.MobileDebugView.as_view(), name='mobile-debug'),
     
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),

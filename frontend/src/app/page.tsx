@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { BookingWizard } from '@/components/booking';
 import { Modal } from '@/components/ui/modal';
@@ -14,11 +14,9 @@ import {
   TestimonialsSection
 } from '@/components/marketing';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
-import { MobileDebug } from '@/components/debug/mobile-debug';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   const openBookingWizard = () => {
     setShowBookingWizard(true);
@@ -28,17 +26,9 @@ export default function Home() {
     setShowBookingWizard(false);
   };
 
-  useEffect(() => {
-    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobile(checkMobile);
-  }, []);
-
   return (
     <>
       <MainLayout onBookNowClick={openBookingWizard}>
-        {/* Show debug info only on mobile */}
-        {isMobile && <MobileDebug />}
-
         <HeroSection onBookNowClick={openBookingWizard} />
         <HowItWorksSection />
         <WhatWeTransportSection />
