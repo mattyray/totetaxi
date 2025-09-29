@@ -1,4 +1,4 @@
-// src/components/debug/mobile-debug.tsx - Enhanced cookie debugging
+// src/components/debug/mobile-debug.tsx
 'use client';
 
 import { useAuthStore } from '@/stores/auth-store';
@@ -40,6 +40,8 @@ export function MobileDebug() {
         }
       };
 
+      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
+
       // DETAILED COOKIE ANALYSIS
       const allCookies = document.cookie;
       const cookieMap: any = {};
@@ -55,43 +57,36 @@ export function MobileDebug() {
         parsed: cookieMap,
         sessionid: cookieMap.sessionid || 'MISSING',
         csrftoken: cookieMap.csrftoken || 'MISSING',
+        totetaxi_sessionid: cookieMap.totetaxi_sessionid || 'MISSING',
         count: Object.keys(cookieMap).length
       };
 
-      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
-
-      // Test with manual session header
+      // TEST 1: Call our custom debug endpoint
       try {
-        const sessionId = cookieMap.sessionid;
-        const headers: any = {
-          'Content-Type': 'application/json'
-        };
-        
-        if (sessionId) {
-          headers['Cookie'] = `sessionid=${sessionId}`;
-        }
-
-        const manualResponse = await axios.get(`${baseURL}/api/customer/dashboard/`, {
+        const debugResponse = await axios.get(`${baseURL}/api/customer/debug/`, {
           withCredentials: true,
-          headers,
           timeout: 5000
         });
         
-        tests.manualSessionTest = { 
-          success: true, 
-          status: manualResponse.status,
-          sessionUsed: sessionId ? 'YES' : 'NO'
+        tests.debugEndpoint = {
+          status: debugResponse.status,
+          headers: {
+            'set-cookie': debugResponse.headers['set-cookie'] || 'NONE',
+            'access-control-allow-credentials': debugResponse.headers['access-control-allow-credentials'] || 'NONE',
+            'access-control-allow-origin': debugResponse.headers['access-control-allow-origin'] || 'NONE',
+          },
+          data: debugResponse.data,
+          cookiesAfter: document.cookie
         };
       } catch (err: any) {
-        tests.manualSessionTest = { 
-          success: false, 
+        tests.debugEndpoint = { 
           error: err.message, 
           status: err.response?.status,
-          sessionUsed: cookieMap.sessionid ? 'YES' : 'NO'
+          responseHeaders: err.response?.headers || 'NONE'
         };
       }
 
-      // Test dashboard API (normal way)
+      // TEST 2: Dashboard API after debug endpoint
       try {
         const dashResponse = await apiClient.get('/api/customer/dashboard/');
         tests.dashboardAPI = { 
@@ -106,13 +101,29 @@ export function MobileDebug() {
         };
       }
 
+      // TEST 3: Bookings API after debug endpoint
+      try {
+        const bookingsResponse = await apiClient.get('/api/customer/bookings/');
+        tests.bookingsAPI = { 
+          success: true, 
+          status: bookingsResponse.status
+        };
+      } catch (err: any) {
+        tests.bookingsAPI = { 
+          success: false, 
+          error: err.message, 
+          status: err.response?.status
+        };
+      }
+
       // Environment details
       tests.environment = {
         origin: window.location.origin,
         hostname: window.location.hostname,
         protocol: window.location.protocol,
-        userAgent: navigator.userAgent.substring(0, 60) + '...',
-        baseURL: baseURL
+        userAgent: navigator.userAgent.substring(0, 80) + '...',
+        baseURL: baseURL,
+        cookiesEnabled: navigator.cookieEnabled
       };
 
       setApiTests(tests);
@@ -139,7 +150,7 @@ export function MobileDebug() {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-black text-white p-3 text-xs z-50 max-h-80 overflow-y-auto border-t-4 border-red-500">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-red-400">COOKIE DEBUG</h3>
+        <h3 className="font-bold text-red-400">DEBUG ENDPOINT TEST</h3>
         <div className="flex gap-1">
           <button 
             onClick={copyToClipboard}
