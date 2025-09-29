@@ -32,14 +32,19 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue
+    setValue,
+    clearErrors
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: 'onSubmit',  // FIXED: Only validate on submit, not on change
+    reValidateMode: 'onSubmit'  // FIXED: Only revalidate on submit
   });
 
   const fillTestUser = () => {
-    setValue('email', TEST_USER.email);
-    setValue('password', TEST_USER.password);
+    setValue('email', TEST_USER.email, { shouldValidate: false });
+    setValue('password', TEST_USER.password, { shouldValidate: false });
+    clearErrors();  // FIXED: Clear any existing errors
+    setApiError('');  // FIXED: Clear API errors too
   };
 
   const onSubmit = async (data: LoginFormData) => {
@@ -50,6 +55,7 @@ export function LoginForm() {
       
       if (result.success) {
         console.log('Login successful, redirecting to dashboard');
+        clearErrors();  // FIXED: Clear form errors on success
         router.push('/dashboard');
       } else {
         setApiError(result.error || 'Login failed. Please check your credentials.');
@@ -97,6 +103,10 @@ export function LoginForm() {
                 {...register('email')}
                 placeholder="your@email.com"
                 className={errors.email ? 'border-red-500' : ''}
+                onFocus={() => {
+                  clearErrors('email');  // FIXED: Clear error when user focuses input
+                  setApiError('');  // FIXED: Clear API error when user starts correcting
+                }}
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
@@ -113,6 +123,10 @@ export function LoginForm() {
                 {...register('password')}
                 placeholder="Enter your password"
                 className={errors.password ? 'border-red-500' : ''}
+                onFocus={() => {
+                  clearErrors('password');  // FIXED: Clear error when user focuses input
+                  setApiError('');  // FIXED: Clear API error when user starts correcting
+                }}
               />
               {errors.password && (
                 <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
