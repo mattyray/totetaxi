@@ -436,9 +436,18 @@ export function ServiceSelectionStep() {
                   type="number"
                   min={services.standard_delivery.minimum_items}
                   value={bookingData.standard_delivery_item_count?.toString() || ''}
-                  onChange={(e) => updateBookingData({ 
-                    standard_delivery_item_count: parseInt(e.target.value) || undefined 
-                  })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string for clearing the field
+                    if (value === '') {
+                      updateBookingData({ standard_delivery_item_count: undefined });
+                    } else {
+                      const numValue = parseInt(value, 10);
+                      if (!isNaN(numValue)) {
+                        updateBookingData({ standard_delivery_item_count: numValue });
+                      }
+                    }
+                  }}
                   placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
                   helper={`$${services.standard_delivery.price_per_item_dollars} per item (under 50 lbs) • $${services.standard_delivery.minimum_charge_dollars} minimum`}
                 />
