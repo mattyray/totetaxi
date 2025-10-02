@@ -1,3 +1,4 @@
+# backend/apps/bookings/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -126,7 +127,7 @@ class Booking(models.Model):
         help_text="Same-day delivery (flat $360 rate)"
     )
     
-    # For Specialty Item bookings
+    # For Specialty Item bookings (PHASE 2: Now also used for Standard Delivery)
     specialty_items = models.ManyToManyField(
         'services.SpecialtyItem',
         blank=True,
@@ -394,14 +395,27 @@ class Booking(models.Model):
             # NEW: COI handling with $50 for Petite
             self.coi_fee_cents = self.calculate_coi_fee()
             
-        elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
+        # PHASE 2: Updated Standard Delivery pricing calculation
+        elif self.service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    self.base_price_cents = config.calculate_total(
-                        self.standard_delivery_item_count,
-                        is_same_day=self.is_same_day_delivery
-                    )
+                    # Calculate regular items (only if count > 0)
+                    if self.standard_delivery_item_count and self.standard_delivery_item_count > 0:
+                        item_total = config.price_per_item_cents * self.standard_delivery_item_count
+                        self.base_price_cents = max(item_total, config.minimum_charge_cents)
+                    else:
+                        self.base_price_cents = 0
+                    
+                    # NEW: Add specialty items to base price
+                    if self.specialty_items.exists():
+                        specialty_total = sum(item.price_cents for item in self.specialty_items.all())
+                        self.base_price_cents += specialty_total
+                    
+                    # Add same-day as surcharge (not part of base)
+                    if self.is_same_day_delivery:
+                        self.surcharge_cents += config.same_day_flat_rate_cents
+                        
             except StandardDeliveryConfig.DoesNotExist:
                 pass
         

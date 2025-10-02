@@ -203,6 +203,7 @@ class PricingPreviewView(APIView):
                 except MiniMovePackage.DoesNotExist:
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # PHASE 2: Updated Standard Delivery pricing logic
         elif service_type == 'standard_delivery':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -210,21 +211,39 @@ class PricingPreviewView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             item_count = serializer.validated_data.get('standard_delivery_item_count', 0)
+            specialty_item_ids = serializer.validated_data.get('specialty_item_ids', [])
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    # FIXED: Calculate base and same-day separately for proper breakdown
-                    item_total = config.price_per_item_cents * item_count
-                    base_price_cents = max(item_total, config.minimum_charge_cents)
+                    # Calculate regular items (only if item_count > 0)
+                    if item_count > 0:
+                        item_total = config.price_per_item_cents * item_count
+                        base_price_cents = max(item_total, config.minimum_charge_cents)
+                        
+                        details['item_count'] = item_count
+                        details['per_item_rate'] = config.price_per_item_cents / 100
+                        details['minimum_charge'] = config.minimum_charge_cents / 100
+                    else:
+                        base_price_cents = 0
                     
-                    details['item_count'] = item_count
-                    details['per_item_rate'] = config.price_per_item_cents / 100
-                    details['minimum_charge'] = config.minimum_charge_cents / 100
+                    # NEW: Add specialty items to Standard Delivery
+                    if specialty_item_ids:
+                        specialty_items = SpecialtyItem.objects.filter(
+                            id__in=specialty_item_ids, 
+                            is_active=True
+                        )
+                        specialty_total = sum(item.price_cents for item in specialty_items)
+                        base_price_cents += specialty_total
+                        
+                        details['specialty_items'] = [
+                            {'name': item.name, 'price_dollars': item.price_dollars}
+                            for item in specialty_items
+                        ]
                     
+                    # Same-day surcharge applies to total
                     if is_same_day:
-                        # Add same-day as a surcharge, not part of base
                         surcharge_cents += config.same_day_flat_rate_cents
                         details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100

@@ -1,3 +1,4 @@
+# backend/apps/customers/booking_serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from apps.bookings.models import Booking, Address
@@ -20,7 +21,8 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     specialty_item_ids = serializers.ListField(
         child=serializers.UUIDField(),
@@ -63,9 +65,16 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("mini_move_package_id is required for mini move service")
         
+        # PHASE 2: Updated Standard Delivery validation
         elif service_type == 'standard_delivery':
-            if not attrs.get('standard_delivery_item_count'):
-                raise serializers.ValidationError("standard_delivery_item_count is required for standard delivery")
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have EITHER regular items OR specialty items (or both)
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError(
+                    "Please select at least one regular item or specialty item for Standard Delivery"
+                )
         
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_item_ids'):
@@ -139,7 +148,8 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        elif validated_data['service_type'] == 'specialty_item':
+        # PHASE 2: Handle specialty items for standard_delivery OR specialty_item
+        if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
             )
