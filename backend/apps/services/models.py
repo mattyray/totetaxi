@@ -213,10 +213,6 @@ class SpecialtyItem(models.Model):
     price_cents = models.PositiveBigIntegerField()
     
     # Requirements
-    requires_van_schedule = models.BooleanField(
-        default=True,
-        help_text="Can only be booked when van is already scheduled"
-    )
     special_handling = models.BooleanField(default=True)
     
     is_active = models.BooleanField(default=True)

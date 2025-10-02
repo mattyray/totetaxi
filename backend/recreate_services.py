@@ -61,7 +61,6 @@ SpecialtyItem.objects.create(
     name='Peloton / Large Equipment',
     description='Peloton bikes and large equipment moving',
     price_cents=50000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -71,7 +70,6 @@ SpecialtyItem.objects.create(
     name='Surfboard',
     description='Professional surfboard transport',
     price_cents=35000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -81,7 +79,6 @@ SpecialtyItem.objects.create(
     name='Crib',
     description='Foldable crib delivery (may vary for non-foldable)',
     price_cents=35000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -91,7 +88,6 @@ SpecialtyItem.objects.create(
     name='Wardrobe Box',
     description='Professional wardrobe box handling',
     price_cents=27500,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )

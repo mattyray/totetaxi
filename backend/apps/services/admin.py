@@ -128,8 +128,8 @@ class StandardDeliveryConfigAdmin(admin.ModelAdmin):
 
 @admin.register(SpecialtyItem)
 class SpecialtyItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'item_type', 'price_dollars', 'requires_van_schedule', 'special_handling', 'is_active')
-    list_filter = ('item_type', 'requires_van_schedule', 'special_handling', 'is_active')
+    list_display = ('name', 'item_type', 'price_dollars', 'special_handling', 'is_active')
+    list_filter = ('item_type', 'special_handling', 'is_active')
     search_fields = ('name', 'description')
     
     fieldsets = (
@@ -140,7 +140,7 @@ class SpecialtyItemAdmin(admin.ModelAdmin):
             'fields': ('price_cents',)
         }),
         ('Requirements', {
-            'fields': ('requires_van_schedule', 'special_handling')
+            'fields': ('special_handling',)
         })
     )
 

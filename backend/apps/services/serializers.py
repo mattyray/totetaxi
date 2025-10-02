@@ -42,7 +42,7 @@ class SpecialtyItemSerializer(serializers.ModelSerializer):
         model = SpecialtyItem
         fields = (
             'id', 'item_type', 'name', 'description', 'price_dollars',
-            'requires_van_schedule', 'special_handling'
+            'special_handling'
         )
 
 
