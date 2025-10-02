@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
+from datetime import timedelta
 
 
 class Address(models.Model):
@@ -59,7 +60,7 @@ class GuestCheckout(models.Model):
 
 
 class Booking(models.Model):
-    """Core booking - works with customer OR guest checkout - WITH SERVICES INTEGRATION"""
+    """Core booking - works with customer OR guest checkout - WITH SERVICES INTEGRATION + BLADE"""
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -73,12 +74,18 @@ class Booking(models.Model):
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
         ('specialty_item', 'Specialty Item'),
+        ('blade_transfer', 'BLADE Airport Transfer'),  # NEW
     ]
     
     PICKUP_TIME_CHOICES = [
         ('morning', '8 AM - 11 AM'),
         ('morning_specific', 'Specific 1-hour window (surcharge applies)'),
         ('no_time_preference', 'No time preference (available for certain packages)'),
+    ]
+    
+    BLADE_AIRPORT_CHOICES = [
+        ('JFK', 'JFK International Airport'),
+        ('EWR', 'Newark Liberty International Airport'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -101,6 +108,7 @@ class Booking(models.Model):
     
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
     
+    # Mini Move fields
     mini_move_package = models.ForeignKey(
         'services.MiniMovePackage',
         on_delete=models.PROTECT,
@@ -108,23 +116,6 @@ class Booking(models.Model):
         blank=True,
         help_text="Selected mini move package (Petite/Standard/Full)"
     )
-    
-    standard_delivery_item_count = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Number of items for standard delivery"
-    )
-    is_same_day_delivery = models.BooleanField(
-        default=False,
-        help_text="Same-day delivery (flat $360 rate)"
-    )
-    
-    specialty_items = models.ManyToManyField(
-        'services.SpecialtyItem',
-        blank=True,
-        help_text="Selected specialty items (Peloton, Surfboard, etc.)"
-    )
-    
     include_packing = models.BooleanField(
         default=False,
         help_text="Include professional packing service for this Mini Move tier"
@@ -134,6 +125,52 @@ class Booking(models.Model):
         help_text="Include professional unpacking service for this Mini Move tier"
     )
     
+    # Standard Delivery fields
+    standard_delivery_item_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of items for standard delivery"
+    )
+    is_same_day_delivery = models.BooleanField(
+        default=False,
+        help_text="Same-day delivery (flat $360 rate)"
+    )
+    specialty_items = models.ManyToManyField(
+        'services.SpecialtyItem',
+        blank=True,
+        help_text="Selected specialty items (Peloton, Surfboard, etc.)"
+    )
+    
+    # BLADE Airport Transfer fields (NEW - Phase 3)
+    blade_airport = models.CharField(
+        max_length=3,
+        choices=BLADE_AIRPORT_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Destination airport for BLADE transfer"
+    )
+    blade_flight_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Date of BLADE flight"
+    )
+    blade_flight_time = models.TimeField(
+        null=True, 
+        blank=True,
+        help_text="Time of BLADE flight departure"
+    )
+    blade_bag_count = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Number of bags for BLADE transfer (minimum 2)"
+    )
+    blade_ready_time = models.TimeField(
+        null=True, 
+        blank=True,
+        help_text="Auto-calculated: when bags must be ready for pickup"
+    )
+    
+    # Address and scheduling
     pickup_address = models.ForeignKey(
         Address, 
         on_delete=models.PROTECT, 
@@ -171,6 +208,7 @@ class Booking(models.Model):
         help_text="True if pickup/delivery is 30+ miles from Manhattan"
     )
     
+    # Pricing fields
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
@@ -274,6 +312,15 @@ class Booking(models.Model):
     def organizing_tax_dollars(self):
         return self.organizing_tax_cents / 100
     
+    def calculate_blade_ready_time(self):
+        """Calculate BLADE ready time based on flight time"""
+        if self.service_type == 'blade_transfer' and self.blade_flight_time:
+            from datetime import time
+            if self.blade_flight_time < time(13, 0):
+                self.blade_ready_time = time(5, 0)
+            else:
+                self.blade_ready_time = time(10, 0)
+    
     def calculate_organizing_costs(self):
         """Calculate organizing service costs based on Mini Move tier"""
         if self.service_type != 'mini_move' or not self.mini_move_package:
@@ -344,7 +391,7 @@ class Booking(models.Model):
         return 0
     
     def calculate_pricing(self):
-        """Calculate total pricing using services pricing engine + all new features"""
+        """Calculate total pricing using services pricing engine + BLADE support"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
         self.base_price_cents = 0
@@ -355,15 +402,43 @@ class Booking(models.Model):
         self.time_window_surcharge_cents = 0
         self.organizing_tax_cents = 0
         
-        if self.service_type == 'mini_move' and self.mini_move_package:
+        # BLADE pricing (NEW - Phase 3)
+        if self.service_type == 'blade_transfer':
+            if self.blade_bag_count:
+                per_bag_price = 7500  # $75 per bag in cents
+                self.base_price_cents = self.blade_bag_count * per_bag_price
+                # Enforce $150 minimum
+                self.base_price_cents = max(self.base_price_cents, 15000)
+            
+            # Calculate ready time
+            self.calculate_blade_ready_time()
+            
+            # BLADE has NO surcharges (weekend, geographic, time window)
+            # Skip all surcharge calculations for BLADE
+        
+        # Mini Move pricing
+        elif self.service_type == 'mini_move' and self.mini_move_package:
             self.base_price_cents = self.mini_move_package.base_price_cents
             
             self.organizing_total_cents = self.calculate_organizing_costs()
-            
             self.organizing_tax_cents = self.calculate_organizing_tax()
-            
             self.coi_fee_cents = self.calculate_coi_fee()
             
+            # Mini Move surcharges apply
+            if self.pickup_date:
+                active_surcharges = SurchargeRule.objects.filter(is_active=True)
+                for surcharge in active_surcharges:
+                    surcharge_amount = surcharge.calculate_surcharge(
+                        self.base_price_cents, 
+                        self.pickup_date,
+                        self.service_type
+                    )
+                    self.surcharge_cents += surcharge_amount
+            
+            self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+            self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
+        
+        # Standard Delivery pricing
         elif self.service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -380,26 +455,28 @@ class Booking(models.Model):
                     
             except StandardDeliveryConfig.DoesNotExist:
                 pass
+            
+            # Standard Delivery surcharges apply
+            if self.pickup_date:
+                active_surcharges = SurchargeRule.objects.filter(is_active=True)
+                for surcharge in active_surcharges:
+                    surcharge_amount = surcharge.calculate_surcharge(
+                        self.base_price_cents, 
+                        self.pickup_date,
+                        self.service_type
+                    )
+                    self.surcharge_cents += surcharge_amount
+            
+            self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
         
+        # Specialty Item pricing
         elif self.service_type == 'specialty_item':
             specialty_total = 0
             for item in self.specialty_items.all():
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
         
-        if self.pickup_date:
-            active_surcharges = SurchargeRule.objects.filter(is_active=True)
-            for surcharge in active_surcharges:
-                surcharge_amount = surcharge.calculate_surcharge(
-                    self.base_price_cents, 
-                    self.pickup_date,
-                    self.service_type
-                )
-                self.surcharge_cents += surcharge_amount
-        
-        self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
-        self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
-        
+        # Calculate total
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
@@ -426,6 +503,17 @@ class Booking(models.Model):
         
         if self.organizing_total_cents > 0:
             breakdown['organizing_services'] = self.get_organizing_services_breakdown()
+        
+        # BLADE-specific breakdown
+        if self.service_type == 'blade_transfer':
+            breakdown['blade_details'] = {
+                'airport': self.blade_airport,
+                'bag_count': self.blade_bag_count,
+                'per_bag_price': 75,
+                'flight_date': self.blade_flight_date.isoformat() if self.blade_flight_date else None,
+                'flight_time': self.blade_flight_time.isoformat() if self.blade_flight_time else None,
+                'ready_time': self.blade_ready_time.isoformat() if self.blade_ready_time else None,
+            }
         
         return breakdown
     
