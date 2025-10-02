@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from datetime import date, timedelta
+from datetime import date, timedelta, time as dt_time
 from .models import Booking, Address, GuestCheckout
 from .serializers import (
     BookingSerializer,
@@ -92,7 +92,7 @@ class OrganizingServicesByTierView(APIView):
 
 
 class PricingPreviewView(APIView):
-    """Calculate pricing for booking selection including organizing services - no authentication required"""
+    """Calculate pricing for booking selection including organizing services + BLADE - no authentication required"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -112,7 +112,39 @@ class PricingPreviewView(APIView):
         same_day_fee_cents = 0
         details = {}
         
-        if service_type == 'mini_move':
+        # BLADE pricing (NEW - Phase 3)
+        if service_type == 'blade_transfer':
+            bag_count = serializer.validated_data.get('blade_bag_count', 0)
+            
+            if bag_count < 2:
+                return Response({
+                    'error': 'BLADE service requires minimum 2 bags'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            per_bag_price = 7500  # $75 in cents
+            base_price_cents = bag_count * per_bag_price
+            base_price_cents = max(base_price_cents, 15000)  # $150 minimum
+            
+            # Calculate ready time
+            flight_time = serializer.validated_data.get('blade_flight_time')
+            if flight_time:
+                if flight_time < dt_time(13, 0):
+                    ready_time = dt_time(5, 0)
+                else:
+                    ready_time = dt_time(10, 0)
+                
+                details['ready_time'] = ready_time.isoformat()
+            
+            details['airport'] = serializer.validated_data.get('blade_airport')
+            details['bag_count'] = bag_count
+            details['per_bag_price'] = 75
+            details['flight_date'] = serializer.validated_data.get('blade_flight_date').isoformat() if serializer.validated_data.get('blade_flight_date') else None
+            details['flight_time'] = serializer.validated_data.get('blade_flight_time').isoformat() if serializer.validated_data.get('blade_flight_time') else None
+            
+            # BLADE has NO surcharges - skip all surcharge calculations
+        
+        # Mini Move pricing
+        elif service_type == 'mini_move':
             package_id = serializer.validated_data.get('mini_move_package_id')
             if package_id:
                 try:
@@ -196,6 +228,7 @@ class PricingPreviewView(APIView):
                 except MiniMovePackage.DoesNotExist:
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Standard Delivery pricing
         elif service_type == 'standard_delivery':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -240,6 +273,7 @@ class PricingPreviewView(APIView):
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Specialty Item pricing
         elif service_type == 'specialty_item':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -256,7 +290,8 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
         
-        if pickup_date and base_price_cents > 0:
+        # Apply surcharges (NOT for BLADE)
+        if service_type != 'blade_transfer' and pickup_date and base_price_cents > 0:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             surcharge_details = []
             
@@ -291,6 +326,7 @@ class PricingPreviewView(APIView):
             'details': details,
             'pickup_date': pickup_date
         })
+
 
 class CalendarAvailabilityView(APIView):
     """Calendar data with booking details - no capacity limits"""
@@ -354,8 +390,9 @@ class CalendarAvailabilityView(APIView):
             'end_date': end_date.isoformat()
         })
 
+
 class GuestBookingCreateView(generics.CreateAPIView):
-    """Create booking for guest (non-authenticated) users with payment integration"""
+    """Create booking for guest (non-authenticated) users with payment integration - INCLUDES BLADE"""
     serializer_class = GuestBookingCreateSerializer
     permission_classes = [permissions.AllowAny]
     
@@ -364,6 +401,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
         print("GUEST BOOKING CREATE REQUEST RECEIVED")
         print("=" * 80)
         print("Guest Email:", request.data.get('email'))
+        print("Service Type:", request.data.get('service_type'))
         print("Request Data:", request.data)
         print("Create Payment Intent:", request.data.get('create_payment_intent', True))
         
@@ -372,7 +410,12 @@ class GuestBookingCreateView(generics.CreateAPIView):
         booking = serializer.save()
         
         print(f"Guest booking created: {booking.booking_number}")
+        print(f"Service type: {booking.service_type}")
         print(f"Total price: ${booking.total_price_dollars}")
+        
+        if booking.service_type == 'blade_transfer':
+            print(f"BLADE booking - Airport: {booking.blade_airport}, Bags: {booking.blade_bag_count}")
+            print(f"Ready time: {booking.blade_ready_time}")
         
         create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
@@ -402,9 +445,19 @@ class GuestBookingCreateView(generics.CreateAPIView):
             'booking': {
                 'id': str(booking.id),
                 'booking_number': booking.booking_number,
-                'total_price_dollars': booking.total_price_dollars
+                'total_price_dollars': booking.total_price_dollars,
+                'service_type': booking.service_type,
             }
         }
+        
+        # Add BLADE-specific response data
+        if booking.service_type == 'blade_transfer':
+            response_data['booking']['blade_details'] = {
+                'airport': booking.blade_airport,
+                'bag_count': booking.blade_bag_count,
+                'flight_date': booking.blade_flight_date.isoformat() if booking.blade_flight_date else None,
+                'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
+            }
         
         if payment_data:
             response_data['payment'] = payment_data
@@ -448,6 +501,7 @@ class OrganizingServiceDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+
 class FixOrganizingServicesView(APIView):
     """TEMPORARY: Create missing organizing services in production"""
     permission_classes = [permissions.AllowAny]
