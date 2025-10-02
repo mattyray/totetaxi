@@ -35,6 +35,7 @@ export interface BookingData {
   is_outside_core_area?: boolean;
   pricing_data?: {
     base_price_dollars: number;
+    same_day_delivery_dollars: number;
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
@@ -108,13 +109,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         const maxStep = 5;
         let nextStep = state.currentStep + 1;
         
-        // VALIDATION: Can't leave service selection without package
         if (state.currentStep === 1 && state.bookingData.service_type === 'mini_move' && !state.bookingData.mini_move_package_id) {
           console.error('Cannot proceed: No package selected for mini move');
           return state;
         }
         
-        // Skip customer info step (4) for authenticated users
         if (!state.isGuestMode && nextStep === 4) {
           nextStep = 5;
         }
@@ -126,7 +125,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
-      // FIXED: NO sanitization during typing - just merge the data directly
       updateBookingData: (data) => {
         set((state) => ({
           bookingData: { ...state.bookingData, ...data }
@@ -327,7 +325,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       partialize: (state) => ({
         bookingData: {
           ...state.bookingData,
-          customer_info: undefined // Don't persist customer PII
+          customer_info: undefined
         },
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,
