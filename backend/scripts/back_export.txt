@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-02 13:12:59
+# Created: 2025-10-02 16:42:21
 # Total files: 121
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -2712,6 +2712,7 @@ class Migration(migrations.Migration):
 # ==== apps/bookings/models.py ====
 
 ```python
+# backend/apps/bookings/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -2723,7 +2724,6 @@ class Address(models.Model):
     """Address for pickup/delivery - can be saved by customer or one-time"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # Optional customer link (for saved addresses)
     customer = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
@@ -2732,7 +2732,6 @@ class Address(models.Model):
         related_name='booking_addresses'
     )
     
-    # Address fields
     address_line_1 = models.CharField(max_length=200)
     address_line_2 = models.CharField(max_length=200, blank=True)
     city = models.CharField(max_length=100)
@@ -2790,7 +2789,6 @@ class Booking(models.Model):
         ('specialty_item', 'Specialty Item'),
     ]
     
-    # UPDATED: Only morning pickup time available
     PICKUP_TIME_CHOICES = [
         ('morning', '8 AM - 11 AM'),
         ('morning_specific', 'Specific 1-hour window (surcharge applies)'),
@@ -2800,7 +2798,6 @@ class Booking(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking_number = models.CharField(max_length=20, unique=True, blank=True)
     
-    # Customer - EITHER customer OR guest_checkout
     customer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -2816,11 +2813,8 @@ class Booking(models.Model):
         related_name='booking'
     )
     
-    # Service details
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
     
-    # SERVICE CONNECTIONS
-    # For Mini Move bookings
     mini_move_package = models.ForeignKey(
         'services.MiniMovePackage',
         on_delete=models.PROTECT,
@@ -2829,7 +2823,6 @@ class Booking(models.Model):
         help_text="Selected mini move package (Petite/Standard/Full)"
     )
     
-    # For Standard Delivery bookings  
     standard_delivery_item_count = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -2840,14 +2833,12 @@ class Booking(models.Model):
         help_text="Same-day delivery (flat $360 rate)"
     )
     
-    # For Specialty Item bookings
     specialty_items = models.ManyToManyField(
         'services.SpecialtyItem',
         blank=True,
         help_text="Selected specialty items (Peloton, Surfboard, etc.)"
     )
     
-    # NEW: ORGANIZING SERVICES (tied to Mini Move packages)
     include_packing = models.BooleanField(
         default=False,
         help_text="Include professional packing service for this Mini Move tier"
@@ -2857,7 +2848,6 @@ class Booking(models.Model):
         help_text="Include professional unpacking service for this Mini Move tier"
     )
     
-    # Addresses
     pickup_address = models.ForeignKey(
         Address, 
         on_delete=models.PROTECT, 
@@ -2869,7 +2859,6 @@ class Booking(models.Model):
         related_name='delivery_bookings'
     )
     
-    # Date and preferences - UPDATED: Only morning times
     pickup_date = models.DateField()
     pickup_time = models.CharField(
         max_length=30,
@@ -2877,7 +2866,6 @@ class Booking(models.Model):
         default='morning'
     )
     
-    # NEW: Specific time window for morning_specific option
     specific_pickup_hour = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -2889,17 +2877,14 @@ class Booking(models.Model):
         help_text="Specific hour for 1-hour window pickup"
     )
     
-    # Special requirements
     special_instructions = models.TextField(blank=True)
     coi_required = models.BooleanField(default=False)
     
-    # NEW: Geographic surcharge tracking
     is_outside_core_area = models.BooleanField(
         default=False,
         help_text="True if pickup/delivery is 30+ miles from Manhattan"
     )
     
-    # CALCULATED PRICING - Updated to include new fees
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
@@ -2921,10 +2906,8 @@ class Booking(models.Model):
     )
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
-    # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
-    # Soft delete
     deleted_at = models.DateTimeField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -2944,7 +2927,6 @@ class Booking(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.booking_number:
-            # Simple booking number generation
             last_booking = Booking.objects.order_by('created_at').last()
             if last_booking and last_booking.booking_number:
                 last_num = int(last_booking.booking_number.split('-')[1])
@@ -2953,7 +2935,6 @@ class Booking(models.Model):
                 next_num = 1
             self.booking_number = f"TT-{next_num:06d}"
         
-        # Calculate pricing before saving
         self.calculate_pricing()
         super().save(*args, **kwargs)
     
@@ -3017,7 +2998,6 @@ class Booking(models.Model):
         total_organizing_cents = 0
         tier = self.mini_move_package.package_type
         
-        # Add packing service cost
         if self.include_packing:
             try:
                 packing_service = OrganizingService.objects.get(
@@ -3029,7 +3009,6 @@ class Booking(models.Model):
             except OrganizingService.DoesNotExist:
                 pass
         
-        # Add unpacking service cost
         if self.include_unpacking:
             try:
                 unpacking_service = OrganizingService.objects.get(
@@ -3049,10 +3028,8 @@ class Booking(models.Model):
             return 0
         
         if self.service_type == 'mini_move' and self.mini_move_package:
-            # Petite moves require $50 COI charge
             if self.mini_move_package.package_type == 'petite':
-                return 5000  # $50 in cents
-            # Other packages may have different COI handling
+                return 5000
             elif not self.mini_move_package.coi_included:
                 return self.mini_move_package.coi_fee_cents
         
@@ -3061,32 +3038,29 @@ class Booking(models.Model):
     def calculate_geographic_surcharge(self):
         """Calculate $175 surcharge for 30+ miles from Manhattan"""
         if self.is_outside_core_area:
-            return 17500  # $175 in cents
+            return 17500
         return 0
     
     def calculate_time_window_surcharge(self):
-        """UPDATED: Calculate $175 surcharge for 1-hour window selection"""
+        """Calculate $175 surcharge for 1-hour window selection"""
         if self.pickup_time == 'morning_specific':
             if self.service_type == 'mini_move' and self.mini_move_package:
-                # Standard package: $175 surcharge (UPDATED from $25)
                 if self.mini_move_package.package_type == 'standard':
-                    return 17500  # $175 in cents
-                # Full package: still free
+                    return 17500
                 elif self.mini_move_package.package_type == 'full':
                     return 0
         return 0
     
     def calculate_organizing_tax(self):
-        """UPDATED: Calculate tax on organizing services - 8.75% (changed from 8.25%)"""
+        """Calculate tax on organizing services - 8.25%"""
         if self.organizing_total_cents > 0:
-            return int(self.organizing_total_cents * 0.0875)  # Changed from 0.0825
+            return int(self.organizing_total_cents * 0.0825)
         return 0
     
     def calculate_pricing(self):
         """Calculate total pricing using services pricing engine + all new features"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
-        # Reset pricing
         self.base_price_cents = 0
         self.surcharge_cents = 0
         self.coi_fee_cents = 0
@@ -3095,53 +3069,51 @@ class Booking(models.Model):
         self.time_window_surcharge_cents = 0
         self.organizing_tax_cents = 0
         
-        # Calculate base price by service type
         if self.service_type == 'mini_move' and self.mini_move_package:
             self.base_price_cents = self.mini_move_package.base_price_cents
             
-            # Calculate organizing services first
             self.organizing_total_cents = self.calculate_organizing_costs()
             
-            # Calculate organizing tax
             self.organizing_tax_cents = self.calculate_organizing_tax()
             
-            # NEW: COI handling with $50 for Petite
             self.coi_fee_cents = self.calculate_coi_fee()
             
-        elif self.service_type == 'standard_delivery' and self.standard_delivery_item_count:
+        elif self.service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    self.base_price_cents = config.calculate_total(
-                        self.standard_delivery_item_count,
-                        is_same_day=self.is_same_day_delivery
-                    )
+                    if self.standard_delivery_item_count and self.standard_delivery_item_count > 0:
+                        item_total = config.price_per_item_cents * self.standard_delivery_item_count
+                        self.base_price_cents = max(item_total, config.minimum_charge_cents)
+                    else:
+                        self.base_price_cents = 0
+                    
+                    if self.specialty_items.exists():
+                        specialty_total = sum(item.price_cents for item in self.specialty_items.all())
+                        self.base_price_cents += specialty_total
+                    
             except StandardDeliveryConfig.DoesNotExist:
                 pass
         
         elif self.service_type == 'specialty_item':
-            # Calculate total for all selected specialty items
             specialty_total = 0
             for item in self.specialty_items.all():
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
         
-        # UPDATED: Calculate surcharges with service type awareness
-        if self.pickup_date and not self.is_same_day_delivery:
+        if self.pickup_date:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             for surcharge in active_surcharges:
                 surcharge_amount = surcharge.calculate_surcharge(
                     self.base_price_cents, 
                     self.pickup_date,
-                    self.service_type  # NEW: Pass service type
+                    self.service_type
                 )
                 self.surcharge_cents += surcharge_amount
         
-        # NEW: Calculate additional fees
         self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
         self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
         
-        # Calculate total (base + all surcharges + organizing + tax)
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
@@ -3166,7 +3138,6 @@ class Booking(models.Model):
             'service_type': self.get_service_type_display(),
         }
         
-        # Add organizing service details if applicable
         if self.organizing_total_cents > 0:
             breakdown['organizing_services'] = self.get_organizing_services_breakdown()
         
@@ -3211,7 +3182,7 @@ class Booking(models.Model):
                     'price_dollars': unpacking_service.price_dollars,
                     'duration_hours': unpacking_service.duration_hours,
                     'organizer_count': unpacking_service.organizer_count,
-                    'supplies_allowance': 0  # Unpacking doesn't include supplies
+                    'supplies_allowance': 0
                 })
             except OrganizingService.DoesNotExist:
                 pass
@@ -3346,8 +3317,8 @@ class PricingPreviewSerializer(serializers.Serializer):
     # NEW: Geographic surcharge
     is_outside_core_area = serializers.BooleanField(required=False, default=False)
     
-    # Standard Delivery fields
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: Standard Delivery fields - UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(required=False, default=False)
     
     # Specialty Items fields
@@ -3356,6 +3327,22 @@ class PricingPreviewSerializer(serializers.Serializer):
         required=False,
         allow_empty=True
     )
+    
+    def validate(self, attrs):
+        service_type = attrs.get('service_type')
+        
+        # PHASE 2: Validate Standard Delivery requires EITHER regular items OR specialty items
+        if service_type == 'standard_delivery':
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have at least one section
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError({
+                    'standard_delivery': 'Please select at least one regular item or specialty item'
+                })
+        
+        return attrs
 
 
 class GuestBookingCreateSerializer(serializers.Serializer):
@@ -3374,7 +3361,8 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     # Service-specific fields
     mini_move_package_id = serializers.UUIDField(required=False)
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     specialty_item_ids = serializers.ListField(
         child=serializers.UUIDField(),
@@ -3466,9 +3454,16 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             if attrs.get('include_packing') or attrs.get('include_unpacking'):
                 raise serializers.ValidationError("Organizing services are only available for Mini Move bookings")
         
+        # PHASE 2: Updated Standard Delivery validation
         if service_type == 'standard_delivery':
-            if not attrs.get('standard_delivery_item_count'):
-                raise serializers.ValidationError("standard_delivery_item_count is required for standard delivery")
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have EITHER regular items OR specialty items (or both)
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError(
+                    "Please select at least one regular item or specialty item for Standard Delivery"
+                )
         
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_item_ids'):
@@ -3519,7 +3514,8 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        elif validated_data['service_type'] == 'specialty_item':
+        # PHASE 2: Handle specialty items for standard_delivery OR specialty_item
+        if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
             )
@@ -3614,30 +3610,26 @@ class ServiceCatalogView(APIView):
         print("=" * 50)
         print("DEBUG: ServiceCatalogView.get() called")
         
-        # Debug: Verify the model import
         print(f"DEBUG: OrganizingService model: {OrganizingService}")
         print(f"DEBUG: OrganizingService._meta.app_label: {OrganizingService._meta.app_label}")
         print(f"DEBUG: OrganizingService._meta.db_table: {OrganizingService._meta.db_table}")
         
-        # Query organizing services with debug info
         organizing_services = OrganizingService.objects.filter(is_active=True).order_by('mini_move_tier', 'is_packing_service')
         print(f"DEBUG: Raw organizing services query count: {organizing_services.count()}")
         print(f"DEBUG: Organizing services IDs: {list(organizing_services.values_list('id', 'name', 'mini_move_tier', 'is_active'))}")
         
-        # Test serialization
         organizing_serializer = OrganizingServiceSerializer(organizing_services, many=True)
         serialized_organizing = organizing_serializer.data
         print(f"DEBUG: Serialized organizing services count: {len(serialized_organizing)}")
         print(f"DEBUG: Serialized organizing services: {serialized_organizing}")
         
-        # Query other services (keeping existing code)
         mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         specialty_items = SpecialtyItem.objects.filter(is_active=True)
         standard_config = StandardDeliveryConfig.objects.filter(is_active=True).first()
         
         response_data = {
             'mini_move_packages': MiniMovePackageSerializer(mini_move_packages, many=True).data,
-            'organizing_services': serialized_organizing,  # Use the debug-traced version
+            'organizing_services': serialized_organizing,
             'specialty_items': SpecialtyItemSerializer(specialty_items, many=True).data,
             'standard_delivery': StandardDeliveryConfigSerializer(standard_config).data if standard_config else None
         }
@@ -3686,6 +3678,7 @@ class PricingPreviewView(APIView):
         organizing_tax_cents = 0
         geographic_surcharge_cents = 0
         time_window_surcharge_cents = 0
+        same_day_fee_cents = 0
         details = {}
         
         if service_type == 'mini_move':
@@ -3707,7 +3700,6 @@ class PricingPreviewView(APIView):
                     
                     organizing_services_breakdown = []
                     
-                    # FIXED: Better error handling and debugging for organizing services
                     if include_packing:
                         packing_service = OrganizingService.objects.filter(
                             mini_move_tier=package.package_type,
@@ -3756,19 +3748,16 @@ class PricingPreviewView(APIView):
                                 'error': f'Unpacking service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
                     
-                    # Calculate tax on organizing services (8.25%)
                     if organizing_total_cents > 0:
                         organizing_tax_cents = int(organizing_total_cents * 0.0825)
                     
-                    # Calculate time window surcharge for specific hour selection
                     pickup_time = serializer.validated_data.get('pickup_time', 'morning')
                     if pickup_time == 'morning_specific' and package.package_type == 'standard':
-                        time_window_surcharge_cents = 17500  # $175
+                        time_window_surcharge_cents = 17500
                     
-                    # Calculate geographic surcharge
                     is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
                     if is_outside_core_area:
-                        geographic_surcharge_cents = 17500  # $175
+                        geographic_surcharge_cents = 17500
                     
                     if organizing_services_breakdown:
                         details['organizing_services'] = organizing_services_breakdown
@@ -3783,22 +3772,37 @@ class PricingPreviewView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             item_count = serializer.validated_data.get('standard_delivery_item_count', 0)
+            specialty_item_ids = serializer.validated_data.get('specialty_item_ids', [])
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    # FIXED: Calculate base and same-day separately for proper breakdown
-                    item_total = config.price_per_item_cents * item_count
-                    base_price_cents = max(item_total, config.minimum_charge_cents)
+                    if item_count > 0:
+                        item_total = config.price_per_item_cents * item_count
+                        base_price_cents = max(item_total, config.minimum_charge_cents)
+                        
+                        details['item_count'] = item_count
+                        details['per_item_rate'] = config.price_per_item_cents / 100
+                        details['minimum_charge'] = config.minimum_charge_cents / 100
+                    else:
+                        base_price_cents = 0
                     
-                    details['item_count'] = item_count
-                    details['per_item_rate'] = config.price_per_item_cents / 100
-                    details['minimum_charge'] = config.minimum_charge_cents / 100
+                    if specialty_item_ids:
+                        specialty_items = SpecialtyItem.objects.filter(
+                            id__in=specialty_item_ids, 
+                            is_active=True
+                        )
+                        specialty_total = sum(item.price_cents for item in specialty_items)
+                        base_price_cents += specialty_total
+                        
+                        details['specialty_items'] = [
+                            {'name': item.name, 'price_dollars': item.price_dollars}
+                            for item in specialty_items
+                        ]
                     
                     if is_same_day:
-                        # Add same-day as a surcharge, not part of base
-                        surcharge_cents += config.same_day_flat_rate_cents
+                        same_day_fee_cents = config.same_day_flat_rate_cents
                         details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
                         
@@ -3821,9 +3825,7 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
         
-        # Calculate weekend surcharges
-        is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
-        if pickup_date and base_price_cents > 0 and not is_same_day:
+        if pickup_date and base_price_cents > 0:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             surcharge_details = []
             
@@ -3840,12 +3842,13 @@ class PricingPreviewView(APIView):
             if surcharge_details:
                 details['surcharges'] = surcharge_details
         
-        total_price_cents = base_price_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
+        total_price_cents = base_price_cents + same_day_fee_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
         
         return Response({
             'service_type': service_type,
             'pricing': {
                 'base_price_dollars': base_price_cents / 100,
+                'same_day_delivery_dollars': same_day_fee_cents / 100,
                 'surcharge_dollars': surcharge_cents / 100,
                 'coi_fee_dollars': coi_fee_cents / 100,
                 'organizing_total_dollars': organizing_total_cents / 100,
@@ -3857,7 +3860,7 @@ class PricingPreviewView(APIView):
             'details': details,
             'pickup_date': pickup_date
         })
-    
+
 class CalendarAvailabilityView(APIView):
     """Calendar data with booking details - no capacity limits"""
     permission_classes = [permissions.AllowAny]
@@ -3877,13 +3880,11 @@ class CalendarAvailabilityView(APIView):
         current_date = start_date
         
         while current_date <= end_date:
-            # Get bookings for this date
             bookings_today = Booking.objects.filter(
                 pickup_date=current_date,
                 deleted_at__isnull=True
             ).select_related('customer', 'guest_checkout')
             
-            # Get surcharges for this date
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
@@ -3893,7 +3894,6 @@ class CalendarAvailabilityView(APIView):
                         'description': rule.description
                     })
             
-            # Serialize bookings for this date
             booking_list = []
             for booking in bookings_today:
                 booking_list.append({
@@ -3909,7 +3909,7 @@ class CalendarAvailabilityView(APIView):
             
             availability.append({
                 'date': current_date.isoformat(),
-                'available': True,  # Always available - no capacity limits
+                'available': True,
                 'is_weekend': current_date.weekday() >= 5,
                 'bookings': booking_list,
                 'surcharges': surcharges
@@ -3943,14 +3943,12 @@ class GuestBookingCreateView(generics.CreateAPIView):
         print(f"Guest booking created: {booking.booking_number}")
         print(f"Total price: ${booking.total_price_dollars}")
         
-        # Add payment intent creation for guests
         create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
         
         if create_payment_intent:
             print("Creating payment intent for guest...")
             try:
-                # Use guest email from the booking
                 guest_email = booking.guest_checkout.email if booking.guest_checkout else None
                 
                 payment_result = StripePaymentService.create_payment_intent(
@@ -3966,10 +3964,8 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 print(f"Payment intent created: {payment_result['payment_intent_id']}")
             except Exception as e:
                 print(f"Payment intent failed: {str(e)}")
-                # Don't fail the booking creation, but log the error
                 payment_data = None
         
-        # Return same format as authenticated endpoint
         response_data = {
             'message': 'Booking created successfully',
             'booking': {
@@ -3979,7 +3975,6 @@ class GuestBookingCreateView(generics.CreateAPIView):
             }
         }
         
-        # Include payment data if available
         if payment_data:
             response_data['payment'] = payment_data
         
@@ -4267,6 +4262,7 @@ class HybridAuthentication(SessionAuthentication):
 # ==== apps/customers/booking_serializers.py ====
 
 ```python
+# backend/apps/customers/booking_serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from apps.bookings.models import Booking, Address
@@ -4289,7 +4285,8 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     specialty_item_ids = serializers.ListField(
         child=serializers.UUIDField(),
@@ -4332,9 +4329,16 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("mini_move_package_id is required for mini move service")
         
+        # PHASE 2: Updated Standard Delivery validation
         elif service_type == 'standard_delivery':
-            if not attrs.get('standard_delivery_item_count'):
-                raise serializers.ValidationError("standard_delivery_item_count is required for standard delivery")
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have EITHER regular items OR specialty items (or both)
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError(
+                    "Please select at least one regular item or specialty item for Standard Delivery"
+                )
         
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_item_ids'):
@@ -4408,7 +4412,8 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        elif validated_data['service_type'] == 'specialty_item':
+        # PHASE 2: Handle specialty items for standard_delivery OR specialty_item
+        if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
             )
