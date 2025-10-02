@@ -424,7 +424,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Standard Delivery */}
+      {/* Standard Delivery - FIXED: Added weight disclaimers */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
@@ -440,7 +440,7 @@ export function ServiceSelectionStep() {
                     standard_delivery_item_count: parseInt(e.target.value) || undefined 
                   })}
                   placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
-                  helper={`$${services.standard_delivery.price_per_item_dollars} per item • $${services.standard_delivery.minimum_charge_dollars} minimum`}
+                  helper={`$${services.standard_delivery.price_per_item_dollars} per item (under 50 lbs) • $${services.standard_delivery.minimum_charge_dollars} minimum`}
                 />
 
                 <label className="flex items-center">
@@ -454,6 +454,14 @@ export function ServiceSelectionStep() {
                     Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
                   </span>
                 </label>
+
+                {/* ADDED: Weight disclaimer */}
+                <div className="bg-gold-50 border border-gold-200 rounded-lg p-3">
+                  <p className="text-sm text-gold-800">
+                    <strong>Note:</strong> Standard pricing applies to items under 50 lbs each. 
+                    Overweight items may incur additional charges.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

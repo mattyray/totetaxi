@@ -48,13 +48,13 @@ export interface MiniMovePackage {
   protective_wrapping: boolean;
 }
 
+// FIXED: Removed requires_van_schedule field
 export interface SpecialtyItem {
   id: string;
   item_type: string;
   name: string;
   description: string;
   price_dollars: number;
-  requires_van_schedule: boolean;
   special_handling: boolean;
 }
 

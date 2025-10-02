@@ -86,103 +86,6 @@ const initialBookingData: BookingData = {
 const STORE_VERSION = 3;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
-// FIXED: Less aggressive sanitization - preserve customer_info during typing
-const sanitizeBookingData = (data: Partial<BookingData>): Partial<BookingData> => {
-  const sanitized: Partial<BookingData> = {};
-  
-  // Validate service types
-  if (data.service_type && ['mini_move', 'standard_delivery', 'specialty_item'].includes(data.service_type)) {
-    sanitized.service_type = data.service_type;
-  }
-  
-  // Validate package types
-  if (data.package_type && ['petite', 'standard', 'full'].includes(data.package_type)) {
-    sanitized.package_type = data.package_type;
-  }
-  
-  // Validate pickup time
-  if (data.pickup_time && ['morning', 'morning_specific', 'no_time_preference'].includes(data.pickup_time)) {
-    sanitized.pickup_time = data.pickup_time;
-  }
-  
-  // Sanitize string fields with length limits
-  if (data.special_instructions) {
-    sanitized.special_instructions = data.special_instructions.substring(0, 500).trim();
-  }
-  
-  // Validate boolean fields
-  ['include_packing', 'include_unpacking', 'is_same_day_delivery', 'coi_required', 'is_outside_core_area'].forEach(field => {
-    if (typeof data[field as keyof BookingData] === 'boolean') {
-      (sanitized as any)[field] = data[field as keyof BookingData];
-    }
-  });
-  
-  // Validate numeric fields
-  if (typeof data.standard_delivery_item_count === 'number' && data.standard_delivery_item_count >= 1 && data.standard_delivery_item_count <= 50) {
-    sanitized.standard_delivery_item_count = Math.floor(data.standard_delivery_item_count);
-  }
-  
-  if (typeof data.specific_pickup_hour === 'number' && data.specific_pickup_hour >= 8 && data.specific_pickup_hour <= 17) {
-    sanitized.specific_pickup_hour = Math.floor(data.specific_pickup_hour);
-  }
-  
-  // Validate date format (YYYY-MM-DD)
-  if (data.pickup_date && /^\d{4}-\d{2}-\d{2}$/.test(data.pickup_date)) {
-    const date = new Date(data.pickup_date);
-    if (!isNaN(date.getTime()) && date >= new Date()) {
-      sanitized.pickup_date = data.pickup_date;
-    }
-  }
-  
-  // Validate UUIDs for IDs
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (data.mini_move_package_id && uuidRegex.test(data.mini_move_package_id)) {
-    sanitized.mini_move_package_id = data.mini_move_package_id;
-  }
-  
-  if (data.specialty_item_ids && Array.isArray(data.specialty_item_ids)) {
-    sanitized.specialty_item_ids = data.specialty_item_ids.filter(id => uuidRegex.test(id));
-  }
-  
-  // Validate addresses
-  if (data.pickup_address) {
-    sanitized.pickup_address = sanitizeAddress(data.pickup_address);
-  }
-  if (data.delivery_address) {
-    sanitized.delivery_address = sanitizeAddress(data.delivery_address);
-  }
-  
-  // FIXED: Always preserve customer_info during form editing (less aggressive validation)
-  if (data.customer_info) {
-    sanitized.customer_info = {
-      first_name: (data.customer_info.first_name || '').substring(0, 50).trim(),
-      last_name: (data.customer_info.last_name || '').substring(0, 50).trim(),
-      email: (data.customer_info.email || '').trim(),
-      phone: (data.customer_info.phone || '').trim()
-    };
-  }
-  
-  // Validate pricing data (read-only, from server)
-  if (data.pricing_data && typeof data.pricing_data === 'object') {
-    const pricing = data.pricing_data;
-    if (typeof pricing.total_price_dollars === 'number' && pricing.total_price_dollars >= 0) {
-      sanitized.pricing_data = pricing;
-    }
-  }
-  
-  return sanitized;
-};
-
-const sanitizeAddress = (address: BookingAddress): BookingAddress => {
-  return {
-    address_line_1: address.address_line_1?.substring(0, 100).trim() || '',
-    address_line_2: address.address_line_2?.substring(0, 100).trim(),
-    city: address.city?.substring(0, 50).trim() || '',
-    state: ['NY', 'CT', 'NJ'].includes(address.state) ? address.state : 'NY',
-    zip_code: address.zip_code?.replace(/\D/g, '').substring(0, 10) || ''
-  };
-};
-
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
@@ -223,22 +126,18 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
+      // FIXED: NO sanitization during typing - just merge the data directly
       updateBookingData: (data) => {
-        const sanitizedData = sanitizeBookingData(data);
-        
         set((state) => ({
-          bookingData: { ...state.bookingData, ...sanitizedData }
+          bookingData: { ...state.bookingData, ...data }
         }));
       },
       
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {
-        const sanitizedField = field.substring(0, 50);
-        const sanitizedMessage = message.substring(0, 200);
-        
         set((state) => ({
-          errors: { ...state.errors, [sanitizedField]: sanitizedMessage }
+          errors: { ...state.errors, [field]: message }
         }));
       },
       
@@ -251,17 +150,16 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       clearErrors: () => set({ errors: {} }),
       
       setBookingComplete: (bookingNumber) => {
-        const sanitizedBookingNumber = bookingNumber?.substring(0, 20).trim();
-        if (sanitizedBookingNumber) {
+        if (bookingNumber) {
           set({
             isBookingComplete: true,
-            completedBookingNumber: sanitizedBookingNumber
+            completedBookingNumber: bookingNumber
           });
         }
       },
       
       initializeForUser: (providedUserId?, isGuest?) => {
-        const userId = providedUserId?.substring(0, 50) || 'guest';
+        const userId = providedUserId || 'guest';
         const guestMode = isGuest !== undefined ? isGuest : true;
         
         const state = get();
