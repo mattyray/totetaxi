@@ -122,8 +122,8 @@ class PricingPreviewSerializer(serializers.Serializer):
     # NEW: Geographic surcharge
     is_outside_core_area = serializers.BooleanField(required=False, default=False)
     
-    # Standard Delivery fields
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: Standard Delivery fields - UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(required=False, default=False)
     
     # Specialty Items fields
@@ -132,6 +132,22 @@ class PricingPreviewSerializer(serializers.Serializer):
         required=False,
         allow_empty=True
     )
+    
+    def validate(self, attrs):
+        service_type = attrs.get('service_type')
+        
+        # PHASE 2: Validate Standard Delivery requires EITHER regular items OR specialty items
+        if service_type == 'standard_delivery':
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have at least one section
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError({
+                    'standard_delivery': 'Please select at least one regular item or specialty item'
+                })
+        
+        return attrs
 
 
 class GuestBookingCreateSerializer(serializers.Serializer):
@@ -150,7 +166,8 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     # Service-specific fields
     mini_move_package_id = serializers.UUIDField(required=False)
-    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=1)
+    # PHASE 2: UPDATED to allow 0
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     specialty_item_ids = serializers.ListField(
         child=serializers.UUIDField(),
@@ -242,9 +259,16 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             if attrs.get('include_packing') or attrs.get('include_unpacking'):
                 raise serializers.ValidationError("Organizing services are only available for Mini Move bookings")
         
+        # PHASE 2: Updated Standard Delivery validation
         if service_type == 'standard_delivery':
-            if not attrs.get('standard_delivery_item_count'):
-                raise serializers.ValidationError("standard_delivery_item_count is required for standard delivery")
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            # Must have EITHER regular items OR specialty items (or both)
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError(
+                    "Please select at least one regular item or specialty item for Standard Delivery"
+                )
         
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_item_ids'):
@@ -295,7 +319,8 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        elif validated_data['service_type'] == 'specialty_item':
+        # PHASE 2: Handle specialty items for standard_delivery OR specialty_item
+        if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
             )
