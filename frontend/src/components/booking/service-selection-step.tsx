@@ -1,7 +1,7 @@
 'use client';
-// bookings/service-selection-step.tsx
+// frontend/src/components/booking/service-selection-step.tsx
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -10,10 +10,8 @@ import { Input } from '@/components/ui/input';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import type { ServiceCatalog } from '@/types';
 
-// NYC tax rate
 const TAX_RATE = 0.0825;
 
-// Organizing service details by tier
 const ORGANIZING_SERVICES = {
   petite: {
     packing: {
@@ -85,10 +83,9 @@ export function ServiceSelectionStep() {
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
 
-  // DEBUG LOGGING
-  console.log('🔍 SERVICE STEP - Current booking data:', bookingData);
-  console.log('🔍 mini_move_package_id:', bookingData.mini_move_package_id);
-  console.log('🔍 service_type:', bookingData.service_type);
+  console.log('SERVICE STEP - Current booking data:', bookingData);
+  console.log('mini_move_package_id:', bookingData.mini_move_package_id);
+  console.log('service_type:', bookingData.service_type);
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -99,23 +96,21 @@ export function ServiceSelectionStep() {
   });
 
   const handleMiniMoveSelect = (packageId: string) => {
-    // Find the selected package to get its type
     const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
     
-    console.log('🎯 SELECTING PACKAGE:', packageId);
-    console.log('📦 Package Type:', selectedPackage?.package_type);
-    console.log('📦 Package Name:', selectedPackage?.name);
+    console.log('SELECTING PACKAGE:', packageId);
+    console.log('Package Type:', selectedPackage?.package_type);
+    console.log('Package Name:', selectedPackage?.name);
     
     updateBookingData({
       service_type: 'mini_move',
       mini_move_package_id: packageId,
       package_type: selectedPackage?.package_type,
-      // Clear other service selections
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,
     });
     
-    console.log('✅ Updated booking data - new state should have package_id:', packageId);
+    console.log('Updated booking data - new state should have package_id:', packageId);
   };
 
   const handleOrganizingServiceToggle = (serviceType: 'packing' | 'unpacking', enabled: boolean) => {
@@ -123,7 +118,6 @@ export function ServiceSelectionStep() {
       [serviceType === 'packing' ? 'include_packing' : 'include_unpacking']: enabled
     });
     
-    // Auto-expand when selected
     if (enabled) {
       if (serviceType === 'packing') {
         setPackingExpanded(true);
@@ -134,15 +128,17 @@ export function ServiceSelectionStep() {
   };
 
   const canContinue = () => {
-    const result = (
-      (bookingData.service_type === 'mini_move' && bookingData.mini_move_package_id) ||
-      (bookingData.service_type === 'standard_delivery' && bookingData.standard_delivery_item_count && bookingData.standard_delivery_item_count >= (services?.standard_delivery?.minimum_items || 3)) ||
-      (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length)
-    );
+    if (bookingData.service_type === 'mini_move') {
+      return !!bookingData.mini_move_package_id;
+    }
     
-    console.log('🔍 Can continue?', result);
+    if (bookingData.service_type === 'standard_delivery') {
+      const itemCount = bookingData.standard_delivery_item_count || 0;
+      const specialtyCount = bookingData.specialty_item_ids?.length || 0;
+      return itemCount > 0 || specialtyCount > 0;
+    }
     
-    return result;
+    return false;
   };
 
   if (isLoading) {
@@ -159,12 +155,15 @@ export function ServiceSelectionStep() {
 
   return (
     <div className="space-y-6">
-      {/* Service Type Selector */}
       <div>
         <h3 className="text-lg font-medium text-navy-900 mb-4">Choose Your Service</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
-            onClick={() => updateBookingData({ service_type: 'mini_move' })}
+            onClick={() => updateBookingData({ 
+              service_type: 'mini_move',
+              standard_delivery_item_count: undefined,
+              specialty_item_ids: undefined
+            })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'mini_move'
                 ? 'border-navy-500 bg-navy-50'
@@ -176,7 +175,13 @@ export function ServiceSelectionStep() {
           </button>
 
           <button
-            onClick={() => updateBookingData({ service_type: 'standard_delivery' })}
+            onClick={() => updateBookingData({ 
+              service_type: 'standard_delivery',
+              mini_move_package_id: undefined,
+              package_type: undefined,
+              include_packing: false,
+              include_unpacking: false
+            })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'standard_delivery'
                 ? 'border-navy-500 bg-navy-50'
@@ -184,24 +189,11 @@ export function ServiceSelectionStep() {
             }`}
           >
             <h4 className="font-medium text-navy-900 mb-2">Standard Delivery</h4>
-            <p className="text-sm text-navy-600">Individual items, priced per piece</p>
-          </button>
-
-          <button
-            onClick={() => updateBookingData({ service_type: 'specialty_item' })}
-            className={`p-4 rounded-lg border-2 text-left transition-all ${
-              bookingData.service_type === 'specialty_item'
-                ? 'border-navy-500 bg-navy-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <h4 className="font-medium text-navy-900 mb-2">Specialty Items</h4>
-            <p className="text-sm text-navy-600">Pelotons, surfboards, and more</p>
+            <p className="text-sm text-navy-600">Regular items + specialty items</p>
           </button>
         </div>
       </div>
 
-      {/* Mini Moves */}
       {bookingData.service_type === 'mini_move' && services?.mini_move_packages && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Select Package</h3>
@@ -238,7 +230,6 @@ export function ServiceSelectionStep() {
             ))}
           </div>
 
-          {/* Collapsible Organizing Services */}
           {bookingData.mini_move_package_id && (
             <div>
               <h4 className="text-lg font-medium text-navy-900 mb-3">Professional Organizing Services</h4>
@@ -255,7 +246,6 @@ export function ServiceSelectionStep() {
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Collapsible Packing Service */}
                     <Card 
                       variant={bookingData.include_packing ? "luxury" : "default"}
                       className="transition-all"
@@ -283,7 +273,6 @@ export function ServiceSelectionStep() {
                           </button>
                         </div>
                         
-                        {/* Collapsed Preview */}
                         {!packingExpanded && !bookingData.include_packing && (
                           <p className="text-sm text-navy-600 mt-2">
                             {organizingOptions.packing.duration} hours • {organizingOptions.packing.organizers} organizers • Supplies included
@@ -291,7 +280,6 @@ export function ServiceSelectionStep() {
                         )}
                       </CardHeader>
                       
-                      {/* Expanded Content */}
                       {(packingExpanded || bookingData.include_packing) && (
                         <CardContent>
                           <p className="text-sm text-navy-600 mb-4">{organizingOptions.packing.description}</p>
@@ -336,7 +324,6 @@ export function ServiceSelectionStep() {
                       )}
                     </Card>
 
-                    {/* Collapsible Unpacking Service */}
                     <Card 
                       variant={bookingData.include_unpacking ? "luxury" : "default"}
                       className="transition-all"
@@ -364,7 +351,6 @@ export function ServiceSelectionStep() {
                           </button>
                         </div>
                         
-                        {/* Collapsed Preview */}
                         {!unpackingExpanded && !bookingData.include_unpacking && (
                           <p className="text-sm text-navy-600 mt-2">
                             {organizingOptions.unpacking.duration} hours • {organizingOptions.unpacking.organizers} organizers • Organizing only
@@ -372,7 +358,6 @@ export function ServiceSelectionStep() {
                         )}
                       </CardHeader>
                       
-                      {/* Expanded Content */}
                       {(unpackingExpanded || bookingData.include_unpacking) && (
                         <CardContent>
                           <p className="text-sm text-navy-600 mb-4">{organizingOptions.unpacking.description}</p>
@@ -424,93 +409,112 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Standard Delivery - FIXED: Added weight disclaimers */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
-        <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
+        <div className="space-y-6">
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Configure Your Delivery</h3>
+          
           <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Regular Items (Optional)</h4>
+            </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <Input
-                  label="Number of Items"
-                  type="number"
-                  min={services.standard_delivery.minimum_items}
-                  value={bookingData.standard_delivery_item_count?.toString() || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow empty string for clearing the field
-                    if (value === '') {
-                      updateBookingData({ standard_delivery_item_count: undefined });
-                    } else {
-                      const numValue = parseInt(value, 10);
-                      if (!isNaN(numValue)) {
-                        updateBookingData({ standard_delivery_item_count: numValue });
-                      }
+              <Input
+                label="Number of Items"
+                type="number"
+                min={0}
+                value={bookingData.standard_delivery_item_count?.toString() || '0'}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') {
+                    updateBookingData({ standard_delivery_item_count: 0 });
+                  } else {
+                    const numValue = parseInt(value, 10);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                      updateBookingData({ standard_delivery_item_count: numValue });
                     }
-                  }}
-                  placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
-                  helper={`$${services.standard_delivery.price_per_item_dollars} per item (under 50 lbs) • $${services.standard_delivery.minimum_charge_dollars} minimum`}
-                />
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={bookingData.is_same_day_delivery || false}
-                    onChange={(e) => updateBookingData({ is_same_day_delivery: e.target.checked })}
-                    className="mr-3"
-                  />
-                  <span className="text-navy-900 font-medium">
-                    Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
-                  </span>
-                </label>
-
-                {/* ADDED: Weight disclaimer */}
-                <div className="bg-gold-50 border border-gold-200 rounded-lg p-3">
-                  <p className="text-sm text-gold-800">
-                    <strong>Note:</strong> Standard pricing applies to items under 50 lbs each. 
-                    Overweight items may incur additional charges.
-                  </p>
-                </div>
+                  }
+                }}
+                placeholder="Enter 0 if booking specialty items only"
+                helper={`$${services.standard_delivery.price_per_item_dollars} per item (under 50 lbs) • $${services.standard_delivery.minimum_charge_dollars} minimum applies to 1-3 items`}
+              />
+              
+              <div className="mt-3 bg-gold-50 border border-gold-200 rounded-lg p-3">
+                <p className="text-sm text-gold-800">
+                  <strong>Note:</strong> Standard pricing applies to items under 50 lbs each. 
+                  Overweight items may incur additional charges.
+                </p>
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Specialty Items */}
-      {bookingData.service_type === 'specialty_item' && services?.specialty_items && (
-        <div>
-          <h3 className="text-lg font-medium text-navy-900 mb-4">Select Specialty Items</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.specialty_items.map((item) => (
-              <label 
-                key={item.id}
-                className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-              >
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Specialty Items (Optional)</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {services.specialty_items.map((item) => (
+                  <label 
+                    key={item.id}
+                    className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={bookingData.specialty_item_ids?.includes(item.id) || false}
+                      onChange={(e) => {
+                        const currentIds = bookingData.specialty_item_ids || [];
+                        const newIds = e.target.checked
+                          ? [...currentIds, item.id]
+                          : currentIds.filter(id => id !== item.id);
+                        updateBookingData({ specialty_item_ids: newIds });
+                      }}
+                      className="mr-3"
+                    />
+                    <div className="flex-1 flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-navy-900">{item.name}</div>
+                        <div className="text-sm text-navy-600">{item.description}</div>
+                      </div>
+                      <div className="text-lg font-bold text-navy-900 ml-4">${item.price_dollars}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Item not listed?</strong> Contact us for a custom quote: <strong>(631) 595-5100</strong>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="default">
+            <CardContent>
+              <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={bookingData.specialty_item_ids?.includes(item.id) || false}
-                  onChange={(e) => {
-                    const currentIds = bookingData.specialty_item_ids || [];
-                    const newIds = e.target.checked
-                      ? [...currentIds, item.id]
-                      : currentIds.filter(id => id !== item.id);
-                    updateBookingData({ specialty_item_ids: newIds });
-                  }}
-                  className="mr-4"
+                  checked={bookingData.is_same_day_delivery || false}
+                  onChange={(e) => updateBookingData({ is_same_day_delivery: e.target.checked })}
+                  className="mr-3"
                 />
-                <div className="flex-1">
-                  <h4 className="font-medium text-navy-900">{item.name}</h4>
-                  <p className="text-sm text-navy-600 mb-1">{item.description}</p>
-                  <div className="text-lg font-bold text-navy-900">${item.price_dollars}</div>
-                </div>
+                <span className="text-navy-900 font-medium">
+                  Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
+                </span>
               </label>
-            ))}
-          </div>
+            </CardContent>
+          </Card>
+
+          {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium">
+                ⚠️ Please select at least one regular item or specialty item to continue.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Continue Button */}
       <div className="flex justify-end pt-4">
         <Button
           onClick={nextStep}
