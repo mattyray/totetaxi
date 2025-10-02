@@ -183,17 +183,17 @@ class StandardDeliveryConfig(models.Model):
     def minimum_charge_dollars(self):
         return self.minimum_charge_cents / 100
     
-def calculate_total(self, item_count, is_same_day=False):
-    """Calculate total for standard delivery"""
-    # FIXED: Calculate base delivery cost first
-    item_total = self.price_per_item_cents * item_count
-    base_cost = max(item_total, self.minimum_charge_cents)
-    
-    # FIXED: ADD same-day surcharge on top of base cost
-    if is_same_day:
-        return base_cost + self.same_day_flat_rate_cents
-    
-    return base_cost
+    def calculate_total(self, item_count, is_same_day=False):
+        """Calculate total for standard delivery"""
+        # FIXED: Calculate base delivery cost first
+        item_total = self.price_per_item_cents * item_count
+        base_cost = max(item_total, self.minimum_charge_cents)
+        
+        # FIXED: ADD same-day surcharge on top of base cost
+        if is_same_day:
+            return base_cost + self.same_day_flat_rate_cents
+        
+        return base_cost
 
 class SpecialtyItem(models.Model):
     """Specialty items from homework: Peloton, Surfboard, Crib, Wardrobe Box"""

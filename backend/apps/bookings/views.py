@@ -1,3 +1,4 @@
+# backend/apps/bookings/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -214,15 +215,19 @@ class PricingPreviewView(APIView):
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    base_price_cents = config.calculate_total(item_count, is_same_day)
+                    # FIXED: Calculate base and same-day separately for proper breakdown
+                    item_total = config.price_per_item_cents * item_count
+                    base_price_cents = max(item_total, config.minimum_charge_cents)
+                    
                     details['item_count'] = item_count
-                    details['is_same_day'] = is_same_day
+                    details['per_item_rate'] = config.price_per_item_cents / 100
+                    details['minimum_charge'] = config.minimum_charge_cents / 100
                     
                     if is_same_day:
+                        # Add same-day as a surcharge, not part of base
+                        surcharge_cents += config.same_day_flat_rate_cents
+                        details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-                    else:
-                        details['per_item_rate'] = config.price_per_item_cents / 100
-                        details['minimum_charge'] = config.minimum_charge_cents / 100
                         
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)

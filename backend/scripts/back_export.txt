@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-09-29 10:31:20
-# Total files: 119
+# Created: 2025-10-02 13:12:59
+# Total files: 121
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -703,7 +703,6 @@ SpecialtyItem.objects.create(
     name='Peloton / Large Equipment',
     description='Peloton bikes and large equipment moving',
     price_cents=50000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -713,7 +712,6 @@ SpecialtyItem.objects.create(
     name='Surfboard',
     description='Professional surfboard transport',
     price_cents=35000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -723,7 +721,6 @@ SpecialtyItem.objects.create(
     name='Crib',
     description='Foldable crib delivery (may vary for non-foldable)',
     price_cents=35000,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -733,7 +730,6 @@ SpecialtyItem.objects.create(
     name='Wardrobe Box',
     description='Professional wardrobe box handling',
     price_cents=27500,
-    requires_van_schedule=True,
     special_handling=True,
     is_active=True
 )
@@ -953,7 +949,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Environment variables
 env = environ.Env(
-    DEBUG=(bool, False),  # Changed default to False for production
+    DEBUG=(bool, False),
 )
 
 # Take environment variables from .env file
@@ -993,7 +989,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_celery_beat',
     'drf_yasg',
-    'django_ratelimit',  # ADDED: Rate limiting support
+    'django_ratelimit',
 ]
 
 # LOCAL_APPS - All ToteTaxi apps
@@ -1072,7 +1068,7 @@ CACHES = {
         'LOCATION': env('REDIS_URL', default='redis://redis:6379/1'),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'IGNORE_EXCEPTIONS': True,  # Don't break if Redis unavailable
+            'IGNORE_EXCEPTIONS': True,
         }
     }
 }
@@ -1122,10 +1118,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django REST Framework
+# Django REST Framework - UPDATED FOR HYBRID AUTH
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'apps.customers.authentication.HybridAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -1142,7 +1138,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
+    'https://totetaxi.netlify.app',
 ])
 
 # Add Fly.io to CORS allowed origins if needed
@@ -1160,16 +1156,17 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-session-id',
 ]
 
 # CSRF Settings - FIXED FOR MOBILE CROSS-DOMAIN
 CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for API calls
-CSRF_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'None'
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://totetaxi.netlify.app',  # ADDED: Your frontend domain
+    'https://totetaxi.netlify.app',
 ])
 
 # Add Fly.io to CSRF trusted origins
@@ -1180,12 +1177,12 @@ if FLY_APP_NAME:
 
 # Session Settings - FIXED FOR MOBILE CROSS-DOMAIN
 SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-SESSION_COOKIE_SAMESITE = 'None'  # CHANGED: Required for cross-domain on mobile
+SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep session across browser sessions  
-SESSION_SAVE_EVERY_REQUEST = True       # Refresh session on every request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_NAME = 'totetaxi_sessionid'
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database sessions
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Celery Configuration
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
@@ -1204,8 +1201,8 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_PRELOAD = True
-    SESSION_COOKIE_SECURE = True  # Required with SameSite=None
-    CSRF_COOKIE_SECURE = True     # Required with SameSite=None
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # Logging with rate limiting
 LOGGING = {
@@ -3574,6 +3571,7 @@ urlpatterns = [
 # ==== apps/bookings/views.py ====
 
 ```python
+# backend/apps/bookings/views.py
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -3790,15 +3788,19 @@ class PricingPreviewView(APIView):
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    base_price_cents = config.calculate_total(item_count, is_same_day)
+                    # FIXED: Calculate base and same-day separately for proper breakdown
+                    item_total = config.price_per_item_cents * item_count
+                    base_price_cents = max(item_total, config.minimum_charge_cents)
+                    
                     details['item_count'] = item_count
-                    details['is_same_day'] = is_same_day
+                    details['per_item_rate'] = config.price_per_item_cents / 100
+                    details['minimum_charge'] = config.minimum_charge_cents / 100
                     
                     if is_same_day:
+                        # Add same-day as a surcharge, not part of base
+                        surcharge_cents += config.same_day_flat_rate_cents
+                        details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-                    else:
-                        details['per_item_rate'] = config.price_per_item_cents / 100
-                        details['minimum_charge'] = config.minimum_charge_cents / 100
                         
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
@@ -4203,6 +4205,63 @@ from django.apps import AppConfig
 class CustomersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.customers'  # Change this from 'customers' to 'apps.customers'
+```
+
+# ==== apps/customers/authentication.py ====
+
+```python
+from rest_framework.authentication import SessionAuthentication
+from django.contrib.auth.models import User
+from django.contrib.sessions.backends.db import SessionStore
+import logging
+
+logger = logging.getLogger(__name__)
+
+class HybridAuthentication(SessionAuthentication):
+    """
+    Hybrid authentication for mobile compatibility.
+    Tries session cookie first (desktop), falls back to X-Session-Id header (mobile).
+    """
+    
+    def authenticate(self, request):
+        # Try standard cookie-based session authentication
+        user = getattr(request._request, 'user', None)
+        
+        if user and user.is_authenticated:
+            return (user, None)
+        
+        # Mobile fallback: check for session ID in custom header
+        session_key = request.META.get('HTTP_X_SESSION_ID')
+        
+        if not session_key:
+            return None
+        
+        logger.info(f"Mobile auth attempt with session: {session_key[:10]}...")
+        
+        try:
+            # Validate session exists and get user
+            session = SessionStore(session_key=session_key)
+            
+            if not session.exists(session_key):
+                logger.warning(f"Session does not exist: {session_key[:10]}...")
+                return None
+            
+            user_id = session.get('_auth_user_id')
+            
+            if not user_id:
+                logger.warning(f"No user_id in session: {session_key[:10]}...")
+                return None
+            
+            user = User.objects.get(pk=user_id)
+            logger.info(f"Mobile auth successful for user: {user.email}")
+            return (user, None)
+            
+        except User.DoesNotExist:
+            logger.error(f"User not found for session: {session_key[:10]}...")
+            return None
+        except Exception as e:
+            logger.error(f"Mobile auth error: {str(e)}")
+            return None
 ```
 
 # ==== apps/customers/booking_serializers.py ====
@@ -5297,7 +5356,6 @@ urlpatterns = [
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
     
     # DEBUG endpoint
-    path('debug/', views.MobileDebugView.as_view(), name='mobile-debug'),
     
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),
@@ -5392,7 +5450,6 @@ class CustomerRegistrationView(generics.CreateAPIView):
             'csrf_token': get_token(request)
         }, status=status.HTTP_201_CREATED)
 
-
 @method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True), name='post')
 @method_decorator(ratelimit(key='header:user-agent', rate='15/m', method='POST', block=True), name='post')
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -5434,9 +5491,9 @@ class CustomerLoginView(APIView):
             'message': 'Login successful',
             'user': UserSerializer(user).data,
             'customer_profile': CustomerProfileSerializer(user.customer_profile).data,
+            'session_id': request.session.session_key,
             'csrf_token': get_token(request)
         })
-
 
 @method_decorator(ratelimit(key='user_or_ip', rate='20/m', method='POST', block=True), name='post')
 @method_decorator(csrf_exempt, name='dispatch')
@@ -5663,95 +5720,6 @@ class BookingPreferencesView(APIView):
         return SavedAddressSerializer(most_used).data if most_used else None
     
     # Add this to the end of backend/apps/customers/views.py
-
-@method_decorator(ratelimit(key='ip', rate='10/m', method='GET', block=True), name='get')
-@method_decorator(ensure_csrf_cookie, name='dispatch')
-class MobileDebugView(APIView):
-    """Mobile debugging view to diagnose cookie and authentication issues"""
-    permission_classes = [permissions.AllowAny]
-    
-    def get(self, request):
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        # Get request details
-        origin = request.META.get('HTTP_ORIGIN', 'NO_ORIGIN')
-        host = request.META.get('HTTP_HOST', 'NO_HOST')
-        user_agent = request.META.get('HTTP_USER_AGENT', 'NO_UA')
-        
-        # Log detailed request information
-        logger.info(f"Mobile Debug Request:")
-        logger.info(f"  Origin: {origin}")
-        logger.info(f"  Host: {host}")
-        logger.info(f"  User-Agent: {user_agent}")
-        logger.info(f"  Session Key: {request.session.session_key}")
-        logger.info(f"  User Authenticated: {request.user.is_authenticated}")
-        logger.info(f"  Cookies in request: {dict(request.COOKIES)}")
-        
-        # Force session creation if none exists
-        if not request.session.session_key:
-            request.session.create()
-            logger.info(f"Created new session: {request.session.session_key}")
-        
-        # Prepare response data
-        response_data = {
-            'debug_info': {
-                'timestamp': request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')),
-                'origin': origin,
-                'host': host,
-                'session_key': request.session.session_key,
-                'csrf_token': get_token(request),
-                'cookies_received': dict(request.COOKIES),
-                'user_authenticated': request.user.is_authenticated,
-                'user_id': request.user.id if request.user.is_authenticated else None,
-                'cors_settings': {
-                    'allowed_origins': getattr(settings, 'CORS_ALLOWED_ORIGINS', []),
-                    'trusted_origins': getattr(settings, 'CSRF_TRUSTED_ORIGINS', []),
-                },
-                'cookie_settings': {
-                    'session_samesite': getattr(settings, 'SESSION_COOKIE_SAMESITE', 'unknown'),
-                    'csrf_samesite': getattr(settings, 'CSRF_COOKIE_SAMESITE', 'unknown'),
-                    'session_secure': getattr(settings, 'SESSION_COOKIE_SECURE', 'unknown'),
-                    'csrf_secure': getattr(settings, 'CSRF_COOKIE_SECURE', 'unknown'),
-                }
-            }
-        }
-        
-        # Create response
-        response = Response(response_data)
-        
-        # Manually set cookies with explicit mobile-friendly settings
-        if request.session.session_key:
-            response.set_cookie(
-                'totetaxi_sessionid',
-                request.session.session_key,
-                max_age=60 * 60 * 24 * 30,  # 30 days
-                secure=True,
-                httponly=True,
-                samesite='None',
-                domain=None
-            )
-            logger.info(f"Set custom session cookie: {request.session.session_key}")
-        
-        # Set CSRF cookie explicitly
-        csrf_token = get_token(request)
-        response.set_cookie(
-            'csrftoken',
-            csrf_token,
-            max_age=60 * 60 * 24 * 7,  # 1 week
-            secure=True,
-            httponly=False,
-            samesite='None',
-            domain=None
-        )
-        logger.info(f"Set CSRF cookie: {csrf_token[:10]}...")
-        
-        # Add CORS headers manually
-        response['Access-Control-Allow-Origin'] = origin
-        response['Access-Control-Allow-Credentials'] = 'true'
-        response['Vary'] = 'Origin'
-        
-        return response
 ```
 
 # ==== apps/documents/__init__.py ====
@@ -7740,8 +7708,8 @@ class StandardDeliveryConfigAdmin(admin.ModelAdmin):
 
 @admin.register(SpecialtyItem)
 class SpecialtyItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'item_type', 'price_dollars', 'requires_van_schedule', 'special_handling', 'is_active')
-    list_filter = ('item_type', 'requires_van_schedule', 'special_handling', 'is_active')
+    list_display = ('name', 'item_type', 'price_dollars', 'special_handling', 'is_active')
+    list_filter = ('item_type', 'special_handling', 'is_active')
     search_fields = ('name', 'description')
     
     fieldsets = (
@@ -7752,7 +7720,7 @@ class SpecialtyItemAdmin(admin.ModelAdmin):
             'fields': ('price_cents',)
         }),
         ('Requirements', {
-            'fields': ('requires_van_schedule', 'special_handling')
+            'fields': ('special_handling',)
         })
     )
 
@@ -8151,6 +8119,28 @@ class Migration(migrations.Migration):
     ]
 ```
 
+# ==== apps/services/migrations/0006_remove_specialtyitem_requires_van_schedule.py ====
+
+```python
+# Generated by Django 5.2.5 on 2025-10-02 15:14
+
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('services', '0005_remove_van_schedule'),
+    ]
+
+    operations = [
+        migrations.RemoveField(
+            model_name='specialtyitem',
+            name='requires_van_schedule',
+        ),
+    ]
+```
+
 # ==== apps/services/migrations/__init__.py ====
 
 ```python
@@ -8347,12 +8337,15 @@ class StandardDeliveryConfig(models.Model):
     
     def calculate_total(self, item_count, is_same_day=False):
         """Calculate total for standard delivery"""
-        if is_same_day:
-            return self.same_day_flat_rate_cents
-        
+        # FIXED: Calculate base delivery cost first
         item_total = self.price_per_item_cents * item_count
-        return max(item_total, self.minimum_charge_cents)
-
+        base_cost = max(item_total, self.minimum_charge_cents)
+        
+        # FIXED: ADD same-day surcharge on top of base cost
+        if is_same_day:
+            return base_cost + self.same_day_flat_rate_cents
+        
+        return base_cost
 
 class SpecialtyItem(models.Model):
     """Specialty items from homework: Peloton, Surfboard, Crib, Wardrobe Box"""
@@ -8375,10 +8368,6 @@ class SpecialtyItem(models.Model):
     price_cents = models.PositiveBigIntegerField()
     
     # Requirements
-    requires_van_schedule = models.BooleanField(
-        default=True,
-        help_text="Can only be booked when van is already scheduled"
-    )
     special_handling = models.BooleanField(default=True)
     
     is_active = models.BooleanField(default=True)
@@ -8548,7 +8537,7 @@ class SpecialtyItemSerializer(serializers.ModelSerializer):
         model = SpecialtyItem
         fields = (
             'id', 'item_type', 'name', 'description', 'price_dollars',
-            'requires_van_schedule', 'special_handling'
+            'special_handling'
         )
 
 

@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-09-29 10:31:36.374713
-# Files: 76
+# Generated: 2025-10-02 13:13:08.394522
+# Files: 75
 
 # ==== next-env.d.ts ====
 
@@ -1400,7 +1400,7 @@ export default function LoginPage() {
 // src/app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { BookingWizard } from '@/components/booking';
 import { Modal } from '@/components/ui/modal';
@@ -1413,11 +1413,9 @@ import {
   TestimonialsSection
 } from '@/components/marketing';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
-import { MobileDebug } from '@/components/debug/mobile-debug';
 
 export default function Home() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   const openBookingWizard = () => {
     setShowBookingWizard(true);
@@ -1427,17 +1425,9 @@ export default function Home() {
     setShowBookingWizard(false);
   };
 
-  useEffect(() => {
-    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobile(checkMobile);
-  }, []);
-
   return (
     <>
       <MainLayout onBookNowClick={openBookingWizard}>
-        {/* Show debug info only on mobile */}
-        {isMobile && <MobileDebug />}
-
         <HeroSection onBookNowClick={openBookingWizard} />
         <HowItWorksSection />
         <WhatWeTransportSection />
@@ -3070,14 +3060,19 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue
+    setValue,
+    clearErrors
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: 'onSubmit',  // FIXED: Only validate on submit, not on change
+    reValidateMode: 'onSubmit'  // FIXED: Only revalidate on submit
   });
 
   const fillTestUser = () => {
-    setValue('email', TEST_USER.email);
-    setValue('password', TEST_USER.password);
+    setValue('email', TEST_USER.email, { shouldValidate: false });
+    setValue('password', TEST_USER.password, { shouldValidate: false });
+    clearErrors();  // FIXED: Clear any existing errors
+    setApiError('');  // FIXED: Clear API errors too
   };
 
   const onSubmit = async (data: LoginFormData) => {
@@ -3088,6 +3083,7 @@ export function LoginForm() {
       
       if (result.success) {
         console.log('Login successful, redirecting to dashboard');
+        clearErrors();  // FIXED: Clear form errors on success
         router.push('/dashboard');
       } else {
         setApiError(result.error || 'Login failed. Please check your credentials.');
@@ -3135,6 +3131,10 @@ export function LoginForm() {
                 {...register('email')}
                 placeholder="your@email.com"
                 className={errors.email ? 'border-red-500' : ''}
+                onFocus={() => {
+                  clearErrors('email');  // FIXED: Clear error when user focuses input
+                  setApiError('');  // FIXED: Clear API error when user starts correcting
+                }}
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
@@ -3151,6 +3151,10 @@ export function LoginForm() {
                 {...register('password')}
                 placeholder="Enter your password"
                 className={errors.password ? 'border-red-500' : ''}
+                onFocus={() => {
+                  clearErrors('password');  // FIXED: Clear error when user focuses input
+                  setApiError('');  // FIXED: Clear API error when user starts correcting
+                }}
               />
               {errors.password && (
                 <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
@@ -3203,7 +3207,6 @@ export function LoginForm() {
     </div>
   );
 }
-
 ```
 
 # ==== src/components/auth/register-form.tsx ====
@@ -6507,7 +6510,7 @@ export function ServiceSelectionStep() {
         </div>
       )}
 
-      {/* Standard Delivery */}
+      {/* Standard Delivery - FIXED: Added weight disclaimers */}
       {bookingData.service_type === 'standard_delivery' && services?.standard_delivery && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-4">Standard Delivery Details</h3>
@@ -6519,11 +6522,20 @@ export function ServiceSelectionStep() {
                   type="number"
                   min={services.standard_delivery.minimum_items}
                   value={bookingData.standard_delivery_item_count?.toString() || ''}
-                  onChange={(e) => updateBookingData({ 
-                    standard_delivery_item_count: parseInt(e.target.value) || undefined 
-                  })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string for clearing the field
+                    if (value === '') {
+                      updateBookingData({ standard_delivery_item_count: undefined });
+                    } else {
+                      const numValue = parseInt(value, 10);
+                      if (!isNaN(numValue)) {
+                        updateBookingData({ standard_delivery_item_count: numValue });
+                      }
+                    }
+                  }}
                   placeholder={`Minimum ${services.standard_delivery.minimum_items} items`}
-                  helper={`$${services.standard_delivery.price_per_item_dollars} per item • $${services.standard_delivery.minimum_charge_dollars} minimum`}
+                  helper={`$${services.standard_delivery.price_per_item_dollars} per item (under 50 lbs) • $${services.standard_delivery.minimum_charge_dollars} minimum`}
                 />
 
                 <label className="flex items-center">
@@ -6537,6 +6549,14 @@ export function ServiceSelectionStep() {
                     Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
                   </span>
                 </label>
+
+                {/* ADDED: Weight disclaimer */}
+                <div className="bg-gold-50 border border-gold-200 rounded-lg p-3">
+                  <p className="text-sm text-gold-800">
+                    <strong>Note:</strong> Standard pricing applies to items under 50 lbs each. 
+                    Overweight items may incur additional charges.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -7098,185 +7118,6 @@ export function DashboardOverview() {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-```
-
-# ==== src/components/debug/mobile-debug.tsx ====
-
-```
-// src/components/debug/mobile-debug.tsx - MAKE SURE TO USE THIS VERSION
-'use client';
-
-import { useAuthStore } from '@/stores/auth-store';
-import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api-client';
-import axios from 'axios';
-
-export function MobileDebug() {
-  const { isAuthenticated, user } = useAuthStore();
-  const [apiTests, setApiTests] = useState<any>({});
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [copyStatus, setCopyStatus] = useState('');
-
-  const copyToClipboard = async () => {
-    try {
-      const debugText = JSON.stringify(apiTests, null, 2);
-      await navigator.clipboard.writeText(debugText);
-      setCopyStatus('COPIED!');
-      setTimeout(() => setCopyStatus(''), 2000);
-    } catch (err) {
-      const textArea = document.createElement('textarea');
-      textArea.value = JSON.stringify(apiTests, null, 2);
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopyStatus('COPIED!');
-      setTimeout(() => setCopyStatus(''), 2000);
-    }
-  };
-
-  useEffect(() => {
-    const testAPIs = async () => {
-      const tests: any = {
-        auth: { 
-          isAuthenticated, 
-          userEmail: user?.email || 'NONE',
-          timestamp: new Date().toISOString()
-        }
-      };
-
-      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
-
-      // DETAILED COOKIE ANALYSIS
-      const allCookies = document.cookie;
-      const cookieMap: any = {};
-      if (allCookies) {
-        allCookies.split(';').forEach(cookie => {
-          const [name, value] = cookie.trim().split('=');
-          cookieMap[name] = value;
-        });
-      }
-
-      tests.cookieDetails = {
-        raw: allCookies,
-        parsed: cookieMap,
-        sessionid: cookieMap.sessionid || 'MISSING',
-        csrftoken: cookieMap.csrftoken || 'MISSING',
-        totetaxi_sessionid: cookieMap.totetaxi_sessionid || 'MISSING',
-        count: Object.keys(cookieMap).length
-      };
-
-      // TEST 1: Call our custom debug endpoint
-      try {
-        const debugResponse = await axios.get(`${baseURL}/api/customer/debug/`, {
-          withCredentials: true,
-          timeout: 5000
-        });
-        
-        tests.debugEndpoint = {
-          status: debugResponse.status,
-          headers: {
-            'set-cookie': debugResponse.headers['set-cookie'] || 'NONE',
-            'access-control-allow-credentials': debugResponse.headers['access-control-allow-credentials'] || 'NONE',
-            'access-control-allow-origin': debugResponse.headers['access-control-allow-origin'] || 'NONE',
-          },
-          data: debugResponse.data,
-          cookiesAfter: document.cookie
-        };
-      } catch (err: any) {
-        tests.debugEndpoint = { 
-          error: err.message, 
-          status: err.response?.status,
-          responseHeaders: err.response?.headers || 'NONE'
-        };
-      }
-
-      // TEST 2: Dashboard API after debug endpoint
-      try {
-        const dashResponse = await apiClient.get('/api/customer/dashboard/');
-        tests.dashboardAPI = { 
-          success: true, 
-          status: dashResponse.status
-        };
-      } catch (err: any) {
-        tests.dashboardAPI = { 
-          success: false, 
-          error: err.message, 
-          status: err.response?.status
-        };
-      }
-
-      // TEST 3: Bookings API after debug endpoint
-      try {
-        const bookingsResponse = await apiClient.get('/api/customer/bookings/');
-        tests.bookingsAPI = { 
-          success: true, 
-          status: bookingsResponse.status
-        };
-      } catch (err: any) {
-        tests.bookingsAPI = { 
-          success: false, 
-          error: err.message, 
-          status: err.response?.status
-        };
-      }
-
-      // Environment details
-      tests.environment = {
-        origin: window.location.origin,
-        hostname: window.location.hostname,
-        protocol: window.location.protocol,
-        userAgent: navigator.userAgent.substring(0, 80) + '...',
-        baseURL: baseURL,
-        cookiesEnabled: navigator.cookieEnabled
-      };
-
-      setApiTests(tests);
-    };
-
-    if (isAuthenticated) {
-      testAPIs();
-    } else {
-      setApiTests({ auth: { isAuthenticated: false } });
-    }
-  }, [isAuthenticated, user]);
-
-  if (isMinimized) {
-    return (
-      <button 
-        onClick={() => setIsMinimized(false)}
-        className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-2 rounded z-50 shadow-lg"
-      >
-        DEBUG
-      </button>
-    );
-  }
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black text-white p-3 text-xs z-50 max-h-80 overflow-y-auto border-t-4 border-red-500">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-red-400">DEBUG ENDPOINT TEST</h3>
-        <div className="flex gap-1">
-          <button 
-            onClick={copyToClipboard}
-            className="text-white bg-green-600 px-2 py-1 rounded text-xs"
-          >
-            {copyStatus || 'COPY'}
-          </button>
-          <button 
-            onClick={() => setIsMinimized(true)}
-            className="text-white bg-red-600 px-2 py-1 rounded text-xs"
-          >
-            MIN
-          </button>
-        </div>
-      </div>
-      <pre className="whitespace-pre-wrap text-green-300 text-xs">
-        {JSON.stringify(apiTests, null, 2)}
-      </pre>
     </div>
   );
 }
@@ -10929,65 +10770,73 @@ export function useClickAway<T extends HTMLElement>(
 # ==== src/lib/api-client.ts ====
 
 ```
-// src/lib/api-client.ts - FIXED VERSION
 import axios from 'axios';
-
-// Get session cookie value for manual header
-function getSessionId() {
-  const cookies = document.cookie.split(';');
-  for (let cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'sessionid') {
-      return value;
-    }
-  }
-  return null;
-}
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005',
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000
 });
 
-// Enhanced request interceptor with mobile session fix
+// Request interceptor - handle mobile session fallback
 apiClient.interceptors.request.use(async (config) => {
-  // MOBILE FIX: Manually add session cookie to headers
-  const sessionId = getSessionId();
-  if (sessionId) {
-    config.headers['Cookie'] = `sessionid=${sessionId}`;
-    console.log('📱 Mobile: Added session cookie to headers');
+  // Check if cookies are working (desktop browsers)
+  const hasCookies = document.cookie.includes('sessionid') || 
+                     document.cookie.includes('totetaxi_sessionid');
+  
+  if (!hasCookies) {
+    // Mobile fallback: use stored session ID in header
+    const sessionId = localStorage.getItem('totetaxi-session-id');
+    if (sessionId) {
+      config.headers['X-Session-Id'] = sessionId;
+      console.log('Mobile: Using session ID from localStorage');
+    }
   }
-
+  
+  // Handle CSRF token for mutations
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
-    try {
-      const csrfResponse = await axios.get(`${config.baseURL}/api/customer/csrf-token/`, {
-        withCredentials: true,
-        headers: sessionId ? { 'Cookie': `sessionid=${sessionId}` } : {},
-        timeout: 5000
-      });
-      
-      const token = csrfResponse.data.csrf_token;
-      if (token) {
-        config.headers['X-CSRFToken'] = token;
+    const csrfToken = localStorage.getItem('totetaxi-csrf-token');
+    
+    if (csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    } else {
+      // Try to fetch CSRF token
+      try {
+        const csrfResponse = await axios.get(
+          `${config.baseURL}/api/customer/csrf-token/`,
+          { 
+            withCredentials: true,
+            timeout: 5000
+          }
+        );
+        
+        const token = csrfResponse.data.csrf_token;
+        if (token) {
+          localStorage.setItem('totetaxi-csrf-token', token);
+          config.headers['X-CSRFToken'] = token;
+        }
+      } catch (error) {
+        console.error('CSRF token fetch failed:', error);
       }
-    } catch (error) {
-      console.error('CSRF token fetch failed:', error);
     }
   }
   
   return config;
 });
 
-// Response interceptor stays the same
+// Response interceptor - handle auth errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
       console.log('401 Unauthorized - clearing auth state');
+      
+      // Clear stored session data
+      localStorage.removeItem('totetaxi-session-id');
+      localStorage.removeItem('totetaxi-csrf-token');
+      
+      // Clear auth stores
       try {
         const { useAuthStore } = await import('@/stores/auth-store');
         const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
@@ -10998,6 +10847,7 @@ apiClient.interceptors.response.use(
         console.warn('Error clearing auth on 401:', e);
       }
     }
+    
     return Promise.reject(error);
   }
 );
@@ -11086,7 +10936,6 @@ export const getStripe = () => {
 # ==== src/stores/auth-store.ts ====
 
 ```
-// frontend/src/stores/auth-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DjangoUser, CustomerProfile } from '@/types';
@@ -11147,7 +10996,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         });
       },
 
-      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
         console.log('Clearing customer auth state');
         
@@ -11155,7 +11003,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           const keysToRemove = [
             'totetaxi-auth',
             'totetaxi-last-activity',
-            'totetaxi-booking-wizard'
+            'totetaxi-booking-wizard',
+            'totetaxi-session-id',
+            'totetaxi-csrf-token'
           ];
           
           keysToRemove.forEach(key => {
@@ -11168,7 +11018,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('Cleared React Query cache');
         
@@ -11183,7 +11032,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           : null
       })),
 
-      // Enhanced: Use api-client instead of manual fetch
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
@@ -11194,7 +11042,17 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
 
           if (response.status === 200) {
-            const { user, customer_profile } = response.data;
+            const { user, customer_profile, session_id, csrf_token } = response.data;
+            
+            // Store session ID and CSRF token for mobile fallback
+            if (session_id) {
+              localStorage.setItem('totetaxi-session-id', session_id);
+              console.log('Stored session ID for mobile compatibility');
+            }
+            if (csrf_token) {
+              localStorage.setItem('totetaxi-csrf-token', csrf_token);
+            }
+            
             get().setAuth(user, customer_profile);
             return { success: true, user };
           } else {
@@ -11208,7 +11066,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // Enhanced: Use api-client instead of manual fetch
       register: async (data: RegisterData) => {
         set({ isLoading: true });
         
@@ -11232,7 +11089,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // Enhanced: Coordinated logout with staff store
       logout: async () => {
         console.log('Customer logout initiated');
         
@@ -11243,10 +11099,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           console.warn('Customer logout API failed:', error);
         }
         
-        // Always clear state, even if API call fails
         get().clearAuth();
         
-        // Clear staff auth too (prevent hybrid states)
         try {
           const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
           useStaffAuthStore.getState().clearAuth();
@@ -11255,7 +11109,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           console.warn('Could not clear staff auth:', e);
         }
         
-        // Clear booking wizard
         if (typeof window !== 'undefined') {
           try {
             const { useBookingWizard } = await import('@/stores/booking-store');
@@ -11267,7 +11120,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // New: Session validation method
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -11276,11 +11128,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
         
         try {
-          // Try to fetch current user data to validate session
           const response = await apiClient.get('/api/customer/profile/');
           
           if (response.status === 200) {
-            // Session is valid, optionally update profile data
             const { customer_profile } = response.data;
             if (customer_profile) {
               set({ customerProfile: customer_profile });
@@ -11304,13 +11154,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
       },
 
-      // New: Security reset method
       secureReset: () => {
         console.log('SECURITY: Performing secure reset of customer auth');
         
         if (typeof window !== 'undefined') {
           try {
-            // Remove all totetaxi-related keys
             const allKeys = Object.keys(localStorage);
             allKeys
               .filter(key => key.startsWith('totetaxi-'))
@@ -11323,7 +11171,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           }
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('SECURITY: Cleared React Query cache');
         
@@ -11332,13 +11179,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     }),
     {
       name: 'totetaxi-auth',
-      version: 2, // FIXED: Increment version to trigger migration
-      // FIXED: Add migration function to handle version changes
+      version: 2,
       migrate: (persistedState: any, version: number) => {
         console.log(`Customer auth migrating from version ${version} to 2`);
         
         if (version < 2) {
-          // Reset to initial state for major auth changes
           console.log('Customer auth reset due to version upgrade');
           return initialState;
         }
@@ -11446,103 +11291,6 @@ const initialBookingData: BookingData = {
 const STORE_VERSION = 3;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
-// FIXED: Less aggressive sanitization - preserve customer_info during typing
-const sanitizeBookingData = (data: Partial<BookingData>): Partial<BookingData> => {
-  const sanitized: Partial<BookingData> = {};
-  
-  // Validate service types
-  if (data.service_type && ['mini_move', 'standard_delivery', 'specialty_item'].includes(data.service_type)) {
-    sanitized.service_type = data.service_type;
-  }
-  
-  // Validate package types
-  if (data.package_type && ['petite', 'standard', 'full'].includes(data.package_type)) {
-    sanitized.package_type = data.package_type;
-  }
-  
-  // Validate pickup time
-  if (data.pickup_time && ['morning', 'morning_specific', 'no_time_preference'].includes(data.pickup_time)) {
-    sanitized.pickup_time = data.pickup_time;
-  }
-  
-  // Sanitize string fields with length limits
-  if (data.special_instructions) {
-    sanitized.special_instructions = data.special_instructions.substring(0, 500).trim();
-  }
-  
-  // Validate boolean fields
-  ['include_packing', 'include_unpacking', 'is_same_day_delivery', 'coi_required', 'is_outside_core_area'].forEach(field => {
-    if (typeof data[field as keyof BookingData] === 'boolean') {
-      (sanitized as any)[field] = data[field as keyof BookingData];
-    }
-  });
-  
-  // Validate numeric fields
-  if (typeof data.standard_delivery_item_count === 'number' && data.standard_delivery_item_count >= 1 && data.standard_delivery_item_count <= 50) {
-    sanitized.standard_delivery_item_count = Math.floor(data.standard_delivery_item_count);
-  }
-  
-  if (typeof data.specific_pickup_hour === 'number' && data.specific_pickup_hour >= 8 && data.specific_pickup_hour <= 17) {
-    sanitized.specific_pickup_hour = Math.floor(data.specific_pickup_hour);
-  }
-  
-  // Validate date format (YYYY-MM-DD)
-  if (data.pickup_date && /^\d{4}-\d{2}-\d{2}$/.test(data.pickup_date)) {
-    const date = new Date(data.pickup_date);
-    if (!isNaN(date.getTime()) && date >= new Date()) {
-      sanitized.pickup_date = data.pickup_date;
-    }
-  }
-  
-  // Validate UUIDs for IDs
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (data.mini_move_package_id && uuidRegex.test(data.mini_move_package_id)) {
-    sanitized.mini_move_package_id = data.mini_move_package_id;
-  }
-  
-  if (data.specialty_item_ids && Array.isArray(data.specialty_item_ids)) {
-    sanitized.specialty_item_ids = data.specialty_item_ids.filter(id => uuidRegex.test(id));
-  }
-  
-  // Validate addresses
-  if (data.pickup_address) {
-    sanitized.pickup_address = sanitizeAddress(data.pickup_address);
-  }
-  if (data.delivery_address) {
-    sanitized.delivery_address = sanitizeAddress(data.delivery_address);
-  }
-  
-  // FIXED: Always preserve customer_info during form editing (less aggressive validation)
-  if (data.customer_info) {
-    sanitized.customer_info = {
-      first_name: (data.customer_info.first_name || '').substring(0, 50).trim(),
-      last_name: (data.customer_info.last_name || '').substring(0, 50).trim(),
-      email: (data.customer_info.email || '').trim(),
-      phone: (data.customer_info.phone || '').trim()
-    };
-  }
-  
-  // Validate pricing data (read-only, from server)
-  if (data.pricing_data && typeof data.pricing_data === 'object') {
-    const pricing = data.pricing_data;
-    if (typeof pricing.total_price_dollars === 'number' && pricing.total_price_dollars >= 0) {
-      sanitized.pricing_data = pricing;
-    }
-  }
-  
-  return sanitized;
-};
-
-const sanitizeAddress = (address: BookingAddress): BookingAddress => {
-  return {
-    address_line_1: address.address_line_1?.substring(0, 100).trim() || '',
-    address_line_2: address.address_line_2?.substring(0, 100).trim(),
-    city: address.city?.substring(0, 50).trim() || '',
-    state: ['NY', 'CT', 'NJ'].includes(address.state) ? address.state : 'NY',
-    zip_code: address.zip_code?.replace(/\D/g, '').substring(0, 10) || ''
-  };
-};
-
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
     (set, get) => ({
@@ -11583,22 +11331,18 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         currentStep: Math.max(state.currentStep - 1, 0)
       })),
       
+      // FIXED: NO sanitization during typing - just merge the data directly
       updateBookingData: (data) => {
-        const sanitizedData = sanitizeBookingData(data);
-        
         set((state) => ({
-          bookingData: { ...state.bookingData, ...sanitizedData }
+          bookingData: { ...state.bookingData, ...data }
         }));
       },
       
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {
-        const sanitizedField = field.substring(0, 50);
-        const sanitizedMessage = message.substring(0, 200);
-        
         set((state) => ({
-          errors: { ...state.errors, [sanitizedField]: sanitizedMessage }
+          errors: { ...state.errors, [field]: message }
         }));
       },
       
@@ -11611,17 +11355,16 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       clearErrors: () => set({ errors: {} }),
       
       setBookingComplete: (bookingNumber) => {
-        const sanitizedBookingNumber = bookingNumber?.substring(0, 20).trim();
-        if (sanitizedBookingNumber) {
+        if (bookingNumber) {
           set({
             isBookingComplete: true,
-            completedBookingNumber: sanitizedBookingNumber
+            completedBookingNumber: bookingNumber
           });
         }
       },
       
       initializeForUser: (providedUserId?, isGuest?) => {
-        const userId = providedUserId?.substring(0, 50) || 'guest';
+        const userId = providedUserId || 'guest';
         const guestMode = isGuest !== undefined ? isGuest : true;
         
         const state = get();
@@ -12222,13 +11965,13 @@ export interface MiniMovePackage {
   protective_wrapping: boolean;
 }
 
+// FIXED: Removed requires_van_schedule field
 export interface SpecialtyItem {
   id: string;
   item_type: string;
   name: string;
   description: string;
   price_dollars: number;
-  requires_van_schedule: boolean;
   special_handling: boolean;
 }
 
