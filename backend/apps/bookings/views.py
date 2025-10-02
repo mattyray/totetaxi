@@ -41,30 +41,26 @@ class ServiceCatalogView(APIView):
         print("=" * 50)
         print("DEBUG: ServiceCatalogView.get() called")
         
-        # Debug: Verify the model import
         print(f"DEBUG: OrganizingService model: {OrganizingService}")
         print(f"DEBUG: OrganizingService._meta.app_label: {OrganizingService._meta.app_label}")
         print(f"DEBUG: OrganizingService._meta.db_table: {OrganizingService._meta.db_table}")
         
-        # Query organizing services with debug info
         organizing_services = OrganizingService.objects.filter(is_active=True).order_by('mini_move_tier', 'is_packing_service')
         print(f"DEBUG: Raw organizing services query count: {organizing_services.count()}")
         print(f"DEBUG: Organizing services IDs: {list(organizing_services.values_list('id', 'name', 'mini_move_tier', 'is_active'))}")
         
-        # Test serialization
         organizing_serializer = OrganizingServiceSerializer(organizing_services, many=True)
         serialized_organizing = organizing_serializer.data
         print(f"DEBUG: Serialized organizing services count: {len(serialized_organizing)}")
         print(f"DEBUG: Serialized organizing services: {serialized_organizing}")
         
-        # Query other services (keeping existing code)
         mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         specialty_items = SpecialtyItem.objects.filter(is_active=True)
         standard_config = StandardDeliveryConfig.objects.filter(is_active=True).first()
         
         response_data = {
             'mini_move_packages': MiniMovePackageSerializer(mini_move_packages, many=True).data,
-            'organizing_services': serialized_organizing,  # Use the debug-traced version
+            'organizing_services': serialized_organizing,
             'specialty_items': SpecialtyItemSerializer(specialty_items, many=True).data,
             'standard_delivery': StandardDeliveryConfigSerializer(standard_config).data if standard_config else None
         }
@@ -113,6 +109,7 @@ class PricingPreviewView(APIView):
         organizing_tax_cents = 0
         geographic_surcharge_cents = 0
         time_window_surcharge_cents = 0
+        same_day_fee_cents = 0
         details = {}
         
         if service_type == 'mini_move':
@@ -134,7 +131,6 @@ class PricingPreviewView(APIView):
                     
                     organizing_services_breakdown = []
                     
-                    # FIXED: Better error handling and debugging for organizing services
                     if include_packing:
                         packing_service = OrganizingService.objects.filter(
                             mini_move_tier=package.package_type,
@@ -183,19 +179,16 @@ class PricingPreviewView(APIView):
                                 'error': f'Unpacking service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
                     
-                    # Calculate tax on organizing services (8.25%)
                     if organizing_total_cents > 0:
                         organizing_tax_cents = int(organizing_total_cents * 0.0825)
                     
-                    # Calculate time window surcharge for specific hour selection
                     pickup_time = serializer.validated_data.get('pickup_time', 'morning')
                     if pickup_time == 'morning_specific' and package.package_type == 'standard':
-                        time_window_surcharge_cents = 17500  # $175
+                        time_window_surcharge_cents = 17500
                     
-                    # Calculate geographic surcharge
                     is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
                     if is_outside_core_area:
-                        geographic_surcharge_cents = 17500  # $175
+                        geographic_surcharge_cents = 17500
                     
                     if organizing_services_breakdown:
                         details['organizing_services'] = organizing_services_breakdown
@@ -203,7 +196,6 @@ class PricingPreviewView(APIView):
                 except MiniMovePackage.DoesNotExist:
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # PHASE 2: Updated Standard Delivery pricing logic
         elif service_type == 'standard_delivery':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -217,7 +209,6 @@ class PricingPreviewView(APIView):
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    # Calculate regular items (only if item_count > 0)
                     if item_count > 0:
                         item_total = config.price_per_item_cents * item_count
                         base_price_cents = max(item_total, config.minimum_charge_cents)
@@ -228,7 +219,6 @@ class PricingPreviewView(APIView):
                     else:
                         base_price_cents = 0
                     
-                    # NEW: Add specialty items to Standard Delivery
                     if specialty_item_ids:
                         specialty_items = SpecialtyItem.objects.filter(
                             id__in=specialty_item_ids, 
@@ -242,9 +232,8 @@ class PricingPreviewView(APIView):
                             for item in specialty_items
                         ]
                     
-                    # Same-day surcharge applies to total
                     if is_same_day:
-                        surcharge_cents += config.same_day_flat_rate_cents
+                        same_day_fee_cents = config.same_day_flat_rate_cents
                         details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
                         
@@ -267,9 +256,7 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
         
-        # Calculate weekend surcharges
-        is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
-        if pickup_date and base_price_cents > 0 and not is_same_day:
+        if pickup_date and base_price_cents > 0:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             surcharge_details = []
             
@@ -286,12 +273,13 @@ class PricingPreviewView(APIView):
             if surcharge_details:
                 details['surcharges'] = surcharge_details
         
-        total_price_cents = base_price_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
+        total_price_cents = base_price_cents + same_day_fee_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
         
         return Response({
             'service_type': service_type,
             'pricing': {
                 'base_price_dollars': base_price_cents / 100,
+                'same_day_delivery_dollars': same_day_fee_cents / 100,
                 'surcharge_dollars': surcharge_cents / 100,
                 'coi_fee_dollars': coi_fee_cents / 100,
                 'organizing_total_dollars': organizing_total_cents / 100,
@@ -303,7 +291,7 @@ class PricingPreviewView(APIView):
             'details': details,
             'pickup_date': pickup_date
         })
-    
+
 class CalendarAvailabilityView(APIView):
     """Calendar data with booking details - no capacity limits"""
     permission_classes = [permissions.AllowAny]
@@ -323,13 +311,11 @@ class CalendarAvailabilityView(APIView):
         current_date = start_date
         
         while current_date <= end_date:
-            # Get bookings for this date
             bookings_today = Booking.objects.filter(
                 pickup_date=current_date,
                 deleted_at__isnull=True
             ).select_related('customer', 'guest_checkout')
             
-            # Get surcharges for this date
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
@@ -339,7 +325,6 @@ class CalendarAvailabilityView(APIView):
                         'description': rule.description
                     })
             
-            # Serialize bookings for this date
             booking_list = []
             for booking in bookings_today:
                 booking_list.append({
@@ -355,7 +340,7 @@ class CalendarAvailabilityView(APIView):
             
             availability.append({
                 'date': current_date.isoformat(),
-                'available': True,  # Always available - no capacity limits
+                'available': True,
                 'is_weekend': current_date.weekday() >= 5,
                 'bookings': booking_list,
                 'surcharges': surcharges
@@ -389,14 +374,12 @@ class GuestBookingCreateView(generics.CreateAPIView):
         print(f"Guest booking created: {booking.booking_number}")
         print(f"Total price: ${booking.total_price_dollars}")
         
-        # Add payment intent creation for guests
         create_payment_intent = request.data.get('create_payment_intent', True)
         payment_data = None
         
         if create_payment_intent:
             print("Creating payment intent for guest...")
             try:
-                # Use guest email from the booking
                 guest_email = booking.guest_checkout.email if booking.guest_checkout else None
                 
                 payment_result = StripePaymentService.create_payment_intent(
@@ -412,10 +395,8 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 print(f"Payment intent created: {payment_result['payment_intent_id']}")
             except Exception as e:
                 print(f"Payment intent failed: {str(e)}")
-                # Don't fail the booking creation, but log the error
                 payment_data = None
         
-        # Return same format as authenticated endpoint
         response_data = {
             'message': 'Booking created successfully',
             'booking': {
@@ -425,7 +406,6 @@ class GuestBookingCreateView(generics.CreateAPIView):
             }
         }
         
-        # Include payment data if available
         if payment_data:
             response_data['payment'] = payment_data
         

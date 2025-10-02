@@ -10,7 +10,6 @@ class Address(models.Model):
     """Address for pickup/delivery - can be saved by customer or one-time"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # Optional customer link (for saved addresses)
     customer = models.ForeignKey(
         User, 
         on_delete=models.CASCADE, 
@@ -19,7 +18,6 @@ class Address(models.Model):
         related_name='booking_addresses'
     )
     
-    # Address fields
     address_line_1 = models.CharField(max_length=200)
     address_line_2 = models.CharField(max_length=200, blank=True)
     city = models.CharField(max_length=100)
@@ -77,7 +75,6 @@ class Booking(models.Model):
         ('specialty_item', 'Specialty Item'),
     ]
     
-    # UPDATED: Only morning pickup time available
     PICKUP_TIME_CHOICES = [
         ('morning', '8 AM - 11 AM'),
         ('morning_specific', 'Specific 1-hour window (surcharge applies)'),
@@ -87,7 +84,6 @@ class Booking(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking_number = models.CharField(max_length=20, unique=True, blank=True)
     
-    # Customer - EITHER customer OR guest_checkout
     customer = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -103,11 +99,8 @@ class Booking(models.Model):
         related_name='booking'
     )
     
-    # Service details
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
     
-    # SERVICE CONNECTIONS
-    # For Mini Move bookings
     mini_move_package = models.ForeignKey(
         'services.MiniMovePackage',
         on_delete=models.PROTECT,
@@ -116,7 +109,6 @@ class Booking(models.Model):
         help_text="Selected mini move package (Petite/Standard/Full)"
     )
     
-    # For Standard Delivery bookings  
     standard_delivery_item_count = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -127,14 +119,12 @@ class Booking(models.Model):
         help_text="Same-day delivery (flat $360 rate)"
     )
     
-    # For Specialty Item bookings (PHASE 2: Now also used for Standard Delivery)
     specialty_items = models.ManyToManyField(
         'services.SpecialtyItem',
         blank=True,
         help_text="Selected specialty items (Peloton, Surfboard, etc.)"
     )
     
-    # NEW: ORGANIZING SERVICES (tied to Mini Move packages)
     include_packing = models.BooleanField(
         default=False,
         help_text="Include professional packing service for this Mini Move tier"
@@ -144,7 +134,6 @@ class Booking(models.Model):
         help_text="Include professional unpacking service for this Mini Move tier"
     )
     
-    # Addresses
     pickup_address = models.ForeignKey(
         Address, 
         on_delete=models.PROTECT, 
@@ -156,7 +145,6 @@ class Booking(models.Model):
         related_name='delivery_bookings'
     )
     
-    # Date and preferences - UPDATED: Only morning times
     pickup_date = models.DateField()
     pickup_time = models.CharField(
         max_length=30,
@@ -164,7 +152,6 @@ class Booking(models.Model):
         default='morning'
     )
     
-    # NEW: Specific time window for morning_specific option
     specific_pickup_hour = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -176,17 +163,14 @@ class Booking(models.Model):
         help_text="Specific hour for 1-hour window pickup"
     )
     
-    # Special requirements
     special_instructions = models.TextField(blank=True)
     coi_required = models.BooleanField(default=False)
     
-    # NEW: Geographic surcharge tracking
     is_outside_core_area = models.BooleanField(
         default=False,
         help_text="True if pickup/delivery is 30+ miles from Manhattan"
     )
     
-    # CALCULATED PRICING - Updated to include new fees
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
@@ -208,10 +192,8 @@ class Booking(models.Model):
     )
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
-    # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
-    # Soft delete
     deleted_at = models.DateTimeField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -231,7 +213,6 @@ class Booking(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.booking_number:
-            # Simple booking number generation
             last_booking = Booking.objects.order_by('created_at').last()
             if last_booking and last_booking.booking_number:
                 last_num = int(last_booking.booking_number.split('-')[1])
@@ -240,7 +221,6 @@ class Booking(models.Model):
                 next_num = 1
             self.booking_number = f"TT-{next_num:06d}"
         
-        # Calculate pricing before saving
         self.calculate_pricing()
         super().save(*args, **kwargs)
     
@@ -304,7 +284,6 @@ class Booking(models.Model):
         total_organizing_cents = 0
         tier = self.mini_move_package.package_type
         
-        # Add packing service cost
         if self.include_packing:
             try:
                 packing_service = OrganizingService.objects.get(
@@ -316,7 +295,6 @@ class Booking(models.Model):
             except OrganizingService.DoesNotExist:
                 pass
         
-        # Add unpacking service cost
         if self.include_unpacking:
             try:
                 unpacking_service = OrganizingService.objects.get(
@@ -336,10 +314,8 @@ class Booking(models.Model):
             return 0
         
         if self.service_type == 'mini_move' and self.mini_move_package:
-            # Petite moves require $50 COI charge
             if self.mini_move_package.package_type == 'petite':
-                return 5000  # $50 in cents
-            # Other packages may have different COI handling
+                return 5000
             elif not self.mini_move_package.coi_included:
                 return self.mini_move_package.coi_fee_cents
         
@@ -348,32 +324,29 @@ class Booking(models.Model):
     def calculate_geographic_surcharge(self):
         """Calculate $175 surcharge for 30+ miles from Manhattan"""
         if self.is_outside_core_area:
-            return 17500  # $175 in cents
+            return 17500
         return 0
     
     def calculate_time_window_surcharge(self):
-        """UPDATED: Calculate $175 surcharge for 1-hour window selection"""
+        """Calculate $175 surcharge for 1-hour window selection"""
         if self.pickup_time == 'morning_specific':
             if self.service_type == 'mini_move' and self.mini_move_package:
-                # Standard package: $175 surcharge (UPDATED from $25)
                 if self.mini_move_package.package_type == 'standard':
-                    return 17500  # $175 in cents
-                # Full package: still free
+                    return 17500
                 elif self.mini_move_package.package_type == 'full':
                     return 0
         return 0
     
     def calculate_organizing_tax(self):
-        """UPDATED: Calculate tax on organizing services - 8.75% (changed from 8.25%)"""
+        """Calculate tax on organizing services - 8.25%"""
         if self.organizing_total_cents > 0:
-            return int(self.organizing_total_cents * 0.0875)  # Changed from 0.0825
+            return int(self.organizing_total_cents * 0.0825)
         return 0
     
     def calculate_pricing(self):
         """Calculate total pricing using services pricing engine + all new features"""
         from apps.services.models import StandardDeliveryConfig, SurchargeRule
         
-        # Reset pricing
         self.base_price_cents = 0
         self.surcharge_cents = 0
         self.coi_fee_cents = 0
@@ -382,66 +355,51 @@ class Booking(models.Model):
         self.time_window_surcharge_cents = 0
         self.organizing_tax_cents = 0
         
-        # Calculate base price by service type
         if self.service_type == 'mini_move' and self.mini_move_package:
             self.base_price_cents = self.mini_move_package.base_price_cents
             
-            # Calculate organizing services first
             self.organizing_total_cents = self.calculate_organizing_costs()
             
-            # Calculate organizing tax
             self.organizing_tax_cents = self.calculate_organizing_tax()
             
-            # NEW: COI handling with $50 for Petite
             self.coi_fee_cents = self.calculate_coi_fee()
             
-        # PHASE 2: Updated Standard Delivery pricing calculation
         elif self.service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
                 if config:
-                    # Calculate regular items (only if count > 0)
                     if self.standard_delivery_item_count and self.standard_delivery_item_count > 0:
                         item_total = config.price_per_item_cents * self.standard_delivery_item_count
                         self.base_price_cents = max(item_total, config.minimum_charge_cents)
                     else:
                         self.base_price_cents = 0
                     
-                    # NEW: Add specialty items to base price
                     if self.specialty_items.exists():
                         specialty_total = sum(item.price_cents for item in self.specialty_items.all())
                         self.base_price_cents += specialty_total
                     
-                    # Add same-day as surcharge (not part of base)
-                    if self.is_same_day_delivery:
-                        self.surcharge_cents += config.same_day_flat_rate_cents
-                        
             except StandardDeliveryConfig.DoesNotExist:
                 pass
         
         elif self.service_type == 'specialty_item':
-            # Calculate total for all selected specialty items
             specialty_total = 0
             for item in self.specialty_items.all():
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
         
-        # UPDATED: Calculate surcharges with service type awareness
-        if self.pickup_date and not self.is_same_day_delivery:
+        if self.pickup_date:
             active_surcharges = SurchargeRule.objects.filter(is_active=True)
             for surcharge in active_surcharges:
                 surcharge_amount = surcharge.calculate_surcharge(
                     self.base_price_cents, 
                     self.pickup_date,
-                    self.service_type  # NEW: Pass service type
+                    self.service_type
                 )
                 self.surcharge_cents += surcharge_amount
         
-        # NEW: Calculate additional fees
         self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
         self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
         
-        # Calculate total (base + all surcharges + organizing + tax)
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
@@ -466,7 +424,6 @@ class Booking(models.Model):
             'service_type': self.get_service_type_display(),
         }
         
-        # Add organizing service details if applicable
         if self.organizing_total_cents > 0:
             breakdown['organizing_services'] = self.get_organizing_services_breakdown()
         
@@ -511,7 +468,7 @@ class Booking(models.Model):
                     'price_dollars': unpacking_service.price_dollars,
                     'duration_hours': unpacking_service.duration_hours,
                     'organizer_count': unpacking_service.organizer_count,
-                    'supplies_allowance': 0  # Unpacking doesn't include supplies
+                    'supplies_allowance': 0
                 })
             except OrganizingService.DoesNotExist:
                 pass

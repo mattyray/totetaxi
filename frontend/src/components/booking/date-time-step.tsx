@@ -23,6 +23,7 @@ interface PricingPreview {
   service_type: string;
   pricing: {
     base_price_dollars: number;
+    same_day_delivery_dollars: number;
     surcharge_dollars: number;
     coi_fee_dollars: number;
     organizing_total_dollars: number;
@@ -166,7 +167,6 @@ export function DateTimeStep() {
 
   return (
     <div className="space-y-8">
-      {/* Calendar Section */}
       <div>
         <div className="flex justify-between items-center mb-6">
           <Button 
@@ -201,7 +201,6 @@ export function DateTimeStep() {
 
         <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
         
-        {/* Responsive Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 md:gap-4">
           {getMonthDays().map((date) => {
             const dateStr = formatDate(date);
@@ -362,6 +361,13 @@ export function DateTimeStep() {
                 <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
               </div>
 
+              {pricingMutation.data.pricing.same_day_delivery_dollars > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
+                </div>
+              )}
+
               {pricingMutation.data.pricing.surcharge_dollars > 0 && (
                 <div className="flex justify-between items-center">
                   <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
@@ -385,7 +391,7 @@ export function DateTimeStep() {
 
               {pricingMutation.data.pricing.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Tax (8.75%):</span>
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
                   <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
                 </div>
               )}

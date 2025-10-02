@@ -185,19 +185,17 @@ export function ReviewPaymentStep() {
         console.log('Customer info available:', !!bookingData.customer_info);
         console.log('Customer info details:', bookingData.customer_info);
         
-        // FIXED: Better validation and fallback for guest bookings
         if (!bookingData.customer_info || !bookingData.customer_info.email) {
           console.error('CRITICAL: Guest booking missing customer info');
           console.log('Available booking data keys:', Object.keys(bookingData));
           
-          // Try to get customer info from user if authenticated
           if (user && !bookingData.customer_info) {
             console.log('Falling back to authenticated user data');
             bookingRequest = {
               first_name: user.first_name || 'Guest',
               last_name: user.last_name || 'User',
               email: user.email,
-              phone: '555-0000', // Default phone for authenticated users without profile
+              phone: '555-0000',
               
               service_type: bookingData.service_type,
               mini_move_package_id: bookingData.mini_move_package_id,
@@ -471,7 +469,6 @@ export function ReviewPaymentStep() {
     );
   }
 
-  // FIXED: Show warning if customer info is missing
   if (!isAuthenticated && (!bookingData.customer_info || !bookingData.customer_info.email)) {
     return (
       <div className="space-y-6">
@@ -611,6 +608,13 @@ export function ReviewPaymentStep() {
                 <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
               </div>
               
+              {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-700">Same-Day Delivery:</span>
+                  <span className="font-medium">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
+                </div>
+              )}
+              
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-700">Weekend Surcharge:</span>
@@ -634,7 +638,7 @@ export function ReviewPaymentStep() {
 
               {bookingData.pricing_data.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-navy-700">Tax (8.75%):</span>
+                  <span className="text-navy-700">Tax (8.25%):</span>
                   <span className="font-medium">+${bookingData.pricing_data.organizing_tax_dollars}</span>
                 </div>
               )}
@@ -761,7 +765,6 @@ export function ReviewPaymentStep() {
         <Button 
           variant="outline" 
           onClick={handlePreviousStep}
-          disabled={isLoading || createBookingMutation.isPending}
         >
           ← Previous
         </Button>
