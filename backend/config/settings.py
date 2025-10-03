@@ -218,10 +218,10 @@ CORS_ALLOW_HEADERS = [
     'x-session-id',
 ]
 
-# CSRF Settings - FIXED FOR MOBILE CROSS-DOMAIN
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+# CSRF Settings - Conditional for dev/prod (FIXED)
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -234,9 +234,9 @@ if FLY_APP_NAME:
         f'https://{FLY_APP_NAME}.fly.dev',
     ])
 
-# Session Settings - FIXED FOR MOBILE CROSS-DOMAIN
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-SESSION_COOKIE_SAMESITE = 'None'
+# Session Settings - Conditional for dev/prod (FIXED)
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True

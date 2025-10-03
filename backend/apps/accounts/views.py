@@ -464,7 +464,6 @@ class BookingManagementView(APIView):
         payment = booking.payments.first()
         return payment.status if payment else 'not_created'
 
-
 @method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 @method_decorator(ratelimit(key='user', rate='10/m', method='PATCH', block=True), name='patch')
 class BookingDetailView(APIView):
@@ -476,7 +475,11 @@ class BookingDetailView(APIView):
             return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
         
         try:
-            booking = Booking.objects.get(id=booking_id, deleted_at__isnull=True)
+            booking = Booking.objects.select_related(
+                'customer', 'customer__customer_profile', 
+                'mini_move_package', 'guest_checkout',
+                'pickup_address', 'delivery_address'
+            ).prefetch_related('specialty_items').get(id=booking_id, deleted_at__isnull=True)
         except Booking.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -515,14 +518,20 @@ class BookingDetailView(APIView):
                 'total_spent_dollars': getattr(booking.customer.customer_profile, 'total_spent_dollars', 0)
             }
         
+        # 🔧 NEW: Get service-specific details
+        service_details = self._get_service_details(booking)
+        
         return Response({
             'booking': {
                 'id': str(booking.id),
                 'booking_number': booking.booking_number,
-                'service_type': booking.get_service_type_display(),
+                'service_type': booking.service_type,
+                'service_type_display': booking.get_service_type_display(),
                 'status': booking.status,
                 'pickup_date': booking.pickup_date,
-                'pickup_time': booking.get_pickup_time_display(),
+                'pickup_time': booking.pickup_time,
+                'pickup_time_display': booking.get_pickup_time_display(),
+                'specific_pickup_hour': booking.specific_pickup_hour,
                 'pickup_address': {
                     'address_line_1': booking.pickup_address.address_line_1,
                     'address_line_2': booking.pickup_address.address_line_2,
@@ -539,8 +548,11 @@ class BookingDetailView(APIView):
                 },
                 'special_instructions': booking.special_instructions,
                 'coi_required': booking.coi_required,
+                'is_outside_core_area': booking.is_outside_core_area,
                 'total_price_dollars': booking.total_price_dollars,
+                'organizing_total_dollars': booking.organizing_total_dollars if hasattr(booking, 'organizing_total_dollars') else 0,
                 'pricing_breakdown': booking.get_pricing_breakdown(),
+                'service_details': service_details,  # 🔧 NEW
                 'created_at': booking.created_at,
                 'updated_at': booking.updated_at
             },
@@ -553,6 +565,75 @@ class BookingDetailView(APIView):
             } if booking.guest_checkout else None,
             'payment': payment_data
         })
+    
+    def _get_service_details(self, booking):
+        """Get detailed service-specific information"""
+        details = {}
+        
+        # Mini Move details
+        if booking.service_type == 'mini_move' and booking.mini_move_package:
+            details['mini_move'] = {
+                'package_name': booking.mini_move_package.name,
+                'package_type': booking.mini_move_package.package_type,
+                'description': booking.mini_move_package.description,
+                'max_items': booking.mini_move_package.max_items,
+                'max_weight_per_item_lbs': booking.mini_move_package.max_weight_per_item_lbs,
+                'coi_included': booking.mini_move_package.coi_included,
+                'priority_scheduling': booking.mini_move_package.priority_scheduling,
+                'protective_wrapping': booking.mini_move_package.protective_wrapping,
+                'base_price_dollars': booking.mini_move_package.base_price_dollars,
+            }
+            
+            # Organizing services
+            if booking.include_packing or booking.include_unpacking:
+                details['organizing_services'] = {
+                    'include_packing': booking.include_packing,
+                    'include_unpacking': booking.include_unpacking,
+                    'breakdown': booking.get_organizing_breakdown() if hasattr(booking, 'get_organizing_breakdown') else None
+                }
+        
+        # Specialty Item details
+        elif booking.service_type == 'specialty_item' and booking.specialty_items.exists():
+            details['specialty_items'] = [
+                {
+                    'id': str(item.id),
+                    'name': item.name,
+                    'item_type': item.item_type,
+                    'description': item.description,
+                    'price_dollars': item.price_dollars,
+                    'special_handling': item.special_handling
+                }
+                for item in booking.specialty_items.all()
+            ]
+        
+        # Standard Delivery details
+        elif booking.service_type == 'standard_delivery':
+            details['standard_delivery'] = {
+                'item_count': booking.standard_delivery_item_count or 0,
+                'is_same_day': booking.is_same_day_delivery,
+            }
+            # Include specialty items if any
+            if booking.specialty_items.exists():
+                details['specialty_items'] = [
+                    {
+                        'id': str(item.id),
+                        'name': item.name,
+                        'price_dollars': item.price_dollars,
+                    }
+                    for item in booking.specialty_items.all()
+                ]
+        
+        # BLADE Transfer details
+        elif booking.service_type == 'blade_transfer':
+            details['blade_transfer'] = {
+                'airport': booking.blade_airport,
+                'flight_date': booking.blade_flight_date,
+                'flight_time': booking.blade_flight_time.strftime('%H:%M') if booking.blade_flight_time else None,
+                'bag_count': booking.blade_bag_count,
+                'ready_time': booking.blade_ready_time.strftime('%H:%M') if booking.blade_ready_time else None,
+            }
+        
+        return details
     
     def patch(self, request, booking_id):
         """Update booking status and details"""
@@ -593,6 +674,7 @@ class BookingDetailView(APIView):
                 'updated_at': booking.updated_at
             }
         })
+    
     
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class StaffCSRFTokenView(APIView):

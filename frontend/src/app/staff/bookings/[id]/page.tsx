@@ -19,6 +19,44 @@ interface Address {
   zip_code: string;
 }
 
+interface ServiceDetails {
+  mini_move?: {
+    package_name: string;
+    package_type: string;
+    description: string;
+    max_items: number | null;
+    max_weight_per_item_lbs: number;
+    coi_included: boolean;
+    priority_scheduling: boolean;
+    protective_wrapping: boolean;
+    base_price_dollars: number;
+  };
+  organizing_services?: {
+    include_packing: boolean;
+    include_unpacking: boolean;
+    breakdown?: any;
+  };
+  specialty_items?: Array<{
+    id: string;
+    name: string;
+    item_type: string;
+    description: string;
+    price_dollars: number;
+    special_handling: boolean;
+  }>;
+  standard_delivery?: {
+    item_count: number;
+    is_same_day: boolean;
+  };
+  blade_transfer?: {
+    airport: string;
+    flight_date: string;
+    flight_time: string;
+    bag_count: number;
+    ready_time: string;
+  };
+}
+
 interface BookingFormData {
   status: string;
   pickup_date: string;
@@ -85,7 +123,6 @@ export default function BookingDetailPage() {
     }
   });
 
-  // Initialize form data when booking loads
   useEffect(() => {
     if (booking?.booking) {
       setFormData({
@@ -119,14 +156,6 @@ export default function BookingDetailPage() {
     if (formData.pickup_time !== booking?.booking?.pickup_time) updates.pickup_time = formData.pickup_time;
     if (formData.special_instructions !== booking?.booking?.special_instructions) updates.special_instructions = formData.special_instructions;
     if (formData.coi_required !== booking?.booking?.coi_required) updates.coi_required = formData.coi_required;
-    
-    // Check if addresses changed
-    if (JSON.stringify(formData.pickup_address) !== JSON.stringify(booking?.booking?.pickup_address)) {
-      updates.pickup_address = formData.pickup_address;
-    }
-    if (JSON.stringify(formData.delivery_address) !== JSON.stringify(booking?.booking?.delivery_address)) {
-      updates.delivery_address = formData.delivery_address;
-    }
 
     if (Object.keys(updates).length > 0) {
       updateBookingMutation.mutate(updates);
@@ -149,12 +178,6 @@ export default function BookingDetailPage() {
     { value: 'no_time_preference', label: 'No time preference' },
   ];
 
-  const stateOptions = [
-    { value: 'NY', label: 'New York' },
-    { value: 'CT', label: 'Connecticut' },
-    { value: 'NJ', label: 'New Jersey' },
-  ];
-
   if (isLoading || !isAuthenticated || bookingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -162,6 +185,8 @@ export default function BookingDetailPage() {
       </div>
     );
   }
+
+  const serviceDetails: ServiceDetails = booking?.booking?.service_details || {};
 
   return (
     <StaffLayout>
@@ -173,7 +198,7 @@ export default function BookingDetailPage() {
               Booking #{booking?.booking?.booking_number}
             </h1>
             <p className="text-navy-600 mt-1">
-              {booking?.booking?.service_type} • {booking?.customer?.name || 'Guest Customer'}
+              {booking?.booking?.service_type_display} • {booking?.customer?.name || 'Guest Customer'}
             </p>
           </div>
           <div className="flex space-x-3">
@@ -256,7 +281,7 @@ export default function BookingDetailPage() {
                 ) : (
                   <>
                     <div className="text-navy-800"><strong className="text-navy-900">Booking #:</strong> {booking.booking?.booking_number}</div>
-                    <div className="text-navy-800"><strong className="text-navy-900">Service:</strong> {booking.booking?.service_type}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Service:</strong> {booking.booking?.service_type_display}</div>
                     <div className="text-navy-800">
                       <strong className="text-navy-900">Status:</strong> 
                       <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -274,15 +299,124 @@ export default function BookingDetailPage() {
                       </span>
                     </div>
                     <div className="text-navy-800"><strong className="text-navy-900">Pickup Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
-                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Time:</strong> {booking.booking?.pickup_time}</div>
+                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Time:</strong> {booking.booking?.pickup_time_display}</div>
                     <div className="text-navy-800"><strong className="text-navy-900">Total:</strong> ${booking.booking?.total_price_dollars}</div>
                     {booking.booking?.special_instructions && (
                       <div className="text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
                     )}
-                    {booking.booking?.coi_required && (
-                      <div className="text-orange-600 font-medium">COI Required</div>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {booking.booking?.coi_required && (
+                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">COI Required</span>
+                      )}
+                      {booking.booking?.is_outside_core_area && (
+                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded font-medium">Outside Core Area</span>
+                      )}
+                    </div>
                   </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Service Details Card */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Service Details</h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm">
+                  <strong className="text-navy-900">Service Type:</strong> 
+                  <span className="ml-2 text-navy-800">{booking.booking?.service_type_display}</span>
+                </div>
+
+                {/* Mini Move Details */}
+                {serviceDetails.mini_move && (
+                  <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="font-semibold text-navy-900">Mini Move Package: {serviceDetails.mini_move.package_name}</div>
+                    <div className="text-navy-700">{serviceDetails.mini_move.description}</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-navy-600 mt-2">
+                      <div>Max Items: {serviceDetails.mini_move.max_items || 'Unlimited'}</div>
+                      <div>Max Weight: {serviceDetails.mini_move.max_weight_per_item_lbs} lbs</div>
+                      <div>Base Price: ${serviceDetails.mini_move.base_price_dollars}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {serviceDetails.mini_move.coi_included && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">COI Included</span>
+                      )}
+                      {serviceDetails.mini_move.priority_scheduling && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Priority</span>
+                      )}
+                      {serviceDetails.mini_move.protective_wrapping && (
+                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Protected</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Organizing Services */}
+                {serviceDetails.organizing_services && (
+                  <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="font-semibold text-navy-900">Organizing Services</div>
+                    {serviceDetails.organizing_services.include_packing && (
+                      <div className="flex items-center text-green-700">
+                        <span className="mr-2">✓</span> Professional Packing
+                      </div>
+                    )}
+                    {serviceDetails.organizing_services.include_unpacking && (
+                      <div className="flex items-center text-green-700">
+                        <span className="mr-2">✓</span> Professional Unpacking
+                      </div>
+                    )}
+                    {booking.booking?.organizing_total_dollars && (
+                      <div className="text-navy-800 font-medium">
+                        Total: ${booking.booking.organizing_total_dollars}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Specialty Items */}
+                {serviceDetails.specialty_items && serviceDetails.specialty_items.length > 0 && (
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="font-semibold text-navy-900 text-sm">Specialty Items</div>
+                    {serviceDetails.specialty_items.map((item) => (
+                      <div key={item.id} className="bg-gray-50 p-2 rounded">
+                        <div className="font-medium text-sm text-navy-900">{item.name}</div>
+                        <div className="text-xs text-navy-600">{item.description}</div>
+                        <div className="text-xs mt-1 flex justify-between items-center">
+                          <span className="font-medium">${item.price_dollars}</span>
+                          {item.special_handling && (
+                            <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">Special Handling</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Standard Delivery */}
+                {serviceDetails.standard_delivery && (
+                  <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="font-semibold text-navy-900">Standard Delivery</div>
+                    <div className="text-navy-800">Item Count: {serviceDetails.standard_delivery.item_count}</div>
+                    {serviceDetails.standard_delivery.is_same_day && (
+                      <div className="text-orange-600 font-medium">Same-Day Delivery</div>
+                    )}
+                  </div>
+                )}
+
+                {/* BLADE Transfer */}
+                {serviceDetails.blade_transfer && (
+                  <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="font-semibold text-navy-900">BLADE Airport Transfer</div>
+                    <div className="space-y-1 text-navy-800">
+                      <div>Airport: <strong>{serviceDetails.blade_transfer.airport}</strong></div>
+                      <div>Flight: {new Date(serviceDetails.blade_transfer.flight_date).toLocaleDateString()} at {serviceDetails.blade_transfer.flight_time}</div>
+                      <div>Bags: {serviceDetails.blade_transfer.bag_count}</div>
+                      {serviceDetails.blade_transfer.ready_time && (
+                        <div>Ready: {serviceDetails.blade_transfer.ready_time}</div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -326,149 +460,66 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Address Editing Section - Only shown when editing */}
-            {isEditing ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-lg font-medium text-navy-900">Edit Pickup Address</h3>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Input
-                      label="Street Address"
-                      value={formData.pickup_address.address_line_1}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        pickup_address: { ...prev.pickup_address, address_line_1: e.target.value }
-                      }))}
-                    />
-                    <Input
-                      label="Apartment, Suite, etc."
-                      value={formData.pickup_address.address_line_2}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        pickup_address: { ...prev.pickup_address, address_line_2: e.target.value }
-                      }))}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="City"
-                        value={formData.pickup_address.city}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          pickup_address: { ...prev.pickup_address, city: e.target.value }
-                        }))}
-                      />
-                      <Select
-                        label="State"
-                        options={stateOptions}
-                        value={formData.pickup_address.state}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          pickup_address: { ...prev.pickup_address, state: e.target.value }
-                        }))}
-                      />
+            {/* Pricing Breakdown */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Pricing Breakdown</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {booking.booking?.pricing_breakdown && (
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(booking.booking.pricing_breakdown).map(([key, value]: [string, any]) => (
+                        <div key={key} className="flex justify-between">
+                          <span className="text-navy-600 capitalize">{key.replace(/_/g, ' ')}:</span>
+                          <span className="text-navy-900 font-medium">${value}</span>
+                        </div>
+                      ))}
                     </div>
-                    <Input
-                      label="ZIP Code"
-                      value={formData.pickup_address.zip_code}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        pickup_address: { ...prev.pickup_address, zip_code: e.target.value }
-                      }))}
-                    />
-                  </CardContent>
-                </Card>
+                  )}
+                  <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                    <span>Total:</span>
+                    <span>${booking.booking?.total_price_dollars}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-lg font-medium text-navy-900">Edit Delivery Address</h3>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Input
-                      label="Street Address"
-                      value={formData.delivery_address.address_line_1}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        delivery_address: { ...prev.delivery_address, address_line_1: e.target.value }
-                      }))}
-                    />
-                    <Input
-                      label="Apartment, Suite, etc."
-                      value={formData.delivery_address.address_line_2}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        delivery_address: { ...prev.delivery_address, address_line_2: e.target.value }
-                      }))}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="City"
-                        value={formData.delivery_address.city}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          delivery_address: { ...prev.delivery_address, city: e.target.value }
-                        }))}
-                      />
-                      <Select
-                        label="State"
-                        options={stateOptions}
-                        value={formData.delivery_address.state}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          delivery_address: { ...prev.delivery_address, state: e.target.value }
-                        }))}
-                      />
-                    </div>
-                    <Input
-                      label="ZIP Code"
-                      value={formData.delivery_address.zip_code}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        delivery_address: { ...prev.delivery_address, zip_code: e.target.value }
-                      }))}
-                    />
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <>
-                {/* Static Address Display */}
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-navy-800">
-                      <div>{booking.booking?.pickup_address?.address_line_1}</div>
-                      {booking.booking?.pickup_address?.address_line_2 && (
-                        <div>{booking.booking.pickup_address.address_line_2}</div>
-                      )}
-                      <div>
-                        {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Pickup Address */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="text-navy-800">
+                  <div>{booking.booking?.pickup_address?.address_line_1}</div>
+                  {booking.booking?.pickup_address?.address_line_2 && (
+                    <div>{booking.booking.pickup_address.address_line_2}</div>
+                  )}
+                  <div>
+                    {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-navy-800">
-                      <div>{booking.booking?.delivery_address?.address_line_1}</div>
-                      {booking.booking?.delivery_address?.address_line_2 && (
-                        <div>{booking.booking.delivery_address.address_line_2}</div>
-                      )}
-                      <div>
-                        {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+            {/* Delivery Address */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="text-navy-800">
+                  <div>{booking.booking?.delivery_address?.address_line_1}</div>
+                  {booking.booking?.delivery_address?.address_line_2 && (
+                    <div>{booking.booking.delivery_address.address_line_2}</div>
+                  )}
+                  <div>
+                    {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Payment Information */}
             {booking.payment && (

@@ -16,6 +16,11 @@ class HybridAuthentication(SessionAuthentication):
         user = getattr(request._request, 'user', None)
         
         if user and user.is_authenticated:
+            # 🔧 FIX: Ensure related profiles are loaded
+            try:
+                user = User.objects.select_related('staff_profile', 'customer_profile').get(pk=user.pk)
+            except User.DoesNotExist:
+                return None
             return (user, None)
         
         # Mobile fallback: check for session ID in custom header
@@ -40,7 +45,8 @@ class HybridAuthentication(SessionAuthentication):
                 logger.warning(f"No user_id in session: {session_key[:10]}...")
                 return None
             
-            user = User.objects.get(pk=user_id)
+            # 🔧 FIX: Load user with related profiles
+            user = User.objects.select_related('staff_profile', 'customer_profile').get(pk=user_id)
             logger.info(f"Mobile auth successful for user: {user.email}")
             return (user, None)
             
