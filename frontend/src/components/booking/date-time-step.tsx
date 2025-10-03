@@ -469,7 +469,13 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && bookingData.service_type !== 'specialty_item' && (
+      {selectedDate && (() => {
+        console.log('Time picker check:', {
+          service_type: bookingData.service_type,
+          shouldShow: bookingData.service_type !== 'specialty_item'
+        });
+        return bookingData.service_type !== 'specialty_item';
+      })() && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
