@@ -124,6 +124,11 @@ export function DateTimeStep() {
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     updateBookingData({ pickup_date: date });
+    
+    // Auto-trigger pricing for specialty items (no time selection needed)
+    if (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length) {
+      setTimeout(() => pricingMutation.mutate(), 100);
+    }
   };
 
   const handleTimeSelect = (time: PickupTime) => {
