@@ -164,10 +164,31 @@ export function DateTimeStep() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Get the Sunday before or on the first day of month
+    const startDate = new Date(firstDay);
+    const dayOfWeek = startDate.getDay(); // 0 = Sunday
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+    
+    // Get days until end of last week (Saturday)
+    const endDate = new Date(lastDay);
+    const lastDayOfWeek = endDate.getDay();
+    const daysToAdd = 6 - lastDayOfWeek; // Days until Saturday
+    endDate.setDate(endDate.getDate() + daysToAdd);
+    
     const days = [];
-    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-      if (d >= today) {
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const isCurrentMonth = d.getMonth() === month;
+      const isPastDate = d < today;
+      
+      // Only include current month dates that aren't in the past
+      if (isCurrentMonth && !isPastDate) {
         days.push(new Date(d));
+      } else if (isCurrentMonth || !isPastDate) {
+        // Include padding days from other months only if they're not past dates
+        days.push(new Date(d));
+      } else {
+        // Push null for past dates to maintain grid structure
+        days.push(null);
       }
     }
     return days;
@@ -353,20 +374,37 @@ export function DateTimeStep() {
 
         <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
         
+        {/* Day headers */}
+        <div className="grid grid-cols-7 gap-1 md:gap-4 mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="text-center text-sm font-medium text-navy-600 p-2">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1 md:gap-4">
-          {getMonthDays().map((date) => {
+          {getMonthDays().map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+            }
+            
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
             const isSelected = selectedDate === dateStr;
             const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
 
             return (
               <button
                 key={dateStr}
-                onClick={() => handleDateSelect(dateStr)}
+                onClick={() => isCurrentMonth && handleDateSelect(dateStr)}
+                disabled={!isCurrentMonth}
                 className={`
                   p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
                   h-16 md:h-20 flex flex-col items-center justify-center
+                  ${!isCurrentMonth ? 'opacity-30 cursor-not-allowed' : ''}
                   ${isSelected 
                     ? 'bg-navy-900 text-white border-navy-900' 
                     : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
@@ -377,7 +415,7 @@ export function DateTimeStep() {
                 <div className="text-xs opacity-75">
                   {date.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
-                {hasSurcharge && (
+                {hasSurcharge && isCurrentMonth && (
                   <div className="text-xs text-orange-600 mt-1">•</div>
                 )}
               </button>
