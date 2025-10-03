@@ -294,7 +294,7 @@ export function DateTimeStep() {
             <div className="space-y-3">
               <p className="text-sm font-medium text-navy-900">Post-Service Charges (if applicable):</p>
               <ul className="text-sm text-navy-700 space-y-2">
-                <li>• Overweight bags (over 50 lbs): $100 per bag</li>
+                <li>• Overweight bags (over 50 lbs): $120 per bag</li>
                 <li>• Wait time over 10 minutes: $50 per 30 minutes</li>
               </ul>
               <p className="text-xs text-navy-500 mt-2">

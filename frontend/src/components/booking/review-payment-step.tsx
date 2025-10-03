@@ -295,6 +295,11 @@ export function ReviewPaymentStep() {
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
+        
+        // ADD THIS - Refresh CSRF token after booking
+        apiClient.get('/api/customer/csrf-token/').catch(err => {
+          console.warn('Failed to refresh CSRF token:', err);
+        });
       }
     },
     onError: (error: AxiosError | Error) => {

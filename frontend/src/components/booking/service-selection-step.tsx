@@ -232,7 +232,7 @@ export function ServiceSelectionStep() {
           >
             <h4 className="font-medium text-navy-900 mb-2">BLADE Airport Transfer</h4>
             <p className="text-sm text-navy-600">NYC → Airport luggage delivery</p>
-            <p className="text-xs text-navy-500 mt-2">JFK/EWR only • 2-bag minimum</p>
+            <p className="text-xs text-navy-500 mt-2">JFK/EWR only</p>
           </button>
         </div>
       </div>
@@ -644,7 +644,8 @@ export function ServiceSelectionStep() {
                     updateBookingData({ blade_bag_count: value });
                   }
                 }}
-                helper="$75 per bag • $150 minimum • 2-bag minimum required"
+                placeholder="Enter number of bags"
+                helper="$75 per bag • $150 minimum for up to 2 bags"
               />
               
               {bookingData.blade_bag_count && bookingData.blade_bag_count < 2 && (

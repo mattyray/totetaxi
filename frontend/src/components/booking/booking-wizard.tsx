@@ -73,16 +73,16 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       return;
     }
     
-    if (currentStep === 0) {
-      if (isAuthenticated && user) {
-        console.log('Wizard: User authenticated, initializing for user', user.id);
-        initializeForUser(user.id.toString(), false);
-      } else {
-        console.log('Wizard: No user, initializing as guest');
-        initializeForUser('guest', true);
-      }
+    // Initialize for ALL steps, not just step 0
+    if (isAuthenticated && user) {
+      console.log('Wizard: User authenticated, initializing for user', user.id);
+      initializeForUser(user.id.toString(), false);
+    } else {
+      console.log('Wizard: No user, initializing as guest');
+      initializeForUser('guest', true);
     }
-  }, [mounted, isAuthenticated, user, currentStep, initializeForUser, isBookingComplete, completedBookingNumber]);
+  }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
+  // Removed currentStep from dependency - initialize on auth state, not step
 
   if (!mounted) {
     return (
