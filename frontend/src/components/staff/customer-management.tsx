@@ -1,3 +1,4 @@
+// frontend/src/components/staff/customer-management.tsx
 'use client';
 
 import { useState } from 'react';

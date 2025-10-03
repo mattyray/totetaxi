@@ -1,3 +1,4 @@
+// frontend/src/components/staff/staff-layout.tsx
 'use client';
 
 import { useState } from 'react';

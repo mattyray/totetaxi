@@ -568,6 +568,8 @@ class BookingDetailView(APIView):
     
     def _get_service_details(self, booking):
         """Get detailed service-specific information"""
+        from apps.services.models import OrganizingService
+        
         details = {}
         
         # Mini Move details
@@ -584,13 +586,47 @@ class BookingDetailView(APIView):
                 'base_price_dollars': booking.mini_move_package.base_price_dollars,
             }
             
-            # Organizing services
+            # Organizing services - NEW STRUCTURE
             if booking.include_packing or booking.include_unpacking:
-                details['organizing_services'] = {
+                organizing_data = {
                     'include_packing': booking.include_packing,
                     'include_unpacking': booking.include_unpacking,
-                    'breakdown': booking.get_organizing_breakdown() if hasattr(booking, 'get_organizing_breakdown') else None
                 }
+                
+                # Get actual service details
+                tier = booking.mini_move_package.package_type
+                
+                if booking.include_packing:
+                    packing_service = OrganizingService.objects.filter(
+                        mini_move_tier=tier,
+                        is_packing_service=True,
+                        is_active=True
+                    ).first()
+                    if packing_service:
+                        organizing_data['packing_service'] = {
+                            'name': packing_service.name,
+                            'price_dollars': packing_service.price_dollars,
+                            'duration_hours': packing_service.duration_hours,
+                            'organizer_count': packing_service.organizer_count,
+                            'supplies_allowance': packing_service.supplies_allowance_dollars,
+                        }
+                
+                if booking.include_unpacking:
+                    unpacking_service = OrganizingService.objects.filter(
+                        mini_move_tier=tier,
+                        is_packing_service=False,
+                        is_active=True
+                    ).first()
+                    if unpacking_service:
+                        organizing_data['unpacking_service'] = {
+                            'name': unpacking_service.name,
+                            'price_dollars': unpacking_service.price_dollars,
+                            'duration_hours': unpacking_service.duration_hours,
+                            'organizer_count': unpacking_service.organizer_count,
+                            'supplies_allowance': unpacking_service.supplies_allowance_dollars,
+                        }
+                
+                details['organizing_services'] = organizing_data
         
         # Specialty Item details
         elif booking.service_type == 'specialty_item' and booking.specialty_items.exists():
@@ -623,7 +659,7 @@ class BookingDetailView(APIView):
                     for item in booking.specialty_items.all()
                 ]
         
-        # BLADE Transfer details
+        # BLADE Transfer details - FIXED
         elif booking.service_type == 'blade_transfer':
             details['blade_transfer'] = {
                 'airport': booking.blade_airport,
@@ -631,6 +667,7 @@ class BookingDetailView(APIView):
                 'flight_time': booking.blade_flight_time.strftime('%H:%M') if booking.blade_flight_time else None,
                 'bag_count': booking.blade_bag_count,
                 'ready_time': booking.blade_ready_time.strftime('%H:%M') if booking.blade_ready_time else None,
+                'per_bag_price': 100,  # 🔧 ADDED - get from pricing logic or hardcode
             }
         
         return details
@@ -675,7 +712,7 @@ class BookingDetailView(APIView):
             }
         })
     
-    
+
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class StaffCSRFTokenView(APIView):
     """Get CSRF token for staff - ensures cookie is set"""

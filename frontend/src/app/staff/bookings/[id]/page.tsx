@@ -1,5 +1,6 @@
 'use client';
 
+// frontend/src/app/staff/bookings/[id]/page.tsx
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -500,12 +501,17 @@ export default function BookingDetailPage() {
                 <div className="space-y-2">
                   {booking.booking?.pricing_breakdown && (
                     <div className="space-y-2 text-sm">
-                      {Object.entries(booking.booking.pricing_breakdown).map(([key, value]: [string, any]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-navy-600 capitalize">{key.replace(/_/g, ' ')}:</span>
-                          <span className="text-navy-900 font-medium">${value}</span>
-                        </div>
-                      ))}
+                      {Object.entries(booking.booking.pricing_breakdown).map(([key, value]: [string, any]) => {
+                        // Skip nested objects like blade_details
+                        if (typeof value === 'object' && value !== null) return null;
+                        
+                        return (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-navy-600 capitalize">{key.replace(/_/g, ' ')}:</span>
+                            <span className="text-navy-900 font-medium">${value}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">

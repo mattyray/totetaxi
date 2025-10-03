@@ -1,3 +1,4 @@
+// frontend/src/components/staff/booking-management.tsx
 'use client';
 
 import { useState } from 'react';
