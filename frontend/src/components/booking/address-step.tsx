@@ -1,6 +1,6 @@
-// frontend/src/components/booking/address-step.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,23 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-// Production-safe test data
+const AIRPORT_ADDRESSES = {
+  JFK: {
+    address_line_1: 'JFK International Airport',
+    address_line_2: '',
+    city: 'Jamaica',
+    state: 'NY' as const,
+    zip_code: '11430'
+  },
+  EWR: {
+    address_line_1: 'Newark Liberty International Airport',
+    address_line_2: '',
+    city: 'Newark',
+    state: 'NJ' as const,
+    zip_code: '07114'
+  }
+};
+
 const TEST_ADDRESSES = {
   manhattan: {
     address_line_1: '123 Park Avenue',
@@ -53,10 +69,13 @@ interface AddressFormProps {
   address: BookingAddress | undefined;
   onAddressChange: (address: BookingAddress) => void;
   errors: Record<string, string>;
+  readOnly?: boolean;
 }
 
-function AddressForm({ title, address, onAddressChange, errors }: AddressFormProps) {
+function AddressForm({ title, address, onAddressChange, errors, readOnly = false }: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
+    if (readOnly) return;
+    
     onAddressChange({
       ...address,
       [field]: value
@@ -67,6 +86,11 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
     <Card variant="elevated" className="p-8">
       <CardHeader className="p-0 pb-6">
         <h3 className="text-lg font-medium text-navy-900">{title}</h3>
+        {readOnly && (
+          <p className="text-sm text-navy-600 mt-1">
+            Airport address is automatically set based on your BLADE flight selection.
+          </p>
+        )}
       </CardHeader>
       
       <CardContent className="p-0">
@@ -78,6 +102,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             error={errors.address_line_1}
             placeholder="123 Main Street"
             required
+            disabled={readOnly}
           />
           
           <Input
@@ -85,6 +110,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             value={address?.address_line_2 || ''}
             onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
             placeholder="Apt 4B, Suite 200"
+            disabled={readOnly}
           />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -95,6 +121,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               error={errors.city}
               placeholder="New York"
               required
+              disabled={readOnly}
             />
             
             <div className="space-y-2">
@@ -104,8 +131,11 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               <select
                 value={address?.state || ''}
                 onChange={(e) => handleFieldChange('state', e.target.value as 'NY' | 'CT' | 'NJ')}
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
+                className={`w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
+                  readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                }`}
                 required
+                disabled={readOnly}
               >
                 <option value="" className="text-gray-400">Select State</option>
                 {STATES.map(state => (
@@ -125,6 +155,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             error={errors.zip_code}
             placeholder="10001"
             required
+            disabled={readOnly}
           />
         </div>
       </CardContent>
@@ -135,6 +166,15 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
 export function AddressStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
 
+  const isBlade = bookingData.service_type === 'blade_transfer';
+
+  useEffect(() => {
+    if (isBlade && bookingData.blade_airport) {
+      const airportAddress = AIRPORT_ADDRESSES[bookingData.blade_airport];
+      updateBookingData({ delivery_address: airportAddress });
+    }
+  }, [isBlade, bookingData.blade_airport]);
+
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
     if (address.address_line_1) clearError('pickup_address');
@@ -143,13 +183,15 @@ export function AddressStep() {
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
+    if (isBlade) return;
+    
     updateBookingData({ delivery_address: address });
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
+  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
     switch (route) {
       case 'manhattan-hamptons':
         updateBookingData({
@@ -179,6 +221,20 @@ export function AddressStep() {
           special_instructions: 'Test booking - Manhattan to Connecticut route'
         });
         break;
+      case 'manhattan-jfk':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: AIRPORT_ADDRESSES.JFK,
+          special_instructions: 'Test booking - Manhattan to JFK Airport'
+        });
+        break;
+      case 'manhattan-ewr':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: AIRPORT_ADDRESSES.EWR,
+          special_instructions: 'Test booking - Manhattan to Newark Airport'
+        });
+        break;
     }
   };
 
@@ -199,6 +255,11 @@ export function AddressStep() {
     }
     if (!bookingData.pickup_address?.zip_code) {
       setError('pickup_zip', 'ZIP code is required');
+      hasErrors = true;
+    }
+
+    if (isBlade && bookingData.pickup_address?.state !== 'NY') {
+      setError('pickup_state', 'BLADE service requires NYC pickup address (NY state only)');
       hasErrors = true;
     }
 
@@ -238,53 +299,83 @@ export function AddressStep() {
     <div className="space-y-8">
       <div className="text-center">
         <p className="text-navy-700">
-          Where should we pick up and deliver your items?
+          {isBlade 
+            ? 'Where should we pick up your bags in NYC?'
+            : 'Where should we pick up and deliver your items?'}
         </p>
         <p className="text-sm text-navy-600 mt-1">
-          We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
+          {isBlade
+            ? 'BLADE service is only available from NYC addresses. Airport delivery is automatic.'
+            : 'We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.'}
         </p>
         
-        <div className="mt-6 space-y-3">
-          <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-hamptons')}
-              className="text-xs"
-            >
-              Manhattan → Hamptons
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('brooklyn-manhattan')}
-              className="text-xs"
-            >
-              Brooklyn → Manhattan
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-westchester')}
-              className="text-xs"
-            >
-              Manhattan → Westchester
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-connecticut')}
-              className="text-xs"
-            >
-              Manhattan → Connecticut
-            </Button>
+        {!isBlade && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-hamptons')}
+                className="text-xs"
+              >
+                Manhattan → Hamptons
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('brooklyn-manhattan')}
+                className="text-xs"
+              >
+                Brooklyn → Manhattan
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-westchester')}
+                className="text-xs"
+              >
+                Manhattan → Westchester
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-connecticut')}
+                className="text-xs"
+              >
+                Manhattan → Connecticut
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
+        
+        {isBlade && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs text-navy-500">Quick Fill - BLADE Routes:</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-jfk')}
+                className="text-xs"
+              >
+                Manhattan → JFK
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-ewr')}
+                className="text-xs"
+              >
+                Manhattan → EWR
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AddressForm
-        title="Pickup Address"
+        title={isBlade ? 'Pickup Address (NYC Only)' : 'Pickup Address'}
         address={bookingData.pickup_address}
         onAddressChange={handlePickupChange}
         errors={{
@@ -295,8 +386,19 @@ export function AddressStep() {
         }}
       />
 
+      {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent>
+            <p className="text-sm text-orange-800">
+              <strong>BLADE Restriction:</strong> BLADE service is only available for NYC (NY state) pickups. 
+              Please enter a New York address for pickup.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <AddressForm
-        title="Delivery Address"
+        title={isBlade ? `Delivery Address (${bookingData.blade_airport})` : 'Delivery Address'}
         address={bookingData.delivery_address}
         onAddressChange={handleDeliveryChange}
         errors={{
@@ -305,6 +407,7 @@ export function AddressStep() {
           state: errors.delivery_state || '',
           zip_code: errors.delivery_zip || ''
         }}
+        readOnly={isBlade}
       />
 
       <Card variant="default" className="p-6">
@@ -315,7 +418,9 @@ export function AddressStep() {
           <textarea
             value={bookingData.special_instructions || ''}
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
-            placeholder="Any special delivery instructions, building access codes, or notes for our team..."
+            placeholder={isBlade 
+              ? 'Building access codes, doorman instructions, or any special notes for pickup...'
+              : 'Any special delivery instructions, building access codes, or notes for our team...'}
             rows={4}
             className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
@@ -331,7 +436,7 @@ export function AddressStep() {
           disabled={!canContinue}
           size="lg"
         >
-          Continue to Your Info →
+          Continue to {bookingData.service_type === 'blade_transfer' ? 'Review' : 'Your Info'} →
         </Button>
       </div>
     </div>

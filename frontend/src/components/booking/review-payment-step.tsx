@@ -1,4 +1,3 @@
-// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -139,9 +138,9 @@ export function ReviewPaymentStep() {
     console.log('Is Guest Mode:', isGuestMode);
     console.log('User:', user);
     console.log('Customer Info:', bookingData.customer_info);
-    console.log('Has Customer Info:', !!bookingData.customer_info);
+    console.log('Service Type:', bookingData.service_type);
     console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
@@ -165,7 +164,14 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
-          pickup_date: bookingData.pickup_date,
+          blade_airport: bookingData.blade_airport,
+          blade_flight_date: bookingData.blade_flight_date,
+          blade_flight_time: bookingData.blade_flight_time,
+          blade_bag_count: bookingData.blade_bag_count,
+          
+          pickup_date: bookingData.service_type === 'blade_transfer' 
+            ? bookingData.blade_flight_date 
+            : bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
           specific_pickup_hour: bookingData.specific_pickup_hour,
           
@@ -182,12 +188,9 @@ export function ReviewPaymentStep() {
         };
       } else {
         console.log('=== GUEST BOOKING REQUEST ===');
-        console.log('Customer info available:', !!bookingData.customer_info);
-        console.log('Customer info details:', bookingData.customer_info);
         
         if (!bookingData.customer_info || !bookingData.customer_info.email) {
           console.error('CRITICAL: Guest booking missing customer info');
-          console.log('Available booking data keys:', Object.keys(bookingData));
           
           if (user && !bookingData.customer_info) {
             console.log('Falling back to authenticated user data');
@@ -205,7 +208,14 @@ export function ReviewPaymentStep() {
               is_same_day_delivery: bookingData.is_same_day_delivery,
               specialty_item_ids: bookingData.specialty_item_ids,
               
-              pickup_date: bookingData.pickup_date,
+              blade_airport: bookingData.blade_airport,
+              blade_flight_date: bookingData.blade_flight_date,
+              blade_flight_time: bookingData.blade_flight_time,
+              blade_bag_count: bookingData.blade_bag_count,
+              
+              pickup_date: bookingData.service_type === 'blade_transfer' 
+                ? bookingData.blade_flight_date 
+                : bookingData.pickup_date,
               pickup_time: bookingData.pickup_time,
               specific_pickup_hour: bookingData.specific_pickup_hour,
               
@@ -234,7 +244,14 @@ export function ReviewPaymentStep() {
             is_same_day_delivery: bookingData.is_same_day_delivery,
             specialty_item_ids: bookingData.specialty_item_ids,
             
-            pickup_date: bookingData.pickup_date,
+            blade_airport: bookingData.blade_airport,
+            blade_flight_date: bookingData.blade_flight_date,
+            blade_flight_time: bookingData.blade_flight_time,
+            blade_bag_count: bookingData.blade_bag_count,
+            
+            pickup_date: bookingData.service_type === 'blade_transfer' 
+              ? bookingData.blade_flight_date 
+              : bookingData.pickup_date,
             pickup_time: bookingData.pickup_time,
             specific_pickup_hour: bookingData.specific_pickup_hour,
             
@@ -250,7 +267,6 @@ export function ReviewPaymentStep() {
 
       console.log('ENDPOINT:', endpoint);
       console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
-      console.log('Is Authenticated:', isAuthenticated);
 
       const response = await apiClient.post(endpoint, bookingRequest);
       
@@ -261,32 +277,20 @@ export function ReviewPaymentStep() {
     onSuccess: (data) => {
       console.log('=== BOOKING SUCCESS HANDLER ===');
       console.log('Response data:', data);
-      console.log('Is Guest Mode:', !isAuthenticated);
-      console.log('Payment data exists:', !!data.payment);
-      console.log('Client secret exists:', !!data.payment?.client_secret);
-      console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
       
       setBookingNumber(data.booking.booking_number);
       
       if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
         console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
-        console.log('Client secret length:', data.payment.client_secret.length);
         setClientSecret(data.payment.client_secret);
         setShowPayment(true);
       } else {
-        console.log('WARNING: NO PAYMENT INTENT OR STRIPE KEY MISSING');
-        console.log('This should NOT happen for paid bookings');
-        console.log('Payment object:', data.payment);
-        console.log('Client secret:', data.payment?.client_secret);
-        console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-        console.log('INCORRECTLY MARKING BOOKING AS COMPLETE WITHOUT PAYMENT');
-        
+        console.log('NO PAYMENT INTENT - MARKING COMPLETE');
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
       
       setLoading(false);
-      console.log('=== END BOOKING SUCCESS HANDLER ===');
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
@@ -303,7 +307,6 @@ export function ReviewPaymentStep() {
         console.error('Error Status:', error.response.status);
         console.error('Error Data:', error.response.data);
       }
-      console.log('=== END BOOKING ERROR HANDLER ===');
     }
   });
 
@@ -314,9 +317,7 @@ export function ReviewPaymentStep() {
     }
     
     console.log('=== SUBMITTING BOOKING ===');
-    console.log('Is authenticated:', isAuthenticated);
-    console.log('Has customer info:', !!bookingData.customer_info);
-    console.log('Customer info:', bookingData.customer_info);
+    console.log('Service type:', bookingData.service_type);
     
     setLoading(true);
     createBookingMutation.mutate();
@@ -339,15 +340,6 @@ export function ReviewPaymentStep() {
   };
 
   const handlePreviousStep = () => {
-    console.log('Review step - going to previous step');
-    console.log('Current booking state:', { 
-      showPayment, 
-      clientSecret: !!clientSecret, 
-      bookingComplete,
-      isAuthenticated,
-      currentStep: 'review' 
-    });
-    
     if (showPayment) {
       setShowPayment(false);
       setClientSecret('');
@@ -357,7 +349,6 @@ export function ReviewPaymentStep() {
   };
 
   if (bookingComplete) {
-    console.log('RENDERING SUCCESS SCREEN');
     return (
       <div className="text-center space-y-6">
         <div className="text-6xl mb-4">✅</div>
@@ -375,12 +366,14 @@ export function ReviewPaymentStep() {
               </div>
               
               <p className="text-navy-700">
-                Your luxury move is confirmed and paid. 
+                {bookingData.service_type === 'blade_transfer' 
+                  ? 'Your BLADE airport transfer is confirmed and paid.' 
+                  : 'Your luxury move is confirmed and paid.'}
                 {isAuthenticated ? (
                   ' Check your dashboard for booking details.'
                 ) : (
                   <>
-                    We'll send a confirmation email to{' '}
+                    {' '}We'll send a confirmation email to{' '}
                     <strong>{bookingData.customer_info?.email || user?.email}</strong> with all the details.
                   </>
                 )}
@@ -408,7 +401,11 @@ export function ReviewPaymentStep() {
                 <div className="text-center">
                   <div className="text-2xl mb-2">📞</div>
                   <h5 className="font-medium text-navy-900 mb-1">Coordination Call</h5>
-                  <p className="text-navy-600">We'll call 24 hours before pickup to confirm timing.</p>
+                  <p className="text-navy-600">
+                    {bookingData.service_type === 'blade_transfer' 
+                      ? 'We\'ll confirm your pickup details before your flight.' 
+                      : 'We\'ll call 24 hours before pickup to confirm timing.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -438,7 +435,6 @@ export function ReviewPaymentStep() {
   }
 
   if (showPayment && clientSecret && stripePromise) {
-    console.log('RENDERING PAYMENT FORM');
     return (
       <div className="space-y-6">
         <Card variant="luxury">
@@ -487,25 +483,8 @@ export function ReviewPaymentStep() {
     );
   }
 
-  console.log('RENDERING BOOKING SUMMARY FORM');
   return (
     <div className="space-y-6">
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardContent className="p-4">
-            <h4 className="font-medium text-yellow-800 mb-2">Debug Info (Dev Only)</h4>
-            <div className="text-sm text-yellow-700 space-y-1">
-              <div>Mode: {isAuthenticated ? 'Authenticated' : 'Guest'}</div>
-              <div>Has Customer Info: {bookingData.customer_info ? 'Yes' : 'No'}</div>
-              <div>Customer Email: {bookingData.customer_info?.email || user?.email || 'None'}</div>
-              <div>Service Type: {bookingData.service_type}</div>
-              <div>Package ID: {bookingData.mini_move_package_id}</div>
-              <div>Total Price: ${bookingData.pricing_data?.total_price_dollars || 'Not set'}</div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card variant="luxury">
         <CardHeader>
           <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
@@ -518,6 +497,7 @@ export function ReviewPaymentStep() {
                 {bookingData.service_type === 'mini_move' && 'Mini Move'}
                 {bookingData.service_type === 'standard_delivery' && 'Standard Delivery'}
                 {bookingData.service_type === 'specialty_item' && 'Specialty Items'}
+                {bookingData.service_type === 'blade_transfer' && 'BLADE Airport Transfer'}
               </p>
               
               {bookingData.include_packing && (
@@ -528,24 +508,64 @@ export function ReviewPaymentStep() {
               )}
             </div>
 
-            <div>
-              <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
-              <p className="text-navy-700">
-                {new Date(bookingData.pickup_date!).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-              <p className="text-navy-600">
-                {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
-              </p>
-            </div>
+            {bookingData.service_type === 'blade_transfer' ? (
+              <>
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-2">Flight Details</h4>
+                  <p className="text-navy-700">
+                    <strong>Airport:</strong> {bookingData.blade_airport === 'JFK' ? 'JFK International' : 'Newark Liberty (EWR)'}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Flight Date:</strong> {bookingData.blade_flight_date && new Date(bookingData.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Flight Time:</strong> {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Bags:</strong> {bookingData.blade_bag_count}
+                  </p>
+                  <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-2">
+                    <p className="text-sm text-blue-800">
+                      <strong>Pickup Ready Time:</strong> {bookingData.blade_ready_time && new Date(`2000-01-01T${bookingData.blade_ready_time}`).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
+                <p className="text-navy-700">
+                  {bookingData.pickup_date && new Date(bookingData.pickup_date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-navy-600">
+                  {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                <h4 className="font-medium text-navy-900 mb-2">
+                  {bookingData.service_type === 'blade_transfer' ? 'Pickup Address (NYC)' : 'Pickup Address'}
+                </h4>
                 <div className="text-navy-700 text-sm">
                   <div>{bookingData.pickup_address?.address_line_1}</div>
                   {bookingData.pickup_address?.address_line_2 && (
@@ -558,15 +578,25 @@ export function ReviewPaymentStep() {
               </div>
               
               <div>
-                <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                <h4 className="font-medium text-navy-900 mb-2">
+                  {bookingData.service_type === 'blade_transfer' ? 'Delivery (Airport)' : 'Delivery Address'}
+                </h4>
                 <div className="text-navy-700 text-sm">
-                  <div>{bookingData.delivery_address?.address_line_1}</div>
-                  {bookingData.delivery_address?.address_line_2 && (
-                    <div>{bookingData.delivery_address.address_line_2}</div>
+                  {bookingData.service_type === 'blade_transfer' ? (
+                    <div className="font-medium">
+                      {bookingData.blade_airport === 'JFK' ? 'JFK International Airport' : 'Newark Liberty International Airport (EWR)'}
+                    </div>
+                  ) : (
+                    <>
+                      <div>{bookingData.delivery_address?.address_line_1}</div>
+                      {bookingData.delivery_address?.address_line_2 && (
+                        <div>{bookingData.delivery_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
+                      </div>
+                    </>
                   )}
-                  <div>
-                    {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
-                  </div>
                 </div>
               </div>
             </div>
@@ -607,6 +637,12 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-700">Base Price:</span>
                 <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
               </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="text-sm text-navy-600 italic">
+                  {bookingData.blade_bag_count} bags × $75
+                </div>
+              )}
               
               {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
                 <div className="flex justify-between">
@@ -656,6 +692,14 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-900">Total:</span>
                 <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
               </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -781,5 +825,3 @@ export function ReviewPaymentStep() {
     </div>
   );
 }
-
-

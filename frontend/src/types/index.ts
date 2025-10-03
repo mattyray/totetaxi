@@ -79,7 +79,7 @@ export interface BookingWizardState {
 }
 
 export interface BookingData {
-  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item' | 'blade_transfer';
   mini_move_package_id?: string;
   package_type?: 'petite' | 'standard' | 'full';
   include_packing?: boolean;
@@ -87,6 +87,13 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
+  
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  blade_ready_time?: string;
+  
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;

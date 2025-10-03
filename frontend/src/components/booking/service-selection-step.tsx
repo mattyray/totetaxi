@@ -1,5 +1,5 @@
 'use client';
-// frontend/src/components/booking/service-selection-step.tsx
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -108,6 +108,10 @@ export function ServiceSelectionStep() {
       package_type: selectedPackage?.package_type,
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,
+      blade_airport: undefined,
+      blade_flight_date: undefined,
+      blade_flight_time: undefined,
+      blade_bag_count: undefined,
     });
     
     console.log('Updated booking data - new state should have package_id:', packageId);
@@ -138,6 +142,16 @@ export function ServiceSelectionStep() {
       return itemCount > 0 || specialtyCount > 0;
     }
     
+    if (bookingData.service_type === 'blade_transfer') {
+      return !!(
+        bookingData.blade_airport &&
+        bookingData.blade_flight_date &&
+        bookingData.blade_flight_time &&
+        bookingData.blade_bag_count &&
+        bookingData.blade_bag_count >= 2
+      );
+    }
+    
     return false;
   };
 
@@ -157,12 +171,16 @@ export function ServiceSelectionStep() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-navy-900 mb-4">Choose Your Service</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => updateBookingData({ 
               service_type: 'mini_move',
               standard_delivery_item_count: undefined,
-              specialty_item_ids: undefined
+              specialty_item_ids: undefined,
+              blade_airport: undefined,
+              blade_flight_date: undefined,
+              blade_flight_time: undefined,
+              blade_bag_count: undefined,
             })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'mini_move'
@@ -180,7 +198,11 @@ export function ServiceSelectionStep() {
               mini_move_package_id: undefined,
               package_type: undefined,
               include_packing: false,
-              include_unpacking: false
+              include_unpacking: false,
+              blade_airport: undefined,
+              blade_flight_date: undefined,
+              blade_flight_time: undefined,
+              blade_bag_count: undefined,
             })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'standard_delivery'
@@ -190,6 +212,27 @@ export function ServiceSelectionStep() {
           >
             <h4 className="font-medium text-navy-900 mb-2">Standard Delivery</h4>
             <p className="text-sm text-navy-600">Regular items + specialty items</p>
+          </button>
+
+          <button
+            onClick={() => updateBookingData({ 
+              service_type: 'blade_transfer',
+              mini_move_package_id: undefined,
+              package_type: undefined,
+              include_packing: false,
+              include_unpacking: false,
+              standard_delivery_item_count: undefined,
+              specialty_item_ids: undefined,
+            })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'blade_transfer'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-2">BLADE Airport Transfer</h4>
+            <p className="text-sm text-navy-600">NYC → Airport luggage delivery</p>
+            <p className="text-xs text-navy-500 mt-2">JFK/EWR only • 2-bag minimum</p>
           </button>
         </div>
       </div>
@@ -499,7 +542,7 @@ export function ServiceSelectionStep() {
                   className="mr-3"
                 />
                 <span className="text-navy-900 font-medium">
-                  Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
+                  Same-Day Delivery (+$360)
                 </span>
               </label>
             </CardContent>
@@ -508,10 +551,134 @@ export function ServiceSelectionStep() {
           {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-800 font-medium">
-                ⚠️ Please select at least one regular item or specialty item to continue.
+                Please select at least one regular item or specialty item to continue.
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {bookingData.service_type === 'blade_transfer' && (
+        <div className="space-y-6">
+          <h3 className="text-lg font-medium text-navy-900 mb-4">BLADE Flight Details</h3>
+          
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Airport Selection</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => updateBookingData({ blade_airport: 'JFK' })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    bookingData.blade_airport === 'JFK'
+                      ? 'border-navy-500 bg-navy-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium text-navy-900">JFK</div>
+                  <div className="text-sm text-navy-600">John F. Kennedy</div>
+                </button>
+                
+                <button
+                  onClick={() => updateBookingData({ blade_airport: 'EWR' })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    bookingData.blade_airport === 'EWR'
+                      ? 'border-navy-500 bg-navy-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium text-navy-900">EWR</div>
+                  <div className="text-sm text-navy-600">Newark Liberty</div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Flight Information</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Input
+                  label="Flight Date"
+                  type="date"
+                  value={bookingData.blade_flight_date || ''}
+                  onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                
+                <Input
+                  label="Flight Departure Time"
+                  type="time"
+                  value={bookingData.blade_flight_time || ''}
+                  onChange={(e) => updateBookingData({ blade_flight_time: e.target.value })}
+                />
+                
+                {bookingData.blade_flight_time && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Bags Ready Time:</strong> Your bags must be ready for pickup by{' '}
+                      {parseInt(bookingData.blade_flight_time.split(':')[0]) < 13 ? '5:00 AM' : '10:00 AM'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Number of Bags</h4>
+            </CardHeader>
+            <CardContent>
+              <Input
+                label="Bag Count"
+                type="number"
+                min={2}
+                value={bookingData.blade_bag_count?.toString() || ''}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 0) {
+                    updateBookingData({ blade_bag_count: value });
+                  }
+                }}
+                helper="$75 per bag • $150 minimum • 2-bag minimum required"
+              />
+              
+              {bookingData.blade_bag_count && bookingData.blade_bag_count < 2 && (
+                <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800 font-medium">
+                    BLADE service requires a minimum of 2 bags
+                  </p>
+                </div>
+              )}
+              
+              {bookingData.blade_bag_count && bookingData.blade_bag_count >= 2 && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>Estimated Price:</strong> ${Math.max(bookingData.blade_bag_count * 75, 150)}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="default">
+            <CardContent>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-navy-900">Important Information:</p>
+                <ul className="text-sm text-navy-700 space-y-2">
+                  <li>• NYC to airport only (one-way service)</li>
+                  <li>• Book by 8:00 PM the night before your flight</li>
+                  <li>• 2-bag minimum required</li>
+                  <li>• Overweight bags (over 50 lbs): $100 per bag upon pickup</li>
+                  <li>• Wait time over 10 minutes: $50 per 30 minutes</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

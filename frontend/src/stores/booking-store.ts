@@ -11,7 +11,7 @@ export interface BookingAddress {
 }
 
 export interface BookingData {
-  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item' | 'blade_transfer';
   mini_move_package_id?: string;
   package_type?: 'petite' | 'standard' | 'full';
   include_packing?: boolean;
@@ -19,6 +19,13 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
+  
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  blade_ready_time?: string;
+  
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;
@@ -84,7 +91,7 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -263,12 +270,24 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           case 0: return true;
           case 1: return true;
           case 2:
+            if (bookingData.service_type === 'blade_transfer') {
+              return !!(
+                bookingData.blade_airport &&
+                bookingData.blade_flight_date &&
+                bookingData.blade_flight_time &&
+                bookingData.blade_bag_count &&
+                bookingData.blade_bag_count >= 2
+              );
+            }
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
               (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
               (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
             );
           case 3:
+            if (bookingData.service_type === 'blade_transfer') {
+              return !!(bookingData.blade_flight_date);
+            }
             return !!bookingData.pickup_date;
           case 4:
             return !!bookingData.pickup_address && !!bookingData.delivery_address;

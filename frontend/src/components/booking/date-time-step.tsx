@@ -1,4 +1,3 @@
-// frontend/src/components/booking/date-time-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -50,29 +49,53 @@ export function DateTimeStep() {
     queryFn: async () => {
       const response = await apiClient.get('/api/public/availability/');
       return response.data.availability as AvailabilityDay[];
-    }
+    },
+    enabled: bookingData.service_type !== 'blade_transfer'
   });
 
   const pricingMutation = useMutation({
     mutationFn: async (): Promise<PricingPreview> => {
-      const response = await apiClient.post('/api/public/pricing-preview/', {
+      const payload: any = {
         service_type: bookingData.service_type,
-        mini_move_package_id: bookingData.mini_move_package_id,
-        include_packing: bookingData.include_packing,
-        include_unpacking: bookingData.include_unpacking,
-        standard_delivery_item_count: bookingData.standard_delivery_item_count,
-        is_same_day_delivery: bookingData.is_same_day_delivery,
-        specialty_item_ids: bookingData.specialty_item_ids,
-        pickup_date: selectedDate,
-        pickup_time: selectedTime,
-        specific_pickup_hour: selectedTime === 'morning_specific' ? specificHour : undefined,
-        coi_required: bookingData.coi_required || false
-      });
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : selectedDate,
+      };
+
+      if (bookingData.service_type === 'blade_transfer') {
+        payload.blade_airport = bookingData.blade_airport;
+        payload.blade_flight_date = bookingData.blade_flight_date;
+        payload.blade_flight_time = bookingData.blade_flight_time;
+        payload.blade_bag_count = bookingData.blade_bag_count;
+      } else if (bookingData.service_type === 'mini_move') {
+        payload.mini_move_package_id = bookingData.mini_move_package_id;
+        payload.include_packing = bookingData.include_packing;
+        payload.include_unpacking = bookingData.include_unpacking;
+        payload.pickup_time = selectedTime;
+        payload.specific_pickup_hour = selectedTime === 'morning_specific' ? specificHour : undefined;
+        payload.coi_required = bookingData.coi_required || false;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      }
+
+      const response = await apiClient.post('/api/public/pricing-preview/', payload);
       return response.data;
     }
   });
 
   useEffect(() => {
+    if (bookingData.service_type === 'blade_transfer') {
+      if (bookingData.blade_airport && bookingData.blade_flight_date && 
+          bookingData.blade_flight_time && bookingData.blade_bag_count) {
+        pricingMutation.mutate();
+      }
+      return;
+    }
+
     if (selectedDate && bookingData.service_type) {
       if (bookingData.service_type === 'mini_move' && !bookingData.mini_move_package_id) {
         return;
@@ -91,6 +114,10 @@ export function DateTimeStep() {
   useEffect(() => {
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
+      
+      if (bookingData.service_type === 'blade_transfer' && pricingMutation.data.details?.ready_time) {
+        updateBookingData({ blade_ready_time: pricingMutation.data.details.ready_time });
+      }
     }
   }, [pricingMutation.data, updateBookingData]);
 
@@ -163,7 +190,132 @@ export function DateTimeStep() {
   };
 
   const packageType = getPackageType();
-  const canContinue = selectedDate && selectedTime;
+  const canContinue = bookingData.service_type === 'blade_transfer' 
+    ? !!(pricingMutation.data?.pricing)
+    : !!(selectedDate && selectedTime);
+
+  if (bookingData.service_type === 'blade_transfer') {
+    return (
+      <div className="space-y-8">
+        <Card variant="luxury" className="p-6">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">BLADE Flight Summary</h3>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Airport:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_airport === 'JFK' ? 'JFK International' : 'Newark Liberty (EWR)'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Flight Date:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_flight_date && new Date(bookingData.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Flight Departure:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Number of Bags:</span>
+                <span className="font-semibold text-navy-900">{bookingData.blade_bag_count}</span>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-blue-900">Bags Ready Time:</span>
+                    <span className="text-xl font-bold text-blue-900">
+                      {pricingMutation.data?.details?.ready_time && 
+                        new Date(`2000-01-01T${pricingMutation.data.details.ready_time}`).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                      }
+                    </span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-2">
+                    Your bags must be packed and ready for pickup at your NYC address by this time.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {pricingMutation.data?.pricing && (
+          <Card variant="luxury" className="p-8">
+            <CardContent className="p-0">
+              <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">
+                    {bookingData.blade_bag_count} bags × $75:
+                  </span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-navy-900">Total:</span>
+                    <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-navy-900">Post-Service Charges (if applicable):</p>
+              <ul className="text-sm text-navy-700 space-y-2">
+                <li>• Overweight bags (over 50 lbs): $100 per bag</li>
+                <li>• Wait time over 10 minutes: $50 per 30 minutes</li>
+              </ul>
+              <p className="text-xs text-navy-500 mt-2">
+                These charges are assessed after service completion and are not included in the booking total.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end pt-4">
+          <Button
+            onClick={handleContinue}
+            disabled={!canContinue || pricingMutation.isPending}
+            size="lg"
+          >
+            {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -421,7 +573,7 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && (
+      {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">
           <CardContent className="p-0">
             <label className="flex items-center">
