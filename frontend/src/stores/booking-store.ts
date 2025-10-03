@@ -128,9 +128,16 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         return { currentStep: Math.min(nextStep, maxStep) };
       }),
       
-      previousStep: () => set((state) => ({ 
-        currentStep: Math.max(state.currentStep - 1, 0)
-      })),
+      previousStep: () => set((state) => {
+        let prevStep = state.currentStep - 1;
+        
+        // Skip customer info step (4) for authenticated users going backward
+        if (!state.isGuestMode && prevStep === 4) {
+          prevStep = 3;
+        }
+        
+        return { currentStep: Math.max(prevStep, 0) };
+      }),
       
       updateBookingData: (data) => {
         set((state) => ({
