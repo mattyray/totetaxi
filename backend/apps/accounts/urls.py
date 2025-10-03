@@ -6,6 +6,8 @@ urlpatterns = [
     # Authentication
     path('auth/login/', views.StaffLoginView.as_view(), name='staff-login'),
     path('auth/logout/', views.StaffLogoutView.as_view(), name='staff-logout'),
+    path('csrf-token/', views.StaffCSRFTokenView.as_view(), name='staff-csrf-token'),  # ADD THIS
+
     
     # Dashboard and operations
     path('dashboard/', views.StaffDashboardView.as_view(), name='staff-dashboard'),

@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-02 16:42:26.205180
+# Generated: 2025-10-03 14:41:37.190513
 # Files: 75
 
 # ==== next-env.d.ts ====
@@ -3661,9 +3661,9 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 # ==== src/components/booking/address-step.tsx ====
 
 ```
-// frontend/src/components/booking/address-step.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -3675,7 +3675,23 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
 ];
 
-// Production-safe test data
+const AIRPORT_ADDRESSES = {
+  JFK: {
+    address_line_1: 'JFK International Airport',
+    address_line_2: '',
+    city: 'Jamaica',
+    state: 'NY' as const,
+    zip_code: '11430'
+  },
+  EWR: {
+    address_line_1: 'Newark Liberty International Airport',
+    address_line_2: '',
+    city: 'Newark',
+    state: 'NJ' as const,
+    zip_code: '07114'
+  }
+};
+
 const TEST_ADDRESSES = {
   manhattan: {
     address_line_1: '123 Park Avenue',
@@ -3716,10 +3732,13 @@ interface AddressFormProps {
   address: BookingAddress | undefined;
   onAddressChange: (address: BookingAddress) => void;
   errors: Record<string, string>;
+  readOnly?: boolean;
 }
 
-function AddressForm({ title, address, onAddressChange, errors }: AddressFormProps) {
+function AddressForm({ title, address, onAddressChange, errors, readOnly = false }: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
+    if (readOnly) return;
+    
     onAddressChange({
       ...address,
       [field]: value
@@ -3730,6 +3749,11 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
     <Card variant="elevated" className="p-8">
       <CardHeader className="p-0 pb-6">
         <h3 className="text-lg font-medium text-navy-900">{title}</h3>
+        {readOnly && (
+          <p className="text-sm text-navy-600 mt-1">
+            Airport address is automatically set based on your BLADE flight selection.
+          </p>
+        )}
       </CardHeader>
       
       <CardContent className="p-0">
@@ -3741,6 +3765,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             error={errors.address_line_1}
             placeholder="123 Main Street"
             required
+            disabled={readOnly}
           />
           
           <Input
@@ -3748,6 +3773,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             value={address?.address_line_2 || ''}
             onChange={(e) => handleFieldChange('address_line_2', e.target.value)}
             placeholder="Apt 4B, Suite 200"
+            disabled={readOnly}
           />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3758,6 +3784,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               error={errors.city}
               placeholder="New York"
               required
+              disabled={readOnly}
             />
             
             <div className="space-y-2">
@@ -3767,8 +3794,11 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
               <select
                 value={address?.state || ''}
                 onChange={(e) => handleFieldChange('state', e.target.value as 'NY' | 'CT' | 'NJ')}
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
+                className={`w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
+                  readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                }`}
                 required
+                disabled={readOnly}
               >
                 <option value="" className="text-gray-400">Select State</option>
                 {STATES.map(state => (
@@ -3788,6 +3818,7 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
             error={errors.zip_code}
             placeholder="10001"
             required
+            disabled={readOnly}
           />
         </div>
       </CardContent>
@@ -3798,6 +3829,15 @@ function AddressForm({ title, address, onAddressChange, errors }: AddressFormPro
 export function AddressStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
 
+  const isBlade = bookingData.service_type === 'blade_transfer';
+
+  useEffect(() => {
+    if (isBlade && bookingData.blade_airport) {
+      const airportAddress = AIRPORT_ADDRESSES[bookingData.blade_airport];
+      updateBookingData({ delivery_address: airportAddress });
+    }
+  }, [isBlade, bookingData.blade_airport]);
+
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
     if (address.address_line_1) clearError('pickup_address');
@@ -3806,13 +3846,15 @@ export function AddressStep() {
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
+    if (isBlade) return;
+    
     updateBookingData({ delivery_address: address });
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut') => {
+  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
     switch (route) {
       case 'manhattan-hamptons':
         updateBookingData({
@@ -3842,6 +3884,20 @@ export function AddressStep() {
           special_instructions: 'Test booking - Manhattan to Connecticut route'
         });
         break;
+      case 'manhattan-jfk':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: AIRPORT_ADDRESSES.JFK,
+          special_instructions: 'Test booking - Manhattan to JFK Airport'
+        });
+        break;
+      case 'manhattan-ewr':
+        updateBookingData({
+          pickup_address: TEST_ADDRESSES.manhattan,
+          delivery_address: AIRPORT_ADDRESSES.EWR,
+          special_instructions: 'Test booking - Manhattan to Newark Airport'
+        });
+        break;
     }
   };
 
@@ -3862,6 +3918,11 @@ export function AddressStep() {
     }
     if (!bookingData.pickup_address?.zip_code) {
       setError('pickup_zip', 'ZIP code is required');
+      hasErrors = true;
+    }
+
+    if (isBlade && bookingData.pickup_address?.state !== 'NY') {
+      setError('pickup_state', 'BLADE service requires NYC pickup address (NY state only)');
       hasErrors = true;
     }
 
@@ -3901,53 +3962,83 @@ export function AddressStep() {
     <div className="space-y-8">
       <div className="text-center">
         <p className="text-navy-700">
-          Where should we pick up and deliver your items?
+          {isBlade 
+            ? 'Where should we pick up your bags in NYC?'
+            : 'Where should we pick up and deliver your items?'}
         </p>
         <p className="text-sm text-navy-600 mt-1">
-          We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.
+          {isBlade
+            ? 'BLADE service is only available from NYC addresses. Airport delivery is automatic.'
+            : 'We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.'}
         </p>
         
-        <div className="mt-6 space-y-3">
-          <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-hamptons')}
-              className="text-xs"
-            >
-              Manhattan → Hamptons
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('brooklyn-manhattan')}
-              className="text-xs"
-            >
-              Brooklyn → Manhattan
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-westchester')}
-              className="text-xs"
-            >
-              Manhattan → Westchester
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fillCommonRoutes('manhattan-connecticut')}
-              className="text-xs"
-            >
-              Manhattan → Connecticut
-            </Button>
+        {!isBlade && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-hamptons')}
+                className="text-xs"
+              >
+                Manhattan → Hamptons
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('brooklyn-manhattan')}
+                className="text-xs"
+              >
+                Brooklyn → Manhattan
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-westchester')}
+                className="text-xs"
+              >
+                Manhattan → Westchester
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-connecticut')}
+                className="text-xs"
+              >
+                Manhattan → Connecticut
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
+        
+        {isBlade && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs text-navy-500">Quick Fill - BLADE Routes:</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-jfk')}
+                className="text-xs"
+              >
+                Manhattan → JFK
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fillCommonRoutes('manhattan-ewr')}
+                className="text-xs"
+              >
+                Manhattan → EWR
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AddressForm
-        title="Pickup Address"
+        title={isBlade ? 'Pickup Address (NYC Only)' : 'Pickup Address'}
         address={bookingData.pickup_address}
         onAddressChange={handlePickupChange}
         errors={{
@@ -3958,8 +4049,19 @@ export function AddressStep() {
         }}
       />
 
+      {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent>
+            <p className="text-sm text-orange-800">
+              <strong>BLADE Restriction:</strong> BLADE service is only available for NYC (NY state) pickups. 
+              Please enter a New York address for pickup.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <AddressForm
-        title="Delivery Address"
+        title={isBlade ? `Delivery Address (${bookingData.blade_airport})` : 'Delivery Address'}
         address={bookingData.delivery_address}
         onAddressChange={handleDeliveryChange}
         errors={{
@@ -3968,6 +4070,7 @@ export function AddressStep() {
           state: errors.delivery_state || '',
           zip_code: errors.delivery_zip || ''
         }}
+        readOnly={isBlade}
       />
 
       <Card variant="default" className="p-6">
@@ -3978,7 +4081,9 @@ export function AddressStep() {
           <textarea
             value={bookingData.special_instructions || ''}
             onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
-            placeholder="Any special delivery instructions, building access codes, or notes for our team..."
+            placeholder={isBlade 
+              ? 'Building access codes, doorman instructions, or any special notes for pickup...'
+              : 'Any special delivery instructions, building access codes, or notes for our team...'}
             rows={4}
             className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
           />
@@ -3994,7 +4099,7 @@ export function AddressStep() {
           disabled={!canContinue}
           size="lg"
         >
-          Continue to Your Info →
+          Continue to {bookingData.service_type === 'blade_transfer' ? 'Review' : 'Your Info'} →
         </Button>
       </div>
     </div>
@@ -4413,16 +4518,16 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       return;
     }
     
-    if (currentStep === 0) {
-      if (isAuthenticated && user) {
-        console.log('Wizard: User authenticated, initializing for user', user.id);
-        initializeForUser(user.id.toString(), false);
-      } else {
-        console.log('Wizard: No user, initializing as guest');
-        initializeForUser('guest', true);
-      }
+    // Initialize for ALL steps, not just step 0
+    if (isAuthenticated && user) {
+      console.log('Wizard: User authenticated, initializing for user', user.id);
+      initializeForUser(user.id.toString(), false);
+    } else {
+      console.log('Wizard: No user, initializing as guest');
+      initializeForUser('guest', true);
     }
-  }, [mounted, isAuthenticated, user, currentStep, initializeForUser, isBookingComplete, completedBookingNumber]);
+  }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
+  // Removed currentStep from dependency - initialize on auth state, not step
 
   if (!mounted) {
     return (
@@ -4827,7 +4932,6 @@ export function CustomerInfoStep() {
 # ==== src/components/booking/date-time-step.tsx ====
 
 ```
-// frontend/src/components/booking/date-time-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -4879,29 +4983,53 @@ export function DateTimeStep() {
     queryFn: async () => {
       const response = await apiClient.get('/api/public/availability/');
       return response.data.availability as AvailabilityDay[];
-    }
+    },
+    enabled: bookingData.service_type !== 'blade_transfer'
   });
 
   const pricingMutation = useMutation({
     mutationFn: async (): Promise<PricingPreview> => {
-      const response = await apiClient.post('/api/public/pricing-preview/', {
+      const payload: any = {
         service_type: bookingData.service_type,
-        mini_move_package_id: bookingData.mini_move_package_id,
-        include_packing: bookingData.include_packing,
-        include_unpacking: bookingData.include_unpacking,
-        standard_delivery_item_count: bookingData.standard_delivery_item_count,
-        is_same_day_delivery: bookingData.is_same_day_delivery,
-        specialty_item_ids: bookingData.specialty_item_ids,
-        pickup_date: selectedDate,
-        pickup_time: selectedTime,
-        specific_pickup_hour: selectedTime === 'morning_specific' ? specificHour : undefined,
-        coi_required: bookingData.coi_required || false
-      });
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : selectedDate,
+      };
+
+      if (bookingData.service_type === 'blade_transfer') {
+        payload.blade_airport = bookingData.blade_airport;
+        payload.blade_flight_date = bookingData.blade_flight_date;
+        payload.blade_flight_time = bookingData.blade_flight_time;
+        payload.blade_bag_count = bookingData.blade_bag_count;
+      } else if (bookingData.service_type === 'mini_move') {
+        payload.mini_move_package_id = bookingData.mini_move_package_id;
+        payload.include_packing = bookingData.include_packing;
+        payload.include_unpacking = bookingData.include_unpacking;
+        payload.pickup_time = selectedTime;
+        payload.specific_pickup_hour = selectedTime === 'morning_specific' ? specificHour : undefined;
+        payload.coi_required = bookingData.coi_required || false;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      }
+
+      const response = await apiClient.post('/api/public/pricing-preview/', payload);
       return response.data;
     }
   });
 
   useEffect(() => {
+    if (bookingData.service_type === 'blade_transfer') {
+      if (bookingData.blade_airport && bookingData.blade_flight_date && 
+          bookingData.blade_flight_time && bookingData.blade_bag_count) {
+        pricingMutation.mutate();
+      }
+      return;
+    }
+
     if (selectedDate && bookingData.service_type) {
       if (bookingData.service_type === 'mini_move' && !bookingData.mini_move_package_id) {
         return;
@@ -4920,12 +5048,21 @@ export function DateTimeStep() {
   useEffect(() => {
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
+      
+      if (bookingData.service_type === 'blade_transfer' && pricingMutation.data.details?.ready_time) {
+        updateBookingData({ blade_ready_time: pricingMutation.data.details.ready_time });
+      }
     }
   }, [pricingMutation.data, updateBookingData]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     updateBookingData({ pickup_date: date });
+    
+    // Auto-trigger pricing for specialty items (no time selection needed)
+    if (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length) {
+      setTimeout(() => pricingMutation.mutate(), 100);
+    }
   };
 
   const handleTimeSelect = (time: PickupTime) => {
@@ -4966,10 +5103,31 @@ export function DateTimeStep() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Get the Sunday before or on the first day of month
+    const startDate = new Date(firstDay);
+    const dayOfWeek = startDate.getDay(); // 0 = Sunday
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+    
+    // Get days until end of last week (Saturday)
+    const endDate = new Date(lastDay);
+    const lastDayOfWeek = endDate.getDay();
+    const daysToAdd = 6 - lastDayOfWeek; // Days until Saturday
+    endDate.setDate(endDate.getDate() + daysToAdd);
+    
     const days = [];
-    for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-      if (d >= today) {
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const isCurrentMonth = d.getMonth() === month;
+      const isPastDate = d < today;
+      
+      // Only include current month dates that aren't in the past
+      if (isCurrentMonth && !isPastDate) {
         days.push(new Date(d));
+      } else if (isCurrentMonth || !isPastDate) {
+        // Include padding days from other months only if they're not past dates
+        days.push(new Date(d));
+      } else {
+        // Push null for past dates to maintain grid structure
+        days.push(null);
       }
     }
     return days;
@@ -4992,7 +5150,133 @@ export function DateTimeStep() {
   };
 
   const packageType = getPackageType();
-  const canContinue = selectedDate && selectedTime;
+  const canContinue = bookingData.service_type === 'blade_transfer' 
+    ? !!(pricingMutation.data?.pricing)
+    : bookingData.service_type === 'specialty_item'
+      ? !!(selectedDate && pricingMutation.data?.pricing)
+      : !!(selectedDate && selectedTime);
+  if (bookingData.service_type === 'blade_transfer') {
+    return (
+      <div className="space-y-8">
+        <Card variant="luxury" className="p-6">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">BLADE Flight Summary</h3>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Airport:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_airport === 'JFK' ? 'JFK International' : 'Newark Liberty (EWR)'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Flight Date:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_flight_date && new Date(bookingData.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Flight Departure:</span>
+                <span className="font-semibold text-navy-900">
+                  {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-navy-700">Number of Bags:</span>
+                <span className="font-semibold text-navy-900">{bookingData.blade_bag_count}</span>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-blue-900">Bags Ready Time:</span>
+                    <span className="text-xl font-bold text-blue-900">
+                      {pricingMutation.data?.details?.ready_time && 
+                        new Date(`2000-01-01T${pricingMutation.data.details.ready_time}`).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })
+                      }
+                    </span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-2">
+                    Your bags must be packed and ready for pickup at your NYC address by this time.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {pricingMutation.data?.pricing && (
+          <Card variant="luxury" className="p-8">
+            <CardContent className="p-0">
+              <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">
+                    {bookingData.blade_bag_count} bags × $75:
+                  </span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-navy-900">Total:</span>
+                    <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card variant="default" className="p-6">
+          <CardContent className="p-0">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-navy-900">Post-Service Charges (if applicable):</p>
+              <ul className="text-sm text-navy-700 space-y-2">
+                <li>• Overweight bags (over 50 lbs): $120 per bag</li>
+                <li>• Wait time over 10 minutes: $50 per 30 minutes</li>
+              </ul>
+              <p className="text-xs text-navy-500 mt-2">
+                These charges are assessed after service completion and are not included in the booking total.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end pt-4">
+          <Button
+            onClick={handleContinue}
+            disabled={!canContinue || pricingMutation.isPending}
+            size="lg"
+          >
+            {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -5030,20 +5314,37 @@ export function DateTimeStep() {
 
         <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
         
+        {/* Day headers */}
+        <div className="grid grid-cols-7 gap-1 md:gap-4 mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="text-center text-sm font-medium text-navy-600 p-2">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1 md:gap-4">
-          {getMonthDays().map((date) => {
+          {getMonthDays().map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+            }
+            
             const dateStr = formatDate(date);
             const dayInfo = getDayInfo(date);
             const isSelected = selectedDate === dateStr;
             const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
 
             return (
               <button
                 key={dateStr}
-                onClick={() => handleDateSelect(dateStr)}
+                onClick={() => isCurrentMonth && handleDateSelect(dateStr)}
+                disabled={!isCurrentMonth}
                 className={`
                   p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
                   h-16 md:h-20 flex flex-col items-center justify-center
+                  ${!isCurrentMonth ? 'opacity-30 cursor-not-allowed' : ''}
                   ${isSelected 
                     ? 'bg-navy-900 text-white border-navy-900' 
                     : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
@@ -5054,7 +5355,7 @@ export function DateTimeStep() {
                 <div className="text-xs opacity-75">
                   {date.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
-                {hasSurcharge && (
+                {hasSurcharge && isCurrentMonth && (
                   <div className="text-xs text-orange-600 mt-1">•</div>
                 )}
               </button>
@@ -5102,7 +5403,13 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && (
+      {selectedDate && (() => {
+        console.log('Time picker check:', {
+          service_type: bookingData.service_type,
+          shouldShow: bookingData.service_type !== 'specialty_item'
+        });
+        return bookingData.service_type !== 'specialty_item';
+      })() && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
@@ -5250,7 +5557,7 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && (
+      {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">
           <CardContent className="p-0">
             <label className="flex items-center">
@@ -5278,11 +5585,29 @@ export function DateTimeStep() {
 
       <div className="flex justify-end pt-4">
         <Button
-          onClick={handleContinue}
-          disabled={!canContinue || pricingMutation.isPending}
+          onClick={() => {
+            // Check if standard_delivery with only specialty items
+            if (bookingData.service_type === 'standard_delivery') {
+              const itemCount = bookingData.standard_delivery_item_count || 0;
+              const hasSpecialtyItems = bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0;
+              
+              // If 0 regular items but has specialty items, it's specialty_item type
+              if (itemCount === 0 && hasSpecialtyItems) {
+                updateBookingData({
+                  service_type: 'specialty_item',
+                  standard_delivery_item_count: undefined,
+                  is_same_day_delivery: undefined
+                });
+              }
+            }
+            
+            // Then proceed to next step
+            nextStep();
+          }}
+          disabled={!canContinue}
           size="lg"
         >
-          {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+          Continue to Date & Time →
         </Button>
       </div>
     </div>
@@ -5305,7 +5630,6 @@ export { ReviewPaymentStep } from './review-payment-step';
 # ==== src/components/booking/review-payment-step.tsx ====
 
 ```
-// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5446,9 +5770,9 @@ export function ReviewPaymentStep() {
     console.log('Is Guest Mode:', isGuestMode);
     console.log('User:', user);
     console.log('Customer Info:', bookingData.customer_info);
-    console.log('Has Customer Info:', !!bookingData.customer_info);
+    console.log('Service Type:', bookingData.service_type);
     console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (): Promise<BookingResponse> => {
@@ -5472,7 +5796,14 @@ export function ReviewPaymentStep() {
           is_same_day_delivery: bookingData.is_same_day_delivery,
           specialty_item_ids: bookingData.specialty_item_ids,
           
-          pickup_date: bookingData.pickup_date,
+          blade_airport: bookingData.blade_airport,
+          blade_flight_date: bookingData.blade_flight_date,
+          blade_flight_time: bookingData.blade_flight_time,
+          blade_bag_count: bookingData.blade_bag_count,
+          
+          pickup_date: bookingData.service_type === 'blade_transfer' 
+            ? bookingData.blade_flight_date 
+            : bookingData.pickup_date,
           pickup_time: bookingData.pickup_time,
           specific_pickup_hour: bookingData.specific_pickup_hour,
           
@@ -5489,12 +5820,9 @@ export function ReviewPaymentStep() {
         };
       } else {
         console.log('=== GUEST BOOKING REQUEST ===');
-        console.log('Customer info available:', !!bookingData.customer_info);
-        console.log('Customer info details:', bookingData.customer_info);
         
         if (!bookingData.customer_info || !bookingData.customer_info.email) {
           console.error('CRITICAL: Guest booking missing customer info');
-          console.log('Available booking data keys:', Object.keys(bookingData));
           
           if (user && !bookingData.customer_info) {
             console.log('Falling back to authenticated user data');
@@ -5512,7 +5840,14 @@ export function ReviewPaymentStep() {
               is_same_day_delivery: bookingData.is_same_day_delivery,
               specialty_item_ids: bookingData.specialty_item_ids,
               
-              pickup_date: bookingData.pickup_date,
+              blade_airport: bookingData.blade_airport,
+              blade_flight_date: bookingData.blade_flight_date,
+              blade_flight_time: bookingData.blade_flight_time,
+              blade_bag_count: bookingData.blade_bag_count,
+              
+              pickup_date: bookingData.service_type === 'blade_transfer' 
+                ? bookingData.blade_flight_date 
+                : bookingData.pickup_date,
               pickup_time: bookingData.pickup_time,
               specific_pickup_hour: bookingData.specific_pickup_hour,
               
@@ -5541,7 +5876,14 @@ export function ReviewPaymentStep() {
             is_same_day_delivery: bookingData.is_same_day_delivery,
             specialty_item_ids: bookingData.specialty_item_ids,
             
-            pickup_date: bookingData.pickup_date,
+            blade_airport: bookingData.blade_airport,
+            blade_flight_date: bookingData.blade_flight_date,
+            blade_flight_time: bookingData.blade_flight_time,
+            blade_bag_count: bookingData.blade_bag_count,
+            
+            pickup_date: bookingData.service_type === 'blade_transfer' 
+              ? bookingData.blade_flight_date 
+              : bookingData.pickup_date,
             pickup_time: bookingData.pickup_time,
             specific_pickup_hour: bookingData.specific_pickup_hour,
             
@@ -5557,7 +5899,6 @@ export function ReviewPaymentStep() {
 
       console.log('ENDPOINT:', endpoint);
       console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
-      console.log('Is Authenticated:', isAuthenticated);
 
       const response = await apiClient.post(endpoint, bookingRequest);
       
@@ -5568,36 +5909,29 @@ export function ReviewPaymentStep() {
     onSuccess: (data) => {
       console.log('=== BOOKING SUCCESS HANDLER ===');
       console.log('Response data:', data);
-      console.log('Is Guest Mode:', !isAuthenticated);
-      console.log('Payment data exists:', !!data.payment);
-      console.log('Client secret exists:', !!data.payment?.client_secret);
-      console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
       
       setBookingNumber(data.booking.booking_number);
       
       if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
         console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
-        console.log('Client secret length:', data.payment.client_secret.length);
         setClientSecret(data.payment.client_secret);
         setShowPayment(true);
       } else {
-        console.log('WARNING: NO PAYMENT INTENT OR STRIPE KEY MISSING');
-        console.log('This should NOT happen for paid bookings');
-        console.log('Payment object:', data.payment);
-        console.log('Client secret:', data.payment?.client_secret);
-        console.log('Stripe key available:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-        console.log('INCORRECTLY MARKING BOOKING AS COMPLETE WITHOUT PAYMENT');
-        
+        console.log('NO PAYMENT INTENT - MARKING COMPLETE');
         setBookingCompleteLocal(true);
         setBookingComplete(data.booking.booking_number);
       }
       
       setLoading(false);
-      console.log('=== END BOOKING SUCCESS HANDLER ===');
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
+        
+        // ADD THIS - Refresh CSRF token after booking
+        apiClient.get('/api/customer/csrf-token/').catch(err => {
+          console.warn('Failed to refresh CSRF token:', err);
+        });
       }
     },
     onError: (error: AxiosError | Error) => {
@@ -5610,7 +5944,6 @@ export function ReviewPaymentStep() {
         console.error('Error Status:', error.response.status);
         console.error('Error Data:', error.response.data);
       }
-      console.log('=== END BOOKING ERROR HANDLER ===');
     }
   });
 
@@ -5621,9 +5954,7 @@ export function ReviewPaymentStep() {
     }
     
     console.log('=== SUBMITTING BOOKING ===');
-    console.log('Is authenticated:', isAuthenticated);
-    console.log('Has customer info:', !!bookingData.customer_info);
-    console.log('Customer info:', bookingData.customer_info);
+    console.log('Service type:', bookingData.service_type);
     
     setLoading(true);
     createBookingMutation.mutate();
@@ -5646,15 +5977,6 @@ export function ReviewPaymentStep() {
   };
 
   const handlePreviousStep = () => {
-    console.log('Review step - going to previous step');
-    console.log('Current booking state:', { 
-      showPayment, 
-      clientSecret: !!clientSecret, 
-      bookingComplete,
-      isAuthenticated,
-      currentStep: 'review' 
-    });
-    
     if (showPayment) {
       setShowPayment(false);
       setClientSecret('');
@@ -5664,7 +5986,6 @@ export function ReviewPaymentStep() {
   };
 
   if (bookingComplete) {
-    console.log('RENDERING SUCCESS SCREEN');
     return (
       <div className="text-center space-y-6">
         <div className="text-6xl mb-4">✅</div>
@@ -5682,12 +6003,14 @@ export function ReviewPaymentStep() {
               </div>
               
               <p className="text-navy-700">
-                Your luxury move is confirmed and paid. 
+                {bookingData.service_type === 'blade_transfer' 
+                  ? 'Your BLADE airport transfer is confirmed and paid.' 
+                  : 'Your luxury move is confirmed and paid.'}
                 {isAuthenticated ? (
                   ' Check your dashboard for booking details.'
                 ) : (
                   <>
-                    We'll send a confirmation email to{' '}
+                    {' '}We'll send a confirmation email to{' '}
                     <strong>{bookingData.customer_info?.email || user?.email}</strong> with all the details.
                   </>
                 )}
@@ -5715,7 +6038,11 @@ export function ReviewPaymentStep() {
                 <div className="text-center">
                   <div className="text-2xl mb-2">📞</div>
                   <h5 className="font-medium text-navy-900 mb-1">Coordination Call</h5>
-                  <p className="text-navy-600">We'll call 24 hours before pickup to confirm timing.</p>
+                  <p className="text-navy-600">
+                    {bookingData.service_type === 'blade_transfer' 
+                      ? 'We\'ll confirm your pickup details before your flight.' 
+                      : 'We\'ll call 24 hours before pickup to confirm timing.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -5745,7 +6072,6 @@ export function ReviewPaymentStep() {
   }
 
   if (showPayment && clientSecret && stripePromise) {
-    console.log('RENDERING PAYMENT FORM');
     return (
       <div className="space-y-6">
         <Card variant="luxury">
@@ -5794,25 +6120,8 @@ export function ReviewPaymentStep() {
     );
   }
 
-  console.log('RENDERING BOOKING SUMMARY FORM');
   return (
     <div className="space-y-6">
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardContent className="p-4">
-            <h4 className="font-medium text-yellow-800 mb-2">Debug Info (Dev Only)</h4>
-            <div className="text-sm text-yellow-700 space-y-1">
-              <div>Mode: {isAuthenticated ? 'Authenticated' : 'Guest'}</div>
-              <div>Has Customer Info: {bookingData.customer_info ? 'Yes' : 'No'}</div>
-              <div>Customer Email: {bookingData.customer_info?.email || user?.email || 'None'}</div>
-              <div>Service Type: {bookingData.service_type}</div>
-              <div>Package ID: {bookingData.mini_move_package_id}</div>
-              <div>Total Price: ${bookingData.pricing_data?.total_price_dollars || 'Not set'}</div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card variant="luxury">
         <CardHeader>
           <h3 className="text-xl font-serif font-bold text-navy-900">Booking Summary</h3>
@@ -5825,6 +6134,7 @@ export function ReviewPaymentStep() {
                 {bookingData.service_type === 'mini_move' && 'Mini Move'}
                 {bookingData.service_type === 'standard_delivery' && 'Standard Delivery'}
                 {bookingData.service_type === 'specialty_item' && 'Specialty Items'}
+                {bookingData.service_type === 'blade_transfer' && 'BLADE Airport Transfer'}
               </p>
               
               {bookingData.include_packing && (
@@ -5835,24 +6145,64 @@ export function ReviewPaymentStep() {
               )}
             </div>
 
-            <div>
-              <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
-              <p className="text-navy-700">
-                {new Date(bookingData.pickup_date!).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-              <p className="text-navy-600">
-                {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
-              </p>
-            </div>
+            {bookingData.service_type === 'blade_transfer' ? (
+              <>
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-2">Flight Details</h4>
+                  <p className="text-navy-700">
+                    <strong>Airport:</strong> {bookingData.blade_airport === 'JFK' ? 'JFK International' : 'Newark Liberty (EWR)'}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Flight Date:</strong> {bookingData.blade_flight_date && new Date(bookingData.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Flight Time:</strong> {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
+                  <p className="text-navy-700">
+                    <strong>Bags:</strong> {bookingData.blade_bag_count}
+                  </p>
+                  <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-2">
+                    <p className="text-sm text-blue-800">
+                      <strong>Pickup Ready Time:</strong> {bookingData.blade_ready_time && new Date(`2000-01-01T${bookingData.blade_ready_time}`).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div>
+                <h4 className="font-medium text-navy-900 mb-2">Pickup Schedule</h4>
+                <p className="text-navy-700">
+                  {bookingData.pickup_date && new Date(bookingData.pickup_date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-navy-600">
+                  {getTimeDisplay(bookingData.pickup_time, bookingData.specific_pickup_hour)}
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                <h4 className="font-medium text-navy-900 mb-2">
+                  {bookingData.service_type === 'blade_transfer' ? 'Pickup Address (NYC)' : 'Pickup Address'}
+                </h4>
                 <div className="text-navy-700 text-sm">
                   <div>{bookingData.pickup_address?.address_line_1}</div>
                   {bookingData.pickup_address?.address_line_2 && (
@@ -5865,15 +6215,25 @@ export function ReviewPaymentStep() {
               </div>
               
               <div>
-                <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                <h4 className="font-medium text-navy-900 mb-2">
+                  {bookingData.service_type === 'blade_transfer' ? 'Delivery (Airport)' : 'Delivery Address'}
+                </h4>
                 <div className="text-navy-700 text-sm">
-                  <div>{bookingData.delivery_address?.address_line_1}</div>
-                  {bookingData.delivery_address?.address_line_2 && (
-                    <div>{bookingData.delivery_address.address_line_2}</div>
+                  {bookingData.service_type === 'blade_transfer' ? (
+                    <div className="font-medium">
+                      {bookingData.blade_airport === 'JFK' ? 'JFK International Airport' : 'Newark Liberty International Airport (EWR)'}
+                    </div>
+                  ) : (
+                    <>
+                      <div>{bookingData.delivery_address?.address_line_1}</div>
+                      {bookingData.delivery_address?.address_line_2 && (
+                        <div>{bookingData.delivery_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
+                      </div>
+                    </>
                   )}
-                  <div>
-                    {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
-                  </div>
                 </div>
               </div>
             </div>
@@ -5914,6 +6274,12 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-700">Base Price:</span>
                 <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
               </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="text-sm text-navy-600 italic">
+                  {bookingData.blade_bag_count} bags × $75
+                </div>
+              )}
               
               {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
                 <div className="flex justify-between">
@@ -5963,6 +6329,14 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-900">Total:</span>
                 <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
               </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -6088,16 +6462,13 @@ export function ReviewPaymentStep() {
     </div>
   );
 }
-
-
-
 ```
 
 # ==== src/components/booking/service-selection-step.tsx ====
 
 ```
 'use client';
-// frontend/src/components/booking/service-selection-step.tsx
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -6206,6 +6577,10 @@ export function ServiceSelectionStep() {
       package_type: selectedPackage?.package_type,
       standard_delivery_item_count: undefined,
       specialty_item_ids: undefined,
+      blade_airport: undefined,
+      blade_flight_date: undefined,
+      blade_flight_time: undefined,
+      blade_bag_count: undefined,
     });
     
     console.log('Updated booking data - new state should have package_id:', packageId);
@@ -6236,6 +6611,16 @@ export function ServiceSelectionStep() {
       return itemCount > 0 || specialtyCount > 0;
     }
     
+    if (bookingData.service_type === 'blade_transfer') {
+      return !!(
+        bookingData.blade_airport &&
+        bookingData.blade_flight_date &&
+        bookingData.blade_flight_time &&
+        bookingData.blade_bag_count &&
+        bookingData.blade_bag_count >= 2
+      );
+    }
+    
     return false;
   };
 
@@ -6255,12 +6640,16 @@ export function ServiceSelectionStep() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-navy-900 mb-4">Choose Your Service</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => updateBookingData({ 
               service_type: 'mini_move',
               standard_delivery_item_count: undefined,
-              specialty_item_ids: undefined
+              specialty_item_ids: undefined,
+              blade_airport: undefined,
+              blade_flight_date: undefined,
+              blade_flight_time: undefined,
+              blade_bag_count: undefined,
             })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'mini_move'
@@ -6278,7 +6667,11 @@ export function ServiceSelectionStep() {
               mini_move_package_id: undefined,
               package_type: undefined,
               include_packing: false,
-              include_unpacking: false
+              include_unpacking: false,
+              blade_airport: undefined,
+              blade_flight_date: undefined,
+              blade_flight_time: undefined,
+              blade_bag_count: undefined,
             })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'standard_delivery'
@@ -6288,6 +6681,27 @@ export function ServiceSelectionStep() {
           >
             <h4 className="font-medium text-navy-900 mb-2">Standard Delivery</h4>
             <p className="text-sm text-navy-600">Regular items + specialty items</p>
+          </button>
+
+          <button
+            onClick={() => updateBookingData({ 
+              service_type: 'blade_transfer',
+              mini_move_package_id: undefined,
+              package_type: undefined,
+              include_packing: false,
+              include_unpacking: false,
+              standard_delivery_item_count: undefined,
+              specialty_item_ids: undefined,
+            })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'blade_transfer'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-2">BLADE Airport Transfer</h4>
+            <p className="text-sm text-navy-600">NYC → Airport luggage delivery</p>
+            <p className="text-xs text-navy-500 mt-2">JFK/EWR only</p>
           </button>
         </div>
       </div>
@@ -6597,7 +7011,7 @@ export function ServiceSelectionStep() {
                   className="mr-3"
                 />
                 <span className="text-navy-900 font-medium">
-                  Same-Day Delivery (+$${services.standard_delivery.same_day_flat_rate_dollars})
+                  Same-Day Delivery (+$360)
                 </span>
               </label>
             </CardContent>
@@ -6606,10 +7020,135 @@ export function ServiceSelectionStep() {
           {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-800 font-medium">
-                ⚠️ Please select at least one regular item or specialty item to continue.
+                Please select at least one regular item or specialty item to continue.
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {bookingData.service_type === 'blade_transfer' && (
+        <div className="space-y-6">
+          <h3 className="text-lg font-medium text-navy-900 mb-4">BLADE Flight Details</h3>
+          
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Airport Selection</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => updateBookingData({ blade_airport: 'JFK' })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    bookingData.blade_airport === 'JFK'
+                      ? 'border-navy-500 bg-navy-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium text-navy-900">JFK</div>
+                  <div className="text-sm text-navy-600">John F. Kennedy</div>
+                </button>
+                
+                <button
+                  onClick={() => updateBookingData({ blade_airport: 'EWR' })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    bookingData.blade_airport === 'EWR'
+                      ? 'border-navy-500 bg-navy-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium text-navy-900">EWR</div>
+                  <div className="text-sm text-navy-600">Newark Liberty</div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Flight Information</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Input
+                  label="Flight Date"
+                  type="date"
+                  value={bookingData.blade_flight_date || ''}
+                  onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                
+                <Input
+                  label="Flight Departure Time"
+                  type="time"
+                  value={bookingData.blade_flight_time || ''}
+                  onChange={(e) => updateBookingData({ blade_flight_time: e.target.value })}
+                />
+                
+                {bookingData.blade_flight_time && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Bags Ready Time:</strong> Your bags must be ready for pickup by{' '}
+                      {parseInt(bookingData.blade_flight_time.split(':')[0]) < 13 ? '5:00 AM' : '10:00 AM'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Number of Bags</h4>
+            </CardHeader>
+            <CardContent>
+              <Input
+                label="Bag Count"
+                type="number"
+                min={2}
+                value={bookingData.blade_bag_count?.toString() || ''}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 0) {
+                    updateBookingData({ blade_bag_count: value });
+                  }
+                }}
+                placeholder="Enter number of bags"
+                helper="$75 per bag • $150 minimum for up to 2 bags"
+              />
+              
+              {bookingData.blade_bag_count && bookingData.blade_bag_count < 2 && (
+                <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800 font-medium">
+                    BLADE service requires a minimum of 2 bags
+                  </p>
+                </div>
+              )}
+              
+              {bookingData.blade_bag_count && bookingData.blade_bag_count >= 2 && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>Estimated Price:</strong> ${Math.max(bookingData.blade_bag_count * 75, 150)}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="default">
+            <CardContent>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-navy-900">Important Information:</p>
+                <ul className="text-sm text-navy-700 space-y-2">
+                  <li>• NYC to airport only (one-way service)</li>
+                  <li>• Book by 8:00 PM the night before your flight</li>
+                  <li>• 2-bag minimum required</li>
+                  <li>• Overweight bags (over 50 lbs): $100 per bag upon pickup</li>
+                  <li>• Wait time over 10 minutes: $50 per 30 minutes</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -10091,7 +10630,7 @@ function SidebarContent({ navigation, pathname }: {
 
 ```
 'use client';
-// frontend/src/components/staff/staff-login-form.tsx
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -10101,6 +10640,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { apiClient } from '@/lib/api-client';
 
 const staffLoginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -10129,7 +10669,17 @@ export function StaffLoginForm() {
       const result = await login(data.username, data.password);
       
       if (result.success) {
-        console.log('Staff login successful, redirecting to dashboard');
+        console.log('Staff login successful, refreshing CSRF token');
+        
+        // CRITICAL: Refresh CSRF token after staff login
+        try {
+          await apiClient.get('/api/staff/csrf-token/');
+          console.log('CSRF token refreshed for staff');
+        } catch (err) {
+          console.warn('Failed to refresh CSRF token:', err);
+        }
+        
+        console.log('Redirecting to dashboard');
         router.push('/staff/dashboard');
       } else {
         setApiError(result.error || 'Login failed. Please check your credentials.');
@@ -11232,7 +11782,7 @@ export interface BookingAddress {
 }
 
 export interface BookingData {
-  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item' | 'blade_transfer';
   mini_move_package_id?: string;
   package_type?: 'petite' | 'standard' | 'full';
   include_packing?: boolean;
@@ -11240,6 +11790,13 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
+  
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  blade_ready_time?: string;
+  
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;
@@ -11305,7 +11862,7 @@ const initialBookingData: BookingData = {
   is_outside_core_area: false,
 };
 
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -11342,9 +11899,16 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         return { currentStep: Math.min(nextStep, maxStep) };
       }),
       
-      previousStep: () => set((state) => ({ 
-        currentStep: Math.max(state.currentStep - 1, 0)
-      })),
+      previousStep: () => set((state) => {
+        let prevStep = state.currentStep - 1;
+        
+        // Skip customer info step (4) for authenticated users going backward
+        if (!state.isGuestMode && prevStep === 4) {
+          prevStep = 3;
+        }
+        
+        return { currentStep: Math.max(prevStep, 0) };
+      }),
       
       updateBookingData: (data) => {
         set((state) => ({
@@ -11423,6 +11987,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       resetWizard: () => {
         console.log('Resetting booking wizard completely');
         
+        const state = get();
+        
+        // Preserve auth state during reset
+        const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
+        const preservedGuestMode = state.isGuestMode;
+        
         const newState = {
           currentStep: 0,
           isLoading: false,
@@ -11430,8 +12000,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           errors: {},
           isBookingComplete: false,
           completedBookingNumber: undefined,
-          userId: 'guest',
-          isGuestMode: true,
+          userId: preservedUserId,  // Keep existing user ID
+          isGuestMode: preservedGuestMode,  // Keep existing guest mode
           lastResetTimestamp: Date.now()
         };
         
@@ -11484,12 +12054,24 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           case 0: return true;
           case 1: return true;
           case 2:
+            if (bookingData.service_type === 'blade_transfer') {
+              return !!(
+                bookingData.blade_airport &&
+                bookingData.blade_flight_date &&
+                bookingData.blade_flight_time &&
+                bookingData.blade_bag_count &&
+                bookingData.blade_bag_count >= 2
+              );
+            }
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
               (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
               (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
             );
           case 3:
+            if (bookingData.service_type === 'blade_transfer') {
+              return !!(bookingData.blade_flight_date);
+            }
             return !!bookingData.pickup_date;
           case 4:
             return !!bookingData.pickup_address && !!bookingData.delivery_address;
@@ -12010,7 +12592,7 @@ export interface BookingWizardState {
 }
 
 export interface BookingData {
-  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item';
+  service_type?: 'mini_move' | 'standard_delivery' | 'specialty_item' | 'blade_transfer';
   mini_move_package_id?: string;
   package_type?: 'petite' | 'standard' | 'full';
   include_packing?: boolean;
@@ -12018,6 +12600,13 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   specialty_item_ids?: string[];
+  
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  blade_ready_time?: string;
+  
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;

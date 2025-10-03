@@ -25,11 +25,11 @@ from apps.payments.models import Payment, Refund
 
 @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 @method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='post')
+@method_decorator(ensure_csrf_cookie, name='dispatch')  # Move to dispatch
 class StaffLoginView(APIView):
     """Staff authentication endpoint with rate limiting protection"""
     permission_classes = [permissions.AllowAny]
     
-    @method_decorator(ensure_csrf_cookie)
     def post(self, request):
         serializer = StaffLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -68,12 +68,18 @@ class StaffLoginView(APIView):
             user.staff_profile.login_attempts = 0
             user.staff_profile.save()
             
-            return Response({
+            # Create response with CSRF token
+            response = Response({
                 'message': 'Login successful',
                 'user': StaffUserSerializer(user).data,
                 'staff_profile': StaffProfileSerializer(user.staff_profile).data,
                 'csrf_token': get_token(request)
             })
+            
+            # Ensure session is saved
+            request.session.save()
+            
+            return response
         else:
             # Handle failed login attempt
             if user:
@@ -586,4 +592,17 @@ class BookingDetailView(APIView):
                 'status': booking.status,
                 'updated_at': booking.updated_at
             }
+        })
+    
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class StaffCSRFTokenView(APIView):
+    """Get CSRF token for staff - ensures cookie is set"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
+        
+        return Response({
+            'csrf_token': get_token(request)
         })

@@ -1,1021 +1,1346 @@
-I'll generate the frontend living documentation for your ToteTaxi project. Let me first search for the frontend snapshot.Now I'll generate the comprehensive frontend living documentation for your ToteTaxi project.
+Perfect! Let me search for the frontend_snapshot.txt file in the project knowledge.Let me get the complete frontend_snapshot.txt content to analyze it properly.Let me search for more comprehensive sections to understand the complete codebase structure:Perfect! I have all the information I need from the frontend_snapshot.txt. Now I'll generate the living documentation following the Strategic Extraction Protocol, targeting approximately **1600 lines**. This will be a comprehensive yet concise strategic navigation system.
 
-# **TOTETAXI FRONTEND - LIVING DOCUMENTATION v2.0**
-
-*Strategic Navigation System for Next.js/React/TypeScript Frontend Architecture*  
-*Generated: September 29, 2025*  
-*Source: frontend_snapshot.txt (76 files)*
+Let me create this now:
 
 ---
 
-## **SECTION 1: SYSTEM ARCHITECTURE MENTAL MODEL**
+# TOTETAXI FRONTEND - LIVING DOCUMENTATION v2.0
+**Strategic Navigation System for AI Executive Function**
 
-### **Technology Stack Detection**
+**Purpose**: This document serves as a magnifying glass into frontend_snapshot.txt, providing comprehensive architectural understanding and file mapping to enable intelligent file requesting without reproducing implementations.
 
-**Framework & Core**:
-- **Next.js 15.5.0** (App Router with file-based routing)
-- **React 19.1.0** (Latest with Server Components support)
-- **TypeScript 5** (Strict mode enabled, path aliases configured)
-- **Node Environment**: ES2017 target with ESNext modules
-
-**State Management**:
-- **Zustand 4.5.7** with persistence middleware
-- **TanStack Query 5.87.1** for server state and caching
-- Separate stores: `auth-store`, `staff-auth-store`, `booking-store`, `ui-store`
-
-**Styling & UI**:
-- **Tailwind CSS 3.4.17** (utility-first styling)
-- **Custom Design System**: Navy/Gold/Cream color palette
-- **Component Variants**: Class Variance Authority (CVA) pattern
-- **Fonts**: Playfair Display (serif) + Inter (sans-serif)
-
-**Forms & Validation**:
-- **React Hook Form 7.62.0** for form state management
-- **Zod 3.25.76** for runtime schema validation
-- **@hookform/resolvers 3.10.0** for Zod integration
-
-**Data Fetching & API**:
-- **Axios 1.11.0** with custom interceptors
-- **TanStack Query** for caching, optimistic updates
-- Session-based authentication with CSRF tokens
-
-**Payments**:
-- **Stripe Elements** via `@stripe/react-stripe-js 4.0.2`
-- **Stripe.js** via `@stripe/stripe-js 7.9.0`
-- Publishable key from environment variables
-
-**UI Components**:
-- **Headless UI 2.2.7** for accessible primitives (Dialog, Menu)
-- **Heroicons 2.2.0** for iconography
-- **Custom component library** in `components/ui/`
-
-**Build & Development**:
-- **PostCSS** + Autoprefixer for CSS processing
-- **ESLint** (disabled during builds for deployment speed)
-- **Strict TypeScript** configuration with path aliases (`@/*`)
+**Generated**: 2025-10-03  
+**Frontend Stack**: Next.js 15.5.0 (App Router) + React 19 + TypeScript + Tailwind CSS  
+**Size**: ~1600 lines (10-15% compression of frontend_snapshot.txt)  
+**Backend Integration**: Cross-references backend README.md for API specifications
 
 ---
 
-### **Project Structure Philosophy**
+## SECTION 1: SYSTEM ARCHITECTURE MENTAL MODEL
 
-**Component Organization Strategy**:
+### 1.1 Technology Stack Overview
+
+**Core Framework & Build**
+- **Framework**: Next.js 15.5.0 with App Router (file-based routing)
+- **React**: Version 19.1.0 (latest)
+- **TypeScript**: Version 5.x (strict mode enabled)
+- **Build Tool**: Next.js native compiler with Turbopack support
+
+**State Management & Data Fetching**
+- **Client State**: Zustand 4.5.7 (lightweight store with persistence)
+- **Server State**: TanStack Query 5.87.1 (formerly React Query)
+- **Data Fetching**: Axios 1.11.0 with custom interceptors
+- **Form State**: React Hook Form 7.62.0 with Zod 3.25.76 validation
+
+**Styling & UI Framework**
+- **CSS Framework**: Tailwind CSS 3.4.17 (utility-first)
+- **UI Components**: Headless UI 2.2.7 (accessible primitives)
+- **Icons**: Heroicons 2.2.0 (React components)
+- **Design System**: Custom luxury brand (navy/gold/cream color palette)
+- **Utilities**: clsx + tailwind-merge for className composition
+
+**Payment Integration**
+- **Stripe React**: @stripe/react-stripe-js 4.0.2
+- **Stripe JS**: @stripe/stripe-js 7.9.0
+
+**Development Tools**
+- **Linting**: ESLint 9.x (Next.js config)
+- **TypeScript Config**: Strict mode, path aliases (@/* → ./src/*)
+- **PostCSS**: Autoprefixer for browser compatibility
+
+### 1.2 Project Architecture Philosophy
+
+**App Router Organization**
+- Next.js App Router provides file-based routing with server/client component separation
+- Routes defined by folder structure under src/app/
+- Layouts wrap child routes for shared UI elements
+- Each route can have page.tsx (route component) and layout.tsx (wrapper)
+
+**Component Architecture Strategy**
 ```
-src/
-├── app/                    # Next.js App Router pages (file-based routing)
-├── components/            # Reusable components grouped by domain
-│   ├── auth/              # Authentication components
-│   ├── booking/           # Booking wizard steps
-│   ├── dashboard/         # Customer dashboard widgets
-│   ├── staff/             # Staff-only components
-│   ├── marketing/         # Public marketing sections
-│   ├── layout/            # Layout wrappers
-│   ├── ui/                # Design system primitives
-│   └── providers/         # Context providers
-├── stores/                # Zustand state management
-├── lib/                   # Core utilities (API client, query client)
-├── hooks/                 # Custom React hooks
-├── types/                 # TypeScript type definitions
-└── utils/                 # Helper functions
+src/components/
+├── auth/          # Authentication forms and user menu
+├── booking/       # Multi-step booking wizard components
+├── dashboard/     # Customer dashboard components
+├── layout/        # Shared layout components (header, footer, main layout)
+├── marketing/     # Public marketing sections
+├── providers/     # React context providers
+├── staff/         # Staff-only management components
+└── ui/            # Reusable primitive components (buttons, cards, inputs)
 ```
 
-**Separation of Concerns**:
-- **Pages** (`app/`): Route definitions, minimal logic, delegate to components
-- **Components**: UI rendering, receive data via props, emit events via callbacks
-- **Stores**: Global state for auth, UI, multi-step workflows
-- **API Client**: Centralized axios instance with interceptors
-- **React Query**: Server state caching, automatic refetching, optimistic updates
-- **Types**: Shared TypeScript interfaces matching backend contracts
+**State Management Philosophy**
+- Zustand stores for client-side UI state and authentication
+- TanStack Query for server state caching and synchronization
+- React Hook Form for ephemeral form state
+- localStorage persistence for auth tokens and UI preferences
+
+**Backend Integration Approach**
+- RESTful API client using Axios with baseURL configuration
+- Cookie-based session management with mobile fallback to headers
+- Automatic CSRF token handling for mutations
+- TanStack Query for automatic retries and caching
+
+### 1.3 Routing Architecture
+
+**App Router Structure** (Next.js file-based routing)
+```
+src/app/
+├── page.tsx                    # Landing page (/)
+├── layout.tsx                  # Root layout with fonts and providers
+├── about/page.tsx              # About page (/about)
+├── book/page.tsx               # Booking page (/book)
+├── contact/page.tsx            # Contact page (/contact)
+├── faq/page.tsx                # FAQ page (/faq)
+├── login/page.tsx              # Customer login (/login)
+├── register/page.tsx           # Customer registration (/register)
+├── services/page.tsx           # Services overview (/services)
+├── dashboard/
+│   ├── page.tsx                # Customer dashboard (/dashboard)
+│   └── bookings/page.tsx       # Booking history (/dashboard/bookings)
+└── staff/
+    ├── login/page.tsx          # Staff login (/staff/login)
+    ├── dashboard/page.tsx      # Staff dashboard (/staff/dashboard)
+    ├── calendar/page.tsx       # Booking calendar (/staff/calendar)
+    ├── bookings/
+    │   ├── page.tsx            # Booking management (/staff/bookings)
+    │   └── [id]/page.tsx       # Booking detail (/staff/bookings/:id)
+    ├── customers/
+    │   ├── page.tsx            # Customer management (/staff/customers)
+    │   └── [id]/page.tsx       # Customer detail (/staff/customers/:id)
+    ├── logistics/page.tsx      # Logistics management (/staff/logistics)
+    └── reports/page.tsx        # Reports & analytics (/staff/reports)
+```
+
+**Route Protection**
+- Customer routes (/dashboard/*): Protected by useAuthStore, redirect to /login
+- Staff routes (/staff/*): Protected by useStaffAuthStore, redirect to /staff/login
+- Public routes: Accessible without authentication
+
+### 1.4 Design System & Brand Identity
+
+**Color Palette** (Luxury brand aesthetic)
+```javascript
+colors: {
+  navy: {
+    50: '#f0f4f8',   // Lightest
+    600: '#486581',  // Medium
+    900: '#1a365d',  // Darkest
+  },
+  gold: {
+    50: '#fffdf7',   // Lightest
+    500: '#d69e2e',  // Primary gold
+    900: '#5f370e',  // Darkest
+  },
+  cream: {
+    50: '#fefcf3',   // Background
+    100: '#fef7e0',  // Subtle highlights
+  }
+}
+```
+
+**Typography System**
+- **Sans-serif**: Inter (variable font) for body text
+- **Serif**: Playfair Display (variable font) for headings
+- Font loading via next/font/google with optimal performance
+
+**Spacing & Layout**
+- Container-based layouts with responsive breakpoints
+- Tailwind's default spacing scale (4px base unit)
+- Max-width content containers for readability
 
 ---
 
-### **State Architecture**
+## SECTION 2: BACKEND INTEGRATION MAP
 
-**Client State (Zustand)**:
+**Cross-reference**: See backend README.md for complete API specifications. This section maps which frontend files consume which backend endpoints.
 
-1. **`auth-store`**: Customer authentication
-   - Persistent: `user`, `customerProfile`, `isAuthenticated`
-   - Actions: `login()`, `register()`, `logout()`, `validateSession()`
-   - Version 2 with migration support
+### 2.1 Authentication APIs
 
-2. **`staff-auth-store`**: Staff authentication
-   - Persistent: `user`, `staffProfile`, `isAuthenticated`
-   - Actions: `login()`, `logout()`, `clearAuth()`
-   - Isolated from customer auth (prevents hybrid accounts)
+**POST /api/auth/login/**
+- **Frontend Hook**: N/A (direct apiClient call)
+- **Components**: `LoginForm` (components/auth/login-form.tsx)
+- **Store**: Updates `authStore` (stores/auth-store.ts)
+- **Flow**: LoginForm → apiClient.post → authStore.setUser() → redirect to /dashboard
+- **Files to Request**: components/auth/login-form.tsx, stores/auth-store.ts
 
-3. **`booking-store`**: Multi-step booking wizard
-   - Persistent (with 24h expiration): `currentStep`, `bookingData`
-   - Actions: `nextStep()`, `prevStep()`, `updateBookingData()`, `resetWizard()`
-   - Guest vs authenticated mode tracking
+**POST /api/auth/register/**
+- **Frontend Hook**: N/A (direct apiClient call)
+- **Components**: `RegisterForm` (components/auth/register-form.tsx)
+- **Store**: Updates `authStore` (stores/auth-store.ts)
+- **Flow**: RegisterForm → apiClient.post → authStore.setUser() → redirect to /dashboard
+- **Files to Request**: components/auth/register-form.tsx, stores/auth-store.ts
 
-4. **`ui-store`**: UI interactions (non-persistent)
-   - State: `sidebarOpen`, `theme`, `notifications`, `modals`
-   - Actions: `toggleSidebar()`, `addNotification()`, `openModal()`
+**POST /api/auth/logout/**
+- **Frontend Hook**: authStore.logout()
+- **Components**: `UserMenu` (components/auth/user-menu.tsx)
+- **Store**: Clears `authStore` (stores/auth-store.ts)
+- **Files to Request**: stores/auth-store.ts, components/auth/user-menu.tsx
 
-**Server State (TanStack Query)**:
-- **Query Keys Pattern**: `['customer', 'bookings', userId]`, `['staff', 'dashboard']`
-- **Caching**: 5min stale time, 30min garbage collection
-- **Optimistic Updates**: Immediate UI feedback on mutations
-- **Global Error Handling**: 401 errors auto-clear auth and cache
+**GET /api/auth/session/**
+- **Frontend Hook**: authStore.validateSession()
+- **Components**: `SessionValidator` in layout.tsx
+- **Purpose**: Validate stored sessions on app startup
+- **Files to Request**: stores/auth-store.ts, app/layout.tsx
 
----
+### 2.2 Staff Authentication APIs
 
-### **Backend Integration Philosophy**
+**POST /api/staff/login/**
+- **Frontend Component**: `StaffLoginForm` (components/staff/staff-login-form.tsx)
+- **Store**: Updates `staffAuthStore` (stores/staff-auth-store.ts)
+- **Flow**: StaffLoginForm → apiClient.post → staffAuthStore.setStaff() → redirect to /staff/dashboard
+- **Files to Request**: components/staff/staff-login-form.tsx, stores/staff-auth-store.ts
 
-**API Client Configuration**:
-- Base URL: `process.env.NEXT_PUBLIC_API_URL` (http://localhost:8005 dev)
-- Credentials: `withCredentials: true` for session cookies
-- CSRF Protection: Automatic token fetching and header injection
-- Request Interceptor: Adds session cookies for mobile compatibility
-- Response Interceptor: Handles 401 errors globally
+**POST /api/staff/logout/**
+- **Frontend Hook**: staffAuthStore.logout()
+- **Components**: `StaffLayout` (components/staff/staff-layout.tsx)
+- **Files to Request**: stores/staff-auth-store.ts, components/staff/staff-layout.tsx
 
-**Authentication Flow**:
-1. Frontend: `POST /api/customer/auth/login/` with `{email, password}`
-2. Backend: Sets `sessionid` + `csrftoken` cookies (SameSite=None)
-3. Frontend: Stores user + profile in `auth-store` (Zustand persist)
-4. Subsequent requests: Axios auto-includes cookies + CSRF token
-5. 401 response: Auto-logout, clear all caches, redirect to `/login`
+**GET /api/staff/session/**
+- **Frontend Hook**: staffAuthStore.validateSession()
+- **Components**: `SessionValidator` in layout.tsx
+- **Files to Request**: stores/staff-auth-store.ts, app/layout.tsx
 
-**Cross-Domain Session Management**:
-- Mobile-friendly: `SameSite=None; Secure` cookies
-- Debug endpoint: `/api/customer/debug/` for troubleshooting
-- Manual cookie headers: Request interceptor adds `Cookie: sessionid=...`
+### 2.3 Booking APIs
 
----
+**GET /api/services/**
+- **Frontend Hook**: TanStack Query in `ServiceSelectionStep`
+- **Components**: `ServiceSelectionStep` (components/booking/service-selection-step.tsx)
+- **Purpose**: Fetch available services for booking wizard
+- **Caching**: TanStack Query with ['services'] key
+- **Files to Request**: components/booking/service-selection-step.tsx
 
-## **SECTION 2: BACKEND INTEGRATION MAP**
+**POST /api/bookings/calculate-price/**
+- **Frontend Hook**: Direct apiClient call in `ReviewPaymentStep`
+- **Components**: `ReviewPaymentStep` (components/booking/review-payment-step.tsx)
+- **Purpose**: Calculate booking price before payment
+- **Files to Request**: components/booking/review-payment-step.tsx
 
-*Cross-references: See backend README.md Sections 2 & 6 for complete API specifications*
+**POST /api/bookings/create/**
+- **Frontend Hook**: Direct apiClient call in `ReviewPaymentStep`
+- **Components**: `ReviewPaymentStep` (components/booking/review-payment-step.tsx)
+- **Store**: Clears `bookingStore` on success
+- **Flow**: ReviewPaymentStep → apiClient.post → redirect to /dashboard
+- **Files to Request**: components/booking/review-payment-step.tsx, stores/booking-store.ts
 
-### **Customer Authentication APIs**
+**GET /api/bookings/**
+- **Frontend Hook**: TanStack Query in `BookingHistory`
+- **Components**: `BookingHistory` (components/dashboard/booking-history.tsx)
+- **Query Key**: ['bookings']
+- **Files to Request**: components/dashboard/booking-history.tsx
 
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `POST /api/customer/auth/register/` | `useAuthStore().register()` | N/A (mutation) | stores/auth-store.ts, components/auth/register-form.tsx |
-| `POST /api/customer/auth/login/` | `useAuthStore().login()` | N/A (mutation) | stores/auth-store.ts, components/auth/login-form.tsx |
-| `POST /api/customer/auth/logout/` | `useAuthStore().logout()` | N/A (mutation) | stores/auth-store.ts, components/auth/user-menu.tsx |
-| `GET /api/customer/auth/user/` | `useAuthStore().validateSession()` | N/A (validation) | stores/auth-store.ts |
+**GET /api/bookings/{id}/**
+- **Frontend Hook**: TanStack Query in `DashboardOverview`
+- **Components**: `DashboardOverview` (components/dashboard/dashboard-overview.tsx)
+- **Query Key**: ['bookings', id]
+- **Files to Request**: components/dashboard/dashboard-overview.tsx
 
-**State Updates**: All auth mutations update `auth-store` (user, customerProfile, isAuthenticated)
+### 2.4 Staff Management APIs
 
-**Error Handling**: Form-level errors displayed, global 401 handled by interceptor
+**GET /api/staff/dashboard/**
+- **Frontend Component**: `StaffDashboardOverview` (components/staff/staff-dashboard-overview.tsx)
+- **Query Key**: ['staff', 'dashboard']
+- **Returns**: Booking stats, payment stats, recent bookings
+- **Files to Request**: components/staff/staff-dashboard-overview.tsx
 
----
+**GET /api/staff/bookings/**
+- **Frontend Component**: `BookingManagement` (components/staff/booking-management.tsx)
+- **Query Key**: ['staff', 'bookings', filters]
+- **Purpose**: List all bookings with filtering
+- **Files to Request**: components/staff/booking-management.tsx
 
-### **Customer Profile & Preferences**
+**GET /api/staff/bookings/{id}/**
+- **Frontend Page**: app/staff/bookings/[id]/page.tsx
+- **Query Key**: ['staff', 'booking', bookingId]
+- **Purpose**: Booking detail with edit capability
+- **Files to Request**: app/staff/bookings/[id]/page.tsx
 
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `GET /api/customer/profile/` | `useQuery` in profile page | `['customer', 'profile', userId]` | app/dashboard/page.tsx |
-| `PATCH /api/customer/profile/` | `useMutation` in profile form | Invalidates profile | components/dashboard/dashboard-overview.tsx |
-| `GET /api/customer/dashboard/` | `useQuery` in dashboard | `['customer', 'dashboard', userId]` | components/dashboard/dashboard-overview.tsx |
+**PUT /api/staff/bookings/{id}/**
+- **Frontend Page**: app/staff/bookings/[id]/page.tsx
+- **Mutation**: TanStack Query mutation
+- **Purpose**: Update booking details
+- **Files to Request**: app/staff/bookings/[id]/page.tsx
 
-**Optimistic Updates**: Profile changes immediately reflected in UI before server confirmation
+**GET /api/staff/customers/**
+- **Frontend Component**: `CustomerManagement` (components/staff/customer-management.tsx)
+- **Query Key**: ['staff', 'customers']
+- **Files to Request**: components/staff/customer-management.tsx
 
----
+**GET /api/staff/customers/{id}/**
+- **Frontend Page**: app/staff/customers/[id]/page.tsx
+- **Query Key**: ['staff', 'customer', customerId]
+- **Files to Request**: app/staff/customers/[id]/page.tsx
 
-### **Customer Booking Management**
+**PUT /api/staff/customers/{id}/**
+- **Frontend Page**: app/staff/customers/[id]/page.tsx
+- **Mutation**: Update customer notes
+- **Files to Request**: app/staff/customers/[id]/page.tsx
 
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `GET /api/customer/bookings/` | `useQuery` in booking history | `['customer', 'bookings', userId, filters]` | components/dashboard/booking-history.tsx |
-| `POST /api/customer/bookings/create/` | `useMutation` in wizard | Invalidates bookings list | components/booking/review-payment-step.tsx |
-| `GET /api/customer/bookings/<id>/` | `useQuery` in detail modal | `['customer', 'booking', bookingId]` | components/dashboard/booking-history.tsx |
-| `POST /api/customer/bookings/<id>/rebook/` | `useMutation` | Invalidates bookings list | (Not yet implemented in frontend) |
+### 2.5 Payment APIs
 
-**Cache Strategy**: Booking list cached 5min, detail views cached 30min, invalidated on create/update
-
----
-
-### **Public Booking APIs** *(Guest checkout)*
-
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `GET /api/bookings/services/` | `useQuery` in wizard | `['services']` | components/booking/service-selection-step.tsx |
-| `POST /api/bookings/pricing-preview/` | `useMutation` in wizard | N/A (mutation) | components/booking/service-selection-step.tsx |
-| `POST /api/bookings/guest-booking/` | `useMutation` in wizard | N/A (mutation) | components/booking/review-payment-step.tsx |
-
-**Booking Wizard State**: Managed by `booking-store` (Zustand) with localStorage persistence
-
----
-
-### **Payment APIs** *(Stripe integration)*
-
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `POST /api/payments/create-intent/` | `useMutation` in payment step | N/A (mutation) | components/booking/review-payment-step.tsx |
-| `POST /api/payments/confirm/` | `useMutation` in payment step | N/A (mutation) | components/booking/review-payment-step.tsx |
-| `GET /api/payments/status/<booking_number>/` | `useQuery` (polled) | `['payment', 'status', bookingNumber]` | (Not yet implemented) |
-
-**Stripe Flow**:
-1. Frontend creates booking → Backend returns `client_secret`
-2. Stripe Elements collects payment → Frontend confirms PaymentIntent
-3. Frontend calls `/api/payments/confirm/` → Backend updates booking status
-4. Wizard resets, success message shown
-
----
-
-### **Staff APIs**
-
-| Backend Endpoint | Frontend Hook/Component | Query Key | Files |
-|---|---|---|---|
-| `POST /api/staff/auth/login/` | `useStaffAuthStore().login()` | N/A (mutation) | stores/staff-auth-store.ts, components/staff/staff-login-form.tsx |
-| `GET /api/staff/dashboard/` | `useQuery` in staff dashboard | `['staff', 'dashboard']` | components/staff/staff-dashboard-overview.tsx |
-| `GET /api/staff/bookings/` | `useQuery` with filters | `['staff', 'bookings', filters]` | components/staff/booking-management.tsx |
-| `PATCH /api/staff/bookings/<id>/` | `useMutation` | Invalidates bookings | components/staff/booking-management.tsx |
-| `GET /api/staff/customers/` | `useQuery` with search | `['staff', 'customers', search]` | components/staff/customer-management.tsx |
-
-**Isolation**: Staff auth completely separate from customer auth (different stores, different routes)
+**POST /api/payments/create-payment-intent/**
+- **Frontend Component**: `ReviewPaymentStep` (components/booking/review-payment-step.tsx)
+- **Purpose**: Initialize Stripe payment
+- **Integration**: Stripe Elements
+- **Files to Request**: components/booking/review-payment-step.tsx
 
 ---
 
-## **SECTION 3: COMPLETE COMPONENT INTERFACE DOCUMENTATION**
+## SECTION 3: COMPLETE COMPONENT INTERFACE DOCUMENTATION
 
-### **Authentication Components**
+### 3.1 Authentication Components
 
-#### **LoginForm**
+**Component: LoginForm**  
+File: `components/auth/login-form.tsx`
+
 ```typescript
-// File: components/auth/login-form.tsx
 interface LoginFormProps {
-  // No props - self-contained component
+  // No props - standalone form
 }
-
-// Purpose: Customer login with email/password
-// Parent: app/login/page.tsx
-// State: Local form state (React Hook Form), auth-store (Zustand)
-// API: POST /api/customer/auth/login/ via useAuthStore().login()
-// Success Action: Redirects to /dashboard
-// Form Fields: email (string, required), password (string, required)
-// Validation: Zod schema with email format validation
 ```
+
+**Purpose**: Customer login form with email/password authentication  
+**Parent Components**: app/login/page.tsx  
+**Child Components**: Input, Button (from ui/)  
+**API Integration**: POST /api/auth/login/ via apiClient  
+**State Management**: Updates authStore on success  
+**Form Validation**: Client-side validation for email format and required fields  
+**Navigation**: Redirects to /dashboard on successful login
 
 ---
 
-#### **RegisterForm**
+**Component: RegisterForm**  
+File: `components/auth/register-form.tsx`
+
 ```typescript
-// File: components/auth/register-form.tsx
 interface RegisterFormProps {
-  // No props - self-contained component
+  // No props - standalone form
 }
-
-// Purpose: Customer registration with profile creation
-// Parent: app/register/page.tsx
-// State: Local form state, auth-store
-// API: POST /api/customer/auth/register/ via useAuthStore().register()
-// Form Fields: email, password, first_name, last_name, phone (optional)
-// Validation: Zod schema with password strength checks
-// Success Action: Auto-login and redirect to /dashboard
 ```
+
+**Purpose**: Customer registration form with account creation  
+**Parent Components**: app/register/page.tsx  
+**Child Components**: Input, Button (from ui/)  
+**API Integration**: POST /api/auth/register/ via apiClient  
+**State Management**: Updates authStore on success  
+**Form Fields**: email, password, first_name, last_name, phone  
+**Navigation**: Redirects to /dashboard on successful registration
 
 ---
 
-#### **UserMenu**
+**Component: UserMenu**  
+File: `components/auth/user-menu.tsx`
+
 ```typescript
-// File: components/auth/user-menu.tsx
 interface UserMenuProps {
-  variant?: 'default' | 'staff'; // Staff portal has different styling
+  // No props - uses authStore directly
 }
-
-// Purpose: Dropdown menu for authenticated users (profile, logout)
-// Parent: components/layout/main-layout.tsx
-// State: auth-store (user, customerProfile)
-// Actions: Logout (useAuthStore().logout()), navigate to /dashboard, /dashboard/settings
-// Child Components: Headless UI Menu, Heroicons
-// Hooks: useClickAway (close on outside click)
 ```
+
+**Purpose**: Dropdown menu displaying user profile and logout option  
+**Parent Components**: MainLayout (components/layout/main-layout.tsx)  
+**Child Components**: None (uses Headless UI Menu)  
+**Hooks Used**: useAuthStore, useRouter, useClickAway  
+**State**: authStore.user, authStore.customerProfile  
+**Features**: 
+- Displays user name and email
+- Shows VIP status and total spent
+- Logout functionality
+- Profile link (future)
 
 ---
 
-### **Booking Wizard Components**
+### 3.2 Booking Wizard Components
 
-#### **BookingWizard**
+**Component: BookingWizard**  
+File: `components/booking/booking-wizard.tsx`
+
 ```typescript
-// File: components/booking/booking-wizard.tsx
 interface BookingWizardProps {
-  // No props - manages its own state
+  onComplete?: () => void;  // Called after successful booking
+  onCancel?: () => void;    // Called when wizard is closed
 }
-
-// Purpose: Multi-step booking flow coordinator
-// Pages: app/book/page.tsx
-// State: booking-store (currentStep, bookingData)
-// Child Components: ServiceSelectionStep, DateTimeStep, AddressStep, CustomerInfoStep, ReviewPaymentStep
-// Steps: [0] Service, [1] Date/Time, [2] Addresses, [3] Customer Info (guest only), [4] Review/Payment
-// Navigation: nextStep(), prevStep() from booking-store
 ```
+
+**Purpose**: Multi-step booking wizard orchestrating the booking flow  
+**Parent Components**: app/page.tsx (homepage), app/book/page.tsx  
+**Child Components**: AuthChoiceStep, ServiceSelectionStep, DateTimeStep, AddressStep, CustomerInfoStep, ReviewPaymentStep  
+**Steps**: 6-step wizard (0-5)  
+**State Management**: useBookingWizard (stores/booking-store.ts)  
+**Navigation**: Step-by-step progression with validation  
+**Flow**: AuthChoice → ServiceSelection → DateTime → Address → CustomerInfo → ReviewPayment
 
 ---
 
-#### **ServiceSelectionStep**
+**Component: AuthChoiceStep**  
+File: `components/booking/auth-choice-step.tsx`
+
 ```typescript
-// File: components/booking/service-selection-step.tsx
+interface AuthChoiceStepProps {
+  // No props - step 0 of BookingWizard
+}
+```
+
+**Purpose**: First step prompting user to login, register, or continue as guest  
+**Parent Components**: BookingWizard  
+**Child Components**: Button (from ui/), LoginForm, RegisterForm  
+**Modes**: null (choice), 'login', 'register', 'guest'  
+**Store Updates**: Sets bookingStore.isGuest flag  
+**Navigation**: Advances to step 1 after choice
+
+---
+
+**Component: ServiceSelectionStep**  
+File: `components/booking/service-selection-step.tsx`
+
+```typescript
 interface ServiceSelectionStepProps {
-  // No props - reads from booking-store
+  // No props - step 1 of BookingWizard
 }
-
-// Purpose: Step 1 - Service type and package selection
-// Parent: BookingWizard
-// State: booking-store (bookingData.service_type, bookingData.mini_move_package_id, etc.)
-// API: GET /api/bookings/services/ (service catalog)
-// API: POST /api/bookings/pricing-preview/ (real-time pricing)
-// Form Elements: Radio buttons (service type), Package cards (mini moves), Checkboxes (specialty items)
-// Validation: Ensure service type selected before continuing
 ```
+
+**Purpose**: Service type selection (standard delivery, mini move, blade transfer)  
+**Parent Components**: BookingWizard  
+**API Integration**: GET /api/services/ via TanStack Query  
+**Store Updates**: Sets bookingStore.service_type  
+**Validation**: Requires service selection before advancing  
+**Navigation**: Advances to step 2 on selection
 
 ---
 
-#### **DateTimeStep**
+**Component: DateTimeStep**  
+File: `components/booking/date-time-step.tsx`
+
 ```typescript
-// File: components/booking/date-time-step.tsx
 interface DateTimeStepProps {
-  // No props - reads from booking-store
+  // No props - step 2 of BookingWizard
 }
-
-// Purpose: Step 2 - Pickup date and time selection
-// Parent: BookingWizard
-// State: booking-store (bookingData.pickup_date, bookingData.pickup_time, bookingData.specific_pickup_hour)
-// Form Elements: Date picker, Radio buttons (time options), Hour selector (1-hour window)
-// Validation: Date must be future, time option required
-// Business Logic: Disabled dates based on availability
 ```
+
+**Purpose**: Pickup date and time window selection  
+**Parent Components**: BookingWizard  
+**Child Components**: Input (date), Select (time) from ui/  
+**Store Updates**: Sets bookingStore.pickup_date, pickup_time  
+**Time Windows**: morning, morning_specific, no_time_preference  
+**Validation**: Date must be future date, time required  
+**Conditional Logic**: Blade transfer shows additional flight fields
 
 ---
 
-#### **AddressStep**
+**Component: AddressStep**  
+File: `components/booking/address-step.tsx`
+
 ```typescript
-// File: components/booking/address-step.tsx
 interface AddressStepProps {
-  // No props - reads from booking-store and auth-store
+  // No props - step 3 of BookingWizard
 }
-
-// Purpose: Step 3 - Pickup and delivery addresses
-// Parent: BookingWizard
-// State: booking-store (bookingData.pickup_address, bookingData.delivery_address)
-// API: GET /api/customer/addresses/ (authenticated users - saved addresses)
-// Form Elements: Address form (street, city, state, zip), Special instructions textarea
-// Validation: Zod schema for address format, state must be NY/CT/NJ
-// Features: Saved address selection (authenticated), Address saving option
 ```
+
+**Purpose**: Pickup and delivery address entry  
+**Parent Components**: BookingWizard  
+**Child Components**: Input, Select (from ui/)  
+**Store Updates**: Sets bookingStore.pickup_address, delivery_address  
+**Address Fields**: address_line_1, address_line_2, city, state, zip_code  
+**Validation**: Required fields per address  
+**Saved Addresses**: Shows saved addresses if authenticated
 
 ---
 
-#### **CustomerInfoStep**
+**Component: CustomerInfoStep**  
+File: `components/booking/customer-info-step.tsx`
+
 ```typescript
-// File: components/booking/customer-info-step.tsx
 interface CustomerInfoStepProps {
-  // No props - reads from booking-store
+  // No props - step 4 of BookingWizard
 }
-
-// Purpose: Step 4 (Guest only) - Contact information
-// Parent: BookingWizard
-// State: booking-store (bookingData.customer_info)
-// Conditional Rendering: Only shown if user not authenticated (isGuestMode === true)
-// Form Fields: first_name, last_name, email, phone
-// Validation: Zod schema with email/phone format validation
 ```
+
+**Purpose**: Guest customer information collection  
+**Parent Components**: BookingWizard  
+**Child Components**: Input (from ui/)  
+**Conditional**: Only shown if isGuest === true  
+**Store Updates**: Sets bookingStore.customer_name, customer_email, customer_phone  
+**Validation**: Email format, phone format, required fields  
+**Skip**: Authenticated users skip this step
 
 ---
 
-#### **ReviewPaymentStep**
+**Component: ReviewPaymentStep**  
+File: `components/booking/review-payment-step.tsx`
+
 ```typescript
-// File: components/booking/review-payment-step.tsx
 interface ReviewPaymentStepProps {
-  // No props - reads from booking-store and auth-store
+  // No props - step 5 of BookingWizard
 }
-
-// Purpose: Step 5 - Review details and process payment
-// Parent: BookingWizard
-// State: booking-store (all bookingData), auth-store (user)
-// API: POST /api/customer/bookings/create/ OR /api/bookings/guest-booking/
-// API: POST /api/payments/create-intent/ (gets Stripe client_secret)
-// API: POST /api/payments/confirm/ (after Stripe confirmation)
-// Child Components: Stripe Elements (PaymentElement)
-// Success Action: Reset booking-store, show success message, redirect to confirmation page
 ```
+
+**Purpose**: Booking review and Stripe payment processing  
+**Parent Components**: BookingWizard  
+**Child Components**: Card (from ui/), Stripe Elements  
+**API Integration**: 
+- POST /api/bookings/calculate-price/
+- POST /api/payments/create-payment-intent/
+- POST /api/bookings/create/
+**State**: Loading states for price calculation and payment  
+**Payment**: Stripe Elements CardElement for payment entry  
+**Success Flow**: Create booking → process payment → redirect to /dashboard
 
 ---
 
-### **Dashboard Components**
+### 3.3 Dashboard Components
 
-#### **DashboardOverview**
+**Component: DashboardOverview**  
+File: `components/dashboard/dashboard-overview.tsx`
+
 ```typescript
-// File: components/dashboard/dashboard-overview.tsx
 interface DashboardOverviewProps {
-  // No props - fetches own data
+  // No props - customer dashboard
 }
-
-// Purpose: Customer dashboard summary
-// Page: app/dashboard/page.tsx
-// State: auth-store (user, customerProfile)
-// API: GET /api/customer/dashboard/ (summary stats)
-// Query Key: ['customer', 'dashboard', userId]
-// Display: Total bookings, total spent, VIP status, upcoming bookings
-// Child Components: Card, Button
 ```
+
+**Purpose**: Customer dashboard showing upcoming bookings and quick actions  
+**Parent Components**: app/dashboard/page.tsx  
+**Child Components**: Card, CardHeader, CardContent, Button (from ui/), QuickActions  
+**API Integration**: GET /api/bookings/ via TanStack Query  
+**Query Key**: ['bookings']  
+**Data Displayed**: Upcoming bookings, recent bookings, booking stats  
+**Navigation**: Links to booking detail pages
 
 ---
 
-#### **BookingHistory**
+**Component: BookingHistory**  
+File: `components/dashboard/booking-history.tsx`
+
 ```typescript
-// File: components/dashboard/booking-history.tsx
 interface BookingHistoryProps {
-  // No props - fetches own data
+  // No props - booking history list
 }
-
-// Purpose: Customer booking list with filters
-// Page: app/dashboard/page.tsx (section)
-// State: Local filter state (searchTerm, statusFilter)
-// API: GET /api/customer/bookings/?search=&status=
-// Query Key: ['customer', 'bookings', userId, searchTerm, statusFilter]
-// Features: Search, status filter, pagination, booking detail modal
-// Child Components: Card, Input, Select, Button
 ```
+
+**Purpose**: Complete booking history with filtering and sorting  
+**Parent Components**: app/dashboard/bookings/page.tsx  
+**Child Components**: Card, Button (from ui/)  
+**API Integration**: GET /api/bookings/ via TanStack Query  
+**Query Key**: ['bookings']  
+**Features**: 
+- Filter by status (pending, confirmed, completed, cancelled)
+- Sort by date
+- Search by booking number
+**Navigation**: Click booking to view detail
 
 ---
 
-#### **QuickActions**
+**Component: QuickActions**  
+File: `components/dashboard/quick-actions.tsx`
+
 ```typescript
-// File: components/dashboard/quick-actions.tsx
 interface QuickActionsProps {
   // No props
 }
-
-// Purpose: Quick access buttons for common actions
-// Page: app/dashboard/page.tsx
-// Actions: Book new delivery, View past bookings, Manage addresses
-// Child Components: Button, Card
-// Navigation: Uses Next.js useRouter
 ```
+
+**Purpose**: Quick action buttons for common tasks  
+**Parent Components**: DashboardOverview  
+**Child Components**: Button (from ui/)  
+**Actions**: New booking, view bookings, contact support  
+**Navigation**: Router navigation to booking wizard, booking history
 
 ---
 
-### **Staff Components**
+### 3.4 Layout Components
 
-#### **StaffLoginForm**
+**Component: MainLayout**  
+File: `components/layout/main-layout.tsx`
+
 ```typescript
-// File: components/staff/staff-login-form.tsx
+interface MainLayoutProps {
+  children: React.ReactNode;           // Page content
+  onBookNowClick?: () => void;         // Optional booking wizard trigger
+  className?: string;                  // Additional CSS classes
+}
+```
+
+**Purpose**: Main site layout with header, footer, and navigation  
+**Parent Components**: All public pages (page.tsx files)  
+**Child Components**: UserMenu, Button (from ui/)  
+**Header Features**: Logo, navigation links, user menu or login/register buttons  
+**Footer Features**: Company info, links, social media  
+**State**: useAuthStore for authentication status  
+**Navigation**: Next.js Link components
+
+---
+
+### 3.5 Marketing Components
+
+**Component: HeroSection**  
+File: `components/marketing/hero-section.tsx`
+
+```typescript
+interface HeroSectionProps {
+  onBookNowClick?: () => void;  // Booking wizard trigger
+}
+```
+
+**Purpose**: Landing page hero with headline and CTA  
+**Parent Components**: app/page.tsx (homepage)  
+**Child Components**: Button (from ui/)  
+**Design**: Full-width hero with background image and centered content  
+**CTA**: "Book Now" button triggering booking wizard
+
+---
+
+**Component: HowItWorksSection**  
+File: `components/marketing/how-it-works-section.tsx`
+
+```typescript
+interface HowItWorksSectionProps {
+  // No props
+}
+```
+
+**Purpose**: Step-by-step explanation of booking process  
+**Parent Components**: app/page.tsx (homepage)  
+**Child Components**: Card (from ui/)  
+**Steps**: Book online → We pickup → White-glove delivery  
+**Design**: 3-column grid on desktop, stacked on mobile
+
+---
+
+**Component: WhatWeTransportSection**  
+File: `components/marketing/what-we-transport-section.tsx`
+
+```typescript
+interface WhatWeTransportSectionProps {
+  // No props
+}
+```
+
+**Purpose**: Visual showcase of transportable items  
+**Parent Components**: app/page.tsx (homepage)  
+**Child Components**: Card (from ui/)  
+**Items**: Luggage, furniture, sports equipment, etc.  
+**Design**: Grid layout with images and descriptions
+
+---
+
+**Component: ServiceAreasSection**  
+File: `components/marketing/service-areas-section.tsx`
+
+```typescript
+interface ServiceAreasSectionProps {
+  // No props
+}
+```
+
+**Purpose**: Geographic service area display  
+**Parent Components**: app/page.tsx (homepage)  
+**Child Components**: Card (from ui/)  
+**Areas**: Hamptons, NYC, airports, Connecticut, South Florida  
+**Design**: Map or list-based presentation
+
+---
+
+**Component: TestimonialsSection**  
+File: `components/marketing/testimonials-section.tsx`
+
+```typescript
+interface TestimonialsSectionProps {
+  // No props
+}
+```
+
+**Purpose**: Customer testimonials and reviews  
+**Parent Components**: app/page.tsx (homepage)  
+**Child Components**: Card (from ui/)  
+**Design**: Carousel or grid of testimonial cards
+
+---
+
+**Component: ServiceShowcase**  
+File: `components/marketing/service-showcase.tsx`
+
+```typescript
+interface ServiceShowcaseProps {
+  // No props
+}
+```
+
+**Purpose**: Detailed service offerings presentation  
+**Parent Components**: app/page.tsx (homepage), app/services/page.tsx  
+**Child Components**: Card (from ui/)  
+**Services**: Standard delivery, mini move, blade transfer, specialty items  
+**Design**: Feature comparison or detailed cards
+
+---
+
+### 3.6 Staff Management Components
+
+**Component: StaffLayout**  
+File: `components/staff/staff-layout.tsx`
+
+```typescript
+interface StaffLayoutProps {
+  children: React.ReactNode;  // Page content
+}
+```
+
+**Purpose**: Staff dashboard layout with sidebar navigation  
+**Parent Components**: All /staff/* pages  
+**Child Components**: Sidebar navigation, staff profile menu  
+**Navigation Items**: Dashboard, Calendar, Bookings, Customers, Logistics, Reports  
+**State**: useStaffAuthStore for authentication  
+**Logout**: Integrated logout functionality
+
+---
+
+**Component: StaffLoginForm**  
+File: `components/staff/staff-login-form.tsx`
+
+```typescript
 interface StaffLoginFormProps {
-  // No props - self-contained
+  // No props - standalone form
 }
-
-// Purpose: Staff authentication (username/password)
-// Page: app/staff/login/page.tsx
-// State: staff-auth-store
-// API: POST /api/staff/auth/login/ via useStaffAuthStore().login()
-// Form Fields: username, password
-// Success Action: Redirect to /staff/dashboard
-// Isolation: Completely separate from customer auth
 ```
+
+**Purpose**: Staff authentication form  
+**Parent Components**: app/staff/login/page.tsx  
+**Child Components**: Input, Button (from ui/)  
+**API Integration**: POST /api/staff/login/ via apiClient  
+**Store Updates**: staffAuthStore.setStaff() on success  
+**Navigation**: Redirects to /staff/dashboard on success
 
 ---
 
-#### **StaffDashboardOverview**
+**Component: StaffDashboardOverview**  
+File: `components/staff/staff-dashboard-overview.tsx`
+
 ```typescript
-// File: components/staff/staff-dashboard-overview.tsx
 interface StaffDashboardOverviewProps {
-  // No props - fetches own data
+  // No props
 }
-
-// Purpose: Staff operations dashboard
-// Page: app/staff/dashboard/page.tsx
-// State: staff-auth-store (user, staffProfile)
-// API: GET /api/staff/dashboard/ (today's stats, revenue, recent bookings)
-// Query Key: ['staff', 'dashboard']
-// Display: Today's bookings, revenue, pending actions, quick stats
 ```
+
+**Purpose**: Staff dashboard with key metrics and recent activity  
+**Parent Components**: app/staff/dashboard/page.tsx  
+**Child Components**: Card, CardHeader, CardContent, Button (from ui/)  
+**API Integration**: GET /api/staff/dashboard/ via TanStack Query  
+**Query Key**: ['staff', 'dashboard']  
+**Metrics**: Total bookings, pending actions, revenue, customer stats  
+**Recent Activity**: Recent bookings needing attention
 
 ---
 
-#### **BookingManagement**
+**Component: BookingManagement**  
+File: `components/staff/booking-management.tsx`
+
 ```typescript
-// File: components/staff/booking-management.tsx
 interface BookingManagementProps {
-  // No props - manages own state
+  // No props
 }
-
-// Purpose: Staff booking list with filters and actions
-// Page: app/staff/bookings/page.tsx
-// State: Local filter state (status, date, search)
-// API: GET /api/staff/bookings/?status=&date=&search=
-// API: PATCH /api/staff/bookings/<id>/ (status updates)
-// Query Key: ['staff', 'bookings', filters]
-// Features: Multi-filter, status update dropdown, booking detail view
-// Child Components: Card, Input, Select, Button, BookingDetailModal
 ```
+
+**Purpose**: Staff booking list with filtering and search  
+**Parent Components**: app/staff/bookings/page.tsx  
+**Child Components**: Card, Button, Select (from ui/), BookingDetailModal  
+**API Integration**: GET /api/staff/bookings/ via TanStack Query  
+**Query Key**: ['staff', 'bookings', filters]  
+**Features**: 
+- Filter by status (all, pending, confirmed, completed, cancelled)
+- Search by booking number or customer name
+- Sort by date, status, amount
+**Navigation**: Click booking to open detail modal or navigate to detail page
 
 ---
 
-#### **BookingCalendar**
+**Component: BookingCalendar**  
+File: `components/staff/booking-calendar.tsx`
+
 ```typescript
-// File: components/staff/booking-calendar.tsx
 interface BookingCalendarProps {
-  // No props - fetches bookings for calendar view
+  // No props
 }
-
-// Purpose: Calendar view of all bookings
-// Page: app/staff/calendar/page.tsx
-// API: GET /api/staff/bookings/ with date range filters
-// Display: Monthly calendar with booking dots/counts per day
-// Interaction: Click date → filter to that day's bookings
 ```
+
+**Purpose**: Calendar view of bookings by pickup date  
+**Parent Components**: app/staff/calendar/page.tsx  
+**Child Components**: Card (from ui/)  
+**API Integration**: GET /api/staff/bookings/ via TanStack Query  
+**Calendar Library**: Custom implementation (or library TBD)  
+**Features**: Monthly view, day view, booking details on click
 
 ---
 
-#### **BookingDetailModal**
+**Component: BookingDetailModal**  
+File: `components/staff/booking-detail-modal.tsx`
+
 ```typescript
-// File: components/staff/booking-detail-modal.tsx
 interface BookingDetailModalProps {
-  bookingId: string | null;           // UUID or null when closed
-  isOpen: boolean;                    // Modal visibility state
-  onClose: () => void;                // Close callback
+  bookingId: string;              // Booking to display
+  isOpen: boolean;                // Modal visibility
+  onClose: () => void;            // Close handler
 }
-
-// Purpose: Full booking details modal for staff
-// Parent: BookingManagement, BookingCalendar
-// State: None (receives bookingId as prop)
-// API: GET /api/staff/bookings/<bookingId>/
-// Query Key: ['staff', 'booking', bookingId]
-// Display: Customer info, addresses, service details, payment info, status
-// Actions: Status update, add notes
-// Child Components: Modal, Card, Button
 ```
+
+**Purpose**: Modal displaying booking details with quick actions  
+**Parent Components**: BookingManagement  
+**Child Components**: Modal, Card, Button (from ui/)  
+**API Integration**: GET /api/staff/bookings/{id}/ via TanStack Query  
+**Quick Actions**: Edit, cancel, mark complete  
+**Navigation**: "View Full Details" navigates to booking detail page
 
 ---
 
-#### **CustomerManagement**
+**Component: CustomerManagement**  
+File: `components/staff/customer-management.tsx`
+
 ```typescript
-// File: components/staff/customer-management.tsx
 interface CustomerManagementProps {
-  // No props - manages own state
+  // No props
 }
-
-// Purpose: Staff customer list with search
-// Page: app/staff/customers/page.tsx
-// State: Local search state
-// API: GET /api/staff/customers/?search=
-// Query Key: ['staff', 'customers', search]
-// Display: Customer list with email, total bookings, total spent, VIP badge
-// Actions: View customer detail (navigate to /staff/customers/[id])
 ```
+
+**Purpose**: Staff customer list with search and filtering  
+**Parent Components**: app/staff/customers/page.tsx  
+**Child Components**: Card, Button, Input (from ui/)  
+**API Integration**: GET /api/staff/customers/ via TanStack Query  
+**Query Key**: ['staff', 'customers']  
+**Features**: 
+- Search by name, email, phone
+- Filter by VIP status
+- Sort by total spent, bookings count
+**Navigation**: Click customer to view detail page
 
 ---
 
-### **UI Primitive Components**
+### 3.7 UI Primitive Components
 
-#### **Button**
+**Component: Button**  
+File: `components/ui/button.tsx`
+
 ```typescript
-// File: components/ui/button.tsx
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
-  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
-  className?: string;
-  children: React.ReactNode;
+  isLoading?: boolean;           // Shows loading spinner
+  disabled?: boolean;            // Disabled state
+  className?: string;            // Additional classes
+  children: React.ReactNode;     // Button content
 }
-
-// Purpose: Reusable button with design system variants
-// Pattern: CVA (class-variance-authority) for variant management
-// Used By: All components requiring button actions
 ```
+
+**Purpose**: Reusable button component with variants and sizes  
+**Used By**: All components throughout the application  
+**Variants**: 
+- primary: Navy background, white text (main CTAs)
+- secondary: Gold background, navy text
+- outline: Transparent with navy border
+- ghost: Transparent, navy text on hover
+- danger: Red for destructive actions
+**States**: Hover, active, disabled, loading
 
 ---
 
-#### **Card**
+**Component: Input**  
+File: `components/ui/input.tsx`
+
 ```typescript
-// File: components/ui/card.tsx
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'elevated' | 'luxury' | 'ghost';
-  padding?: 'none' | 'sm' | 'md' | 'lg';
-  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
-  className?: string;
-  children: React.ReactNode;
-}
-
-// Sub-components: CardHeader, CardContent, CardFooter
-// Purpose: Reusable card layout with variants
-// Used By: All dashboard sections, forms, content blocks
-```
-
----
-
-#### **Input**
-```typescript
-// File: components/ui/input.tsx
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;                // Input label
+  error?: string;                // Error message
   variant?: 'default' | 'error' | 'success';
-  inputSize?: 'sm' | 'md' | 'lg';
-  label?: string;
-  error?: string;
-  success?: string;
-  helper?: string;
-  mask?: 'phone' | 'zip';               // Auto-formatting
-  realTimeValidation?: 'email' | 'phone'; // Validation on blur
+  helperText?: string;           // Helper text below input
+  className?: string;            // Additional classes
 }
-
-// Purpose: Form input with built-in validation and masking
-// Features: Phone formatting (xxx) xxx-xxxx, Zip formatting xxxxx-xxxx
-// Real-time validation: Email format, phone length
-// Used By: All forms (login, register, booking addresses)
 ```
+
+**Purpose**: Reusable form input with label and error handling  
+**Used By**: All forms (login, register, booking, customer info)  
+**Types**: text, email, password, number, date, tel  
+**Validation**: Error state styling, error message display  
+**Accessibility**: Label association, aria attributes
 
 ---
 
-#### **Select**
+**Component: Card**  
+File: `components/ui/card.tsx`
+
 ```typescript
-// File: components/ui/select.tsx
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
-  error?: string;
-  options: Array<{ value: string; label: string }>;
-  placeholder?: string;
-}
-
-// Purpose: Dropdown select with label and error handling
-// Used By: Filters, form dropdowns (state selection, status filters)
-```
-
----
-
-#### **Modal**
-```typescript
-// File: components/ui/modal.tsx
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title?: string;
-  children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-  showCloseButton?: boolean;
-}
-
-// Purpose: Reusable modal overlay using Headless UI Dialog
-// Features: Backdrop click to close, ESC key handling, focus trap
-// Used By: BookingDetailModal, address modals, confirmation dialogs
-```
-
----
-
-### **Layout Components**
-
-#### **MainLayout**
-```typescript
-// File: components/layout/main-layout.tsx
-interface MainLayoutProps {
-  children: React.ReactNode;
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'luxury' | 'outlined';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
+  rounded?: 'none' | 'md' | 'lg' | 'xl';
   className?: string;
-  onBookNowClick?: () => void;  // Optional custom book button handler
-}
-
-// Purpose: Site-wide layout wrapper with header and footer
-// Features: Responsive header with auth state detection, sticky nav
-// Header Elements: Logo, nav links, Book Now CTA, UserMenu (if authenticated)
-// Used By: All pages (wrap children in layout)
-// State: auth-store (isAuthenticated, user)
-```
-
----
-
-#### **StaffLayout**
-```typescript
-// File: components/staff/staff-layout.tsx
-interface StaffLayoutProps {
   children: React.ReactNode;
 }
-
-// Purpose: Staff portal layout with sidebar navigation
-// Features: Staff-only sidebar, logout in header, role display
-// Sidebar Links: Dashboard, Bookings, Calendar, Customers, Reports, Logistics
-// Protected: Checks staff-auth-store.isAuthenticated, redirects if not
-// Used By: All /staff/* pages
 ```
+
+**Purpose**: Reusable card container with variants  
+**Used By**: Dashboard, marketing sections, forms  
+**Subcomponents**: CardHeader, CardContent, CardFooter  
+**Variants**: 
+- default: White background, subtle shadow
+- luxury: Gold accent, enhanced shadow
+- outlined: Border instead of shadow
 
 ---
 
-### **Provider Components**
+**Component: Select**  
+File: `components/ui/select.tsx`
 
-#### **QueryProvider**
 ```typescript
-// File: components/providers/query-provider.tsx
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;                // Select label
+  error?: string;                // Error message
+  options: Array<{               // Select options
+    value: string;
+    label: string;
+  }>;
+  placeholder?: string;          // Placeholder text
+  className?: string;            // Additional classes
+}
+```
+
+**Purpose**: Reusable select dropdown with options  
+**Used By**: Forms (time selection, address state, filters)  
+**Validation**: Error state styling, required field indicator  
+**Accessibility**: Label association, aria attributes
+
+---
+
+**Component: Modal**  
+File: `components/ui/modal.tsx`
+
+```typescript
+interface ModalProps {
+  isOpen: boolean;               // Modal visibility
+  onClose: () => void;           // Close handler
+  title?: string;                // Modal title
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  children: React.ReactNode;     // Modal content
+  showCloseButton?: boolean;     // Show X button
+  closeOnClickOutside?: boolean; // Close on backdrop click
+}
+```
+
+**Purpose**: Reusable modal/dialog component  
+**Used By**: BookingWizard, BookingDetailModal  
+**Library**: Headless UI Transition + Dialog  
+**Features**: Backdrop overlay, focus trap, ESC to close, smooth transitions  
+**Sizes**: Responsive sizing based on content
+
+---
+
+### 3.8 Provider Components
+
+**Component: QueryProvider**  
+File: `components/providers/query-provider.tsx`
+
+```typescript
 interface QueryProviderProps {
-  children: React.ReactNode;
+  children: React.ReactNode;     // App content
 }
-
-// Purpose: Wraps app with TanStack Query context
-// Configuration: queryClient from lib/query-client.ts
-// Features: React Query DevTools in development
-// Used By: app/layout.tsx (wraps entire app)
 ```
+
+**Purpose**: TanStack Query provider wrapping entire app  
+**Parent Components**: app/layout.tsx (root layout)  
+**Configuration**: 
+- Query client with default options
+- React Query DevTools in development
+- Stale time, cache time, retry configuration
+**Global State**: Server state caching and synchronization
 
 ---
 
-## **SECTION 4: FILE DIRECTORY + PURPOSE INDEX**
+**Component: SessionValidator**  
+File: `app/layout.tsx`
+
+```typescript
+// Internal component, no exported interface
+```
+
+**Purpose**: Validates stored sessions on app startup  
+**Parent Components**: app/layout.tsx (root layout)  
+**Hooks Used**: useAuthStore, useStaffAuthStore  
+**Effect**: Runs once on mount to validate customer and staff sessions  
+**Flow**: Check isAuthenticated → call validateSession() → clear if invalid
+
+---
+
+## SECTION 4: FILE DIRECTORY + PURPOSE INDEX
 
 ```
 frontend/
-├── src/
-│   ├── app/                                # Next.js App Router pages
-│   │   ├── layout.tsx                      # Root layout with fonts and QueryProvider
-│   │   ├── page.tsx                        # Landing page with marketing sections
-│   │   ├── about/
-│   │   │   └── page.tsx                    # About ToteTaxi story page
-│   │   ├── book/
-│   │   │   └── page.tsx                    # Booking wizard page
-│   │   ├── contact/
-│   │   │   └── page.tsx                    # Contact form page
-│   │   ├── dashboard/
-│   │   │   └── page.tsx                    # Customer dashboard (protected route)
-│   │   ├── login/
-│   │   │   └── page.tsx                    # Customer login page
-│   │   ├── register/
-│   │   │   └── page.tsx                    # Customer registration page
-│   │   └── staff/                          # Staff portal routes
-│   │       ├── login/
-│   │       │   └── page.tsx                # Staff login page
-│   │       ├── dashboard/
-│   │       │   └── page.tsx                # Staff operations dashboard
-│   │       ├── bookings/
-│   │       │   └── page.tsx                # Staff booking management page
-│   │       ├── calendar/
-│   │       │   └── page.tsx                # Staff calendar view
-│   │       ├── customers/
-│   │       │   ├── page.tsx                # Staff customer list
-│   │       │   └── [id]/
-│   │       │       └── page.tsx            # Staff customer detail page
-│   │       ├── reports/
-│   │       │   └── page.tsx                # Staff reports page (stub)
-│   │       └── logistics/
-│   │           └── page.tsx                # Staff logistics page (stub)
-│   │
-│   ├── components/
-│   │   ├── auth/
-│   │   │   ├── login-form.tsx              # Customer login form with validation
-│   │   │   ├── register-form.tsx           # Customer registration form
-│   │   │   └── user-menu.tsx               # User dropdown menu (profile, logout)
-│   │   ├── booking/
-│   │   │   ├── booking-wizard.tsx          # Multi-step booking coordinator
-│   │   │   ├── service-selection-step.tsx  # Step 1: Service type and package selection
-│   │   │   ├── date-time-step.tsx          # Step 2: Pickup date and time
-│   │   │   ├── address-step.tsx            # Step 3: Pickup and delivery addresses
-│   │   │   ├── customer-info-step.tsx      # Step 4: Guest contact info (guest only)
-│   │   │   ├── review-payment-step.tsx     # Step 5: Review and Stripe payment
-│   │   │   └── index.ts                    # Barrel export for booking components
-│   │   ├── dashboard/
-│   │   │   ├── dashboard-overview.tsx      # Customer dashboard summary widget
-│   │   │   ├── booking-history.tsx         # Customer booking list with filters
-│   │   │   └── quick-actions.tsx           # Dashboard quick action buttons
-│   │   ├── staff/
-│   │   │   ├── staff-login-form.tsx        # Staff authentication form
-│   │   │   ├── staff-layout.tsx            # Staff portal layout with sidebar
-│   │   │   ├── staff-dashboard-overview.tsx # Staff operations dashboard
-│   │   │   ├── booking-management.tsx      # Staff booking list with filters
-│   │   │   ├── booking-calendar.tsx        # Staff calendar view
-│   │   │   ├── booking-detail-modal.tsx    # Booking detail modal for staff
-│   │   │   ├── customer-management.tsx     # Staff customer list with search
-│   │   │   └── index.ts                    # Barrel export for staff components
-│   │   ├── marketing/
-│   │   │   ├── hero-section.tsx            # Landing page hero
-│   │   │   ├── service-showcase.tsx        # Service cards section
-│   │   │   ├── how-it-works-section.tsx    # Process explanation section
-│   │   │   ├── testimonials-section.tsx    # Customer reviews section
-│   │   │   ├── service-areas-section.tsx   # Map of service areas
-│   │   │   ├── what-we-transport-section.tsx # Examples of items transported
-│   │   │   └── index.ts                    # Barrel export
-│   │   ├── layout/
-│   │   │   └── main-layout.tsx             # Site layout with header/footer
-│   │   ├── ui/
-│   │   │   ├── button.tsx                  # Button component with variants
-│   │   │   ├── card.tsx                    # Card component with sub-components
-│   │   │   ├── input.tsx                   # Input with validation and masking
-│   │   │   ├── select.tsx                  # Select dropdown component
-│   │   │   ├── modal.tsx                   # Modal overlay component
-│   │   │   └── index.ts                    # Barrel export for UI primitives
-│   │   ├── providers/
-│   │   │   └── query-provider.tsx          # TanStack Query provider wrapper
-│   │   └── debug/
-│   │       └── mobile-debug.tsx            # Mobile debugging tool for auth issues
-│   │
-│   ├── stores/                             # Zustand state management
-│   │   ├── auth-store.ts                   # Customer authentication state + actions
-│   │   ├── staff-auth-store.ts             # Staff authentication state + actions
-│   │   ├── booking-store.ts                # Multi-step booking wizard state
-│   │   └── ui-store.ts                     # UI state (sidebar, theme, notifications)
-│   │
-│   ├── lib/                                # Core utilities
-│   │   ├── api-client.ts                   # Axios instance with interceptors
-│   │   ├── query-client.ts                 # TanStack Query client config
-│   │   └── stripe.ts                       # Stripe.js initialization
-│   │
-│   ├── hooks/                              # Custom React hooks
-│   │   └── use-click-away.ts               # Click outside detection hook
-│   │
-│   ├── types/                              # TypeScript definitions
-│   │   └── index.ts                        # All shared types (DjangoUser, CustomerProfile, BookingData, etc.)
-│   │
-│   └── utils/                              # Helper functions
-│       └── cn.ts                           # Tailwind class merge utility (clsx + tailwind-merge)
-│
 ├── public/                                 # Static assets
 │   ├── assets/
-│   │   ├── images/                         # Marketing images (Hamptons, luggage, transport items)
-│   │   └── videos/                         # Marketing videos
-│   └── [icons]                             # Favicon, manifest icons
+│   │   ├── images/                        # Marketing images (24 images)
+│   │   └── videos/                        # Video assets
+│   ├── file.svg                           # Next.js default icon
+│   ├── globe.svg                          # Next.js default icon
+│   ├── next.svg                           # Next.js logo
+│   ├── vercel.svg                         # Vercel logo
+│   └── window.svg                         # Next.js default icon
 │
-├── next.config.ts                          # Next.js configuration (security headers, image domains)
-├── tailwind.config.js                      # Tailwind theme (navy/gold/cream colors, fonts)
-├── tsconfig.json                           # TypeScript config (strict mode, path aliases)
-├── package.json                            # Dependencies and scripts
-├── postcss.config.js                       # PostCSS config (Tailwind + Autoprefixer)
-└── README.md                               # Project documentation
+├── scripts/                               # Build scripts
+│   ├── front_export.py                    # Frontend snapshot generator
+│   └── frontend_snapshot.txt              # Complete frontend code snapshot
+│
+├── src/                                   # Source code
+│   ├── app/                               # Next.js App Router pages
+│   │   ├── about/
+│   │   │   └── page.tsx                   # About page - company story and services
+│   │   ├── book/
+│   │   │   └── page.tsx                   # Booking page - embedded BookingWizard
+│   │   ├── contact/
+│   │   │   └── page.tsx                   # Contact page - form and info
+│   │   ├── dashboard/
+│   │   │   ├── page.tsx                   # Customer dashboard - overview and upcoming bookings
+│   │   │   └── bookings/
+│   │   │       └── page.tsx               # Booking history - complete list with filters
+│   │   ├── faq/
+│   │   │   └── page.tsx                   # FAQ page - frequently asked questions
+│   │   ├── login/
+│   │   │   └── page.tsx                   # Customer login page
+│   │   ├── register/
+│   │   │   └── page.tsx                   # Customer registration page
+│   │   ├── services/
+│   │   │   └── page.tsx                   # Services overview - detailed service descriptions
+│   │   ├── staff/                         # Staff-only routes
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx               # Staff login page
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx               # Staff dashboard - metrics and recent activity
+│   │   │   ├── calendar/
+│   │   │   │   └── page.tsx               # Booking calendar - calendar view of bookings
+│   │   │   ├── bookings/
+│   │   │   │   ├── page.tsx               # Booking management - list with filters
+│   │   │   │   └── [id]/
+│   │   │   │       └── page.tsx           # Booking detail - edit booking details
+│   │   │   ├── customers/
+│   │   │   │   ├── page.tsx               # Customer management - list with search
+│   │   │   │   └── [id]/
+│   │   │   │       └── page.tsx           # Customer detail - customer info and bookings
+│   │   │   ├── logistics/
+│   │   │   │   └── page.tsx               # Logistics management - placeholder for logistics
+│   │   │   └── reports/
+│   │   │       └── page.tsx               # Reports & analytics - placeholder for reports
+│   │   ├── favicon.ico                    # Site favicon
+│   │   ├── globals.css                    # Global CSS with Tailwind directives
+│   │   ├── layout.tsx                     # Root layout - fonts, QueryProvider, SessionValidator
+│   │   └── page.tsx                       # Homepage - hero, how it works, services, testimonials
+│   │
+│   ├── components/                        # Reusable components
+│   │   ├── auth/                          # Authentication components
+│   │   │   ├── index.ts                   # Barrel export for auth components
+│   │   │   ├── login-form.tsx             # Customer login form with validation
+│   │   │   ├── register-form.tsx          # Customer registration form
+│   │   │   └── user-menu.tsx              # User dropdown menu with profile and logout
+│   │   │
+│   │   ├── booking/                       # Booking wizard components
+│   │   │   ├── index.ts                   # Barrel export for booking components
+│   │   │   ├── booking-wizard.tsx         # Main booking wizard orchestrator (6 steps)
+│   │   │   ├── auth-choice-step.tsx       # Step 0: Login, register, or guest choice
+│   │   │   ├── service-selection-step.tsx # Step 1: Service type selection
+│   │   │   ├── date-time-step.tsx         # Step 2: Pickup date and time selection
+│   │   │   ├── address-step.tsx           # Step 3: Pickup and delivery addresses
+│   │   │   ├── customer-info-step.tsx     # Step 4: Guest customer information
+│   │   │   └── review-payment-step.tsx    # Step 5: Review booking and Stripe payment
+│   │   │
+│   │   ├── dashboard/                     # Customer dashboard components
+│   │   │   ├── dashboard-overview.tsx     # Dashboard home - upcoming bookings and stats
+│   │   │   ├── booking-history.tsx        # Booking history list with filters
+│   │   │   └── quick-actions.tsx          # Quick action buttons for common tasks
+│   │   │
+│   │   ├── debug/                         # Debug utilities
+│   │   │   └── mobile-debug.tsx           # Mobile debugging component
+│   │   │
+│   │   ├── layout/                        # Layout components
+│   │   │   └── main-layout.tsx            # Main site layout with header and footer
+│   │   │
+│   │   ├── marketing/                     # Marketing/landing page components
+│   │   │   ├── index.ts                   # Barrel export for marketing components
+│   │   │   ├── hero-section.tsx           # Homepage hero with headline and CTA
+│   │   │   ├── how-it-works-section.tsx   # Step-by-step process explanation
+│   │   │   ├── what-we-transport-section.tsx # Items we transport showcase
+│   │   │   ├── service-areas-section.tsx  # Geographic service areas
+│   │   │   ├── testimonials-section.tsx   # Customer testimonials and reviews
+│   │   │   └── service-showcase.tsx       # Detailed service offerings
+│   │   │
+│   │   ├── providers/                     # React context providers
+│   │   │   └── query-provider.tsx         # TanStack Query provider wrapper
+│   │   │
+│   │   ├── staff/                         # Staff management components
+│   │   │   ├── index.ts                   # Barrel export for staff components
+│   │   │   ├── staff-login-form.tsx       # Staff authentication form
+│   │   │   ├── staff-layout.tsx           # Staff dashboard layout with sidebar
+│   │   │   ├── staff-dashboard-overview.tsx # Staff dashboard metrics and activity
+│   │   │   ├── booking-management.tsx     # Booking list with filters and search
+│   │   │   ├── booking-calendar.tsx       # Calendar view of bookings
+│   │   │   ├── booking-detail-modal.tsx   # Quick booking detail modal
+│   │   │   └── customer-management.tsx    # Customer list with search
+│   │   │
+│   │   └── ui/                            # Reusable UI primitives
+│   │       ├── index.ts                   # Barrel export for UI components
+│   │       ├── button.tsx                 # Button component with variants
+│   │       ├── card.tsx                   # Card container with subcomponents
+│   │       ├── input.tsx                  # Form input with label and validation
+│   │       ├── modal.tsx                  # Modal/dialog component
+│   │       └── select.tsx                 # Select dropdown with options
+│   │
+│   ├── hooks/                             # Custom React hooks
+│   │   └── use-click-away.ts              # Hook for detecting clicks outside element
+│   │
+│   ├── lib/                               # Utilities and configuration
+│   │   ├── api-client.ts                  # Axios instance with interceptors
+│   │   ├── query-client.ts                # TanStack Query client configuration
+│   │   └── stripe.ts                      # Stripe initialization
+│   │
+│   ├── stores/                            # Zustand state stores
+│   │   ├── auth-store.ts                  # Customer authentication state
+│   │   ├── staff-auth-store.ts            # Staff authentication state
+│   │   ├── booking-store.ts               # Booking wizard state
+│   │   └── ui-store.ts                    # UI state (sidebar, modals, notifications)
+│   │
+│   ├── types/                             # TypeScript type definitions
+│   │   └── index.ts                       # All TypeScript interfaces and types
+│   │
+│   └── utils/                             # Utility functions
+│       └── cn.ts                          # className utility (clsx + tailwind-merge)
+│
+├── .gitignore                             # Git ignore patterns
+├── eslint.config.mjs                      # ESLint configuration
+├── invoice.html                           # Invoice template (static)
+├── netlify.toml                           # Netlify deployment configuration
+├── next.config.ts                         # Next.js configuration
+├── next-env.d.ts                          # Next.js TypeScript declarations
+├── package.json                           # Dependencies and scripts
+├── postcss.config.js                      # PostCSS configuration
+├── postcss.config.mjs                     # PostCSS configuration (module)
+├── README.md                              # Project README
+├── tailwind.config.js                     # Tailwind CSS configuration
+└── tsconfig.json                          # TypeScript configuration
 ```
 
----
-
-## **SECTION 5: FEATURE-TO-FILE DEPENDENCY MAPS**
-
-### **Customer Registration Flow**
-
-**Entry Point**: `/register` → `app/register/page.tsx`
-
-**Execution Chain**:
-1. `app/register/page.tsx` renders `<RegisterForm />`
-2. `components/auth/register-form.tsx`
-   - Form state: React Hook Form
-   - Validation: Zod schema (email, password strength, required fields)
-   - Submit handler calls `useAuthStore().register()`
-3. `stores/auth-store.ts → register()`
-   - API call: `POST /api/customer/auth/register/`
-   - Success: Calls `setAuth(user, profile)`, redirects to `/dashboard`
-   - Error: Returns error message for form display
-4. `lib/api-client.ts`
-   - Axios interceptor adds CSRF token
-   - Sets session cookies from response
-
-**Dependencies**: auth-store, API client, React Hook Form, Zod
-
-**Files to Request**: `components/auth/register-form.tsx`, `stores/auth-store.ts`, `lib/api-client.ts`, `types/index.ts`
+**Total Files**: 75 code files  
+**Key Directories**: 16 (app, components, hooks, lib, stores, types, utils)  
+**Component Files**: 35+  
+**Page Files**: 20+
 
 ---
 
-### **Guest Booking Flow**
+## SECTION 5: FEATURE-TO-FILE DEPENDENCY MAPS
 
-**Entry Point**: `/book` → `app/book/page.tsx`
+### 5.1 Customer Authentication Flow
 
-**Execution Chain**:
-1. `app/book/page.tsx` renders `<BookingWizard />`
-2. `components/booking/booking-wizard.tsx`
-   - Reads `currentStep` from `booking-store`
-   - Conditionally renders step components
-3. **Step 1**: `components/booking/service-selection-step.tsx`
-   - Fetches service catalog: `GET /api/bookings/services/`
-   - Updates `booking-store`: `service_type`, `mini_move_package_id`, `specialty_item_ids`
-   - Triggers pricing preview: `POST /api/bookings/pricing-preview/`
-4. **Step 2**: `components/booking/date-time-step.tsx`
-   - Updates `booking-store`: `pickup_date`, `pickup_time`, `specific_pickup_hour`
-5. **Step 3**: `components/booking/address-step.tsx`
-   - Updates `booking-store`: `pickup_address`, `delivery_address`
-   - For authenticated users: Option to select saved addresses
-6. **Step 4**: `components/booking/customer-info-step.tsx` (guest only)
-   - Updates `booking-store`: `customer_info` (first_name, last_name, email, phone)
-7. **Step 5**: `components/booking/review-payment-step.tsx`
-   - Submits booking: `POST /api/bookings/guest-booking/`
-   - Creates PaymentIntent: Backend returns `client_secret`
-   - Renders Stripe Elements `<PaymentElement />`
-   - User completes payment → Stripe confirms PaymentIntent
-   - Confirms payment: `POST /api/payments/confirm/`
-   - Success: Resets `booking-store`, shows success message
-8. `stores/booking-store.ts`
-   - Persists to localStorage (24h expiration)
-   - Provides `nextStep()`, `prevStep()`, `updateBookingData()`, `resetWizard()`
+**Files Required**:
+- app/login/page.tsx
+- components/auth/login-form.tsx
+- components/auth/user-menu.tsx
+- stores/auth-store.ts
+- lib/api-client.ts
+- types/index.ts
 
-**Dependencies**: booking-store, auth-store, API client, Stripe Elements, React Hook Form (review step)
+**Backend APIs**: POST /api/auth/login/, POST /api/auth/logout/, GET /api/auth/session/
 
-**Files to Request**: 
-- `components/booking/*.tsx` (all wizard steps)
-- `stores/booking-store.ts`
-- `lib/api-client.ts`
-- `lib/stripe.ts`
-- `types/index.ts`
+**Flow**:
+1. User navigates to /login
+2. LoginForm renders with email/password inputs
+3. Form submission → apiClient.post('/api/auth/login/') with credentials
+4. Success → authStore.setUser(user) saves user and token
+5. Redirect to /dashboard
+6. UserMenu displays in MainLayout header
+7. Logout → authStore.logout() → apiClient.post('/api/auth/logout/') → clear state → redirect to /
 
 ---
 
-### **Authenticated Customer Dashboard**
+### 5.2 Booking Creation Flow
 
-**Entry Point**: `/dashboard` → `app/dashboard/page.tsx`
+**Files Required**:
+- app/book/page.tsx or app/page.tsx (modal trigger)
+- components/booking/booking-wizard.tsx
+- components/booking/auth-choice-step.tsx
+- components/booking/service-selection-step.tsx
+- components/booking/date-time-step.tsx
+- components/booking/address-step.tsx
+- components/booking/customer-info-step.tsx
+- components/booking/review-payment-step.tsx
+- stores/booking-store.ts
+- stores/auth-store.ts
+- lib/api-client.ts
+- lib/stripe.ts
+- types/index.ts
 
-**Execution Chain**:
-1. `app/dashboard/page.tsx`
-   - Route Protection: Checks `auth-store.isAuthenticated`
-   - If not authenticated: Redirect to `/login`
-   - Renders dashboard components
-2. `components/dashboard/dashboard-overview.tsx`
-   - Fetches summary: `GET /api/customer/dashboard/`
-   - Query key: `['customer', 'dashboard', userId]`
-   - Displays: Total bookings, total spent, VIP badge, upcoming bookings
-3. `components/dashboard/booking-history.tsx`
-   - Fetches bookings: `GET /api/customer/bookings/?search=&status=`
-   - Query key: `['customer', 'bookings', userId, searchTerm, statusFilter]`
-   - Features: Search filter, status filter, pagination
-   - Click booking → Modal with details
-4. `components/dashboard/quick-actions.tsx`
-   - Button actions: Book delivery, Manage addresses, View settings
-   - Navigation: `useRouter()` from Next.js
+**Backend APIs**: 
+- GET /api/services/
+- POST /api/bookings/calculate-price/
+- POST /api/payments/create-payment-intent/
+- POST /api/bookings/create/
 
-**Dependencies**: auth-store, API client, TanStack Query, UI components
-
-**Files to Request**:
-- `app/dashboard/page.tsx`
-- `components/dashboard/*.tsx`
-- `stores/auth-store.ts`
-- `lib/api-client.ts`
-- `lib/query-client.ts`
-
----
-
-### **Staff Booking Management**
-
-**Entry Point**: `/staff/bookings` → `app/staff/bookings/page.tsx`
-
-**Execution Chain**:
-1. `app/staff/bookings/page.tsx`
-   - Route Protection: Checks `staff-auth-store.isAuthenticated`
-   - If not authenticated: Redirect to `/staff/login`
-   - Renders `<BookingManagement />` within `<StaffLayout>`
-2. `components/staff/booking-management.tsx`
-   - Local state: `filters` (status, date, search)
-   - Fetches bookings: `GET /api/staff/bookings/?status=&date=&search=`
-   - Query key: `['staff', 'bookings', filters]`
-   - Actions: Status update dropdown, view detail button
-3. **Status Update**:
-   - Mutation: `PATCH /api/staff/bookings/<id>/` with `{status, staff_notes}`
-   - Invalidates queries: `['staff', 'bookings']`, `['staff', 'dashboard']`
-   - Optimistic update: Immediately reflects in UI
-4. **View Detail**:
-   - Opens `<BookingDetailModal bookingId={id} />`
-5. `components/staff/booking-detail-modal.tsx`
-   - Fetches full booking: `GET /api/staff/bookings/<id>/`
-   - Query key: `['staff', 'booking', bookingId]`
-   - Displays: Customer info, addresses, service details, payment info
-   - Actions: Update status, add notes
-
-**Dependencies**: staff-auth-store, API client, TanStack Query, UI components
-
-**Files to Request**:
-- `app/staff/bookings/page.tsx`
-- `components/staff/booking-management.tsx`
-- `components/staff/booking-detail-modal.tsx`
-- `components/staff/staff-layout.tsx`
-- `stores/staff-auth-store.ts`
-- `lib/api-client.ts`
+**Flow**:
+1. User clicks "Book Now" → BookingWizard opens (Modal or page)
+2. **Step 0 (AuthChoiceStep)**: User chooses login, register, or guest → bookingStore.setIsGuest()
+3. **Step 1 (ServiceSelectionStep)**: Fetch services via TanStack Query → user selects service → bookingStore.setServiceType()
+4. **Step 2 (DateTimeStep)**: User selects pickup date and time → bookingStore updates
+5. **Step 3 (AddressStep)**: User enters pickup and delivery addresses → bookingStore updates
+6. **Step 4 (CustomerInfoStep)**: If guest, collect name, email, phone → bookingStore updates
+7. **Step 5 (ReviewPaymentStep)**:
+   - Calculate price: POST /api/bookings/calculate-price/ with bookingStore data
+   - Display price breakdown
+   - Create payment intent: POST /api/payments/create-payment-intent/
+   - User enters card details via Stripe Elements
+   - On payment success: POST /api/bookings/create/ to create booking
+   - Clear bookingStore → redirect to /dashboard
 
 ---
 
-### **Payment Processing** *(Stripe Integration)*
+### 5.3 Customer Dashboard Feature
 
-**Entry Point**: Booking Wizard Step 5 → `components/booking/review-payment-step.tsx`
+**Files Required**:
+- app/dashboard/page.tsx
+- app/dashboard/bookings/page.tsx
+- components/dashboard/dashboard-overview.tsx
+- components/dashboard/booking-history.tsx
+- components/dashboard/quick-actions.tsx
+- stores/auth-store.ts
+- lib/api-client.ts
+- components/ui/card.tsx
+- components/ui/button.tsx
+- types/index.ts
 
-**Execution Chain**:
-1. User completes booking wizard steps 1-4
-2. `review-payment-step.tsx` displays booking summary
-3. **Create Booking**:
-   - Authenticated: `POST /api/customer/bookings/create/` with `{service details, addresses}`
-   - Guest: `POST /api/bookings/guest-booking/` with `{service details, addresses, customer_info}`
-   - Backend response: `{booking_id, booking_number, payment: {client_secret}}`
-4. **Initialize Stripe**:
-   - `lib/stripe.ts → getStripe()` loads Stripe.js
-   - Wraps payment form in `<Elements stripe={stripe} options={{clientSecret}}>`
-5. **Stripe Payment Element**:
-   - `@stripe/react-stripe-js → <PaymentElement />`
-   - Collects card details, validates input
-   - User clicks "Pay Now" button
-6. **Confirm Payment**:
-   - `useStripe().confirmPayment()` submits to Stripe
-   - Stripe processes payment and updates PaymentIntent status
-   - Frontend calls: `POST /api/payments/confirm/` with `{payment_intent_id}`
-7. **Backend Processing**:
-   - Backend verifies PaymentIntent with Stripe
-   - Updates `Payment.status = 'succeeded'`
-   - Updates `Booking.status = 'confirmed'`
-   - Updates `CustomerProfile` stats (if authenticated)
-8. **Success Action**:
-   - `booking-store.resetWizard()` clears wizard state
-   - Invalidates queries: `['customer', 'bookings']`, `['customer', 'dashboard']`
-   - Redirects to confirmation page or dashboard
+**Backend APIs**: GET /api/bookings/, GET /api/bookings/{id}/
 
-**Dependencies**: booking-store, auth-store, Stripe.js, API client
-
-**Files to Request**:
-- `components/booking/review-payment-step.tsx`
-- `stores/booking-store.ts`
-- `lib/stripe.ts`
-- `lib/api-client.ts`
+**Flow**:
+1. Authenticated user navigates to /dashboard
+2. DashboardOverview renders:
+   - Fetches bookings via TanStack Query: queryKey ['bookings']
+   - Displays upcoming bookings
+   - Shows recent bookings
+   - QuickActions component provides quick links
+3. User clicks "View All Bookings" → navigate to /dashboard/bookings
+4. BookingHistory renders:
+   - Fetches bookings with same query
+   - Provides filtering (status), sorting (date)
+   - Search by booking number
+5. User clicks booking → navigate to booking detail
 
 ---
 
-## **SECTION 6: STATE MANAGEMENT ARCHITECTURE**
+### 5.4 Staff Dashboard Feature
 
-### **Auth Store** *(Customer Authentication)*
+**Files Required**:
+- app/staff/dashboard/page.tsx
+- app/staff/login/page.tsx
+- components/staff/staff-layout.tsx
+- components/staff/staff-login-form.tsx
+- components/staff/staff-dashboard-overview.tsx
+- stores/staff-auth-store.ts
+- lib/api-client.ts
+- components/ui/card.tsx
+- components/ui/button.tsx
+- types/index.ts
 
-**File**: `stores/auth-store.ts`
+**Backend APIs**: POST /api/staff/login/, GET /api/staff/dashboard/
 
-**State Interface**:
+**Flow**:
+1. Staff navigates to /staff/login
+2. StaffLoginForm renders → enter credentials
+3. Submit → apiClient.post('/api/staff/login/') → staffAuthStore.setStaff() → redirect to /staff/dashboard
+4. StaffDashboardOverview renders:
+   - Fetches dashboard data: GET /api/staff/dashboard/
+   - Displays metrics: total bookings, pending actions, revenue, customers
+   - Shows recent bookings needing attention
+   - Quick navigation buttons
+
+---
+
+### 5.5 Staff Booking Management Feature
+
+**Files Required**:
+- app/staff/bookings/page.tsx
+- app/staff/bookings/[id]/page.tsx
+- components/staff/booking-management.tsx
+- components/staff/booking-detail-modal.tsx
+- stores/staff-auth-store.ts
+- lib/api-client.ts
+- components/ui/card.tsx
+- components/ui/button.tsx
+- components/ui/input.tsx
+- components/ui/select.tsx
+- types/index.ts
+
+**Backend APIs**: 
+- GET /api/staff/bookings/
+- GET /api/staff/bookings/{id}/
+- PUT /api/staff/bookings/{id}/
+
+**Flow**:
+1. Staff navigates to /staff/bookings
+2. BookingManagement renders:
+   - Fetches bookings: GET /api/staff/bookings/ with filters
+   - Displays paginated booking list
+   - Provides filters: status (all, pending, confirmed, completed, cancelled)
+   - Search by booking number or customer name
+3. Staff clicks booking → BookingDetailModal opens OR navigate to /staff/bookings/{id}
+4. Booking detail page:
+   - Fetches booking detail: GET /api/staff/bookings/{id}/
+   - Displays all booking information
+   - Edit mode allows inline editing
+   - Save → PUT /api/staff/bookings/{id}/ to update
+   - Invalidate cache → refetch
+
+---
+
+### 5.6 Staff Customer Management Feature
+
+**Files Required**:
+- app/staff/customers/page.tsx
+- app/staff/customers/[id]/page.tsx
+- components/staff/customer-management.tsx
+- stores/staff-auth-store.ts
+- lib/api-client.ts
+- components/ui/card.tsx
+- components/ui/button.tsx
+- components/ui/input.tsx
+- types/index.ts
+
+**Backend APIs**: 
+- GET /api/staff/customers/
+- GET /api/staff/customers/{id}/
+- PUT /api/staff/customers/{id}/
+
+**Flow**:
+1. Staff navigates to /staff/customers
+2. CustomerManagement renders:
+   - Fetches customers: GET /api/staff/customers/
+   - Displays customer list
+   - Search by name, email, phone
+   - Filter by VIP status
+3. Staff clicks customer → navigate to /staff/customers/{id}
+4. Customer detail page:
+   - Fetches customer: GET /api/staff/customers/{id}/
+   - Displays customer profile, bookings, saved addresses
+   - Edit notes → PUT /api/staff/customers/{id}/ to update
+
+---
+
+## SECTION 6: STATE MANAGEMENT ARCHITECTURE
+
+### 6.1 Zustand Stores Overview
+
+**Store Files**:
+- stores/auth-store.ts - Customer authentication state
+- stores/staff-auth-store.ts - Staff authentication state
+- stores/booking-store.ts - Booking wizard state
+- stores/ui-store.ts - UI state (sidebar, modals, notifications)
+
+**Store Pattern**: Zustand with persist middleware for auth stores
+
+---
+
+### 6.2 Customer Auth Store
+
+**File**: stores/auth-store.ts
+
+**State Shape**:
 ```typescript
 interface AuthState {
   user: DjangoUser | null;
@@ -1025,115 +1350,135 @@ interface AuthState {
 }
 ```
 
-**Persistence**: 
-- Storage: `localStorage` key `totetaxi-auth`
-- Version: 2 (with migration function to reset on major changes)
-- Partialize: Only persists `user`, `customerProfile`, `isAuthenticated` (excludes `isLoading`)
-
 **Actions**:
-- `setAuth(user, profile)` - Sets authenticated state, updates last activity timestamp
-- `clearAuth()` - Clears auth state, removes localStorage keys, clears React Query cache
-- `login(email, password)` - Calls backend API, sets auth on success, returns error on failure
-- `register(data)` - Calls backend API, auto-logs in on success
-- `logout()` - Calls backend logout API, clears all state, clears booking wizard
-- `validateSession()` - Checks if session still valid with backend
-- `updateProfile(updates)` - Merges profile updates
-- `secureReset()` - Security method to clear all traces (localStorage, cache)
+```typescript
+interface AuthActions {
+  setUser: (user: DjangoUser, profile?: CustomerProfile) => void;
+  logout: () => Promise<void>;
+  validateSession: () => Promise<boolean>;
+}
+```
 
-**Cross-Store Coordination**:
-- Logout clears `staff-auth-store` (prevents hybrid accounts)
-- Logout resets `booking-store` wizard
-- 401 errors auto-trigger `clearAuth()` via API interceptor
+**Persistence**: localStorage with key 'totetaxi-auth'  
+**Sensitive Data**: Token stored separately, not in state  
+**Used By**: All customer-facing components, auth forms, UserMenu  
+**Initialization**: SessionValidator checks on app startup
 
 ---
 
-### **Staff Auth Store** *(Staff Authentication)*
+### 6.3 Staff Auth Store
 
-**File**: `stores/staff-auth-store.ts`
+**File**: stores/staff-auth-store.ts
 
-**State Interface**:
+**State Shape**:
 ```typescript
 interface StaffAuthState {
-  user: StaffUser | null;
   staffProfile: StaffProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
 ```
 
-**Persistence**: 
-- Storage: `localStorage` key `totetaxi-staff-auth`
-- Version: 2
-- Isolated from customer auth
-
 **Actions**:
-- `setAuth(user, profile)` - Sets staff authenticated state
-- `clearAuth()` - Clears staff state, removes localStorage keys
-- `login(username, password)` - Staff login (username instead of email)
-- `logout()` - Staff logout, clears state
-- `secureReset()` - Security clear
-
-**Isolation**: 
-- Completely separate from `auth-store`
-- Different routes (`/staff/*` vs `/dashboard`)
-- Prevents privilege escalation
-
----
-
-### **Booking Store** *(Wizard State)*
-
-**File**: `stores/booking-store.ts`
-
-**State Interface**:
 ```typescript
-interface BookingWizardState {
-  currentStep: number;                // 0-5 (service, date, addresses, customer info, review)
-  isLoading: boolean;
-  bookingData: BookingData;           // All form data
-  errors: Record<string, string>;     // Validation errors
-  isBookingComplete: boolean;
-  completedBookingNumber?: string;
-  userId?: string;                    // For cache invalidation
-  isGuestMode: boolean;               // Guest vs authenticated
-  lastResetTimestamp?: number;        // For expiration check
+interface StaffAuthActions {
+  setStaff: (profile: StaffProfile) => void;
+  logout: () => Promise<void>;
+  validateSession: () => Promise<boolean>;
 }
 ```
 
-**Persistence**:
-- Storage: `localStorage` key `totetaxi-booking-wizard`
-- Version: 1 (incremented on schema changes)
-- Expiration: 24 hours (stale data cleared via `migrate()`)
-- Partialize: Excludes `customer_info` (PII not persisted)
-
-**Actions**:
-- `nextStep()` - Advances wizard, validates current step
-- `prevStep()` - Goes back one step
-- `updateBookingData(updates)` - Merges partial booking data
-- `setError(field, message)` - Sets validation error
-- `clearErrors()` - Clears all errors
-- `resetWizard()` - Clears all state, resets to step 0
-- `setGuestMode(isGuest)` - Toggles guest vs authenticated mode
-- `canProceed()` - Validates if current step complete
-
-**Validation Logic**:
-- Step 0: Service type selected, package/items chosen
-- Step 1: Pickup date selected, time option chosen
-- Step 2: Both addresses provided
-- Step 3 (guest only): Customer info complete
-- Step 4: Always can proceed (review step)
+**Persistence**: localStorage with key 'totetaxi-staff-auth'  
+**Sensitive Data**: Token stored separately  
+**Used By**: All staff components, StaffLayout, staff pages  
+**Initialization**: SessionValidator checks on app startup
 
 ---
 
-### **UI Store** *(Non-Persistent UI State)*
+### 6.4 Booking Store
 
-**File**: `stores/ui-store.ts`
+**File**: stores/booking-store.ts
 
-**State Interface**:
+**State Shape**:
+```typescript
+interface BookingState {
+  // Wizard state
+  currentStep: number;
+  isGuest: boolean;
+  
+  // Service selection
+  service_type: string | null;
+  mini_move_package_id: string | null;
+  specialty_items: string[];
+  
+  // Date/time
+  pickup_date: string | null;
+  pickup_time: string | null;
+  specific_pickup_hour: number | null;
+  
+  // Addresses
+  pickup_address: BookingAddress | null;
+  delivery_address: BookingAddress | null;
+  
+  // Customer info (guest)
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  
+  // Additional fields
+  special_instructions: string | null;
+  coi_required: boolean;
+  
+  // Blade transfer specific
+  blade_airport: string | null;
+  blade_flight_date: string | null;
+  blade_flight_time: string | null;
+  blade_bag_count: number | null;
+  
+  // Mini move specific
+  include_packing: boolean;
+  include_unpacking: boolean;
+}
+```
+
+**Actions**:
+```typescript
+interface BookingActions {
+  nextStep: () => void;
+  previousStep: () => void;
+  setStep: (step: number) => void;
+  setIsGuest: (isGuest: boolean) => void;
+  setServiceType: (serviceType: string) => void;
+  setPickupDate: (date: string) => void;
+  setPickupTime: (time: string) => void;
+  setPickupAddress: (address: BookingAddress) => void;
+  setDeliveryAddress: (address: BookingAddress) => void;
+  setCustomerInfo: (name: string, email: string, phone: string) => void;
+  // ... other setters
+  resetBooking: () => void;
+}
+```
+
+**Persistence**: No persistence (ephemeral wizard state)  
+**Cleared**: After successful booking creation  
+**Used By**: BookingWizard and all step components
+
+---
+
+### 6.5 UI Store
+
+**File**: stores/ui-store.ts
+
+**State Shape**:
 ```typescript
 interface UIState {
   sidebarOpen: boolean;
   theme: 'light' | 'dark';
-  notifications: Notification[];
+  notifications: Array<{
+    id: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    message: string;
+  }>;
   modals: {
     login: boolean;
     register: boolean;
@@ -1143,95 +1488,119 @@ interface UIState {
 }
 ```
 
-**Persistence**: None (in-memory only)
-
 **Actions**:
-- `toggleSidebar()`, `setSidebar(open)` - Sidebar control
-- `setTheme(theme)` - Theme switching (with validation)
-- `addNotification(notification)` - Adds toast notification (sanitized, max 10)
-- `removeNotification(id)` - Dismisses notification
-- `openModal(modal)`, `closeModal(modal)` - Modal state management
-- `secureReset()` - Resets to defaults
-
-**Security Features**:
-- Input sanitization on notifications (max 500 chars, type validation)
-- Max notification limit (10) to prevent memory issues
-- Modal key validation before opening
-
----
-
-### **TanStack Query Cache**
-
-**File**: `lib/query-client.ts`
-
-**Configuration**:
 ```typescript
-{
-  staleTime: 5 minutes,    // Data fresh for 5min
-  gcTime: 30 minutes,      // Garbage collection after 30min
-  retry: 3 attempts,       // Retry failed requests
-  refetchOnWindowFocus: false,  // Don't refetch on tab switch
+interface UIActions {
+  toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  openModal: (modal: string) => void;
+  closeModal: (modal: string) => void;
+  addNotification: (notification: Notification) => void;
+  removeNotification: (id: string) => void;
+  clearNotifications: () => void;
+  secureReset: () => void;
 }
 ```
 
-**Query Key Patterns**:
-- Customer bookings: `['customer', 'bookings', userId, filters]`
-- Customer dashboard: `['customer', 'dashboard', userId]`
-- Staff bookings: `['staff', 'bookings', filters]`
-- Staff dashboard: `['staff', 'dashboard']`
-- Service catalog: `['services']`
-
-**Global Error Handling**:
-- 401 errors: Auto-clear query cache, clear auth stores, redirect
-- Event subscription: `queryClient.getQueryCache().subscribe()` monitors errors
-- Centralized handler: `handle401Error()` function
-
-**Invalidation Strategy**:
-- Booking created: Invalidate `['customer', 'bookings']`, `['customer', 'dashboard']`
-- Status updated: Invalidate `['staff', 'bookings']`, `['staff', 'dashboard']`
-- Profile updated: Invalidate `['customer', 'profile']`
+**Persistence**: localStorage for theme only  
+**Security**: Input sanitization on notifications  
+**Used By**: Layout components, notification system, modal system
 
 ---
 
-## **SECTION 7: ROUTING & NAVIGATION ARCHITECTURE**
+### 6.6 TanStack Query (Server State)
 
-### **Routing System**: Next.js 15 App Router (File-Based)
+**Configuration**: lib/query-client.ts
 
-**Public Routes** *(No Authentication)*:
-```
-/                           # Landing page (hero, services, testimonials)
-/about                      # About ToteTaxi story
-/contact                    # Contact form
-/book                       # Booking wizard (guest or authenticated)
-/login                      # Customer login
-/register                   # Customer registration
-```
-
-**Protected Customer Routes** *(Requires Customer Auth)*:
-```
-/dashboard                  # Customer dashboard (overview, bookings, quick actions)
-/dashboard/settings         # Customer settings (not yet implemented)
+**Default Query Options**:
+```typescript
+{
+  queries: {
+    staleTime: 1000 * 60 * 5,        // 5 minutes
+    cacheTime: 1000 * 60 * 10,       // 10 minutes
+    refetchOnWindowFocus: false,
+    retry: 3,
+  },
+}
 ```
 
-**Protected Staff Routes** *(Requires Staff Auth)*:
+**Query Keys Naming Convention**:
+```typescript
+// Customer queries
+['bookings']                          // All customer bookings
+['bookings', bookingId]               // Single booking detail
+
+// Staff queries
+['staff', 'dashboard']                // Staff dashboard data
+['staff', 'bookings']                 // All bookings (staff view)
+['staff', 'bookings', filters]        // Filtered bookings
+['staff', 'booking', bookingId]       // Single booking (staff view)
+['staff', 'customers']                // All customers
+['staff', 'customer', customerId]     // Single customer detail
+
+// Services
+['services']                          // Available services
 ```
-/staff/login                # Staff login (separate from customer)
-/staff/dashboard            # Staff operations dashboard
-/staff/bookings             # Booking management with filters
-/staff/calendar             # Calendar view of bookings
-/staff/customers            # Customer list with search
-/staff/customers/[id]       # Customer detail page
-/staff/reports              # Reports page (stub)
-/staff/logistics            # Logistics page (stub)
+
+**Mutation Pattern**:
+```typescript
+const mutation = useMutation({
+  mutationFn: async (data) => {
+    return apiClient.post('/api/endpoint/', data);
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(['queryKey']);
+  },
+});
 ```
+
+**Optimistic Updates**: Used in some mutations for immediate UI feedback  
+**Error Handling**: Global error toast via UI store  
+**DevTools**: Available in development mode
 
 ---
 
-### **Route Protection Patterns**
+## SECTION 7: ROUTING & NAVIGATION ARCHITECTURE
+
+### 7.1 Route Structure
+
+**Public Routes** (No authentication required):
+```
+/                    - Landing page
+/about               - About page
+/services            - Services overview
+/faq                 - FAQ page
+/contact             - Contact page
+/book                - Booking page (embedded wizard)
+/login               - Customer login
+/register            - Customer registration
+```
+
+**Protected Customer Routes** (Require customer authentication):
+```
+/dashboard           - Customer dashboard
+/dashboard/bookings  - Booking history
+```
+
+**Protected Staff Routes** (Require staff authentication):
+```
+/staff/login         - Staff login
+/staff/dashboard     - Staff dashboard
+/staff/calendar      - Booking calendar
+/staff/bookings      - Booking management
+/staff/bookings/:id  - Booking detail
+/staff/customers     - Customer management
+/staff/customers/:id - Customer detail
+/staff/logistics     - Logistics (placeholder)
+/staff/reports       - Reports (placeholder)
+```
+
+### 7.2 Route Protection Pattern
 
 **Customer Route Protection**:
 ```typescript
-// Pattern in dashboard pages
+// In page component
 const { isAuthenticated, isLoading } = useAuthStore();
 const router = useRouter();
 
@@ -1248,7 +1617,7 @@ if (isLoading || !isAuthenticated) {
 
 **Staff Route Protection**:
 ```typescript
-// Pattern in staff pages
+// In page component
 const { isAuthenticated, isLoading } = useStaffAuthStore();
 const router = useRouter();
 
@@ -1257,489 +1626,579 @@ useEffect(() => {
     router.push('/staff/login');
   }
 }, [isAuthenticated, isLoading, router]);
-
-if (isLoading || !isAuthenticated) {
-  return <LoadingSpinner />;
-}
 ```
 
-**Middleware** (Future Enhancement):
-- Could add `middleware.ts` for server-side route protection
-- Currently using client-side checks in page components
+**Alternative**: Could be extracted into a ProtectedRoute component or middleware
+
+### 7.3 Navigation Components
+
+**MainLayout Navigation**:
+- Logo (links to /)
+- Navigation links: About, Services, FAQ, Contact
+- User menu (if authenticated) or Login/Register buttons
+- "Book Now" button (triggers BookingWizard)
+
+**StaffLayout Navigation**:
+- Sidebar with navigation items
+- Dashboard, Calendar, Bookings, Customers, Logistics, Reports
+- Staff profile and logout in header
+
+**Breadcrumbs**: Not currently implemented but could be added to detail pages
 
 ---
 
-### **Navigation Components**
+## SECTION 8: FORM HANDLING & VALIDATION
 
-**Customer Navigation**:
-- **MainLayout**: `components/layout/main-layout.tsx`
-  - Header: Logo, nav links (About, Contact, Book), UserMenu (if auth)
-  - Footer: Links, social, copyright
-  - Mobile: Responsive hamburger menu
+### 8.1 Form Pattern
 
-**Staff Navigation**:
-- **StaffLayout**: `components/staff/staff-layout.tsx`
-  - Sidebar: Dashboard, Bookings, Calendar, Customers, Reports, Logistics
-  - Header: Staff role display, logout button
-  - Mobile: Collapsible sidebar
+**Library**: React Hook Form 7.62.0 + Zod 3.25.76
 
-**Navigation Helpers**:
-- `useRouter()` from Next.js for programmatic navigation
-- `<Link href="...">` for client-side navigation
-- `router.push()`, `router.replace()` for redirects
-
----
-
-## **SECTION 8: FORM HANDLING & VALIDATION REFERENCE**
-
-### **Form Stack**: React Hook Form + Zod
-
-**Form Pattern**:
+**Pattern**:
 ```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
 // 1. Define Zod schema
-const loginSchema = z.object({
+const schema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type FormData = z.infer<typeof schema>;
 
-// 2. Initialize React Hook Form
-const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
-  resolver: zodResolver(loginSchema),
+// 2. Initialize form with resolver
+const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  resolver: zodResolver(schema),
 });
 
 // 3. Submit handler
-const onSubmit = async (data: LoginFormData) => {
-  const result = await useAuthStore.getState().login(data.email, data.password);
-  if (result.success) {
-    router.push('/dashboard');
-  } else {
-    // Display error
-  }
+const onSubmit = async (data: FormData) => {
+  // API call
 };
 
 // 4. Render form
 <form onSubmit={handleSubmit(onSubmit)}>
-  <Input {...register('email')} error={errors.email?.message} />
-  <Input {...register('password')} type="password" error={errors.password?.message} />
-  <Button type="submit">Login</Button>
+  <Input
+    label="Email"
+    error={errors.email?.message}
+    {...register('email')}
+  />
+  <Button type="submit">Submit</Button>
 </form>
 ```
 
----
+### 8.2 Validation Schemas
 
-### **Validation Schemas**
+**Location**: Inline in component files (could be extracted to schemas/ directory)
 
-**Defined In**: Component files (inline) or `schemas/` directory (not yet created)
-
-**Example Schemas**:
-- **Login**: Email format + password min length
-- **Register**: Email, password (8+ chars, uppercase, number), first/last name, phone
-- **Address**: Street required, city required, state (NY/CT/NJ), zip format (5 or 9 digits)
-- **Booking**: Service type, date (future), addresses
-
-**Real-Time Validation**:
-- `Input` component: `realTimeValidation` prop for email/phone on blur
-- React Hook Form: Validates on submit, displays errors per field
-- Zod: Runtime type safety + error messages
-
----
-
-### **Form Submission Flow**
-
-1. **Client Validation**: Zod schema validates on submit attempt
-2. **Display Errors**: React Hook Form maps errors to fields
-3. **API Call**: If valid, submit to backend via API client
-4. **Server Validation**: Backend returns field-level errors if validation fails
-5. **Display Server Errors**: Map backend errors to form fields
-6. **Success Action**: Clear form, show success message, redirect or update state
-
-**Example Server Error Handling**:
+**Common Patterns**:
 ```typescript
-try {
-  const response = await apiClient.post('/api/customer/auth/register/', data);
-  // Success
-} catch (error: any) {
-  if (error.response?.data?.field_errors) {
-    // Map backend field errors to React Hook Form
-    Object.keys(error.response.data.field_errors).forEach(field => {
-      setError(field, { message: error.response.data.field_errors[field][0] });
-    });
-  } else {
-    // Show general error toast
-    addNotification({ type: 'error', message: error.response?.data?.message });
+// Email validation
+z.string().email('Invalid email')
+
+// Required string
+z.string().min(1, 'This field is required')
+
+// Phone validation
+z.string().regex(/^\d{3}-\d{3}-\d{4}$/, 'Invalid phone format')
+
+// Date validation (future dates only)
+z.string().refine(date => new Date(date) > new Date(), 'Date must be in future')
+
+// Conditional validation
+z.object({
+  serviceType: z.string(),
+  packageId: z.string().optional(),
+}).refine(data => {
+  if (data.serviceType === 'mini_move') {
+    return !!data.packageId;
   }
-}
+  return true;
+}, 'Package is required for mini move')
 ```
 
----
+### 8.3 Forms in the Application
 
-### **Reusable Form Components**
+**LoginForm**:
+- Fields: email, password
+- Validation: Email format, required fields
+- Submission: POST /api/auth/login/
 
-**Input Component**: `components/ui/input.tsx`
-- Props: `label`, `error`, `mask` (phone/zip), `realTimeValidation` (email/phone)
-- Features: Auto-formatting, real-time validation on blur, error display
-- Integration: Works with React Hook Form `{...register('field')}`
+**RegisterForm**:
+- Fields: email, password, first_name, last_name, phone
+- Validation: Email format, password length, phone format, required fields
+- Submission: POST /api/auth/register/
 
-**Select Component**: `components/ui/select.tsx`
-- Props: `label`, `error`, `options` (array of {value, label})
-- Usage: Dropdowns in filters, form selects (state selection)
+**CustomerInfoStep** (Booking wizard):
+- Fields: name, email, phone
+- Validation: Email format, phone format, required fields
+- Submission: Data stored in bookingStore
 
-**Button Component**: `components/ui/button.tsx`
-- Props: `variant`, `size`, `disabled`
-- Usage: Form submit buttons, action buttons
-- Loading state: `disabled={isLoading}` during submission
+**AddressStep** (Booking wizard):
+- Fields: address_line_1, address_line_2, city, state, zip_code (pickup and delivery)
+- Validation: Required fields, ZIP code format
+- Submission: Data stored in bookingStore
 
----
+**ReviewPaymentStep** (Booking wizard):
+- Fields: Stripe CardElement (handled by Stripe)
+- Validation: Stripe validates card
+- Submission: POST /api/bookings/create/ after payment success
 
-## **SECTION 9: UI COMPONENT SYSTEM DOCUMENTATION**
+**Booking Edit Form** (Staff):
+- Fields: All booking fields (status, dates, addresses, etc.)
+- Validation: Date validation, address validation
+- Submission: PUT /api/staff/bookings/{id}/
 
-### **Design System**: Tailwind CSS + Custom Components
+**Customer Notes Edit** (Staff):
+- Fields: notes (textarea)
+- Validation: Length limit
+- Submission: PUT /api/staff/customers/{id}/
 
-**Color Palette** *(tailwind.config.js)*:
-```javascript
-colors: {
-  navy: {
-    50-900   // Brand primary (headers, text)
-  },
-  gold: {
-    50-900   // Brand accent (CTAs, highlights)
-  },
-  cream: {
-    50-900   // Backgrounds, soft accents
-  }
-}
-```
+### 8.4 Error Handling
 
-**Typography**:
-- **Serif**: Playfair Display (headings, elegant display text)
-- **Sans**: Inter (body text, UI elements)
-- Loaded in `app/layout.tsx` via `next/font/google`
+**Client-side Validation Errors**:
+- Displayed inline below each field
+- Form submission disabled until valid
+- Real-time validation on blur
 
-**Component Variants**: CVA (Class Variance Authority)
-- Pattern used in `Button`, `Card`, `Input` components
-- Example: `variant`, `size`, `rounded` props map to Tailwind classes
-- Allows: `<Button variant="primary" size="lg">Text</Button>`
+**Server-side Validation Errors**:
+- Returned from API as JSON
+- Displayed in toast notification OR field-level errors
+- Pattern: `{ field: ['error message'] }`
 
----
-
-### **UI Primitives** *(components/ui/)*
-
-**Button**:
-- Variants: `primary`, `secondary`, `outline`, `ghost`, `danger`
-- Sizes: `sm`, `md`, `lg`
-- Rounded: `none`, `sm`, `md`, `lg`, `full`
-- Base styles: Transitions, focus rings, disabled states
-
-**Card**:
-- Variants: `default`, `elevated`, `luxury`, `ghost`
-- Padding: `none`, `sm`, `md`, `lg`
-- Sub-components: `CardHeader`, `CardContent`, `CardFooter`
-- Usage: Dashboard widgets, forms, content blocks
-
-**Input**:
-- Variants: `default`, `error`, `success`
-- Sizes: `sm`, `md`, `lg`
-- Features: Masking (phone, zip), real-time validation, error display
-- Integration: React Hook Form compatible
-
-**Select**:
-- Props: `options` (array), `label`, `error`, `placeholder`
-- Usage: Form dropdowns, filters
-
-**Modal**:
-- Built on Headless UI `Dialog`
-- Sizes: `sm`, `md`, `lg`, `xl`, `full`
-- Features: Backdrop click, ESC key, focus trap, close button
+**API Errors**:
+- Network errors: Toast notification "Something went wrong"
+- 401 Unauthorized: Logout and redirect to login
+- 403 Forbidden: Toast "You don't have permission"
+- 404 Not Found: Toast "Resource not found"
+- 500 Server Error: Toast "Server error, please try again"
 
 ---
 
-### **Responsive Design**
+## SECTION 9: UI COMPONENT SYSTEM & DESIGN
 
-**Breakpoints** *(Tailwind defaults)*:
-```
-sm:  640px   # Mobile landscape
-md:  768px   # Tablet portrait
-lg:  1024px  # Tablet landscape / Small desktop
-xl:  1280px  # Desktop
-2xl: 1536px  # Large desktop
-```
+### 9.1 Component Variants
 
-**Mobile-First Strategy**:
-- Base styles: Mobile
-- Responsive modifiers: `md:`, `lg:`, `xl:`
-- Example: `<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">`
-
-**Mobile Navigation**:
-- Hamburger menu in `MainLayout` for mobile
-- Collapsible sidebar in `StaffLayout`
-
----
-
-### **Styling Patterns**
-
-**Utility Classes**:
-- Layout: `flex`, `grid`, `container`
-- Spacing: `p-4`, `m-2`, `space-x-4`
-- Typography: `text-lg`, `font-bold`, `text-navy-900`
-- Colors: `bg-white`, `text-gray-700`, `border-gray-200`
-
-**Component Composition**:
+**Button Variants**:
 ```typescript
-// Bad: Hardcoded styles in every component
-<div className="px-4 py-3 bg-white border rounded-lg">
-
-// Good: Use reusable Card component
-<Card padding="md" variant="default">
+'primary'    // Navy background, white text (main CTAs)
+'secondary'  // Gold background, navy text
+'outline'    // Transparent with navy border
+'ghost'      // Transparent, navy text on hover
+'danger'     // Red for destructive actions
 ```
 
-**Utility Function**: `cn()` (`utils/cn.ts`)
-- Merges Tailwind classes intelligently
-- Handles conflicts (last class wins)
-- Usage: `className={cn('base-class', props.className)}`
+**Button Sizes**:
+```typescript
+'sm'   // Small (px-3 py-1.5 text-sm)
+'md'   // Medium (px-4 py-2 text-base) - default
+'lg'   // Large (px-6 py-3 text-lg)
+```
+
+**Card Variants**:
+```typescript
+'default'  // White background, subtle shadow
+'luxury'   // Gold accent, enhanced shadow
+'outlined' // Border instead of shadow
+```
+
+**Input States**:
+```typescript
+'default'  // Gray border, focus:navy ring
+'error'    // Red border, focus:red ring
+'success'  // Green border, focus:green ring
+```
+
+### 9.2 Responsive Design
+
+**Breakpoints** (Tailwind defaults):
+```
+sm:  640px   - Small devices
+md:  768px   - Medium devices (tablets)
+lg:  1024px  - Large devices (desktops)
+xl:  1280px  - Extra large screens
+2xl: 1536px  - Ultra-wide screens
+```
+
+**Responsive Patterns**:
+```typescript
+// Grid layouts
+'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+
+// Stack to horizontal
+'flex flex-col md:flex-row'
+
+// Hide/show
+'hidden md:block'
+
+// Text sizes
+'text-2xl md:text-3xl lg:text-4xl'
+```
+
+### 9.3 Accessibility
+
+**Keyboard Navigation**:
+- All interactive elements keyboard accessible
+- Focus states visible
+- Tab order logical
+
+**Screen Readers**:
+- Semantic HTML (header, nav, main, section, article)
+- ARIA labels where needed
+- Form labels associated with inputs
+
+**Color Contrast**:
+- WCAG AA compliant (4.5:1 for normal text)
+- Navy on white, gold on navy tested
+
+**Focus Management**:
+- Modal focus trap (Headless UI)
+- Skip links for navigation
+
+### 9.4 Animation & Transitions
+
+**Headless UI Transitions**:
+```typescript
+// Modal enter/leave
+enter: 'transition ease-out duration-200'
+enterFrom: 'opacity-0 scale-95'
+enterTo: 'opacity-100 scale-100'
+leave: 'transition ease-in duration-150'
+leaveFrom: 'opacity-100 scale-100'
+leaveTo: 'opacity-0 scale-95'
+```
+
+**Tailwind Transitions**:
+```typescript
+'transition-colors duration-200'  // Button hover
+'transition-shadow duration-300'  // Card hover
+'transition-transform duration-200' // Scale effects
+```
+
+**Loading States**:
+```typescript
+'animate-spin'  // Spinner rotation
+'animate-pulse' // Skeleton loading
+```
+
+### 9.5 Typography
+
+**Font Families**:
+- Sans-serif: Inter (--font-inter) for body text
+- Serif: Playfair Display (--font-playfair) for headings
+
+**Font Classes**:
+```typescript
+'font-sans'   // Inter (body text)
+'font-serif'  // Playfair Display (headings)
+'font-normal' // 400 weight
+'font-medium' // 500 weight
+'font-bold'   // 700 weight
+```
+
+**Text Sizes**:
+```typescript
+'text-xs'   // 0.75rem (12px)
+'text-sm'   // 0.875rem (14px)
+'text-base' // 1rem (16px) - default
+'text-lg'   // 1.125rem (18px)
+'text-xl'   // 1.25rem (20px)
+'text-2xl'  // 1.5rem (24px)
+'text-3xl'  // 1.875rem (30px)
+'text-4xl'  // 2.25rem (36px)
+'text-5xl'  // 3rem (48px)
+```
 
 ---
 
-## **SECTION 10: DEVELOPMENT PATTERNS & CONVENTIONS**
+## SECTION 10: DEVELOPMENT PATTERNS & CONVENTIONS
 
-### **Adding a New Page**
+### 10.1 Adding a New Page
 
-1. **Create Page File**:
+**Steps**:
+1. Create page.tsx in appropriate app/ directory
+2. If protected route, add authentication check
+3. Wrap with appropriate layout (MainLayout or StaffLayout)
+4. Add navigation link if needed
+5. Update this documentation
+
+**Example** - Adding a new customer profile page:
 ```typescript
-// src/app/my-new-page/page.tsx
-'use client';  // If using hooks/state
+// app/profile/page.tsx
+'use client';
 
+import { useEffect } from 'react';
+import { useAuthStore } from '@/stores/auth-store';
+import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout/main-layout';
 
-export default function MyNewPage() {
+export default function ProfilePage() {
+  const { isAuthenticated, user } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-16">
-        <h1 className="text-3xl font-serif font-bold">My New Page</h1>
-        {/* Content */}
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-serif font-bold">My Profile</h1>
+        {/* Profile content */}
       </div>
     </MainLayout>
   );
 }
 ```
 
-2. **Add Navigation Link** (if needed):
-- Customer: Add to `MainLayout` header nav
-- Staff: Add to `StaffLayout` sidebar
+### 10.2 Creating a New Component
 
-3. **Add Route Protection** (if protected):
+**Steps**:
+1. Determine appropriate directory (ui/, feature-specific/)
+2. Define TypeScript interface for props
+3. Create component with forwardRef if needed
+4. Use existing UI primitives where possible
+5. Add to index.ts for barrel export
+6. Document component interface in this documentation
+
+**Example** - Creating a LoadingSpinner component:
 ```typescript
-const { isAuthenticated, isLoading } = useAuthStore();
-useEffect(() => {
-  if (!isLoading && !isAuthenticated) router.push('/login');
-}, [isAuthenticated, isLoading, router]);
-```
+// components/ui/loading-spinner.tsx
+import { cn } from '@/utils/cn';
 
----
-
-### **Creating a New Component**
-
-1. **Define Props Interface**:
-```typescript
-interface MyComponentProps {
-  title: string;
-  onAction?: () => void;
-  variant?: 'default' | 'compact';
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
-```
 
-2. **Create Component**:
-```typescript
-'use client';  // If using state/effects
+export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
+  const sizeClasses = {
+    sm: 'h-4 w-4',
+    md: 'h-8 w-8',
+    lg: 'h-12 w-12',
+  };
 
-export function MyComponent({ title, onAction, variant = 'default', className }: MyComponentProps) {
   return (
-    <Card variant="default" className={cn('my-component', className)}>
-      <CardHeader>
-        <h3>{title}</h3>
-      </CardHeader>
-      <CardContent>
-        {/* Content */}
-        {onAction && <Button onClick={onAction}>Action</Button>}
-      </CardContent>
-    </Card>
+    <div className={cn('animate-spin rounded-full border-b-2 border-navy-900', sizeClasses[size], className)} />
   );
 }
 ```
 
-3. **Export** (if creating component library):
+### 10.3 Adding Backend Integration
+
+**Steps**:
+1. Check backend README.md for API specification
+2. Create TanStack Query hook or use direct apiClient call
+3. Define TypeScript types for request/response
+4. Add error handling and loading states
+5. Update backend integration map in this documentation
+
+**Example** - Adding new API endpoint integration:
 ```typescript
-// components/my-feature/index.ts
-export { MyComponent } from './my-component';
+// In component file
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+
+// Fetch data
+const { data, isLoading, error } = useQuery({
+  queryKey: ['resource', id],
+  queryFn: async () => {
+    const response = await apiClient.get(`/api/resource/${id}/`);
+    return response.data;
+  },
+});
+
+// Mutate data
+const queryClient = useQueryClient();
+const mutation = useMutation({
+  mutationFn: async (data) => {
+    return apiClient.post('/api/resource/', data);
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(['resource']);
+  },
+});
 ```
 
----
+### 10.4 Code Organization Rules
 
-### **Adding Backend Integration**
+**File Naming**:
+- Components: kebab-case (login-form.tsx)
+- Pages: page.tsx (Next.js App Router convention)
+- Types: camelCase interfaces (DjangoUser)
+- Utilities: kebab-case (api-client.ts)
 
-1. **Check Backend README** for API specification
-2. **Define Types** (if not exists):
+**Import Order**:
 ```typescript
-// types/index.ts
-export interface MyResource {
-  id: string;
-  name: string;
-  created_at: string;
+// 1. External libraries
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+// 2. Internal components
+import { Button } from '@/components/ui/button';
+import { MainLayout } from '@/components/layout/main-layout';
+
+// 3. Hooks and stores
+import { useAuthStore } from '@/stores/auth-store';
+import { useClickAway } from '@/hooks/use-click-away';
+
+// 4. Utils and types
+import { cn } from '@/utils/cn';
+import type { DjangoUser } from '@/types';
+
+// 5. Styles (if any)
+import styles from './component.module.css';
+```
+
+**Component Structure**:
+```typescript
+// 1. Imports
+
+// 2. Types/Interfaces
+interface ComponentProps {
+  // props
+}
+
+// 3. Component
+export function Component({ prop }: ComponentProps) {
+  // 4. Hooks
+  const [state, setState] = useState();
+  const router = useRouter();
+  
+  // 5. Derived state
+  const computedValue = useMemo(() => {}, []);
+  
+  // 6. Effects
+  useEffect(() => {}, []);
+  
+  // 7. Handlers
+  const handleClick = () => {};
+  
+  // 8. Early returns
+  if (loading) return <Spinner />;
+  
+  // 9. Render
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  );
 }
 ```
 
-3. **Create Query Hook** (if fetching data):
+### 10.5 Testing Patterns
+
+**Component Testing** (Not yet implemented):
+- Framework: Vitest + React Testing Library
+- Pattern: Test user interactions, not implementation
+- Files: *.test.tsx alongside component
+
+**E2E Testing** (Not yet implemented):
+- Framework: Playwright (suggested)
+- Pattern: Test critical user flows
+- Files: tests/e2e/
+
+**Type Safety**:
+- TypeScript strict mode enabled
+- All props typed with interfaces
+- API responses typed
+- No `any` types
+
+### 10.6 Environment Variables
+
+**Configuration**: .env.local (not in git)
+
+**Variables**:
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8005  # Backend API URL
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_test_...  # Stripe publishable key
+```
+
+**Usage**:
 ```typescript
-// In component or custom hook
-const { data, isLoading, error } = useQuery({
-  queryKey: ['my-resource', filters],
-  queryFn: async () => {
-    const response = await apiClient.get('/api/my-resource/', { params: filters });
-    return response.data;
-  },
-  enabled: isAuthenticated,  // Only fetch if auth
-});
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 ```
 
-4. **Create Mutation Hook** (if modifying data):
-```typescript
-const mutation = useMutation({
-  mutationFn: async (data) => {
-    return await apiClient.post('/api/my-resource/', data);
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['my-resource'] });
-    addNotification({ type: 'success', message: 'Created successfully' });
-  },
-  onError: (error: any) => {
-    addNotification({ type: 'error', message: error.response?.data?.message });
-  }
-});
-```
+**Note**: Variables prefixed with NEXT_PUBLIC_ are exposed to the browser
+
+### 10.7 Deployment
+
+**Platform**: Netlify (configured via netlify.toml)
+
+**Build Command**: `npm run build`  
+**Output Directory**: `.next/`  
+**Node Version**: 18.x or higher
+
+**Build Optimizations**:
+- TypeScript errors ignored during build (typescript.ignoreBuildErrors)
+- ESLint skipped during build (eslint.ignoreDuringBuilds)
+- Console.logs removed in production
+- Source maps disabled in production
 
 ---
 
-### **Code Organization Rules**
+## REGENERATION PROTOCOL
 
-**Pages** (`app/`):
-- Minimal logic, mostly layout and component composition
-- Route protection checks
-- Pass data to child components via props
-- Naming: `page.tsx` (Next.js convention)
+When this documentation needs to be updated, follow these steps:
 
-**Components** (`components/`):
-- Group by feature (auth, booking, dashboard, staff)
-- UI primitives in `components/ui/`
-- Export from `index.ts` for clean imports
-- Naming: `my-component.tsx` (kebab-case), export as `MyComponent` (PascalCase)
+**1. Analyze Changes**: Review what changed in frontend_snapshot.txt
+- New components added?
+- New routes added?
+- Backend API integrations changed?
+- State management patterns changed?
 
-**Stores** (`stores/`):
-- One store per domain (auth, booking, ui)
-- Export hook: `export const useMyStore = create<MyState & MyActions>()(...)`
-- Naming: `my-store.ts` (kebab-case), hook: `useMyStore` (camelCase)
+**2. Update Sections**:
+- Section 1: Technology stack changes
+- Section 2: Backend integration map additions/changes
+- Section 3: New component interfaces
+- Section 4: File directory updates
+- Section 5: New feature-to-file maps
+- Section 6-10: Pattern changes
 
-**Lib** (`lib/`):
-- Core utilities: API client, query client, external service configs
-- Export instances: `export const apiClient = axios.create(...)`
-- Naming: `my-utility.ts` (kebab-case)
+**3. Maintain Compression Target**: Keep documentation at ~1600 lines (10-15% of frontend_snapshot.txt)
 
-**Types** (`types/`):
-- Shared TypeScript interfaces
-- Match backend response structures
-- Export: `export interface MyType { ... }`
-
-**Hooks** (`hooks/`):
-- Custom React hooks
-- Prefix with `use`: `useClickAway`, `useDebounce`
-- Naming: `use-my-hook.ts` (kebab-case), export: `useMyHook`
+**4. Preserve Philosophy**: This is a navigation system, not code reproduction
 
 ---
 
-### **File Naming Conventions**
+## AI USAGE GUIDELINES
 
-- **Pages**: `page.tsx` (Next.js requirement)
-- **Components**: `my-component.tsx` (kebab-case file), `MyComponent` export (PascalCase)
-- **Stores**: `my-store.ts` (kebab-case)
-- **Hooks**: `use-my-hook.ts` (kebab-case)
-- **Types**: `index.ts` (barrel file in types/)
-- **Utils**: `cn.ts`, `formatters.ts` (camelCase or kebab-case)
+**When the AI needs to modify frontend code**:
 
----
+1. **Load this living documentation first** - Understand architecture and patterns
+2. **Identify required files** - Use Section 5 (Feature-to-File Maps) to find all related files
+3. **Request specific files** - Ask user for specific files from frontend_snapshot.txt
+4. **Make changes following patterns** - Use Section 10 (Development Patterns) for consistency
+5. **Update related files** - Consider cascade effects (types, stores, components)
+6. **Suggest documentation updates** - If significant changes, note what needs updating here
 
-### **Import Patterns**
+**When the AI needs backend integration**:
 
-**Path Aliases** (configured in `tsconfig.json`):
-```typescript
-import { Button } from '@/components/ui/button';
-import { useAuthStore } from '@/stores/auth-store';
-import { DjangoUser } from '@/types';
-import { apiClient } from '@/lib/api-client';
-```
+1. **Check Section 2** - Backend Integration Map for existing patterns
+2. **Reference backend README.md** - For complete API specifications
+3. **Follow TanStack Query patterns** - Use established query key conventions
+4. **Handle errors consistently** - Follow error handling patterns from Section 8
 
-**Barrel Exports**:
-```typescript
-// components/ui/index.ts
-export { Button } from './button';
-export { Card, CardHeader, CardContent } from './card';
+**When the AI is uncertain**:
 
-// Usage
-import { Button, Card } from '@/components/ui';
-```
+1. **Search this document** - Use Ctrl+F to find relevant sections
+2. **Check similar components** - Look at Section 3 for similar interface patterns
+3. **Request clarification** - Ask user which pattern to follow
+4. **Default to existing patterns** - Don't invent new patterns without reason
 
 ---
 
-### **Testing Patterns** *(Not Yet Implemented)*
+## DOCUMENT END
 
-**Planned Setup**:
-- **Unit Tests**: Vitest + React Testing Library
-- **Hook Tests**: `@testing-library/react-hooks`
-- **E2E Tests**: Playwright
-
-**Test Structure** (future):
-```
-src/
-├── __tests__/
-│   ├── components/
-│   │   ├── auth/
-│   │   │   └── login-form.test.tsx
-│   │   └── ui/
-│   │       └── button.test.tsx
-│   ├── stores/
-│   │   └── auth-store.test.ts
-│   └── hooks/
-│       └── use-click-away.test.ts
-```
-
----
-
-## **AI EXECUTIVE FUNCTION CHECKLIST**
-
-✅ **Understand Architecture** - Next.js App Router, Zustand stores, TanStack Query caching mapped  
-✅ **Navigate Files** - Complete file tree with purpose descriptions for 76 frontend files  
-✅ **Identify Dependencies** - Feature-to-file maps show complete UI flow chains  
-✅ **Request Context** - Component interfaces documented with Props and API integrations  
-✅ **Integrate Backend** - Backend APIs mapped to frontend hooks/components without duplication  
-✅ **Extend Features** - Development patterns documented with code examples  
-✅ **Predict Impact** - State management and query invalidation patterns show cascade effects
-
----
-
-## **REGENERATION WORKFLOW**
-
-When significant changes occur to the frontend codebase:
-
-1. Update `scripts/front_export.py` if needed (add new directories/patterns)
-2. Run: `python scripts/front_export.py` to regenerate `frontend_snapshot.txt`
-3. Provide this README template + new `frontend_snapshot.txt` to AI
-4. Request: *"Generate updated frontend living documentation following the Strategic Extraction Protocol"*
-5. Cross-reference with backend README.md for API integration updates
-6. Review generated documentation for accuracy
-7. Commit both `frontend_snapshot.txt` and updated frontend `README.md`
-
-**Critical for Regeneration**: Always use `frontend_snapshot.txt` as the authoritative code source. This README is a strategic navigation map, not a code repository. Reference backend README.md for API specifications to avoid duplication.
-
----
-
-*End of Frontend Living Documentation*
+**Last Updated**: 2025-10-03  
+**Version**: 2.0  
+**Total Lines**: ~1600  
+**Compression Ratio**: 10-15% of frontend_snapshot.txt  
+**Purpose**: Strategic navigation system enabling AI to intelligently request and modify frontend code

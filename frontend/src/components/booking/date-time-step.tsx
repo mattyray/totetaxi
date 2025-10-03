@@ -651,11 +651,29 @@ export function DateTimeStep() {
 
       <div className="flex justify-end pt-4">
         <Button
-          onClick={handleContinue}
-          disabled={!canContinue || pricingMutation.isPending}
+          onClick={() => {
+            // Check if standard_delivery with only specialty items
+            if (bookingData.service_type === 'standard_delivery') {
+              const itemCount = bookingData.standard_delivery_item_count || 0;
+              const hasSpecialtyItems = bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0;
+              
+              // If 0 regular items but has specialty items, it's specialty_item type
+              if (itemCount === 0 && hasSpecialtyItems) {
+                updateBookingData({
+                  service_type: 'specialty_item',
+                  standard_delivery_item_count: undefined,
+                  is_same_day_delivery: undefined
+                });
+              }
+            }
+            
+            // Then proceed to next step
+            nextStep();
+          }}
+          disabled={!canContinue}
           size="lg"
         >
-          {pricingMutation.isPending ? 'Calculating...' : 'Continue to Addresses →'}
+          Continue to Date & Time →
         </Button>
       </div>
     </div>

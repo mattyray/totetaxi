@@ -1,5 +1,5 @@
 'use client';
-// frontend/src/components/staff/staff-login-form.tsx
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { apiClient } from '@/lib/api-client';
 
 const staffLoginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -37,7 +38,17 @@ export function StaffLoginForm() {
       const result = await login(data.username, data.password);
       
       if (result.success) {
-        console.log('Staff login successful, redirecting to dashboard');
+        console.log('Staff login successful, refreshing CSRF token');
+        
+        // CRITICAL: Refresh CSRF token after staff login
+        try {
+          await apiClient.get('/api/staff/csrf-token/');
+          console.log('CSRF token refreshed for staff');
+        } catch (err) {
+          console.warn('Failed to refresh CSRF token:', err);
+        }
+        
+        console.log('Redirecting to dashboard');
         router.push('/staff/dashboard');
       } else {
         setApiError(result.error || 'Login failed. Please check your credentials.');
