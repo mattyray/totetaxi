@@ -216,6 +216,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       resetWizard: () => {
         console.log('Resetting booking wizard completely');
         
+        const state = get();
+        
+        // Preserve auth state during reset
+        const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
+        const preservedGuestMode = state.isGuestMode;
+        
         const newState = {
           currentStep: 0,
           isLoading: false,
@@ -223,8 +229,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           errors: {},
           isBookingComplete: false,
           completedBookingNumber: undefined,
-          userId: 'guest',
-          isGuestMode: true,
+          userId: preservedUserId,  // Keep existing user ID
+          isGuestMode: preservedGuestMode,  // Keep existing guest mode
           lastResetTimestamp: Date.now()
         };
         
