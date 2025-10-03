@@ -218,8 +218,9 @@ export function DateTimeStep() {
   const packageType = getPackageType();
   const canContinue = bookingData.service_type === 'blade_transfer' 
     ? !!(pricingMutation.data?.pricing)
-    : !!(selectedDate && selectedTime);
-
+    : bookingData.service_type === 'specialty_item'
+      ? !!(selectedDate && pricingMutation.data?.pricing)
+      : !!(selectedDate && selectedTime);
   if (bookingData.service_type === 'blade_transfer') {
     return (
       <div className="space-y-8">
@@ -468,7 +469,7 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && (
+      {selectedDate && bookingData.service_type !== 'specialty_item' && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
