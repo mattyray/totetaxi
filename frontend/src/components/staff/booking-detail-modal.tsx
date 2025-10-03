@@ -39,7 +39,20 @@ interface ServiceDetails {
   organizing_services?: {
     include_packing: boolean;
     include_unpacking: boolean;
-    breakdown?: any;
+    packing_service?: {
+      name: string;
+      price_dollars: number;
+      duration_hours: number;
+      organizer_count: number;
+      supplies_allowance: number;
+    };
+    unpacking_service?: {
+      name: string;
+      price_dollars: number;
+      duration_hours: number;
+      organizer_count: number;
+      supplies_allowance: number;
+    };
   };
   specialty_items?: Array<{
     id: string;
@@ -59,6 +72,7 @@ interface ServiceDetails {
     flight_time: string;
     bag_count: number;
     ready_time: string;
+    per_bag_price: number;
   };
 }
 
@@ -354,22 +368,36 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                   <CardHeader>
                     <h4 className="font-medium text-navy-900">Organizing Services</h4>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    {serviceDetails.organizing_services.include_packing && (
-                      <div className="flex items-center">
-                        <span className="text-green-600 mr-2">✓</span>
-                        <span>Professional Packing Service</span>
+                  <CardContent className="space-y-3">
+                    {serviceDetails.organizing_services.packing_service && (
+                      <div className="border-b border-gray-200 pb-3">
+                        <div className="flex items-center mb-2">
+                          <span className="text-green-600 mr-2">✓</span>
+                          <span className="font-medium">{serviceDetails.organizing_services.packing_service.name}</span>
+                        </div>
+                        <div className="text-sm text-navy-600 ml-6">
+                          ${serviceDetails.organizing_services.packing_service.price_dollars} • 
+                          {serviceDetails.organizing_services.packing_service.duration_hours}h • 
+                          {serviceDetails.organizing_services.packing_service.organizer_count} organizer(s)
+                        </div>
                       </div>
                     )}
-                    {serviceDetails.organizing_services.include_unpacking && (
-                      <div className="flex items-center">
-                        <span className="text-green-600 mr-2">✓</span>
-                        <span>Professional Unpacking Service</span>
+                    {serviceDetails.organizing_services.unpacking_service && (
+                      <div className="border-b border-gray-200 pb-3">
+                        <div className="flex items-center mb-2">
+                          <span className="text-green-600 mr-2">✓</span>
+                          <span className="font-medium">{serviceDetails.organizing_services.unpacking_service.name}</span>
+                        </div>
+                        <div className="text-sm text-navy-600 ml-6">
+                          ${serviceDetails.organizing_services.unpacking_service.price_dollars} • 
+                          {serviceDetails.organizing_services.unpacking_service.duration_hours}h • 
+                          {serviceDetails.organizing_services.unpacking_service.organizer_count} organizer(s)
+                        </div>
                       </div>
                     )}
                     {bookingDetail.booking.organizing_total_dollars && (
-                      <div className="mt-2 pt-2 border-t">
-                        <strong>Organizing Total:</strong> ${bookingDetail.booking.organizing_total_dollars}
+                      <div className="pt-2">
+                        <strong>Total:</strong> ${bookingDetail.booking.organizing_total_dollars}
                       </div>
                     )}
                   </CardContent>
@@ -426,7 +454,7 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                     <div><strong>Airport:</strong> {serviceDetails.blade_transfer.airport}</div>
                     <div><strong>Flight Date:</strong> {new Date(serviceDetails.blade_transfer.flight_date).toLocaleDateString()}</div>
                     <div><strong>Flight Time:</strong> {serviceDetails.blade_transfer.flight_time}</div>
-                    <div><strong>Bag Count:</strong> {serviceDetails.blade_transfer.bag_count}</div>
+                    <div><strong>Bag Count:</strong> {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
                     {serviceDetails.blade_transfer.ready_time && (
                       <div><strong>Ready Time:</strong> {serviceDetails.blade_transfer.ready_time}</div>
                     )}

@@ -34,7 +34,20 @@ interface ServiceDetails {
   organizing_services?: {
     include_packing: boolean;
     include_unpacking: boolean;
-    breakdown?: any;
+    packing_service?: {
+      name: string;
+      price_dollars: number;
+      duration_hours: number;
+      organizer_count: number;
+      supplies_allowance: number;
+    };
+    unpacking_service?: {
+      name: string;
+      price_dollars: number;
+      duration_hours: number;
+      organizer_count: number;
+      supplies_allowance: number;
+    };
   };
   specialty_items?: Array<{
     id: string;
@@ -54,6 +67,7 @@ interface ServiceDetails {
     flight_time: string;
     bag_count: number;
     ready_time: string;
+    per_bag_price: number;
   };
 }
 
@@ -356,18 +370,35 @@ export default function BookingDetailPage() {
                 {serviceDetails.organizing_services && (
                   <div className="border-t pt-3 space-y-2 text-sm">
                     <div className="font-semibold text-navy-900">Organizing Services</div>
-                    {serviceDetails.organizing_services.include_packing && (
-                      <div className="flex items-center text-green-700">
-                        <span className="mr-2">✓</span> Professional Packing
+                    
+                    {serviceDetails.organizing_services.packing_service && (
+                      <div className="bg-green-50 p-2 rounded space-y-1">
+                        <div className="flex items-center text-green-700 font-medium">
+                          <span className="mr-2">✓</span> {serviceDetails.organizing_services.packing_service.name}
+                        </div>
+                        <div className="text-xs text-navy-600 ml-5">
+                          ${serviceDetails.organizing_services.packing_service.price_dollars} • 
+                          {serviceDetails.organizing_services.packing_service.duration_hours}h • 
+                          {serviceDetails.organizing_services.packing_service.organizer_count} organizer(s)
+                        </div>
                       </div>
                     )}
-                    {serviceDetails.organizing_services.include_unpacking && (
-                      <div className="flex items-center text-green-700">
-                        <span className="mr-2">✓</span> Professional Unpacking
+                    
+                    {serviceDetails.organizing_services.unpacking_service && (
+                      <div className="bg-green-50 p-2 rounded space-y-1">
+                        <div className="flex items-center text-green-700 font-medium">
+                          <span className="mr-2">✓</span> {serviceDetails.organizing_services.unpacking_service.name}
+                        </div>
+                        <div className="text-xs text-navy-600 ml-5">
+                          ${serviceDetails.organizing_services.unpacking_service.price_dollars} • 
+                          {serviceDetails.organizing_services.unpacking_service.duration_hours}h • 
+                          {serviceDetails.organizing_services.unpacking_service.organizer_count} organizer(s)
+                        </div>
                       </div>
                     )}
+                    
                     {booking.booking?.organizing_total_dollars && (
-                      <div className="text-navy-800 font-medium">
+                      <div className="text-navy-800 font-medium mt-2">
                         Total: ${booking.booking.organizing_total_dollars}
                       </div>
                     )}
@@ -411,7 +442,7 @@ export default function BookingDetailPage() {
                     <div className="space-y-1 text-navy-800">
                       <div>Airport: <strong>{serviceDetails.blade_transfer.airport}</strong></div>
                       <div>Flight: {new Date(serviceDetails.blade_transfer.flight_date).toLocaleDateString()} at {serviceDetails.blade_transfer.flight_time}</div>
-                      <div>Bags: {serviceDetails.blade_transfer.bag_count}</div>
+                      <div>Bags: {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
                       {serviceDetails.blade_transfer.ready_time && (
                         <div>Ready: {serviceDetails.blade_transfer.ready_time}</div>
                       )}
