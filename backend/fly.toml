@@ -5,6 +5,9 @@ primary_region = 'ewr'
 [build]
   dockerfile = 'Dockerfile.prod'
 
+[deploy]
+  release_command = "python manage.py migrate --noinput"
+
 [env]
   DEBUG = "False"
   DJANGO_LOG_LEVEL = "INFO"
@@ -25,8 +28,6 @@ primary_region = 'ewr'
     type = 'requests'
     hard_limit = 200
     soft_limit = 100
-
-# REMOVED: [[http_service.checks]] - causing ALLOWED_HOSTS issues
 
 [machines]
   cpu_kind = 'shared'
