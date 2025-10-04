@@ -7,21 +7,8 @@ export const apiClient = axios.create({
   timeout: 10000
 });
 
-// Request interceptor - handle mobile session fallback
+// Request interceptor - handle CSRF tokens
 apiClient.interceptors.request.use(async (config) => {
-  // Check if cookies are working (desktop browsers)
-  const hasCookies = document.cookie.includes('sessionid') || 
-                     document.cookie.includes('totetaxi_sessionid');
-  
-  if (!hasCookies) {
-    // Mobile fallback: use stored session ID in header
-    const sessionId = localStorage.getItem('totetaxi-session-id');
-    if (sessionId) {
-      config.headers['X-Session-Id'] = sessionId;
-      console.log('Mobile: Using session ID from localStorage');
-    }
-  }
-  
   // Handle CSRF token for mutations
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     const csrfToken = localStorage.getItem('totetaxi-csrf-token');
@@ -29,10 +16,16 @@ apiClient.interceptors.request.use(async (config) => {
     if (csrfToken) {
       config.headers['X-CSRFToken'] = csrfToken;
     } else {
-      // Try to fetch CSRF token
+      // Determine if this is a staff or customer endpoint
+      const isStaffEndpoint = config.url?.includes('/api/staff/');
+      const csrfEndpoint = isStaffEndpoint 
+        ? '/api/staff/csrf-token/' 
+        : '/api/customer/csrf-token/';
+      
+      // Try to fetch CSRF token from correct endpoint
       try {
         const csrfResponse = await axios.get(
-          `${config.baseURL}/api/customer/csrf-token/`,
+          `${config.baseURL}${csrfEndpoint}`,
           { 
             withCredentials: true,
             timeout: 5000
@@ -61,7 +54,6 @@ apiClient.interceptors.response.use(
       console.log('401 Unauthorized - clearing auth state');
       
       // Clear stored session data
-      localStorage.removeItem('totetaxi-session-id');
       localStorage.removeItem('totetaxi-csrf-token');
       
       // Clear auth stores
