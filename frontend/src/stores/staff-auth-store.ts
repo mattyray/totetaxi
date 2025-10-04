@@ -51,10 +51,8 @@ const initialState: StaffAuthState = {
 export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
   persist(
     (set, get) => ({
-      // State
       ...initialState,
 
-      // Actions
       setAuth: (user, profile) => {
         set({
           user,
@@ -69,7 +67,9 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         
         if (typeof window !== 'undefined') {
           const keysToRemove = [
-            'totetaxi-staff-auth'
+            'totetaxi-staff-auth',
+            'totetaxi-session-id',
+            'totetaxi-csrf-token'
           ];
           
           keysToRemove.forEach(key => {
@@ -100,9 +100,13 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           });
 
           if (response.status === 200) {
-            const { user, staff_profile, csrf_token } = response.data;
+            const { user, staff_profile, session_id, csrf_token } = response.data;
             
-            // Store CSRF token for mobile compatibility
+            // Store session ID and CSRF token for mobile compatibility
+            if (session_id) {
+              localStorage.setItem('totetaxi-session-id', session_id);
+              console.log('Stored session ID for mobile compatibility');
+            }
             if (csrf_token) {
               localStorage.setItem('totetaxi-csrf-token', csrf_token);
               console.log('Stored CSRF token for mobile compatibility');
@@ -173,7 +177,7 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           try {
             const allKeys = Object.keys(localStorage);
             allKeys
-              .filter(key => key.startsWith('totetaxi-staff'))
+              .filter(key => key.startsWith('totetaxi-staff') || key.startsWith('totetaxi-session') || key.startsWith('totetaxi-csrf'))
               .forEach(key => {
                 localStorage.removeItem(key);
                 console.log(`SECURITY: Cleared ${key}`);

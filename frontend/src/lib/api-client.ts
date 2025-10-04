@@ -1,3 +1,4 @@
+// frontend/src/lib/api-client.ts
 import axios from 'axios';
 
 export const apiClient = axios.create({
@@ -7,8 +8,21 @@ export const apiClient = axios.create({
   timeout: 10000
 });
 
-// Request interceptor - handle CSRF tokens
+// Request interceptor - handle mobile session fallback and CSRF tokens
 apiClient.interceptors.request.use(async (config) => {
+  // Check if cookies are working (desktop browsers)
+  const hasCookies = document.cookie.includes('sessionid') || 
+                     document.cookie.includes('totetaxi_sessionid');
+  
+  if (!hasCookies) {
+    // Mobile fallback: use stored session ID in header
+    const sessionId = localStorage.getItem('totetaxi-session-id');
+    if (sessionId) {
+      config.headers['X-Session-Id'] = sessionId;
+      console.log('Mobile: Using session ID from localStorage');
+    }
+  }
+  
   // Handle CSRF token for mutations
   if (['post', 'put', 'patch', 'delete'].includes(config.method!)) {
     const csrfToken = localStorage.getItem('totetaxi-csrf-token');
@@ -54,6 +68,7 @@ apiClient.interceptors.response.use(
       console.log('401 Unauthorized - clearing auth state');
       
       // Clear stored session data
+      localStorage.removeItem('totetaxi-session-id');
       localStorage.removeItem('totetaxi-csrf-token');
       
       // Clear auth stores

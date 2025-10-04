@@ -25,7 +25,7 @@ from apps.payments.models import Payment, Refund
 
 @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 @method_decorator(ratelimit(key='header:user-agent', rate='10/m', method='POST', block=True), name='post')
-@method_decorator(ensure_csrf_cookie, name='dispatch')  # Move to dispatch
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class StaffLoginView(APIView):
     """Staff authentication endpoint with rate limiting protection"""
     permission_classes = [permissions.AllowAny]
@@ -40,14 +40,12 @@ class StaffLoginView(APIView):
         user = authenticate(username=username, password=password)
         
         if user and user.is_active:
-            # Check if user has staff profile
             if not hasattr(user, 'staff_profile'):
                 return Response(
                     {'error': 'This is not a staff account'}, 
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Check if account is locked
             if user.staff_profile.is_account_locked:
                 return Response(
                     {'error': 'Account is temporarily locked. Contact administrator.'}, 
@@ -56,7 +54,6 @@ class StaffLoginView(APIView):
             
             login(request, user)
             
-            # Log successful login
             StaffAction.log_action(
                 staff_user=user,
                 action_type='login',
@@ -64,24 +61,23 @@ class StaffLoginView(APIView):
                 request=request
             )
             
-            # Reset failed login attempts
             user.staff_profile.login_attempts = 0
             user.staff_profile.save()
             
-            # Create response with CSRF token
+            # Ensure session is saved before getting key
+            request.session.save()
+            
+            # Return session_id for mobile compatibility
             response = Response({
                 'message': 'Login successful',
                 'user': StaffUserSerializer(user).data,
                 'staff_profile': StaffProfileSerializer(user.staff_profile).data,
+                'session_id': request.session.session_key,
                 'csrf_token': get_token(request)
             })
             
-            # Ensure session is saved
-            request.session.save()
-            
             return response
         else:
-            # Handle failed login attempt
             if user:
                 staff_profile = getattr(user, 'staff_profile', None)
                 if staff_profile:
@@ -94,7 +90,6 @@ class StaffLoginView(APIView):
                 {'error': 'Invalid username or password'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
-
 
 @method_decorator(ratelimit(key='user', rate='10/m', method='POST', block=True), name='post')
 class StaffLogoutView(APIView):
