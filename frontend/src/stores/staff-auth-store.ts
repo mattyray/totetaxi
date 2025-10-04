@@ -64,7 +64,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         });
       },
 
-      // Enhanced: Coordinated auth clearing
       clearAuth: () => {
         console.log('Clearing staff auth state');
         
@@ -83,7 +82,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           });
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('Cleared React Query cache');
         
@@ -92,7 +90,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
 
-      // FIXED: Staff login method with correct response mapping
       login: async (username: string, password: string) => {
         set({ isLoading: true });
         
@@ -103,8 +100,14 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           });
 
           if (response.status === 200) {
-            // Backend returns 'staff_profile', not 'profile'
-            const { user, staff_profile } = response.data;
+            const { user, staff_profile, csrf_token } = response.data;
+            
+            // Store CSRF token for mobile compatibility
+            if (csrf_token) {
+              localStorage.setItem('totetaxi-csrf-token', csrf_token);
+              console.log('Stored CSRF token for mobile compatibility');
+            }
+            
             get().setAuth(user, staff_profile);
             return { success: true, user };
           } else {
@@ -118,7 +121,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // Enhanced: Staff logout with coordination
       logout: async () => {
         console.log('Staff logout initiated');
         
@@ -129,10 +131,8 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           console.warn('Staff logout API failed:', error);
         }
         
-        // Always clear state, even if API call fails
         get().clearAuth();
         
-        // Clear customer auth too (prevent hybrid states)
         try {
           const { useAuthStore } = await import('@/stores/auth-store');
           useAuthStore.getState().clearAuth();
@@ -142,7 +142,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // Enhanced: Staff session validation
       validateSession: async () => {
         const { user, isAuthenticated } = get();
         
@@ -151,11 +150,9 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
         
         try {
-          // Try to fetch staff dashboard to validate session
           const response = await apiClient.get('/api/staff/dashboard/');
           
           if (response.status === 200) {
-            // Session is valid
             return true;
           }
           
@@ -169,13 +166,11 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
         }
       },
 
-      // Security reset method
       secureReset: () => {
         console.log('SECURITY: Performing secure reset of staff auth');
         
         if (typeof window !== 'undefined') {
           try {
-            // Remove all totetaxi staff-related keys
             const allKeys = Object.keys(localStorage);
             allKeys
               .filter(key => key.startsWith('totetaxi-staff'))
@@ -188,7 +183,6 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
           }
         }
         
-        // Clear React Query cache
         queryClient.clear();
         console.log('SECURITY: Cleared React Query cache');
         
@@ -197,13 +191,11 @@ export const useStaffAuthStore = create<StaffAuthState & StaffAuthActions>()(
     }),
     {
       name: 'totetaxi-staff-auth',
-      version: 2, // FIXED: Increment version to trigger migration
-      // FIXED: Add migration function to handle version changes
+      version: 2,
       migrate: (persistedState: any, version: number) => {
         console.log(`Staff auth migrating from version ${version} to 2`);
         
         if (version < 2) {
-          // Reset to initial state for major auth changes
           console.log('Staff auth reset due to version upgrade');
           return initialState;
         }
