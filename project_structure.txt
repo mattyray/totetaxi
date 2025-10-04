@@ -17,11 +17,17 @@
 │   │   │   ├── urls.py
 │   │   │   └── views.py
 │   │   ├── bookings
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── wipe_all_bookings.py
+│   │   │   │   └── __init__.py
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
 │   │   │   │   ├── 0002_booking_include_packing_booking_include_unpacking_and_more.py
-│   │   │   │   └── 0003_booking_geographic_surcharge_cents_and_more.py
+│   │   │   │   ├── 0003_booking_geographic_surcharge_cents_and_more.py
+│   │   │   │   └── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -48,12 +54,16 @@
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── 0001_initial.py
-│   │   │   │   └── 0002_alter_customerprofile_preferred_pickup_time.py
+│   │   │   │   ├── 0002_alter_customerprofile_preferred_pickup_time.py
+│   │   │   │   ├── 0003_passwordresettoken.py
+│   │   │   │   └── 0004_emailverificationtoken.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
+│   │   │   ├── authentication.py
 │   │   │   ├── booking_serializers.py
 │   │   │   ├── booking_views.py
+│   │   │   ├── emails.py
 │   │   │   ├── models.py
 │   │   │   ├── serializers.py
 │   │   │   ├── tests.py
@@ -113,7 +123,8 @@
 │   │   │   │   ├── 0002_organizingservice.py
 │   │   │   │   ├── 0003_populate_organizing_services.py
 │   │   │   │   ├── 0004_surchargerule_applies_to_service_type.py
-│   │   │   │   └── 0005_remove_van_schedule.py
+│   │   │   │   ├── 0005_remove_van_schedule.py
+│   │   │   │   └── 0006_remove_specialtyitem_requires_van_schedule.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -135,6 +146,13 @@
 │   │   ├── back_export.txt
 │   │   └── entrypoint.sh
 │   ├── static
+│   ├── templates
+│   │   └── emails
+│   │       ├── booking_confirmation.txt
+│   │       ├── booking_status_update.txt
+│   │       ├── email_verification.txt
+│   │       ├── password_reset.txt
+│   │       └── welcome.txt
 │   ├── .dockerignore
 │   ├── .env.example
 │   ├── .gitignore
@@ -259,8 +277,6 @@
 │   │   │   ├── dashboard
 │   │   │   │   ├── booking-history.tsx
 │   │   │   │   └── dashboard-overview.tsx
-│   │   │   ├── debug
-│   │   │   │   └── mobile-debug.tsx
 │   │   │   ├── layout
 │   │   │   │   └── main-layout.tsx
 │   │   │   ├── marketing
@@ -306,7 +322,6 @@
 │   │       └── cn.ts
 │   ├── .gitignore
 │   ├── eslint.config.mjs
-│   ├── invoice.html
 │   ├── netlify.toml
 │   ├── next.config.ts
 │   ├── package.json
@@ -319,4 +334,4 @@
 ├── project_structure.txt
 └── README.md
 
-76 directories, 244 files
+79 directories, 256 files
