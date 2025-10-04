@@ -7,13 +7,15 @@ urlpatterns = [
     # CSRF token endpoint
     path('csrf-token/', views.CSRFTokenView.as_view(), name='csrf-token'),
     
-    # DEBUG endpoint
-    
     # Authentication endpoints
     path('auth/register/', views.CustomerRegistrationView.as_view(), name='customer-register'),
     path('auth/login/', views.CustomerLoginView.as_view(), name='customer-login'),
     path('auth/logout/', views.CustomerLogoutView.as_view(), name='customer-logout'),
     path('auth/user/', views.CurrentUserView.as_view(), name='current-user'),
+    
+    # Password reset endpoints
+    path('auth/password-reset/', views.PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('auth/password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     
     # Profile management
     path('profile/', views.CustomerProfileView.as_view(), name='customer-profile'),
@@ -32,4 +34,6 @@ urlpatterns = [
     
     # Staff-only customer notes management
     path('<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='customer-notes-update'),
+    path('auth/verify-email/', views.EmailVerificationView.as_view(), name='email-verification'),
+    path('auth/resend-verification/', views.ResendVerificationView.as_view(), name='resend-verification'),
 ]

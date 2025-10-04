@@ -1,0 +1,21 @@
+Welcome to ToteTaxi!
+
+Hi {{ user_name }},
+
+Thank you for creating an account with ToteTaxi. We're excited to help you with your moving and delivery needs.
+
+Your account email: {{ email }}
+
+You can now:
+- Book mini moves, specialty item deliveries, and BLADE transfers
+- Save your favorite addresses for quick booking
+- Track your booking history
+- Manage your account preferences
+
+Need help? Contact us at support@totetaxi.com
+
+Best regards,
+The ToteTaxi Team
+
+---
+This is an automated message. Please do not reply to this email.

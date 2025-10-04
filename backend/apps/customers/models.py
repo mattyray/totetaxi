@@ -4,7 +4,61 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+import secrets
+from datetime import timedelta
 
+class EmailVerificationToken(models.Model):
+    """Email verification tokens for new registrations"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_verification')
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    verified = models.BooleanField(default=False)
+    
+    @classmethod
+    def create_token(cls, user):
+        """Create verification token"""
+        token = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(hours=48)
+        return cls.objects.create(
+            user=user,
+            token=token,
+            expires_at=expires_at
+        )
+    
+    def is_valid(self):
+        """Check if token is still valid"""
+        from django.utils import timezone
+        return not self.verified and timezone.now() < self.expires_at
+
+class PasswordResetToken(models.Model):
+    """Password reset tokens with expiry"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f'Reset token for {self.user.email}'
+    
+    @classmethod
+    def create_token(cls, user):
+        """Create a new password reset token"""
+        token = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(hours=24)
+        return cls.objects.create(
+            user=user,
+            token=token,
+            expires_at=expires_at
+        )
+    
+    def is_valid(self):
+        """Check if token is still valid"""
+        return not self.used and timezone.now() < self.expires_at
 
 class CustomerProfile(models.Model):
     """Customer profile linked to Django's User model"""

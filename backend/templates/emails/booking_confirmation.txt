@@ -1,0 +1,37 @@
+Booking Confirmation - {{ booking.booking_number }}
+
+Hi {{ customer_name }},
+
+Your ToteTaxi booking has been confirmed!
+
+Booking Details:
+- Booking Number: {{ booking.booking_number }}
+- Service: {{ booking.get_service_type_display }}
+- Pickup Date: {{ booking.pickup_date }}
+- Pickup Time: {{ booking.get_pickup_time_display }}
+- Total: ${{ booking.total_price_dollars }}
+
+Pickup Address:
+{{ booking.pickup_address.address_line_1 }}
+{% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}
+{{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
+
+Delivery Address:
+{{ booking.delivery_address.address_line_1 }}
+{% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
+{{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+
+{% if booking.special_instructions %}
+Special Instructions:
+{{ booking.special_instructions }}
+{% endif %}
+
+We'll send you an update when your booking status changes.
+
+Questions? Contact us at support@totetaxi.com
+
+Best regards,
+The ToteTaxi Team
+
+---
+This is an automated message. Please do not reply to this email.

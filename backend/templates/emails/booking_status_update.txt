@@ -1,0 +1,29 @@
+Booking Status Update - {{ booking.booking_number }}
+
+Hi {{ customer_name }},
+
+Your booking status has been updated.
+
+Booking Number: {{ booking.booking_number }}
+Status: {{ old_status }} → {{ new_status }}
+
+Service: {{ booking.get_service_type_display }}
+Pickup Date: {{ booking.pickup_date }}
+
+{% if new_status == 'confirmed' %}
+Your booking has been confirmed by our team. We're all set for your scheduled pickup!
+{% elif new_status == 'completed' %}
+Your booking has been completed. Thank you for choosing ToteTaxi!
+{% elif new_status == 'cancelled' %}
+Your booking has been cancelled. If you have questions, please contact us.
+{% endif %}
+
+View your booking details: https://totetaxi.netlify.app/dashboard
+
+Questions? Contact us at support@totetaxi.com
+
+Best regards,
+The ToteTaxi Team
+
+---
+This is an automated message. Please do not reply to this email.
