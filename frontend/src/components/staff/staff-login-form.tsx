@@ -26,13 +26,17 @@ export function StaffLoginForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
+    clearErrors
   } = useForm<StaffLoginForm>({
-    resolver: zodResolver(staffLoginSchema)
+    resolver: zodResolver(staffLoginSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit'
   });
 
   const onSubmit = async (data: StaffLoginForm) => {
     setApiError('');
+    clearErrors();
     
     try {
       const result = await login(data.username, data.password);
@@ -70,9 +74,11 @@ export function StaffLoginForm() {
                 </label>
                 <Input
                   id="username"
+                  autoComplete="username"
                   {...register('username')}
                   placeholder="Enter your username"
                   className={errors.username ? 'border-red-500' : ''}
+                  onFocus={() => clearErrors('username')}
                 />
                 {errors.username && (
                   <p className="text-red-600 text-sm mt-1">{errors.username.message}</p>
@@ -86,9 +92,11 @@ export function StaffLoginForm() {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
                   {...register('password')}
                   placeholder="Enter your password"
                   className={errors.password ? 'border-red-500' : ''}
+                  onFocus={() => clearErrors('password')}
                 />
                 {errors.password && (
                   <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
