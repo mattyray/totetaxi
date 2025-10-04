@@ -2,67 +2,76 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
-
-const TEST_USER = {
-  email: 'dev.tester@totetaxi.local',
-  password: 'DevTest2024!'
-};
+import { apiClient } from '@/lib/api-client';
 
 export function LoginForm() {
   const router = useRouter();
   const { login, isLoading } = useAuthStore();
-  const [apiError, setApiError] = useState<string>('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    clearErrors
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    mode: 'onSubmit',  // FIXED: Only validate on submit, not on change
-    reValidateMode: 'onSubmit'  // FIXED: Only revalidate on submit
-  });
-
-  const fillTestUser = () => {
-    setValue('email', TEST_USER.email, { shouldValidate: false });
-    setValue('password', TEST_USER.password, { shouldValidate: false });
-    clearErrors();  // FIXED: Clear any existing errors
-    setApiError('');  // FIXED: Clear API errors too
-  };
-
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setApiError('');
-    
+    setNeedsVerification(false);
+
     try {
-      const result = await login(data.email, data.password);
-      
+      const result = await login(email.toLowerCase().trim(), password);
+
       if (result.success) {
-        console.log('Login successful, redirecting to dashboard');
-        clearErrors();  // FIXED: Clear form errors on success
+        // Save remember me preference
+        if (rememberMe) {
+          localStorage.setItem('totetaxi-remember-email', email.toLowerCase().trim());
+        } else {
+          localStorage.removeItem('totetaxi-remember-email');
+        }
+
         router.push('/dashboard');
       } else {
-        setApiError(result.error || 'Login failed. Please check your credentials.');
+        // Handle specific error types
+        const errorMsg = result.error || 'Login failed';
+        
+        if (errorMsg.includes('verify') || errorMsg.includes('not active')) {
+          setNeedsVerification(true);
+          setApiError('Please verify your email before logging in. Check your inbox for the verification link.');
+        } else if (errorMsg.includes('staff account')) {
+          setApiError('This is a staff account. Please use the staff login at /staff/login');
+        } else if (errorMsg.includes('Invalid') || errorMsg.includes('credentials')) {
+          setApiError('Invalid email or password. Please try again.');
+        } else {
+          setApiError(errorMsg);
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      setApiError('An unexpected error occurred. Please try again.');
+      
+      // Handle rate limiting
+      if (error.response?.status === 429) {
+        setApiError('Too many login attempts. Please wait a few minutes and try again.');
+      } else {
+        setApiError('An unexpected error occurred. Please try again.');
+      }
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      await apiClient.post('/api/customer/auth/resend-verification/', {
+        email: email.toLowerCase().trim()
+      });
+      setApiError('Verification email sent! Please check your inbox.');
+      setNeedsVerification(false);
+    } catch (error) {
+      setApiError('Failed to resend verification email. Please try again later.');
     }
   };
 
@@ -79,20 +88,7 @@ export function LoginForm() {
         </CardHeader>
 
         <CardContent>
-          {process.env.NODE_ENV === 'development' && (
-            <div className="text-center mb-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={fillTestUser}
-                className="text-xs"
-              >
-                Fill Test User
-              </Button>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1">
                 Email Address
@@ -100,42 +96,89 @@ export function LoginForm() {
               <Input
                 id="email"
                 type="email"
-                {...register('email')}
-                placeholder="your@email.com"
-                className={errors.email ? 'border-red-500' : ''}
-                onFocus={() => {
-                  clearErrors('email');  // FIXED: Clear error when user focuses input
-                  setApiError('');  // FIXED: Clear API error when user starts correcting
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value.toLowerCase());
+                  setApiError('');
+                  setNeedsVerification(false);
                 }}
+                placeholder="your@email.com"
+                disabled={isLoading}
+                autoComplete="email"
               />
-              {errors.email && (
-                <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
-              )}
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-navy-900 mb-1">
                 Password
               </label>
-              <Input
-                id="password"
-                type="password"
-                {...register('password')}
-                placeholder="Enter your password"
-                className={errors.password ? 'border-red-500' : ''}
-                onFocus={() => {
-                  clearErrors('password');  // FIXED: Clear error when user focuses input
-                  setApiError('');  // FIXED: Clear API error when user starts correcting
-                }}
-              />
-              {errors.password && (
-                <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
-              )}
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setApiError('');
+                    setNeedsVerification(false);
+                  }}
+                  placeholder="Enter your password"
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-navy-600 border-gray-300 rounded focus:ring-navy-500"
+                />
+                <span className="ml-2 text-sm text-navy-700">Remember me</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => router.push('/forgot-password')}
+                className="text-sm text-navy-600 hover:text-navy-900 hover:underline"
+              >
+                Forgot password?
+              </button>
             </div>
 
             {apiError && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
                 <p className="text-red-700 text-sm">{apiError}</p>
+                {needsVerification && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    className="text-red-800 hover:text-red-900 underline text-sm mt-2"
+                  >
+                    Resend verification email
+                  </button>
+                )}
               </div>
             )}
 
@@ -160,18 +203,6 @@ export function LoginForm() {
                   Create Account
                 </button>
               </p>
-            </div>
-
-            <div className="text-center">
-              <button
-                type="button"
-                className="text-sm text-navy-600 hover:text-navy-900 hover:underline"
-                onClick={() => {
-                  alert('Forgot password functionality coming soon!');
-                }}
-              >
-                Forgot your password?
-              </button>
             </div>
           </form>
         </CardContent>
