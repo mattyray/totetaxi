@@ -101,11 +101,14 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
+      // Strip phone formatting - only send digits
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      
       await apiClient.post('/api/customer/auth/register/', {
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email.toLowerCase().trim(),
-        phone: formData.phone,
+        phone: cleanPhone, // Send clean phone
         password: formData.password,
         password_confirm: formData.password_confirm
       });
@@ -204,7 +207,7 @@ export function RegisterForm() {
           <Input
             label="Phone Number"
             type="tel"
-            mask="phone"
+            mask="phone"  // Add this
             value={formData.phone}
             onChange={(e) => handleChange('phone', e.target.value)}
             onBlur={() => handleBlur('phone')}
