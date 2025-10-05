@@ -1,16 +1,17 @@
 'use client';
 
-// frontend/src/app/staff/bookings/[id]/page.tsx
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
+import { RefundModal } from '@/components/staff/refund-modal';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import type { Payment, Refund } from '@/types';
 
 interface Address {
   address_line_1: string;
@@ -90,6 +91,7 @@ export default function BookingDetailPage() {
   const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [formData, setFormData] = useState<BookingFormData>({
     status: '',
     pickup_date: '',
@@ -125,6 +127,15 @@ export default function BookingDetailPage() {
       return response.data;
     },
     enabled: !!bookingId && isAuthenticated
+  });
+
+  const { data: refundsData } = useQuery({
+    queryKey: ['staff', 'refunds', bookingId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/payments/refunds/?booking_id=${bookingId}`);
+      return response.data as Refund[];
+    },
+    enabled: !!bookingId && isAuthenticated && !!booking?.payment
   });
 
   const updateBookingMutation = useMutation({
@@ -502,7 +513,6 @@ export default function BookingDetailPage() {
                   {booking.booking?.pricing_breakdown && (
                     <div className="space-y-2 text-sm">
                       {Object.entries(booking.booking.pricing_breakdown).map(([key, value]: [string, any]) => {
-                        // Skip nested objects like blade_details
                         if (typeof value === 'object' && value !== null) return null;
                         
                         return (
@@ -558,22 +568,95 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Payment Information */}
+            {/* Enhanced Payment Information */}
             {booking.payment && (
               <Card className="lg:col-span-2">
                 <CardHeader>
-                  <h3 className="text-lg font-medium text-navy-900">Payment Information</h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-navy-800">
-                    <div><strong className="text-navy-900">Status:</strong> {booking.payment.status}</div>
-                    <div><strong className="text-navy-900">Amount:</strong> ${booking.payment.amount_dollars}</div>
-                    <div><strong className="text-navy-900">Payment ID:</strong> {booking.payment.id}</div>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium text-navy-900">Payment Information</h3>
+                    {booking.payment.status === 'succeeded' && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setShowRefundModal(true)}
+                      >
+                        Issue Refund
+                      </Button>
+                    )}
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4 text-navy-800">
+                    <div>
+                      <strong className="text-navy-900">Status:</strong>{' '}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                        booking.payment.status === 'succeeded'
+                          ? 'bg-green-100 text-green-800'
+                          : booking.payment.status === 'refunded'
+                          ? 'bg-orange-100 text-orange-800'
+                          : booking.payment.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {booking.payment.status}
+                      </span>
+                    </div>
+                    <div><strong className="text-navy-900">Amount:</strong> ${booking.payment.amount_dollars}</div>
+                    <div><strong className="text-navy-900">Payment ID:</strong> <span className="text-xs font-mono">{booking.payment.id}</span></div>
+                  </div>
+
+                  {booking.payment.processed_at && (
+                    <div className="text-sm text-navy-600">
+                      Processed: {new Date(booking.payment.processed_at).toLocaleString()}
+                    </div>
+                  )}
+
+                  {refundsData && refundsData.length > 0 && (
+                    <div className="border-t pt-4 mt-4">
+                      <h4 className="font-medium text-navy-900 mb-3">Refund History</h4>
+                      <div className="space-y-2">
+                        {refundsData.map((refund: Refund) => (
+                          <div key={refund.id} className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <span className="font-medium text-navy-900">${refund.amount_dollars}</span>
+                                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  refund.status === 'completed'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {refund.status}
+                                </span>
+                              </div>
+                              <span className="text-xs text-navy-600">
+                                {new Date(refund.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-navy-700 mb-1">
+                              <strong>Reason:</strong> {refund.reason}
+                            </p>
+                            <p className="text-xs text-navy-600">
+                              By: {refund.requested_by_name}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
+        )}
+
+        {/* Refund Modal */}
+        {booking.payment && (
+          <RefundModal
+            isOpen={showRefundModal}
+            onClose={() => setShowRefundModal(false)}
+            payment={booking.payment}
+            bookingNumber={booking.booking?.booking_number || ''}
+          />
         )}
       </div>
     </StaffLayout>

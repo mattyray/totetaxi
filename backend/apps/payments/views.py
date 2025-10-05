@@ -12,6 +12,8 @@ from django.http import HttpResponse
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
+from django.db import transaction
+
 
 from .models import Payment, Refund, PaymentAudit
 from .serializers import (
@@ -459,3 +461,133 @@ class RefundCreateView(generics.CreateAPIView):
             raise permissions.PermissionDenied('Not a staff account')
         
         serializer.save(requested_by=self.request.user)
+
+# Add this import at the top
+
+# Add this new view class after RefundCreateView
+class RefundProcessView(APIView):
+    """Process refund immediately - staff only (direct refund, no approval)"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        # Verify staff
+        if not hasattr(request.user, 'staff_profile'):
+            return Response(
+                {'error': 'Not a staff account'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Validate input
+        payment_id = request.data.get('payment_id')
+        amount_cents = request.data.get('amount_cents')
+        reason = request.data.get('reason', '').strip()
+        
+        if not payment_id or not amount_cents or not reason:
+            return Response(
+                {'error': 'payment_id, amount_cents, and reason are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            amount_cents = int(amount_cents)
+            if amount_cents <= 0:
+                raise ValueError("Amount must be positive")
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Invalid amount_cents'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(reason) < 10:
+            return Response(
+                {'error': 'Reason must be at least 10 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Get payment
+            payment = Payment.objects.select_related('booking').get(id=payment_id)
+            
+            # Validate payment status
+            if payment.status != 'succeeded':
+                return Response(
+                    {'error': f'Cannot refund payment with status: {payment.status}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate amount
+            if amount_cents > payment.amount_cents:
+                return Response(
+                    {'error': f'Refund amount cannot exceed payment amount (${payment.amount_dollars})'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if already refunded
+            existing_refunds_total = Refund.objects.filter(
+                payment=payment,
+                status='completed'
+            ).aggregate(total=models.Sum('amount_cents'))['total'] or 0
+            
+            if existing_refunds_total + amount_cents > payment.amount_cents:
+                remaining = payment.amount_cents - existing_refunds_total
+                return Response(
+                    {'error': f'Only ${remaining/100:.2f} remaining to refund'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Process refund via Stripe
+            with transaction.atomic():
+                refund = StripePaymentService.create_refund(
+                    payment=payment,
+                    amount_cents=amount_cents,
+                    reason=reason,
+                    requested_by_user=request.user
+                )
+                
+                logger.info(
+                    f"Refund processed by {request.user.get_full_name()}: "
+                    f"${amount_cents/100:.2f} for booking {payment.booking.booking_number}"
+                )
+            
+            # Return success with refund details
+            return Response({
+                'message': 'Refund processed successfully',
+                'refund': RefundSerializer(refund).data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Payment.DoesNotExist:
+            return Response(
+                {'error': 'Payment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Refund processing error: {str(e)}", exc_info=True)
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class RefundListView(generics.ListAPIView):
+    """List all refunds - staff only, optionally filter by booking"""
+    serializer_class = RefundSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'staff_profile'):
+            return Refund.objects.none()
+        
+        queryset = Refund.objects.select_related(
+            'payment__booking', 'requested_by', 'approved_by'
+        ).order_by('-created_at')
+        
+        # Filter by booking if provided
+        booking_id = self.request.query_params.get('booking_id')
+        if booking_id:
+            queryset = queryset.filter(payment__booking__id=booking_id)
+        
+        # Filter by payment if provided
+        payment_id = self.request.query_params.get('payment_id')
+        if payment_id:
+            queryset = queryset.filter(payment__id=payment_id)
+        
+        return queryset

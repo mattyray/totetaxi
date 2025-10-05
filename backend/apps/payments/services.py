@@ -1,3 +1,4 @@
+# backend/apps/payments/services.py
 import stripe
 from django.conf import settings
 from django.utils import timezone

@@ -128,3 +128,37 @@ export interface BookingAddress {
   state: 'NY' | 'CT' | 'NJ';
   zip_code: string;
 }
+
+export interface Payment {
+  id: string;
+  booking_number: string;
+  customer_name: string;
+  amount_cents: number;
+  amount_dollars: number;
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  stripe_payment_intent_id: string;
+  stripe_charge_id: string;
+  failure_reason?: string;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface Refund {
+  id: string;
+  payment_booking_number: string;
+  amount_cents: number;
+  amount_dollars: number;
+  reason: string;
+  status: 'requested' | 'approved' | 'denied' | 'completed';
+  requested_by_name: string;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface RefundRequest {
+  payment_id: string;
+  amount_cents: number;
+  reason: string;
+}
