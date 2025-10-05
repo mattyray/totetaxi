@@ -1,14 +1,15 @@
 'use client';
 // frontend/src/app/reset-password/page.tsx
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default function ResetPasswordPage() {
+// Extract component that uses useSearchParams
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -179,10 +180,48 @@ export default function ResetPasswordPage() {
               >
                 {isLoading ? 'Resetting Password...' : 'Reset Password'}
               </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => router.push('/login')}
+                  className="text-sm text-navy-600 hover:text-navy-900 transition-colors"
+                >
+                  Back to Login
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function ResetPasswordLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-cream-50 py-12 px-4">
+      <Card variant="elevated" className="max-w-md w-full">
+        <CardContent className="p-8 text-center">
+          <div className="w-16 h-16 border-4 border-navy-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <h2 className="text-2xl font-serif font-bold text-navy-900 mb-2">
+            Loading...
+          </h2>
+          <p className="text-navy-600">
+            Please wait...
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Main page component with Suspense wrapper
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
