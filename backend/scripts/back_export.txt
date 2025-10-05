@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-04 18:45:11
+# Created: 2025-10-05 14:13:06
 # Total files: 133
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -8492,6 +8492,9 @@ urlpatterns = [
 # ==== apps/payments/views.py ====
 
 ```python
+# payments/views.py
+import stripe
+import logging
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -8500,7 +8503,11 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.http import HttpResponse
-from .models import Payment, Refund
+from django.conf import settings
+from django.utils import timezone
+from django.core.cache import cache
+
+from .models import Payment, Refund, PaymentAudit
 from .serializers import (
     PaymentIntentCreateSerializer,
     PaymentSerializer,
@@ -8510,6 +8517,8 @@ from .serializers import (
 )
 from .services import StripePaymentService
 from apps.bookings.models import Booking
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentIntentCreateView(APIView):
@@ -8554,6 +8563,7 @@ class PaymentIntentCreateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
+            logger.error(f"Error creating payment intent: {str(e)}", exc_info=True)
             return Response(
                 {'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -8593,73 +8603,225 @@ class PaymentStatusView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(APIView):
-    """Handle Stripe webhooks - FIXED to update booking status"""
+    """
+    Production webhook handler for Stripe events
+    - Verifies webhook signatures
+    - Handles payment_intent.succeeded and payment_intent.payment_failed
+    - Idempotent (won't process same event twice)
+    - Comprehensive logging and audit trail
+    """
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        # In production, you'd verify the webhook signature here
-        # For development, we'll mock the webhook processing
+        payload = request.body
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+        
+        # Verify webhook signature
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, 
+                sig_header, 
+                settings.STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError:
+            logger.error("Webhook: Invalid payload")
+            return Response(
+                {'error': 'Invalid payload'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except stripe.error.SignatureVerificationError:
+            logger.error("Webhook: Invalid signature")
+            return Response(
+                {'error': 'Invalid signature'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Extract event data
+        event_id = event['id']
+        event_type = event['type']
+        
+        # Idempotency check - prevent processing same event twice
+        cache_key = f'stripe_event_{event_id}'
+        if cache.get(cache_key):
+            logger.info(f"Webhook: Event {event_id} already processed, skipping")
+            return Response({'status': 'already_processed'}, status=status.HTTP_200_OK)
+        
+        # Mark event as processed (cache for 24 hours)
+        cache.set(cache_key, True, timeout=86400)
+        
+        logger.info(f"Webhook: Processing event {event_id} of type {event_type}")
+        
+        # Handle different event types
+        if event_type == 'payment_intent.succeeded':
+            return self._handle_payment_succeeded(event)
+        elif event_type == 'payment_intent.payment_failed':
+            return self._handle_payment_failed(event)
+        else:
+            logger.info(f"Webhook: Unhandled event type {event_type}")
+            return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
+    
+    def _handle_payment_succeeded(self, event):
+        """Handle successful payment - update Payment and Booking status"""
+        payment_intent = event['data']['object']
+        payment_intent_id = payment_intent['id']
         
         try:
-            event_type = request.data.get('type', '')
+            # Find payment record
+            payment = Payment.objects.select_related('booking').get(
+                stripe_payment_intent_id=payment_intent_id
+            )
             
-            if event_type == 'payment_intent.succeeded':
-                payment_intent = request.data.get('data', {}).get('object', {})
-                payment_intent_id = payment_intent.get('id')
+            # Skip if already processed
+            if payment.status == 'succeeded':
+                logger.info(f"Webhook: Payment {payment.id} already marked as succeeded")
+                return Response({'status': 'already_succeeded'}, status=status.HTTP_200_OK)
+            
+            # Update payment status
+            payment.status = 'succeeded'
+            payment.stripe_charge_id = payment_intent.get('latest_charge', '')
+            payment.processed_at = timezone.now()
+            payment.save()
+            
+            # Update booking status from pending to paid
+            booking = payment.booking
+            if booking.status == 'pending':
+                old_status = booking.status
+                booking.status = 'paid'
+                booking.save()
                 
-                if payment_intent_id:
-                    # FIXED: Confirm payment AND update booking status
-                    payment = StripePaymentService.confirm_payment(payment_intent_id)
-                    
-                    if payment and payment.booking:
-                        # Update booking status from pending to paid
-                        if payment.booking.status == 'pending':
-                            payment.booking.status = 'paid'
-                            payment.booking.save()
-                            print(f"✅ Booking {payment.booking.booking_number} status updated to 'paid'")
-                        
-                        # AUTO-COMPLETE certain booking types (optional - you can remove this)
-                        # For now, let's auto-complete all paid bookings to test the flow
-                        if payment.booking.status == 'paid':
-                            payment.booking.status = 'completed'
-                            payment.booking.save()
-                            
-                            # Update customer stats when booking completed
-                            if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
-                                payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
-                                print(f"✅ Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
-                    
-                    return Response({'status': 'success'})
-            
-            elif event_type == 'payment_intent.payment_failed':
-                payment_intent = request.data.get('data', {}).get('object', {})
-                payment_intent_id = payment_intent.get('id')
+                logger.info(
+                    f"Webhook: Booking {booking.booking_number} status updated: "
+                    f"{old_status} → {booking.status}"
+                )
                 
-                if payment_intent_id:
-                    try:
-                        payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
-                        payment.status = 'failed'
-                        payment.failure_reason = payment_intent.get('last_payment_error', {}).get('message', 'Payment failed')
-                        payment.save()
-                        
-                        # Update booking status back to pending
-                        payment.booking.status = 'pending'
-                        payment.booking.save()
-                        
-                    except Payment.DoesNotExist:
-                        pass
+                # Create audit log (system action, no user)
+                from apps.accounts.models import StaffAction
+                StaffAction.objects.create(
+                    staff_user=None,
+                    action_type='modify_booking',
+                    description=(
+                        f"Booking {booking.booking_number} automatically confirmed via Stripe webhook. "
+                        f"Payment: ${payment.amount_dollars:.2f}"
+                    ),
+                    ip_address='127.0.0.1',
+                    user_agent='Stripe Webhook',
+                    booking_id=booking.id
+                )
             
-            return Response({'status': 'received'})
+            # Log payment audit
+            PaymentAudit.log(
+                action='payment_succeeded',
+                description=(
+                    f"Payment succeeded for booking {booking.booking_number} "
+                    f"via Stripe webhook (Event: {event['id']})"
+                ),
+                payment=payment,
+                user=None
+            )
             
+            logger.info(
+                f"Webhook: Successfully processed payment_intent.succeeded for "
+                f"booking {booking.booking_number}"
+            )
+            
+            # TODO: Send confirmation email here when email system is ready
+            # from apps.customers.tasks import send_booking_confirmation_email
+            # send_booking_confirmation_email.delay(booking.id)
+            
+            return Response({
+                'status': 'success',
+                'booking_number': booking.booking_number,
+                'booking_status': booking.status
+            }, status=status.HTTP_200_OK)
+            
+        except Payment.DoesNotExist:
+            logger.error(
+                f"Webhook: Payment not found for payment_intent_id {payment_intent_id}"
+            )
+            return Response(
+                {'error': 'Payment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
+            logger.error(
+                f"Webhook: Error processing payment_intent.succeeded: {str(e)}",
+                exc_info=True
+            )
             return Response(
                 {'error': str(e)}, 
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _handle_payment_failed(self, event):
+        """Handle failed payment - mark as failed, keep booking pending"""
+        payment_intent = event['data']['object']
+        payment_intent_id = payment_intent['id']
+        
+        try:
+            payment = Payment.objects.select_related('booking').get(
+                stripe_payment_intent_id=payment_intent_id
+            )
+            
+            # Update payment to failed
+            payment.status = 'failed'
+            payment.failure_reason = payment_intent.get(
+                'last_payment_error', {}
+            ).get('message', 'Payment failed')
+            payment.save()
+            
+            # Keep booking as pending so customer can retry
+            booking = payment.booking
+            if booking.status != 'pending':
+                booking.status = 'pending'
+                booking.save()
+            
+            # Log audit
+            PaymentAudit.log(
+                action='payment_failed',
+                description=(
+                    f"Payment failed for booking {booking.booking_number}. "
+                    f"Reason: {payment.failure_reason}"
+                ),
+                payment=payment,
+                user=None
+            )
+            
+            logger.warning(
+                f"Webhook: Payment failed for booking {booking.booking_number}. "
+                f"Reason: {payment.failure_reason}"
+            )
+            
+            # TODO: Send payment failure email when email system is ready
+            # from apps.customers.tasks import send_payment_failed_email
+            # send_payment_failed_email.delay(booking.id)
+            
+            return Response({
+                'status': 'payment_failed',
+                'booking_number': booking.booking_number,
+                'reason': payment.failure_reason
+            }, status=status.HTTP_200_OK)
+            
+        except Payment.DoesNotExist:
+            logger.error(
+                f"Webhook: Payment not found for failed payment_intent {payment_intent_id}"
+            )
+            return Response(
+                {'error': 'Payment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(
+                f"Webhook: Error processing payment_intent.payment_failed: {str(e)}",
+                exc_info=True
+            )
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
 class MockPaymentConfirmView(APIView):
-    """FIXED Mock payment confirmation - now updates booking status and customer stats"""
+    """Mock payment confirmation for testing - disable in production"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -8675,22 +8837,11 @@ class MockPaymentConfirmView(APIView):
                 payment = StripePaymentService.confirm_payment(payment_intent_id)
                 
                 if payment and payment.booking:
-                    # FIXED: Update booking status from pending to paid
+                    # Update booking status from pending to paid
                     if payment.booking.status == 'pending':
                         payment.booking.status = 'paid'
                         payment.booking.save()
-                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
-                    
-                    # AUTO-COMPLETE for testing (you can remove this later for manual staff completion)
-                    if payment.booking.status == 'paid':
-                        payment.booking.status = 'completed'
-                        payment.booking.save()
-                        print(f"✅ Mock payment: Booking {payment.booking.booking_number} auto-completed")
-                        
-                        # Update customer stats when booking completed
-                        if payment.booking.customer and hasattr(payment.booking.customer, 'customer_profile'):
-                            payment.booking.customer.customer_profile.add_booking_stats(payment.booking.total_price_cents)
-                            print(f"✅ Mock payment: Updated customer stats for {payment.booking.customer.get_full_name()}: +${payment.booking.total_price_dollars}")
+                        logger.info(f"Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
                 
                 return Response({
                     'message': 'Payment confirmed successfully',
@@ -8720,13 +8871,56 @@ class MockPaymentConfirmView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
+            logger.error(f"Mock payment error: {str(e)}", exc_info=True)
             return Response(
                 {'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
-# Staff payment management views (existing functionality)
+class PaymentConfirmView(APIView):
+    """Confirm payment after Stripe processes it - called from frontend"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        payment_intent_id = request.data.get('payment_intent_id')
+        
+        if not payment_intent_id:
+            return Response(
+                {'error': 'payment_intent_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Service handles payment update, booking status, customer stats
+            payment = StripePaymentService.confirm_payment(payment_intent_id)
+            
+            if not payment:
+                return Response(
+                    {'error': 'Payment confirmation failed'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            return Response({
+                'message': 'Payment confirmed successfully',
+                'booking_status': payment.booking.status if payment.booking else None,
+                'payment_status': payment.status
+            })
+            
+        except Payment.DoesNotExist:
+            return Response(
+                {'error': 'Payment not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Payment confirm error: {str(e)}", exc_info=True)
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# Staff payment management views
 class PaymentListView(generics.ListAPIView):
     """List all payments - staff only"""
     serializer_class = PaymentSerializer
@@ -8759,48 +8953,6 @@ class RefundCreateView(generics.CreateAPIView):
             raise permissions.PermissionDenied('Not a staff account')
         
         serializer.save(requested_by=self.request.user)
-
-
-class PaymentConfirmView(APIView):
-    """Confirm payment after Stripe processes it - called from frontend"""
-    permission_classes = [permissions.AllowAny]
-    
-    def post(self, request):
-        payment_intent_id = request.data.get('payment_intent_id')
-        
-        if not payment_intent_id:
-            return Response(
-                {'error': 'payment_intent_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Service handles ALL logic: payment update, booking status, customer stats
-            payment = StripePaymentService.confirm_payment(payment_intent_id)
-            
-            # Defensive check before accessing attributes
-            if not payment:
-                return Response(
-                    {'error': 'Payment confirmation failed'}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-            
-            return Response({
-                'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status if payment.booking else None,
-                'payment_status': payment.status
-            })
-            
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
 ```
 
 # ==== apps/services/__init__.py ====
