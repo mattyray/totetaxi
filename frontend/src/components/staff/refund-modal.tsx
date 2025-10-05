@@ -105,30 +105,27 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
           </p>
 
           <div className="flex gap-2 mt-2">
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => handleQuickAmount(0.25)}
+              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
             >
               25%
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => handleQuickAmount(0.5)}
+              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
             >
               50%
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => handleQuickAmount(1)}
+              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
             >
-              Full
-            </Button>
+              Full Amount
+            </button>
           </div>
         </div>
 

@@ -426,7 +426,7 @@ export default function BookingDetailPage() {
                         <div className="font-medium text-sm text-navy-900">{item.name}</div>
                         <div className="text-xs text-navy-600">{item.description}</div>
                         <div className="text-xs mt-1 flex justify-between items-center">
-                          <span className="font-medium">${item.price_dollars}</span>
+                          <span className="font-medium text-navy-900">${item.price_dollars}</span>
                           {item.special_handling && (
                             <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">Special Handling</span>
                           )}
