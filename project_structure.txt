@@ -220,9 +220,13 @@
 │   │   │   │   └── page.tsx
 │   │   │   ├── faq
 │   │   │   │   └── page.tsx
+│   │   │   ├── forgot-password
+│   │   │   │   └── page.tsx
 │   │   │   ├── login
 │   │   │   │   └── page.tsx
 │   │   │   ├── register
+│   │   │   │   └── page.tsx
+│   │   │   ├── reset-password
 │   │   │   │   └── page.tsx
 │   │   │   ├── services
 │   │   │   │   └── page.tsx
@@ -246,6 +250,8 @@
 │   │   │   │   └── reports
 │   │   │   │       └── page.tsx
 │   │   │   ├── terms
+│   │   │   │   └── page.tsx
+│   │   │   ├── verify-email
 │   │   │   │   └── page.tsx
 │   │   │   ├── android-chrome-192x192.png
 │   │   │   ├── android-chrome-512x512.png
@@ -334,4 +340,4 @@
 ├── project_structure.txt
 └── README.md
 
-79 directories, 256 files
+82 directories, 259 files
