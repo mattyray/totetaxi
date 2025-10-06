@@ -560,112 +560,111 @@ class BookingDetailView(APIView):
             } if booking.guest_checkout else None,
             'payment': payment_data
         })
-    
+    #
     def _get_service_details(self, booking):
-        """Get detailed service-specific information"""
-        from apps.services.models import OrganizingService
-        
-        details = {}
-        
-        # Mini Move details
-        if booking.service_type == 'mini_move' and booking.mini_move_package:
-            details['mini_move'] = {
-                'package_name': booking.mini_move_package.name,
-                'package_type': booking.mini_move_package.package_type,
-                'description': booking.mini_move_package.description,
-                'max_items': booking.mini_move_package.max_items,
-                'max_weight_per_item_lbs': booking.mini_move_package.max_weight_per_item_lbs,
-                'coi_included': booking.mini_move_package.coi_included,
-                'priority_scheduling': booking.mini_move_package.priority_scheduling,
-                'protective_wrapping': booking.mini_move_package.protective_wrapping,
-                'base_price_dollars': booking.mini_move_package.base_price_dollars,
-            }
+            """Get detailed service-specific information"""
+            from apps.services.models import OrganizingService
             
-            # Organizing services - NEW STRUCTURE
-            if booking.include_packing or booking.include_unpacking:
-                organizing_data = {
-                    'include_packing': booking.include_packing,
-                    'include_unpacking': booking.include_unpacking,
+            details = {}
+            
+            # Mini Move details
+            if booking.service_type == 'mini_move' and booking.mini_move_package:
+                details['mini_move'] = {
+                    'package_name': booking.mini_move_package.name,
+                    'package_type': booking.mini_move_package.package_type,
+                    'description': booking.mini_move_package.description,
+                    'max_items': booking.mini_move_package.max_items,
+                    'max_weight_per_item_lbs': booking.mini_move_package.max_weight_per_item_lbs,
+                    'coi_included': booking.mini_move_package.coi_included,
+                    'priority_scheduling': booking.mini_move_package.priority_scheduling,
+                    'protective_wrapping': booking.mini_move_package.protective_wrapping,
+                    'base_price_dollars': booking.mini_move_package.base_price_dollars,
                 }
                 
-                # Get actual service details
-                tier = booking.mini_move_package.package_type
-                
-                if booking.include_packing:
-                    packing_service = OrganizingService.objects.filter(
-                        mini_move_tier=tier,
-                        is_packing_service=True,
-                        is_active=True
-                    ).first()
-                    if packing_service:
-                        organizing_data['packing_service'] = {
-                            'name': packing_service.name,
-                            'price_dollars': packing_service.price_dollars,
-                            'duration_hours': packing_service.duration_hours,
-                            'organizer_count': packing_service.organizer_count,
-                            'supplies_allowance': packing_service.supplies_allowance_dollars,
-                        }
-                
-                if booking.include_unpacking:
-                    unpacking_service = OrganizingService.objects.filter(
-                        mini_move_tier=tier,
-                        is_packing_service=False,
-                        is_active=True
-                    ).first()
-                    if unpacking_service:
-                        organizing_data['unpacking_service'] = {
-                            'name': unpacking_service.name,
-                            'price_dollars': unpacking_service.price_dollars,
-                            'duration_hours': unpacking_service.duration_hours,
-                            'organizer_count': unpacking_service.organizer_count,
-                            'supplies_allowance': unpacking_service.supplies_allowance_dollars,
-                        }
-                
-                details['organizing_services'] = organizing_data
-        
-        # Specialty Item details
-        elif booking.service_type == 'specialty_item' and booking.specialty_items.exists():
-            details['specialty_items'] = [
-                {
-                    'id': str(item.id),
-                    'name': item.name,
-                    'item_type': item.item_type,
-                    'description': item.description,
-                    'price_dollars': item.price_dollars,
-                    'special_handling': item.special_handling
-                }
-                for item in booking.specialty_items.all()
-            ]
-        
-        # Standard Delivery details
-        elif booking.service_type == 'standard_delivery':
-            details['standard_delivery'] = {
-                'item_count': booking.standard_delivery_item_count or 0,
-                'is_same_day': booking.is_same_day_delivery,
-            }
-            # Include specialty items if any
-            if booking.specialty_items.exists():
+                # Organizing services
+                if booking.include_packing or booking.include_unpacking:
+                    organizing_data = {
+                        'include_packing': booking.include_packing,
+                        'include_unpacking': booking.include_unpacking,
+                    }
+                    
+                    tier = booking.mini_move_package.package_type
+                    
+                    if booking.include_packing:
+                        packing_service = OrganizingService.objects.filter(
+                            mini_move_tier=tier,
+                            is_packing_service=True,
+                            is_active=True
+                        ).first()
+                        if packing_service:
+                            organizing_data['packing_service'] = {
+                                'name': packing_service.name,
+                                'price_dollars': packing_service.price_dollars,
+                                'duration_hours': packing_service.duration_hours,
+                                'organizer_count': packing_service.organizer_count,
+                                'supplies_allowance': packing_service.supplies_allowance_dollars,
+                            }
+                    
+                    if booking.include_unpacking:
+                        unpacking_service = OrganizingService.objects.filter(
+                            mini_move_tier=tier,
+                            is_packing_service=False,
+                            is_active=True
+                        ).first()
+                        if unpacking_service:
+                            organizing_data['unpacking_service'] = {
+                                'name': unpacking_service.name,
+                                'price_dollars': unpacking_service.price_dollars,
+                                'duration_hours': unpacking_service.duration_hours,
+                                'organizer_count': unpacking_service.organizer_count,
+                                'supplies_allowance': unpacking_service.supplies_allowance_dollars,
+                            }
+                    
+                    details['organizing_services'] = organizing_data
+            
+            # Specialty Item details
+            elif booking.service_type == 'specialty_item' and booking.specialty_items.exists():
                 details['specialty_items'] = [
                     {
                         'id': str(item.id),
                         'name': item.name,
+                        'item_type': item.item_type,
+                        'description': item.description,
                         'price_dollars': item.price_dollars,
+                        'special_handling': item.special_handling
                     }
                     for item in booking.specialty_items.all()
                 ]
-        
-        # BLADE Transfer details - FIXED
-        elif booking.service_type == 'blade_transfer':
-            details['blade_transfer'] = {
-                'airport': booking.blade_airport,
-                'flight_date': booking.blade_flight_date,
-                'flight_time': booking.blade_flight_time.strftime('%H:%M') if booking.blade_flight_time else None,
-                'bag_count': booking.blade_bag_count,
-                'ready_time': booking.blade_ready_time.strftime('%H:%M') if booking.blade_ready_time else None,
-                'per_bag_price': 100,  # 🔧 ADDED - get from pricing logic or hardcode
-            }
-        
-        return details
+            
+            # Standard Delivery details
+            elif booking.service_type == 'standard_delivery':
+                details['standard_delivery'] = {
+                    'item_count': booking.standard_delivery_item_count or 0,
+                    'is_same_day': booking.is_same_day_delivery,
+                }
+                # Include specialty items if any
+                if booking.specialty_items.exists():
+                    details['specialty_items'] = [
+                        {
+                            'id': str(item.id),
+                            'name': item.name,
+                            'price_dollars': item.price_dollars,
+                        }
+                        for item in booking.specialty_items.all()
+                    ]
+            
+            # BLADE Transfer details
+            elif booking.service_type == 'blade_transfer':
+                details['blade_transfer'] = {
+                    'airport': booking.blade_airport,
+                    'flight_date': booking.blade_flight_date,
+                    'flight_time': booking.blade_flight_time.strftime('%H:%M') if booking.blade_flight_time else None,
+                    'bag_count': booking.blade_bag_count,
+                    'ready_time': booking.blade_ready_time.strftime('%H:%M') if booking.blade_ready_time else None,
+                    'per_bag_price': 75,
+                }
+            
+            return details
     
     def patch(self, request, booking_id):
         """Update booking status and details"""

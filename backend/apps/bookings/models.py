@@ -1,4 +1,3 @@
-# backend/apps/bookings/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -74,7 +73,7 @@ class Booking(models.Model):
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
         ('specialty_item', 'Specialty Item'),
-        ('blade_transfer', 'BLADE Airport Transfer'),  # NEW
+        ('blade_transfer', 'BLADE Airport Transfer'),
     ]
     
     PICKUP_TIME_CHOICES = [
@@ -141,7 +140,7 @@ class Booking(models.Model):
         help_text="Selected specialty items (Peloton, Surfboard, etc.)"
     )
     
-    # BLADE Airport Transfer fields (NEW - Phase 3)
+    # BLADE Airport Transfer fields
     blade_airport = models.CharField(
         max_length=3,
         choices=BLADE_AIRPORT_CHOICES,
@@ -211,6 +210,10 @@ class Booking(models.Model):
     # Pricing fields
     base_price_cents = models.PositiveBigIntegerField(default=0)
     surcharge_cents = models.PositiveBigIntegerField(default=0)
+    same_day_surcharge_cents = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Same-day delivery surcharge ($360)"
+    )
     coi_fee_cents = models.PositiveBigIntegerField(default=0)
     organizing_total_cents = models.PositiveBigIntegerField(
         default=0,
@@ -291,6 +294,10 @@ class Booking(models.Model):
     @property
     def surcharge_dollars(self):
         return self.surcharge_cents / 100
+    
+    @property
+    def same_day_surcharge_dollars(self):
+        return self.same_day_surcharge_cents / 100
     
     @property
     def coi_fee_dollars(self):
@@ -396,25 +403,21 @@ class Booking(models.Model):
         
         self.base_price_cents = 0
         self.surcharge_cents = 0
+        self.same_day_surcharge_cents = 0
         self.coi_fee_cents = 0
         self.organizing_total_cents = 0
         self.geographic_surcharge_cents = 0
         self.time_window_surcharge_cents = 0
         self.organizing_tax_cents = 0
         
-        # BLADE pricing (NEW - Phase 3)
+        # BLADE pricing
         if self.service_type == 'blade_transfer':
             if self.blade_bag_count:
                 per_bag_price = 7500  # $75 per bag in cents
                 self.base_price_cents = self.blade_bag_count * per_bag_price
-                # Enforce $150 minimum
                 self.base_price_cents = max(self.base_price_cents, 15000)
             
-            # Calculate ready time
             self.calculate_blade_ready_time()
-            
-            # BLADE has NO surcharges (weekend, geographic, time window)
-            # Skip all surcharge calculations for BLADE
         
         # Mini Move pricing
         elif self.service_type == 'mini_move' and self.mini_move_package:
@@ -424,7 +427,6 @@ class Booking(models.Model):
             self.organizing_tax_cents = self.calculate_organizing_tax()
             self.coi_fee_cents = self.calculate_coi_fee()
             
-            # Mini Move surcharges apply
             if self.pickup_date:
                 active_surcharges = SurchargeRule.objects.filter(is_active=True)
                 for surcharge in active_surcharges:
@@ -453,10 +455,13 @@ class Booking(models.Model):
                         specialty_total = sum(item.price_cents for item in self.specialty_items.all())
                         self.base_price_cents += specialty_total
                     
+                    # FIXED: Apply same-day delivery surcharge
+                    if self.is_same_day_delivery:
+                        self.same_day_surcharge_cents = config.same_day_flat_rate_cents
+                    
             except StandardDeliveryConfig.DoesNotExist:
                 pass
             
-            # Standard Delivery surcharges apply
             if self.pickup_date:
                 active_surcharges = SurchargeRule.objects.filter(is_active=True)
                 for surcharge in active_surcharges:
@@ -480,6 +485,7 @@ class Booking(models.Model):
         self.total_price_cents = (
             self.base_price_cents + 
             self.surcharge_cents + 
+            self.same_day_surcharge_cents +
             self.coi_fee_cents + 
             self.organizing_total_cents +
             self.organizing_tax_cents +
@@ -490,21 +496,21 @@ class Booking(models.Model):
     def get_pricing_breakdown(self):
         """Return detailed pricing breakdown for display"""
         breakdown = {
-            'base_price': self.base_price_dollars,
-            'surcharges': self.surcharge_dollars,
-            'coi_fee': self.coi_fee_dollars,
-            'organizing_total': self.organizing_total_dollars,
-            'organizing_tax': self.organizing_tax_dollars,
-            'geographic_surcharge': self.geographic_surcharge_dollars,
-            'time_window_surcharge': self.time_window_surcharge_dollars,
-            'total': self.total_price_dollars,
+            'base_price_dollars': self.base_price_dollars,
+            'surcharge_dollars': self.surcharge_dollars,
+            'same_day_surcharge_dollars': self.same_day_surcharge_dollars,
+            'coi_fee_dollars': self.coi_fee_dollars,
+            'organizing_total_dollars': self.organizing_total_dollars,
+            'organizing_tax_dollars': self.organizing_tax_dollars,
+            'geographic_surcharge_dollars': self.geographic_surcharge_dollars,
+            'time_window_surcharge_dollars': self.time_window_surcharge_dollars,
+            'total_price_dollars': self.total_price_dollars,
             'service_type': self.get_service_type_display(),
         }
         
         if self.organizing_total_cents > 0:
             breakdown['organizing_services'] = self.get_organizing_services_breakdown()
         
-        # BLADE-specific breakdown
         if self.service_type == 'blade_transfer':
             breakdown['blade_details'] = {
                 'airport': self.blade_airport,
