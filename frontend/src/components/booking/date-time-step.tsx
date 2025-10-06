@@ -390,44 +390,49 @@ export function DateTimeStep() {
         </div>
         
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1 md:gap-4">
-          {getMonthDays().map((date, index) => {
-            if (!date) {
-              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
-            }
-            
-            const dateStr = formatDate(date);
-            const dayInfo = getDayInfo(date);
-            const isSelected = selectedDate === dateStr;
-            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
-            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                <div className="grid grid-cols-7 gap-1 md:gap-4">
+                  {getMonthDays().map((date, index) => {
+                    if (!date) {
+                      return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+                    }
+                    
+                    const dateStr = formatDate(date);
+                    const dayInfo = getDayInfo(date);
+                    const isSelected = selectedDate === dateStr;
+                    const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                    
+                    // FIXED: Add past date check
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isPastDate = date < today;
 
-            return (
-              <button
-                key={dateStr}
-                onClick={() => isCurrentMonth && handleDateSelect(dateStr)}
-                disabled={!isCurrentMonth}
-                className={`
-                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
-                  h-16 md:h-20 flex flex-col items-center justify-center
-                  ${!isCurrentMonth ? 'opacity-30 cursor-not-allowed' : ''}
-                  ${isSelected 
-                    ? 'bg-navy-900 text-white border-navy-900' 
-                    : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                  }
-                `}
-              >
-                <div className="font-medium">{date.getDate()}</div>
-                <div className="text-xs opacity-75">
-                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
+                        disabled={!isCurrentMonth || isPastDate}
+                        className={`
+                          p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                          h-16 md:h-20 flex flex-col items-center justify-center
+                          ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
+                          ${isSelected 
+                            ? 'bg-navy-900 text-white border-navy-900' 
+                            : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                          }
+                        `}
+                      >
+                        <div className="font-medium">{date.getDate()}</div>
+                        <div className="text-xs opacity-75">
+                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </div>
+                        {hasSurcharge && isCurrentMonth && !isPastDate && (
+                          <div className="text-xs text-orange-600 mt-1">•</div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-                {hasSurcharge && isCurrentMonth && (
-                  <div className="text-xs text-orange-600 mt-1">•</div>
-                )}
-              </button>
-            );
-          })}
-        </div>
         
         <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">

@@ -532,30 +532,30 @@ export default function BookingDetailPage() {
                 <div className="space-y-2 text-sm">
                   {/* Base Price */}
                   <div className="flex justify-between">
-                    <span className="text-navy-700">Base Price:</span>
+                    <span className="text-navy-900">Base Price:</span>
                     <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
                   </div>
 
-                  {/* Surcharges */}
-                  {booking.booking?.surcharges_dollars > 0 && (
+                  {/* Same-Day Surcharge - NEW */}
+                  {booking.booking?.same_day_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Surcharges:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.surcharges_dollars}</span>
+                      <span className="text-navy-900">Same-Day Delivery:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.same_day_surcharge_dollars}</span>
                     </div>
                   )}
 
-                  {/* Same-Day Delivery */}
-                  {booking.booking?.same_day_surcharge_dollars > 0 && (
+                  {/* Weekend Surcharges - FIXED TYPO */}
+                  {booking.booking?.surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Same-Day Delivery:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.same_day_surcharge_dollars}</span>
+                      <span className="text-navy-900">Surcharges:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.surcharge_dollars}</span>
                     </div>
                   )}
 
                   {/* COI Fee */}
                   {booking.booking?.coi_fee_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">COI Fee:</span>
+                      <span className="text-navy-900">COI Fee:</span>
                       <span className="text-navy-900 font-medium">${booking.booking.coi_fee_dollars}</span>
                     </div>
                   )}
@@ -563,7 +563,7 @@ export default function BookingDetailPage() {
                   {/* Organizing Total */}
                   {booking.booking?.organizing_total_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Organizing Services:</span>
+                      <span className="text-navy-900">Organizing Services:</span>
                       <span className="text-navy-900 font-medium">${booking.booking.organizing_total_dollars}</span>
                     </div>
                   )}
@@ -571,7 +571,7 @@ export default function BookingDetailPage() {
                   {/* Geographic Surcharge */}
                   {booking.booking?.geographic_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Geographic Surcharge:</span>
+                      <span className="text-navy-900">Geographic Surcharge:</span>
                       <span className="text-navy-900 font-medium">${booking.booking.geographic_surcharge_dollars}</span>
                     </div>
                   )}
@@ -579,15 +579,15 @@ export default function BookingDetailPage() {
                   {/* Time Window Surcharge */}
                   {booking.booking?.time_window_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Time Window Surcharge:</span>
+                      <span className="text-navy-900">Time Window Surcharge:</span>
                       <span className="text-navy-900 font-medium">${booking.booking.time_window_surcharge_dollars}</span>
                     </div>
                   )}
 
                   {/* Total */}
                   <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                    <span>Total:</span>
-                    <span>${booking.booking?.total_price_dollars}</span>
+                    <span className="text-navy-900">Total:</span>
+                    <span className="text-navy-900">${booking.booking?.total_price_dollars}</span>
                   </div>
                 </div>
               </CardContent>
