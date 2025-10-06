@@ -92,8 +92,6 @@ export default function BookingDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
-  const [showAddresses, setShowAddresses] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
   
   const [formData, setFormData] = useState<BookingFormData>({
     status: '',
@@ -136,7 +134,6 @@ export default function BookingDetailPage() {
     queryKey: ['staff', 'refunds', bookingId],
     queryFn: async () => {
       const response = await apiClient.get(`/api/payments/refunds/?booking_id=${bookingId}`);
-      // Handle both array and paginated response
       return Array.isArray(response.data) ? response.data : response.data.results || [];
     },
     enabled: !!bookingId && isAuthenticated && !!booking?.payment
@@ -267,39 +264,9 @@ export default function BookingDetailPage() {
           
           <div className="flex items-center space-x-3">
             {!isEditing ? (
-              <>
-                <Button variant="primary" onClick={() => setIsEditing(true)}>
-                  Edit Booking
-                </Button>
-                
-                {/* Actions Dropdown */}
-                <div className="relative">
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowActionsMenu(!showActionsMenu)}
-                  >
-                    Actions ▼
-                  </Button>
-                  {showActionsMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                      <div className="py-1">
-                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
-                          Print Booking
-                        </button>
-                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
-                          Send Confirmation Email
-                        </button>
-                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
-                          Duplicate Booking
-                        </button>
-                        <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
-                          Cancel Booking
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
+              <Button variant="primary" onClick={() => setIsEditing(true)}>
+                Edit Booking
+              </Button>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -323,77 +290,7 @@ export default function BookingDetailPage() {
 
         {booking && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Booking Information */}
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Operations</h3>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isEditing ? (
-                  <>
-                    <Select
-                      label="Status"
-                      options={statusOptions}
-                      value={formData.status}
-                      onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                    />
-                    <Input
-                      label="Pickup Date"
-                      type="date"
-                      value={formData.pickup_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, pickup_date: e.target.value }))}
-                    />
-                    <Select
-                      label="Pickup Time"
-                      options={pickupTimeOptions}
-                      value={formData.pickup_time}
-                      onChange={(e) => setFormData(prev => ({ ...prev, pickup_time: e.target.value }))}
-                    />
-                    <div>
-                      <label className="block text-sm font-medium text-navy-900 mb-1">
-                        Special Instructions
-                      </label>
-                      <textarea
-                        value={formData.special_instructions}
-                        onChange={(e) => setFormData(prev => ({ ...prev, special_instructions: e.target.value }))}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="coi_required"
-                        checked={formData.coi_required}
-                        onChange={(e) => setFormData(prev => ({ ...prev, coi_required: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      <label htmlFor="coi_required" className="text-sm text-navy-900">
-                        COI Required
-                      </label>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
-                    <div className="text-navy-800"><strong className="text-navy-900">Pickup Time:</strong> {booking.booking?.pickup_time_display}</div>
-                    {booking.booking?.special_instructions && (
-                      <div className="text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {booking.booking?.coi_required && (
-                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">COI Required</span>
-                      )}
-                      {booking.booking?.is_outside_core_area && (
-                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded font-medium">Outside Core Area</span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Service Details Card */}
+            {/* Service Details with Schedule */}
             <Card>
               <CardHeader>
                 <h3 className="text-lg font-medium text-navy-900">Service Details</h3>
@@ -402,6 +299,66 @@ export default function BookingDetailPage() {
                 <div className="text-sm">
                   <strong className="text-navy-900">Service Type:</strong> 
                   <span className="ml-2 text-navy-800">{booking.booking?.service_type_display}</span>
+                </div>
+
+                {/* Schedule Section */}
+                <div className="border-t pt-3 space-y-2">
+                  <div className="font-semibold text-navy-900 text-sm">Schedule</div>
+                  {isEditing ? (
+                    <>
+                      <Input
+                        label="Pickup Date"
+                        type="date"
+                        value={formData.pickup_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pickup_date: e.target.value }))}
+                      />
+                      <Select
+                        label="Pickup Time"
+                        options={pickupTimeOptions}
+                        value={formData.pickup_time}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pickup_time: e.target.value }))}
+                      />
+                      <div>
+                        <label className="block text-sm font-medium text-navy-900 mb-1">
+                          Special Instructions
+                        </label>
+                        <textarea
+                          value={formData.special_instructions}
+                          onChange={(e) => setFormData(prev => ({ ...prev, special_instructions: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
+                        />
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="coi_required"
+                          checked={formData.coi_required}
+                          onChange={(e) => setFormData(prev => ({ ...prev, coi_required: e.target.checked }))}
+                          className="mr-2"
+                        />
+                        <label htmlFor="coi_required" className="text-sm text-navy-900">
+                          COI Required
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm text-navy-800"><strong className="text-navy-900">Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
+                      <div className="text-sm text-navy-800"><strong className="text-navy-900">Time:</strong> {booking.booking?.pickup_time_display}</div>
+                      {booking.booking?.special_instructions && (
+                        <div className="text-sm text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {booking.booking?.coi_required && (
+                          <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">COI Required</span>
+                        )}
+                        {booking.booking?.is_outside_core_area && (
+                          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded font-medium">Outside Core Area</span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Mini Move Details */}
@@ -547,7 +504,7 @@ export default function BookingDetailPage() {
                       {booking.customer.total_bookings > 1 && (
                         <button
                           onClick={() => router.push(`/staff/bookings?customer=${booking.customer.id}`)}
-                          className="text-sm text-navy-600 hover:text-navy-800 underline"
+                          className="text-sm text-navy-600 hover:text-navy-800 underline w-full text-center"
                         >
                           View all {booking.customer.total_bookings} bookings by this customer
                         </button>
@@ -566,27 +523,68 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Pricing Breakdown */}
+            {/* Pricing Breakdown - FIXED */}
             <Card>
               <CardHeader>
                 <h3 className="text-lg font-medium text-navy-900">Pricing Breakdown</h3>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {booking.booking?.pricing_breakdown && (
-                    <div className="space-y-2 text-sm">
-                      {Object.entries(booking.booking.pricing_breakdown).map(([key, value]: [string, any]) => {
-                        if (typeof value === 'object' && value !== null) return null;
-                        
-                        return (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-navy-600 capitalize">{key.replace(/_/g, ' ')}:</span>
-                            <span className="text-navy-900 font-medium">${value}</span>
-                          </div>
-                        );
-                      })}
+                <div className="space-y-2 text-sm">
+                  {/* Base Price */}
+                  <div className="flex justify-between">
+                    <span className="text-navy-700">Base Price:</span>
+                    <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
+                  </div>
+
+                  {/* Surcharges */}
+                  {booking.booking?.surcharges_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Surcharges:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.surcharges_dollars}</span>
                     </div>
                   )}
+
+                  {/* Same-Day Delivery */}
+                  {booking.booking?.same_day_surcharge_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Same-Day Delivery:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.same_day_surcharge_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* COI Fee */}
+                  {booking.booking?.coi_fee_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">COI Fee:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.coi_fee_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Organizing Total */}
+                  {booking.booking?.organizing_total_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Organizing Services:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.organizing_total_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Geographic Surcharge */}
+                  {booking.booking?.geographic_surcharge_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Geographic Surcharge:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.geographic_surcharge_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Time Window Surcharge */}
+                  {booking.booking?.time_window_surcharge_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Time Window Surcharge:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking.time_window_surcharge_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Total */}
                   <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                     <span>Total:</span>
                     <span>${booking.booking?.total_price_dollars}</span>
@@ -595,50 +593,40 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Collapsible Addresses */}
-            <Card className="lg:col-span-2">
+            {/* Addresses - Always visible, side-by-side */}
+            <Card>
               <CardHeader>
-                <button
-                  onClick={() => setShowAddresses(!showAddresses)}
-                  className="flex items-center justify-between w-full text-left"
-                >
-                  <h3 className="text-lg font-medium text-navy-900">Addresses</h3>
-                  <span className="text-navy-600">
-                    {showAddresses ? '▼' : '▶'}
-                  </span>
-                </button>
+                <h3 className="text-lg font-medium text-navy-900">Addresses</h3>
               </CardHeader>
-              {showAddresses && (
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
-                      <div className="text-navy-800 text-sm">
-                        <div>{booking.booking?.pickup_address?.address_line_1}</div>
-                        {booking.booking?.pickup_address?.address_line_2 && (
-                          <div>{booking.booking.pickup_address.address_line_2}</div>
-                        )}
-                        <div>
-                          {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
-                      <div className="text-navy-800 text-sm">
-                        <div>{booking.booking?.delivery_address?.address_line_1}</div>
-                        {booking.booking?.delivery_address?.address_line_2 && (
-                          <div>{booking.booking.delivery_address.address_line_2}</div>
-                        )}
-                        <div>
-                          {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
-                        </div>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                    <div className="text-navy-800 text-sm">
+                      <div>{booking.booking?.pickup_address?.address_line_1}</div>
+                      {booking.booking?.pickup_address?.address_line_2 && (
+                        <div>{booking.booking.pickup_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              )}
+                  
+                  <div>
+                    <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                    <div className="text-navy-800 text-sm">
+                      <div>{booking.booking?.delivery_address?.address_line_1}</div>
+                      {booking.booking?.delivery_address?.address_line_2 && (
+                        <div>{booking.booking.delivery_address.address_line_2}</div>
+                      )}
+                      <div>
+                        {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
 
             {/* Enhanced Payment Information */}
