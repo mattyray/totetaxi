@@ -92,6 +92,9 @@ export default function BookingDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showAddresses, setShowAddresses] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  
   const [formData, setFormData] = useState<BookingFormData>({
     status: '',
     pickup_date: '',
@@ -133,7 +136,8 @@ export default function BookingDetailPage() {
     queryKey: ['staff', 'refunds', bookingId],
     queryFn: async () => {
       const response = await apiClient.get(`/api/payments/refunds/?booking_id=${bookingId}`);
-      return response.data as Refund[];
+      // Handle both array and paginated response
+      return Array.isArray(response.data) ? response.data : response.data.results || [];
     },
     enabled: !!bookingId && isAuthenticated && !!booking?.payment
   });
@@ -190,6 +194,27 @@ export default function BookingDetailPage() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'paid': return 'bg-blue-100 text-blue-800';
+      case 'confirmed': return 'bg-purple-100 text-purple-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'succeeded': return 'bg-green-100 text-green-800';
+      case 'refunded': return 'bg-orange-100 text-orange-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const statusOptions = [
     { value: 'pending', label: 'Pending' },
     { value: 'confirmed', label: 'Confirmed' },
@@ -217,21 +242,64 @@ export default function BookingDetailPage() {
   return (
     <StaffLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
+        {/* Enhanced Header */}
+        <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-navy-900">
+            <h1 className="text-3xl font-serif font-bold text-navy-900">
               Booking #{booking?.booking?.booking_number}
             </h1>
-            <p className="text-navy-600 mt-1">
-              {booking?.booking?.service_type_display} • {booking?.customer?.name || 'Guest Customer'}
-            </p>
+            <div className="flex items-center gap-3 mt-3">
+              <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(booking?.booking?.status)}`}>
+                {booking?.booking?.status}
+              </span>
+              {booking?.payment && (
+                <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getPaymentStatusColor(booking.payment.status)}`}>
+                  {booking.payment.status === 'refunded' ? '↩️ Refunded' : 
+                   booking.payment.status === 'succeeded' ? '✓ Paid' : 
+                   booking.payment.status}
+                </span>
+              )}
+              <span className="text-navy-600">
+                {booking?.booking?.service_type_display} • ${booking?.booking?.total_price_dollars}
+              </span>
+            </div>
           </div>
-          <div className="flex space-x-3">
+          
+          <div className="flex items-center space-x-3">
             {!isEditing ? (
-              <Button variant="primary" onClick={() => setIsEditing(true)}>
-                Edit Booking
-              </Button>
+              <>
+                <Button variant="primary" onClick={() => setIsEditing(true)}>
+                  Edit Booking
+                </Button>
+                
+                {/* Actions Dropdown */}
+                <div className="relative">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowActionsMenu(!showActionsMenu)}
+                  >
+                    Actions ▼
+                  </Button>
+                  {showActionsMenu && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                      <div className="py-1">
+                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
+                          Print Booking
+                        </button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
+                          Send Confirmation Email
+                        </button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-navy-700 hover:bg-gray-50">
+                          Duplicate Booking
+                        </button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50">
+                          Cancel Booking
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -246,8 +314,9 @@ export default function BookingDetailPage() {
                 </Button>
               </>
             )}
+            
             <Button variant="outline" onClick={() => router.back()}>
-              ← Back to Bookings
+              ← Back
             </Button>
           </div>
         </div>
@@ -257,7 +326,7 @@ export default function BookingDetailPage() {
             {/* Booking Information */}
             <Card>
               <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Booking Information</h3>
+                <h3 className="text-lg font-medium text-navy-900">Operations</h3>
               </CardHeader>
               <CardContent className="space-y-4">
                 {isEditing ? (
@@ -306,27 +375,8 @@ export default function BookingDetailPage() {
                   </>
                 ) : (
                   <>
-                    <div className="text-navy-800"><strong className="text-navy-900">Booking #:</strong> {booking.booking?.booking_number}</div>
-                    <div className="text-navy-800"><strong className="text-navy-900">Service:</strong> {booking.booking?.service_type_display}</div>
-                    <div className="text-navy-800">
-                      <strong className="text-navy-900">Status:</strong> 
-                      <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        booking.booking?.status === 'completed' 
-                          ? 'bg-green-100 text-green-800'
-                          : booking.booking?.status === 'paid'
-                          ? 'bg-blue-100 text-blue-800'
-                          : booking.booking?.status === 'confirmed'
-                          ? 'bg-purple-100 text-purple-800'
-                          : booking.booking?.status === 'pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {booking.booking?.status}
-                      </span>
-                    </div>
                     <div className="text-navy-800"><strong className="text-navy-900">Pickup Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
                     <div className="text-navy-800"><strong className="text-navy-900">Pickup Time:</strong> {booking.booking?.pickup_time_display}</div>
-                    <div className="text-navy-800"><strong className="text-navy-900">Total:</strong> ${booking.booking?.total_price_dollars}</div>
                     {booking.booking?.special_instructions && (
                       <div className="text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
                     )}
@@ -426,7 +476,7 @@ export default function BookingDetailPage() {
                         <div className="font-medium text-sm text-navy-900">{item.name}</div>
                         <div className="text-xs text-navy-600">{item.description}</div>
                         <div className="text-xs mt-1 flex justify-between items-center">
-                          <span className="font-medium text-navy-900">${item.price_dollars}</span>
+                          <span className="font-semibold text-navy-900">${item.price_dollars}</span>
                           {item.special_handling && (
                             <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">Special Handling</span>
                           )}
@@ -464,7 +514,7 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Customer Information */}
+            {/* Customer Information with booking link */}
             <Card>
               <CardHeader>
                 <h3 className="text-lg font-medium text-navy-900">Customer Information</h3>
@@ -483,13 +533,26 @@ export default function BookingDetailPage() {
                         {booking.customer.is_vip ? 'VIP Customer' : 'Standard Customer'}
                       </span>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => router.push(`/staff/customers/${booking.customer.id}`)}
-                    >
-                      View Customer Details
-                    </Button>
+                    
+                    <div className="pt-2 space-y-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => router.push(`/staff/customers/${booking.customer.id}`)}
+                        className="w-full"
+                      >
+                        View Customer Profile
+                      </Button>
+                      
+                      {booking.customer.total_bookings > 1 && (
+                        <button
+                          onClick={() => router.push(`/staff/bookings?customer=${booking.customer.id}`)}
+                          className="text-sm text-navy-600 hover:text-navy-800 underline"
+                        >
+                          View all {booking.customer.total_bookings} bookings by this customer
+                        </button>
+                      )}
+                    </div>
                   </>
                 )}
                 {booking.guest_checkout && (
@@ -532,40 +595,50 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Pickup Address */}
-            <Card>
+            {/* Collapsible Addresses */}
+            <Card className="lg:col-span-2">
               <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+                <button
+                  onClick={() => setShowAddresses(!showAddresses)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <h3 className="text-lg font-medium text-navy-900">Addresses</h3>
+                  <span className="text-navy-600">
+                    {showAddresses ? '▼' : '▶'}
+                  </span>
+                </button>
               </CardHeader>
-              <CardContent>
-                <div className="text-navy-800">
-                  <div>{booking.booking?.pickup_address?.address_line_1}</div>
-                  {booking.booking?.pickup_address?.address_line_2 && (
-                    <div>{booking.booking.pickup_address.address_line_2}</div>
-                  )}
-                  <div>
-                    {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
+              {showAddresses && (
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                      <div className="text-navy-800 text-sm">
+                        <div>{booking.booking?.pickup_address?.address_line_1}</div>
+                        {booking.booking?.pickup_address?.address_line_2 && (
+                          <div>{booking.booking.pickup_address.address_line_2}</div>
+                        )}
+                        <div>
+                          {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                      <div className="text-navy-800 text-sm">
+                        <div>{booking.booking?.delivery_address?.address_line_1}</div>
+                        {booking.booking?.delivery_address?.address_line_2 && (
+                          <div>{booking.booking.delivery_address.address_line_2}</div>
+                        )}
+                        <div>
+                          {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Delivery Address */}
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
-              </CardHeader>
-              <CardContent>
-                <div className="text-navy-800">
-                  <div>{booking.booking?.delivery_address?.address_line_1}</div>
-                  {booking.booking?.delivery_address?.address_line_2 && (
-                    <div>{booking.booking.delivery_address.address_line_2}</div>
-                  )}
-                  <div>
-                    {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
-                  </div>
-                </div>
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
 
             {/* Enhanced Payment Information */}
@@ -589,15 +662,7 @@ export default function BookingDetailPage() {
                   <div className="grid grid-cols-3 gap-4 text-navy-800">
                     <div>
                       <strong className="text-navy-900">Status:</strong>{' '}
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${
-                        booking.payment.status === 'succeeded'
-                          ? 'bg-green-100 text-green-800'
-                          : booking.payment.status === 'refunded'
-                          ? 'bg-orange-100 text-orange-800'
-                          : booking.payment.status === 'pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getPaymentStatusColor(booking.payment.status)}`}>
                         {booking.payment.status}
                       </span>
                     </div>
@@ -646,6 +711,60 @@ export default function BookingDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Activity Log */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <h3 className="text-lg font-medium text-navy-900">Activity Timeline</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm">
+                  {booking.booking?.created_at && (
+                    <div className="flex items-start">
+                      <div className="w-32 text-navy-600 flex-shrink-0">
+                        {new Date(booking.booking.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-navy-800">
+                        Booking created by {booking.customer?.name || 'Guest'}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {booking.payment?.processed_at && (
+                    <div className="flex items-start">
+                      <div className="w-32 text-navy-600 flex-shrink-0">
+                        {new Date(booking.payment.processed_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-navy-800">
+                        Payment received (${booking.payment.amount_dollars})
+                      </div>
+                    </div>
+                  )}
+                  
+                  {refundsData?.map((refund: Refund) => (
+                    <div key={refund.id} className="flex items-start">
+                      <div className="w-32 text-navy-600 flex-shrink-0">
+                        {new Date(refund.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-navy-800">
+                        Refund processed by {refund.requested_by_name} (${refund.amount_dollars})
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {booking.booking?.updated_at && booking.booking.updated_at !== booking.booking.created_at && (
+                    <div className="flex items-start">
+                      <div className="w-32 text-navy-600 flex-shrink-0">
+                        {new Date(booking.booking.updated_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-navy-800">
+                        Booking updated
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

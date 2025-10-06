@@ -1,4 +1,5 @@
 'use client';
+// frontend/src/components/staff/refund-modal.tsx
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -54,23 +55,13 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
       return;
     }
 
-    if (reason.trim().length < 10) {
-      setError('Reason must be at least 10 characters');
-      return;
-    }
-
     const amountCents = Math.round(amountNum * 100);
 
     refundMutation.mutate({
       payment_id: payment.id,
       amount_cents: amountCents,
-      reason: reason.trim()
+      reason: reason.trim() || 'No reason provided'
     });
-  };
-
-  const handleQuickAmount = (percentage: number) => {
-    const quickAmount = (payment.amount_dollars * percentage).toFixed(2);
-    setAmount(quickAmount);
   };
 
   return (
@@ -103,48 +94,19 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
           <p className="text-xs text-navy-500 mt-1">
             Maximum: ${payment.amount_dollars}
           </p>
-
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              onClick={() => handleQuickAmount(0.25)}
-              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
-            >
-              25%
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAmount(0.5)}
-              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
-            >
-              50%
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAmount(1)}
-              className="flex-1 py-2 px-4 bg-gray-100 rounded-lg text-navy-900 font-medium hover:bg-navy-600 hover:text-white transition-colors"
-            >
-              Full Amount
-            </button>
-          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-navy-900 mb-1">
-            Reason for Refund
+            Reason for Refund <span className="text-navy-500 font-normal">(optional)</span>
           </label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900"
-            placeholder="Enter reason for refund (minimum 10 characters)"
-            required
-            minLength={10}
+            placeholder="Enter reason for refund (optional)"
           />
-          <p className="text-xs text-navy-500 mt-1">
-            {reason.length}/10 characters minimum
-          </p>
         </div>
 
         {error && (
