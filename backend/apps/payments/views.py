@@ -12,8 +12,7 @@ from django.http import HttpResponse
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
-from django.db import transaction
-
+from django.db import transaction, models  # ADDED models HERE
 
 from .models import Payment, Refund, PaymentAudit
 from .serializers import (
@@ -232,10 +231,6 @@ class StripeWebhookView(APIView):
                 f"booking {booking.booking_number}"
             )
             
-            # TODO: Send confirmation email here when email system is ready
-            # from apps.customers.tasks import send_booking_confirmation_email
-            # send_booking_confirmation_email.delay(booking.id)
-            
             return Response({
                 'status': 'success',
                 'booking_number': booking.booking_number,
@@ -298,10 +293,6 @@ class StripeWebhookView(APIView):
                 f"Webhook: Payment failed for booking {booking.booking_number}. "
                 f"Reason: {payment.failure_reason}"
             )
-            
-            # TODO: Send payment failure email when email system is ready
-            # from apps.customers.tasks import send_payment_failed_email
-            # send_payment_failed_email.delay(booking.id)
             
             return Response({
                 'status': 'payment_failed',
@@ -441,14 +432,29 @@ class PaymentListView(generics.ListAPIView):
 
 
 class RefundListView(generics.ListAPIView):
-    """List all refunds - staff only"""
+    """List all refunds - staff only, optionally filter by booking"""
     serializer_class = RefundSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         if not hasattr(self.request.user, 'staff_profile'):
             return Refund.objects.none()
-        return Refund.objects.all().order_by('-created_at')
+        
+        queryset = Refund.objects.select_related(
+            'payment__booking', 'requested_by', 'approved_by'
+        ).order_by('-created_at')
+        
+        # Filter by booking if provided
+        booking_id = self.request.query_params.get('booking_id')
+        if booking_id:
+            queryset = queryset.filter(payment__booking__id=booking_id)
+        
+        # Filter by payment if provided
+        payment_id = self.request.query_params.get('payment_id')
+        if payment_id:
+            queryset = queryset.filter(payment__id=payment_id)
+        
+        return queryset
 
 
 class RefundCreateView(generics.CreateAPIView):
@@ -462,9 +468,7 @@ class RefundCreateView(generics.CreateAPIView):
         
         serializer.save(requested_by=self.request.user)
 
-# Add this import at the top
 
-# Add this new view class after RefundCreateView
 class RefundProcessView(APIView):
     """Process refund immediately - staff only (direct refund, no approval)"""
     permission_classes = [permissions.IsAuthenticated]
@@ -480,11 +484,11 @@ class RefundProcessView(APIView):
         # Validate input
         payment_id = request.data.get('payment_id')
         amount_cents = request.data.get('amount_cents')
-        reason = request.data.get('reason', '').strip()
+        reason = request.data.get('reason', 'No reason provided').strip()
         
-        if not payment_id or not amount_cents or not reason:
+        if not payment_id or not amount_cents:
             return Response(
-                {'error': 'payment_id, amount_cents, and reason are required'}, 
+                {'error': 'payment_id and amount_cents are required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -498,11 +502,7 @@ class RefundProcessView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if len(reason) < 10:
-            return Response(
-                {'error': 'Reason must be at least 10 characters'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # REMOVED THE 10 CHARACTER MINIMUM CHECK
         
         try:
             # Get payment
@@ -566,28 +566,3 @@ class RefundProcessView(APIView):
                 {'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
-class RefundListView(generics.ListAPIView):
-    """List all refunds - staff only, optionally filter by booking"""
-    serializer_class = RefundSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        if not hasattr(self.request.user, 'staff_profile'):
-            return Refund.objects.none()
-        
-        queryset = Refund.objects.select_related(
-            'payment__booking', 'requested_by', 'approved_by'
-        ).order_by('-created_at')
-        
-        # Filter by booking if provided
-        booking_id = self.request.query_params.get('booking_id')
-        if booking_id:
-            queryset = queryset.filter(payment__booking__id=booking_id)
-        
-        # Filter by payment if provided
-        payment_id = self.request.query_params.get('payment_id')
-        if payment_id:
-            queryset = queryset.filter(payment__id=payment_id)
-        
-        return queryset
