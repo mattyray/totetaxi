@@ -559,74 +559,132 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-        <Card variant="luxury" className="p-8">
-          <CardContent className="p-0">
-            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-navy-900 font-medium">Base Price:</span>
-                <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-              </div>
+              <Card variant="luxury" className="p-8">
+                <CardContent className="p-0">
+                  <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+                  <div className="space-y-4">
+                    
+                    {/* Standard Delivery - Itemized */}
+                    {bookingData.service_type === 'standard_delivery' && (
+                      <>
+                        {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">
+                              Standard Delivery ({bookingData.standard_delivery_item_count} items):
+                            </span>
+                            <span className="text-navy-900 font-semibold">
+                              ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Show specialty items from pricingMutation details */}
+                        {pricingMutation.data?.details?.specialty_items?.map((item: any) => (
+                          <div key={`specialty-${item.id}`} className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
+                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
 
-              {pricingMutation.data.pricing.same_day_delivery_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
-                </div>
-              )}
+                    {/* Mini Move */}
+                    {bookingData.service_type === 'mini_move' && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Mini Move Package:</span>
+                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Specialty Item Only */}
+                    {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
+                      <>
+                        {pricingMutation.data.details.specialty_items.map((item: any) => (
+                          <div key={`specialty-only-${item.id}`} className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">{item.name}:</span>
+                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    
+                    {/* BLADE - use type assertion since it's not in the type yet */}
+                    {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">
+                          {bookingData.blade_bag_count} bags × $75:
+                        </span>
+                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.coi_fee_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">COI Fee:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
-                </div>
-              )}
+                    {/* Same-Day Delivery */}
+                    {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.organizing_total_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Organizing Services:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
-                </div>
-              )}
+                    {/* Weekend Surcharge */}
+                    {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.organizing_tax_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
-                </div>
-              )}
+                    {/* COI Fee */}
+                    {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">COI Fee:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.geographic_surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Organizing Services */}
+                    {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Organizing Services:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.time_window_surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Organizing Tax */}
+                    {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
+                      </div>
+                    )}
 
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-navy-900">Total:</span>
-                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    {/* Time Window Surcharge */}
+                    {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
+                      </div>
+                    )}
+
+                    {/* Geographic Surcharge */}
+                    {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-navy-900">Total:</span>
+                        <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
       {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">

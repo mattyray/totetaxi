@@ -515,51 +515,61 @@ class BookingDetailView(APIView):
         
         # 🔧 NEW: Get service-specific details
         service_details = self._get_service_details(booking)
-        
+        #
         return Response({
-            'booking': {
-                'id': str(booking.id),
-                'booking_number': booking.booking_number,
-                'service_type': booking.service_type,
-                'service_type_display': booking.get_service_type_display(),
-                'status': booking.status,
-                'pickup_date': booking.pickup_date,
-                'pickup_time': booking.pickup_time,
-                'pickup_time_display': booking.get_pickup_time_display(),
-                'specific_pickup_hour': booking.specific_pickup_hour,
-                'pickup_address': {
-                    'address_line_1': booking.pickup_address.address_line_1,
-                    'address_line_2': booking.pickup_address.address_line_2,
-                    'city': booking.pickup_address.city,
-                    'state': booking.pickup_address.state,
-                    'zip_code': booking.pickup_address.zip_code
-                },
-                'delivery_address': {
-                    'address_line_1': booking.delivery_address.address_line_1,
-                    'address_line_2': booking.delivery_address.address_line_2,
-                    'city': booking.delivery_address.city,
-                    'state': booking.delivery_address.state,
-                    'zip_code': booking.delivery_address.zip_code
-                },
-                'special_instructions': booking.special_instructions,
-                'coi_required': booking.coi_required,
-                'is_outside_core_area': booking.is_outside_core_area,
-                'total_price_dollars': booking.total_price_dollars,
-                'organizing_total_dollars': booking.organizing_total_dollars if hasattr(booking, 'organizing_total_dollars') else 0,
-                'pricing_breakdown': booking.get_pricing_breakdown(),
-                'service_details': service_details,  # 🔧 NEW
-                'created_at': booking.created_at,
-                'updated_at': booking.updated_at
-            },
-            'customer': customer_data,
-            'guest_checkout': {
-                'first_name': booking.guest_checkout.first_name if booking.guest_checkout else None,
-                'last_name': booking.guest_checkout.last_name if booking.guest_checkout else None,
-                'email': booking.guest_checkout.email if booking.guest_checkout else None,
-                'phone': booking.guest_checkout.phone if booking.guest_checkout else None
-            } if booking.guest_checkout else None,
-            'payment': payment_data
-        })
+                    'booking': {
+                        'id': str(booking.id),
+                        'booking_number': booking.booking_number,
+                        'service_type': booking.service_type,
+                        'service_type_display': booking.get_service_type_display(),
+                        'status': booking.status,
+                        'pickup_date': booking.pickup_date,
+                        'pickup_time': booking.pickup_time,
+                        'pickup_time_display': booking.get_pickup_time_display(),
+                        'specific_pickup_hour': booking.specific_pickup_hour,
+                        'pickup_address': {
+                            'address_line_1': booking.pickup_address.address_line_1,
+                            'address_line_2': booking.pickup_address.address_line_2,
+                            'city': booking.pickup_address.city,
+                            'state': booking.pickup_address.state,
+                            'zip_code': booking.pickup_address.zip_code
+                        },
+                        'delivery_address': {
+                            'address_line_1': booking.delivery_address.address_line_1,
+                            'address_line_2': booking.delivery_address.address_line_2,
+                            'city': booking.delivery_address.city,
+                            'state': booking.delivery_address.state,
+                            'zip_code': booking.delivery_address.zip_code
+                        },
+                        'special_instructions': booking.special_instructions,
+                        'coi_required': booking.coi_required,
+                        'is_outside_core_area': booking.is_outside_core_area,
+                        
+                        # PRICING FIELDS - ADD ALL OF THESE
+                        'base_price_dollars': booking.base_price_dollars,
+                        'surcharge_dollars': booking.surcharge_dollars,
+                        'same_day_surcharge_dollars': booking.same_day_surcharge_dollars,
+                        'coi_fee_dollars': booking.coi_fee_dollars,
+                        'organizing_total_dollars': booking.organizing_total_dollars,
+                        'organizing_tax_dollars': booking.organizing_tax_dollars,
+                        'geographic_surcharge_dollars': booking.geographic_surcharge_dollars,
+                        'time_window_surcharge_dollars': booking.time_window_surcharge_dollars,
+                        'total_price_dollars': booking.total_price_dollars,
+                        
+                        'pricing_breakdown': booking.get_pricing_breakdown(),
+                        'service_details': service_details,
+                        'created_at': booking.created_at,
+                        'updated_at': booking.updated_at
+                    },
+                    'customer': customer_data,
+                    'guest_checkout': {
+                        'first_name': booking.guest_checkout.first_name if booking.guest_checkout else None,
+                        'last_name': booking.guest_checkout.last_name if booking.guest_checkout else None,
+                        'email': booking.guest_checkout.email if booking.guest_checkout else None,
+                        'phone': booking.guest_checkout.phone if booking.guest_checkout else None
+                    } if booking.guest_checkout else None,
+                    'payment': payment_data
+                })
     #
     def _get_service_details(self, booking):
             """Get detailed service-specific information"""

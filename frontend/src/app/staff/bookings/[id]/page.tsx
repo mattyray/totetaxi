@@ -530,25 +530,75 @@ export default function BookingDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  {/* Base Price */}
-                  <div className="flex justify-between">
-                    <span className="text-navy-900">Base Price:</span>
-                    <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
-                  </div>
+                  
+                  {/* Standard Delivery - Show items breakdown */}
+                  {booking.booking?.service_type === 'standard_delivery' && serviceDetails.standard_delivery && (
+                    <>
+                      {/* Regular delivery items */}
+                      {serviceDetails.standard_delivery.item_count > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-navy-900">
+                            Standard Delivery ({serviceDetails.standard_delivery.item_count} items):
+                          </span>
+                          <span className="text-navy-900 font-medium">
+                            ${Math.max((serviceDetails.standard_delivery.item_count * 95), 285)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Specialty items */}
+                      {serviceDetails.specialty_items && serviceDetails.specialty_items.map((item) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span className="text-navy-900">{item.name} (Specialty):</span>
+                          <span className="text-navy-900 font-medium">${item.price_dollars}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
 
-                  {/* Same-Day Surcharge - NEW */}
-                  {booking.booking?.same_day_surcharge_dollars > 0 && (
+                  {/* Mini Move - Show base price */}
+                  {booking.booking?.service_type === 'mini_move' && (
                     <div className="flex justify-between">
-                      <span className="text-navy-900">Same-Day Delivery:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.same_day_surcharge_dollars}</span>
+                      <span className="text-navy-900">Base Price:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
                     </div>
                   )}
 
-                  {/* Weekend Surcharges - FIXED TYPO */}
+                  {/* Specialty Item Only */}
+                  {booking.booking?.service_type === 'specialty_item' && serviceDetails.specialty_items && (
+                    <>
+                      {serviceDetails.specialty_items.map((item) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span className="text-navy-900">{item.name}:</span>
+                          <span className="text-navy-900 font-medium">${item.price_dollars}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* BLADE */}
+                  {booking.booking?.service_type === 'blade_transfer' && serviceDetails.blade_transfer && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-900">
+                        BLADE Transfer ({serviceDetails.blade_transfer.bag_count} bags × $75):
+                      </span>
+                      <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
+                    </div>
+                  )}
+
+                  {/* Same-Day Surcharge */}
+                  {booking.booking?.same_day_surcharge_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-900">Same-Day Delivery:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.same_day_surcharge_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Weekend Surcharges */}
                   {booking.booking?.surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-900">Surcharges:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.surcharge_dollars}</span>
+                      <span className="text-navy-900">Weekend Surcharge:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.surcharge_dollars}</span>
                     </div>
                   )}
 
@@ -556,7 +606,7 @@ export default function BookingDetailPage() {
                   {booking.booking?.coi_fee_dollars > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-900">COI Fee:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.coi_fee_dollars}</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.coi_fee_dollars}</span>
                     </div>
                   )}
 
@@ -564,7 +614,7 @@ export default function BookingDetailPage() {
                   {booking.booking?.organizing_total_dollars > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-900">Organizing Services:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.organizing_total_dollars}</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.organizing_total_dollars}</span>
                     </div>
                   )}
 
@@ -572,7 +622,7 @@ export default function BookingDetailPage() {
                   {booking.booking?.geographic_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-900">Geographic Surcharge:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.geographic_surcharge_dollars}</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.geographic_surcharge_dollars}</span>
                     </div>
                   )}
 
@@ -580,7 +630,7 @@ export default function BookingDetailPage() {
                   {booking.booking?.time_window_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-900">Time Window Surcharge:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.time_window_surcharge_dollars}</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.time_window_surcharge_dollars}</span>
                     </div>
                   )}
 
