@@ -579,8 +579,8 @@ export function DateTimeStep() {
                         )}
                         
                         {/* Show specialty items from pricingMutation details */}
-                        {pricingMutation.data?.details?.specialty_items?.map((item: any) => (
-                          <div key={`specialty-${item.id}`} className="flex justify-between items-center">
+                        {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
+                          <div key={`specialty-${index}`} className="flex justify-between items-center">
                             <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
                             <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
                           </div>
@@ -599,15 +599,14 @@ export function DateTimeStep() {
                     {/* Specialty Item Only */}
                     {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
                       <>
-                        {pricingMutation.data.details.specialty_items.map((item: any) => (
-                          <div key={`specialty-only-${item.id}`} className="flex justify-between items-center">
+                        {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
+                          <div key={`specialty-only-${index}`} className="flex justify-between items-center">
                             <span className="text-navy-900 font-medium">{item.name}:</span>
                             <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
                           </div>
                         ))}
                       </>
                     )}
-                    
                     {/* BLADE - use type assertion since it's not in the type yet */}
                     {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
                       <div className="flex justify-between items-center">
