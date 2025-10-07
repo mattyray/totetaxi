@@ -318,6 +318,30 @@ class Booking(models.Model):
     @property
     def organizing_tax_dollars(self):
         return self.organizing_tax_cents / 100
+            
+    def get_pickup_time_display(self):
+        """
+        Override Django's auto-generated method to include specific hour.
+        Returns formatted pickup time with actual hour window when applicable.
+        """
+        if self.pickup_time == 'morning_specific' and self.specific_pickup_hour is not None:
+            start = self.specific_pickup_hour
+            end = start + 1
+            
+            # Format hours (handle 12 PM properly)
+            def format_hour(h):
+                if h == 12:
+                    return "12:00 PM"
+                elif h > 12:
+                    return f"{h - 12}:00 PM"
+                else:
+                    return f"{h}:00 AM"
+            
+            return f"{format_hour(start)} - {format_hour(end)} (1-hour window)"
+        
+        # Use Django's default display for other choices
+        return dict(self.PICKUP_TIME_CHOICES).get(self.pickup_time, self.pickup_time)
+    
     
     def calculate_blade_ready_time(self):
         """Calculate BLADE ready time based on flight time"""

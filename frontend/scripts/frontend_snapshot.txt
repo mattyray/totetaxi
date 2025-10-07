@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-06 13:53:17.953043
+# Generated: 2025-10-06 17:51:07.899895
 # Files: 79
 
 # ==== next-env.d.ts ====
@@ -2759,64 +2759,114 @@ export default function BookingDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  {/* Base Price */}
-                  <div className="flex justify-between">
-                    <span className="text-navy-700">Base Price:</span>
-                    <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
-                  </div>
+                  
+                  {/* Standard Delivery - Show items breakdown */}
+                  {booking.booking?.service_type === 'standard_delivery' && serviceDetails.standard_delivery && (
+                    <>
+                      {/* Regular delivery items */}
+                      {serviceDetails.standard_delivery.item_count > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-navy-900">
+                            Standard Delivery ({serviceDetails.standard_delivery.item_count} items):
+                          </span>
+                          <span className="text-navy-900 font-medium">
+                            ${Math.max((serviceDetails.standard_delivery.item_count * 95), 285)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Specialty items */}
+                      {serviceDetails.specialty_items && serviceDetails.specialty_items.map((item) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span className="text-navy-900">{item.name} (Specialty):</span>
+                          <span className="text-navy-900 font-medium">${item.price_dollars}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
 
-                  {/* Surcharges */}
-                  {booking.booking?.surcharges_dollars > 0 && (
+                  {/* Mini Move - Show base price */}
+                  {booking.booking?.service_type === 'mini_move' && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Surcharges:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.surcharges_dollars}</span>
+                      <span className="text-navy-900">Base Price:</span>
+                      <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
                     </div>
                   )}
 
-                  {/* Same-Day Delivery */}
+                  {/* Specialty Item Only */}
+                  {booking.booking?.service_type === 'specialty_item' && serviceDetails.specialty_items && (
+                    <>
+                      {serviceDetails.specialty_items.map((item) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span className="text-navy-900">{item.name}:</span>
+                          <span className="text-navy-900 font-medium">${item.price_dollars}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* BLADE */}
+                  {booking.booking?.service_type === 'blade_transfer' && serviceDetails.blade_transfer && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-900">
+                        BLADE Transfer ({serviceDetails.blade_transfer.bag_count} bags × $75):
+                      </span>
+                      <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
+                    </div>
+                  )}
+
+                  {/* Same-Day Surcharge */}
                   {booking.booking?.same_day_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Same-Day Delivery:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.same_day_surcharge_dollars}</span>
+                      <span className="text-navy-900">Same-Day Delivery:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.same_day_surcharge_dollars}</span>
+                    </div>
+                  )}
+
+                  {/* Weekend Surcharges */}
+                  {booking.booking?.surcharge_dollars > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-900">Weekend Surcharge:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.surcharge_dollars}</span>
                     </div>
                   )}
 
                   {/* COI Fee */}
                   {booking.booking?.coi_fee_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">COI Fee:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.coi_fee_dollars}</span>
+                      <span className="text-navy-900">COI Fee:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.coi_fee_dollars}</span>
                     </div>
                   )}
 
                   {/* Organizing Total */}
                   {booking.booking?.organizing_total_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Organizing Services:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.organizing_total_dollars}</span>
+                      <span className="text-navy-900">Organizing Services:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.organizing_total_dollars}</span>
                     </div>
                   )}
 
                   {/* Geographic Surcharge */}
                   {booking.booking?.geographic_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Geographic Surcharge:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.geographic_surcharge_dollars}</span>
+                      <span className="text-navy-900">Geographic Surcharge:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.geographic_surcharge_dollars}</span>
                     </div>
                   )}
 
                   {/* Time Window Surcharge */}
                   {booking.booking?.time_window_surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-700">Time Window Surcharge:</span>
-                      <span className="text-navy-900 font-medium">${booking.booking.time_window_surcharge_dollars}</span>
+                      <span className="text-navy-900">Time Window Surcharge:</span>
+                      <span className="text-navy-900 font-medium">+${booking.booking.time_window_surcharge_dollars}</span>
                     </div>
                   )}
 
                   {/* Total */}
                   <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                    <span>Total:</span>
-                    <span>${booking.booking?.total_price_dollars}</span>
+                    <span className="text-navy-900">Total:</span>
+                    <span className="text-navy-900">${booking.booking?.total_price_dollars}</span>
                   </div>
                 </div>
               </CardContent>
@@ -6179,44 +6229,49 @@ export function DateTimeStep() {
         </div>
         
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1 md:gap-4">
-          {getMonthDays().map((date, index) => {
-            if (!date) {
-              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
-            }
-            
-            const dateStr = formatDate(date);
-            const dayInfo = getDayInfo(date);
-            const isSelected = selectedDate === dateStr;
-            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
-            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                <div className="grid grid-cols-7 gap-1 md:gap-4">
+                  {getMonthDays().map((date, index) => {
+                    if (!date) {
+                      return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+                    }
+                    
+                    const dateStr = formatDate(date);
+                    const dayInfo = getDayInfo(date);
+                    const isSelected = selectedDate === dateStr;
+                    const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                    
+                    // FIXED: Add past date check
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isPastDate = date < today;
 
-            return (
-              <button
-                key={dateStr}
-                onClick={() => isCurrentMonth && handleDateSelect(dateStr)}
-                disabled={!isCurrentMonth}
-                className={`
-                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
-                  h-16 md:h-20 flex flex-col items-center justify-center
-                  ${!isCurrentMonth ? 'opacity-30 cursor-not-allowed' : ''}
-                  ${isSelected 
-                    ? 'bg-navy-900 text-white border-navy-900' 
-                    : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                  }
-                `}
-              >
-                <div className="font-medium">{date.getDate()}</div>
-                <div className="text-xs opacity-75">
-                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
+                        disabled={!isCurrentMonth || isPastDate}
+                        className={`
+                          p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                          h-16 md:h-20 flex flex-col items-center justify-center
+                          ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
+                          ${isSelected 
+                            ? 'bg-navy-900 text-white border-navy-900' 
+                            : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                          }
+                        `}
+                      >
+                        <div className="font-medium">{date.getDate()}</div>
+                        <div className="text-xs opacity-75">
+                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </div>
+                        {hasSurcharge && isCurrentMonth && !isPastDate && (
+                          <div className="text-xs text-orange-600 mt-1">•</div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-                {hasSurcharge && isCurrentMonth && (
-                  <div className="text-xs text-orange-600 mt-1">•</div>
-                )}
-              </button>
-            );
-          })}
-        </div>
         
         <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">
@@ -6343,74 +6398,131 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-        <Card variant="luxury" className="p-8">
-          <CardContent className="p-0">
-            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-navy-900 font-medium">Base Price:</span>
-                <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-              </div>
+              <Card variant="luxury" className="p-8">
+                <CardContent className="p-0">
+                  <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+                  <div className="space-y-4">
+                    
+                    {/* Standard Delivery - Itemized */}
+                    {bookingData.service_type === 'standard_delivery' && (
+                      <>
+                        {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">
+                              Standard Delivery ({bookingData.standard_delivery_item_count} items):
+                            </span>
+                            <span className="text-navy-900 font-semibold">
+                              ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Show specialty items from pricingMutation details */}
+                        {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
+                          <div key={`specialty-${index}`} className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
+                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
 
-              {pricingMutation.data.pricing.same_day_delivery_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
-                </div>
-              )}
+                    {/* Mini Move */}
+                    {bookingData.service_type === 'mini_move' && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Mini Move Package:</span>
+                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Specialty Item Only */}
+                    {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
+                      <>
+                        {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
+                          <div key={`specialty-only-${index}`} className="flex justify-between items-center">
+                            <span className="text-navy-900 font-medium">{item.name}:</span>
+                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {/* BLADE - use type assertion since it's not in the type yet */}
+                    {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">
+                          {bookingData.blade_bag_count} bags × $75:
+                        </span>
+                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.coi_fee_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">COI Fee:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
-                </div>
-              )}
+                    {/* Same-Day Delivery */}
+                    {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.organizing_total_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Organizing Services:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
-                </div>
-              )}
+                    {/* Weekend Surcharge */}
+                    {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.organizing_tax_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
-                </div>
-              )}
+                    {/* COI Fee */}
+                    {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">COI Fee:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.geographic_surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Organizing Services */}
+                    {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Organizing Services:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                      </div>
+                    )}
 
-              {pricingMutation.data.pricing.time_window_surcharge_dollars > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
-                </div>
-              )}
+                    {/* Organizing Tax */}
+                    {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
+                      </div>
+                    )}
 
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-navy-900">Total:</span>
-                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    {/* Time Window Surcharge */}
+                    {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
+                      </div>
+                    )}
+
+                    {/* Geographic Surcharge */}
+                    {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-navy-900">Total:</span>
+                        <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
       {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">
@@ -7119,83 +7231,83 @@ export function ReviewPaymentStep() {
       </Card>
 
       {bookingData.pricing_data && (
-        <Card variant="elevated">
-          <CardHeader>
-            <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-navy-700">Base Price:</span>
-                <span className="font-medium">${bookingData.pricing_data.base_price_dollars}</span>
-              </div>
-              
-              {bookingData.service_type === 'blade_transfer' && (
-                <div className="text-sm text-navy-600 italic">
-                  {bookingData.blade_bag_count} bags × $75
-                </div>
-              )}
-              
-              {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Same-Day Delivery:</span>
-                  <span className="font-medium">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
-                </div>
-              )}
-              
-              {bookingData.pricing_data.surcharge_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Weekend Surcharge:</span>
-                  <span className="font-medium">+${bookingData.pricing_data.surcharge_dollars}</span>
-                </div>
-              )}
-              
-              {bookingData.pricing_data.coi_fee_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">COI Fee:</span>
-                  <span className="font-medium">+${bookingData.pricing_data.coi_fee_dollars}</span>
-                </div>
-              )}
-              
-              {bookingData.pricing_data.organizing_total_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Organizing Services:</span>
-                  <span className="font-medium">+${bookingData.pricing_data.organizing_total_dollars}</span>
-                </div>
-              )}
+              <Card variant="elevated">
+                <CardHeader>
+                  <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-navy-900 font-medium">Base Price:</span>
+                      <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
+                    </div>
+                    
+                    {bookingData.service_type === 'blade_transfer' && (
+                      <div className="text-sm text-navy-900 italic">
+                        {bookingData.blade_bag_count} bags × $75
+                      </div>
+                    )}
+                    
+                    {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
+                      </div>
+                    )}
+                    
+                    {bookingData.pricing_data.surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
+                      </div>
+                    )}
+                    
+                    {bookingData.pricing_data.coi_fee_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">COI Fee:</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.coi_fee_dollars}</span>
+                      </div>
+                    )}
+                    
+                    {bookingData.pricing_data.organizing_total_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">Organizing Services:</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_total_dollars}</span>
+                      </div>
+                    )}
 
-              {bookingData.pricing_data.organizing_tax_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">Tax (8.25%):</span>
-                  <span className="font-medium">+${bookingData.pricing_data.organizing_tax_dollars}</span>
-                </div>
-              )}
+                    {bookingData.pricing_data.organizing_tax_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_tax_dollars}</span>
+                      </div>
+                    )}
 
-              {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-navy-700">1-Hour Window:</span>
-                  <span className="font-medium">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
-                </div>
-              )}
-              
-              <hr className="border-gray-200" />
-              
-              <div className="flex justify-between text-xl font-bold">
-                <span className="text-navy-900">Total:</span>
-                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
-              </div>
-              
-              {bookingData.service_type === 'blade_transfer' && (
-                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-sm text-green-800">
-                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
+                      </div>
+                    )}
+                    
+                    <hr className="border-gray-200" />
+                    
+                    <div className="flex justify-between text-xl font-bold">
+                      <span className="text-navy-900">Total:</span>
+                      <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+                    </div>
+                    
+                    {bookingData.service_type === 'blade_transfer' && (
+                      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-sm text-green-800">
+                          <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
       <Card variant="default" className="border-navy-200">
         <CardHeader>
