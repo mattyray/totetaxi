@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-06 17:50:56
+# Created: 2025-10-07 12:09:08
 # Total files: 134
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -3504,6 +3504,30 @@ class Booking(models.Model):
     @property
     def organizing_tax_dollars(self):
         return self.organizing_tax_cents / 100
+            
+    def get_pickup_time_display(self):
+        """
+        Override Django's auto-generated method to include specific hour.
+        Returns formatted pickup time with actual hour window when applicable.
+        """
+        if self.pickup_time == 'morning_specific' and self.specific_pickup_hour is not None:
+            start = self.specific_pickup_hour
+            end = start + 1
+            
+            # Format hours (handle 12 PM properly)
+            def format_hour(h):
+                if h == 12:
+                    return "12:00 PM"
+                elif h > 12:
+                    return f"{h - 12}:00 PM"
+                else:
+                    return f"{h}:00 AM"
+            
+            return f"{format_hour(start)} - {format_hour(end)} (1-hour window)"
+        
+        # Use Django's default display for other choices
+        return dict(self.PICKUP_TIME_CHOICES).get(self.pickup_time, self.pickup_time)
+    
     
     def calculate_blade_ready_time(self):
         """Calculate BLADE ready time based on flight time"""
@@ -6847,6 +6871,9 @@ class CustomerDashboardView(APIView):
         
         popular_addresses = saved_addresses.order_by('-times_used')[:3]
         
+        # ✅ FIX: Serialize the recent bookings properly
+        from .booking_serializers import CustomerBookingDetailSerializer
+        
         return Response({
             'customer_profile': {
                 'name': request.user.get_full_name(),
@@ -6862,12 +6889,11 @@ class CustomerDashboardView(APIView):
                 'completed_bookings': completed_bookings,
                 'total_bookings': all_bookings.count()
             },
-            'recent_bookings': [],
+            'recent_bookings': CustomerBookingDetailSerializer(recent_bookings, many=True).data,  # ✅ FIXED!
             'saved_addresses_count': saved_addresses.count(),
             'payment_methods_count': payment_methods.count(),
             'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
         })
-
 
 @method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class BookingPreferencesView(APIView):

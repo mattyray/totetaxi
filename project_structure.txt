@@ -27,7 +27,8 @@
 │   │   │   │   ├── 0001_initial.py
 │   │   │   │   ├── 0002_booking_include_packing_booking_include_unpacking_and_more.py
 │   │   │   │   ├── 0003_booking_geographic_surcharge_cents_and_more.py
-│   │   │   │   └── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
+│   │   │   │   ├── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
+│   │   │   │   └── 0005_booking_same_day_surcharge_cents.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -216,6 +217,10 @@
 │   │   │   │   └── page.tsx
 │   │   │   ├── dashboard
 │   │   │   │   ├── bookings
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── settings
 │   │   │   │   │   └── page.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── faq
@@ -301,6 +306,7 @@
 │   │   │   │   ├── booking-management.tsx
 │   │   │   │   ├── customer-management.tsx
 │   │   │   │   ├── index.ts
+│   │   │   │   ├── refund-modal.tsx
 │   │   │   │   ├── staff-dashboard-overview.tsx
 │   │   │   │   ├── staff-layout.tsx
 │   │   │   │   └── staff-login-form.tsx
@@ -340,4 +346,4 @@
 ├── project_structure.txt
 └── README.md
 
-82 directories, 259 files
+84 directories, 263 files
