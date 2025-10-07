@@ -11,7 +11,6 @@ import {
   Cog6ToothIcon, 
   ArrowRightOnRectangleIcon,
   PlusIcon,
-  BookOpenIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
@@ -70,18 +69,10 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       }
     },
     {
-      label: 'Booking History',
-      icon: BookOpenIcon,
-      onClick: () => {
-        router.push('/dashboard/bookings');
-        setIsOpen(false);
-      }
-    },
-    {
       label: 'Account Settings',
       icon: Cog6ToothIcon,
       onClick: () => {
-        alert('Account settings coming soon!');
+        router.push('/dashboard/settings'); // ✅ FIXED: Navigate to settings
         setIsOpen(false);
       }
     },
@@ -108,6 +99,7 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
         <div className="px-4 py-3 bg-gray-50 rounded-lg mx-4">
           <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
           <p className="text-sm text-navy-600">{user.email}</p>
+          {/* ✅ FIXED: Only show VIP badge, removed total spent */}
           <div className="flex items-center gap-2 mt-2">
             {customerProfile?.is_vip && (
               <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
@@ -163,21 +155,15 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 border border-gray-200">
           <div className="py-1">
+            {/* ✅ FIXED: Removed total spent, cleaner header */}
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
               <p className="font-medium text-navy-900">{user.first_name} {user.last_name}</p>
               <p className="text-sm text-navy-600">{user.email}</p>
-              {customerProfile && (
+              {customerProfile?.is_vip && (
                 <div className="flex items-center gap-2 mt-2">
-                  {customerProfile.is_vip && (
-                    <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                      VIP
-                    </span>
-                  )}
-                  {customerProfile.total_spent_dollars > 0 && (
-                    <span className="text-xs text-navy-600">
-                      ${customerProfile.total_spent_dollars} spent
-                    </span>
-                  )}
+                  <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                    VIP Member
+                  </span>
                 </div>
               )}
             </div>
