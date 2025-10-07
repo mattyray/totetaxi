@@ -655,24 +655,8 @@ export function ServiceSelectionStep() {
                   type="date"
                   value={bookingData.blade_flight_date || ''}
                   onChange={(e) => {
-                    const selectedDate = e.target.value;
-                    
-                    // Clear error when user changes the date
-                    setDateError('');
-                    
-                    // Validate the date
-                    const tomorrow = new Date();
-                    tomorrow.setHours(0, 0, 0, 0);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    
-                    const selected = new Date(selectedDate + 'T00:00:00');
-                    
-                    if (selected < tomorrow) {
-                      setDateError('Flight must be booked at least 1 day in advance');
-                      return; // Don't update state with invalid date
-                    }
-                    
-                    updateBookingData({ blade_flight_date: selectedDate });
+                    setDateError(''); // Clear error when they change it
+                    updateBookingData({ blade_flight_date: e.target.value });
                   }}
                   min={(() => {
                     const tomorrow = new Date();
@@ -680,7 +664,7 @@ export function ServiceSelectionStep() {
                     return tomorrow.toISOString().split('T')[0];
                   })()}
                   error={dateError}
-                  helper={!dateError ? "Select 1 day in advance (or call (631)595-5100 for same-day service)" : undefined}
+                  helper={!dateError ? "Select your flight date (must be tomorrow or call us)" : undefined}
                   required
                 />
                 
@@ -689,11 +673,11 @@ export function ServiceSelectionStep() {
                   type="time"
                   value={bookingData.blade_flight_time || ''}
                   onChange={(e) => {
-                    setTimeError(''); // Clear error on change
+                    setTimeError('');
                     updateBookingData({ blade_flight_time: e.target.value });
                   }}
                   error={timeError}
-                  helper={!timeError ? "Tap to select departure time" : undefined}
+                  helper={!timeError ? "Select your departure time" : undefined}
                   required
                 />
                 
