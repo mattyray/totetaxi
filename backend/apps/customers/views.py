@@ -413,6 +413,9 @@ class CustomerDashboardView(APIView):
         
         popular_addresses = saved_addresses.order_by('-times_used')[:3]
         
+        # ✅ FIX: Serialize the recent bookings properly
+        from .booking_serializers import CustomerBookingDetailSerializer
+        
         return Response({
             'customer_profile': {
                 'name': request.user.get_full_name(),
@@ -428,12 +431,11 @@ class CustomerDashboardView(APIView):
                 'completed_bookings': completed_bookings,
                 'total_bookings': all_bookings.count()
             },
-            'recent_bookings': [],
+            'recent_bookings': CustomerBookingDetailSerializer(recent_bookings, many=True).data,  # ✅ FIXED!
             'saved_addresses_count': saved_addresses.count(),
             'payment_methods_count': payment_methods.count(),
             'popular_addresses': SavedAddressSerializer(popular_addresses, many=True).data
         })
-
 
 @method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class BookingPreferencesView(APIView):
