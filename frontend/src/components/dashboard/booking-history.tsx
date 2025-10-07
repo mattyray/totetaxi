@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -38,6 +39,7 @@ interface BookingHistoryResponse {
 
 export function BookingHistory() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -216,18 +218,12 @@ export function BookingHistory() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => alert('Booking details coming soon!')}
+                        onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
                       >
                         View Details
                       </Button>
                       {booking.status === 'completed' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => alert('Rebook functionality coming soon!')}
-                        >
-                          Book Again
-                        </Button>
+
                       )}
                     </div>
                   </div>
