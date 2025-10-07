@@ -82,6 +82,8 @@ export function ServiceSelectionStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
+  const [dateError, setDateError] = useState<string>('');
+  const [timeError, setTimeError] = useState<string>('');
 
   console.log('SERVICE STEP - Current booking data:', bookingData);
   console.log('mini_move_package_id:', bookingData.mini_move_package_id);
@@ -94,6 +96,53 @@ export function ServiceSelectionStep() {
       return response.data;
     }
   });
+
+  const validateBladeData = () => {
+    setDateError('');
+    setTimeError('');
+    
+    if (!bookingData.blade_airport) {
+      return false;
+    }
+    
+    if (!bookingData.blade_flight_date) {
+      setDateError('Please select your flight date');
+      return false;
+    }
+    
+    // Validate date is at least tomorrow
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const selected = new Date(bookingData.blade_flight_date + 'T00:00:00');
+    
+    if (selected < tomorrow) {
+      setDateError('Flight must be booked at least 1 day in advance');
+      return false;
+    }
+    
+    if (!bookingData.blade_flight_time) {
+      setTimeError('Please select your flight departure time');
+      return false;
+    }
+    
+    if (!bookingData.blade_bag_count || bookingData.blade_bag_count < 2) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleContinue = () => {
+    if (bookingData.service_type === 'blade_transfer') {
+      if (!validateBladeData()) {
+        return; // Don't proceed if validation fails
+      }
+    }
+    
+    nextStep();
+  };
 
   const handleMiniMoveSelect = (packageId: string) => {
     const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
@@ -605,25 +654,50 @@ export function ServiceSelectionStep() {
                   label="Flight Date"
                   type="date"
                   value={bookingData.blade_flight_date || ''}
-                  onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    
+                    // Clear error when user changes the date
+                    setDateError('');
+                    
+                    // Validate the date
+                    const tomorrow = new Date();
+                    tomorrow.setHours(0, 0, 0, 0);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    
+                    const selected = new Date(selectedDate + 'T00:00:00');
+                    
+                    if (selected < tomorrow) {
+                      setDateError('Flight must be booked at least 1 day in advance');
+                      return; // Don't update state with invalid date
+                    }
+                    
+                    updateBookingData({ blade_flight_date: selectedDate });
+                  }}
                   min={(() => {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
                     return tomorrow.toISOString().split('T')[0];
                   })()}
-                  helper="Flight Date (Select 1 day in advance OR call (631) 595-5100 for same-day requests)"
+                  error={dateError}
+                  helper={!dateError ? "📅 Tap to select flight date (book 1 day in advance)" : undefined}
                   required
                 />
-                {/* Flight Departure Time */}
+                
                 <Input
                   label="Flight Departure Time"
                   type="time"
                   value={bookingData.blade_flight_time || ''}
-                  onChange={(e) => updateBookingData({ blade_flight_time: e.target.value })}
+                  onChange={(e) => {
+                    setTimeError(''); // Clear error on change
+                    updateBookingData({ blade_flight_time: e.target.value });
+                  }}
+                  error={timeError}
+                  helper={!timeError ? "🕒 Tap to select departure time" : undefined}
                   required
                 />
                 
-                {bookingData.blade_flight_time && (
+                {bookingData.blade_flight_time && !timeError && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
                       <strong>Bags Ready Time:</strong> Your bags must be ready for pickup by{' '}
@@ -692,7 +766,7 @@ export function ServiceSelectionStep() {
 
       <div className="flex justify-end pt-4">
         <Button
-          onClick={nextStep}
+          onClick={handleContinue}
           disabled={!canContinue()}
           size="lg"
         >
