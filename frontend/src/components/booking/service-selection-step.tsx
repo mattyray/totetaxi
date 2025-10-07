@@ -680,7 +680,7 @@ export function ServiceSelectionStep() {
                     return tomorrow.toISOString().split('T')[0];
                   })()}
                   error={dateError}
-                  helper={!dateError ? "📅 Tap to select flight date (book 1 day in advance)" : undefined}
+                  helper={!dateError ? "Select 1 day in advance (or call (631)595-5100 for same-day service)" : undefined}
                   required
                 />
                 
@@ -693,7 +693,7 @@ export function ServiceSelectionStep() {
                     updateBookingData({ blade_flight_time: e.target.value });
                   }}
                   error={timeError}
-                  helper={!timeError ? "🕒 Tap to select departure time" : undefined}
+                  helper={!timeError ? "Tap to select departure time" : undefined}
                   required
                 />
                 
