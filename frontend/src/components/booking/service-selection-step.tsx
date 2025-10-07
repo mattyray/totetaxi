@@ -606,10 +606,15 @@ export function ServiceSelectionStep() {
                   type="date"
                   value={bookingData.blade_flight_date || ''}
                   onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={(() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    return tomorrow.toISOString().split('T')[0];
+                  })()}
+                  helper="Flight Date (must be at least 1 day in advance OR call (631) 595-5100 for same-day requests)"
                   required
                 />
-                
+                {/* Flight Departure Time */}
                 <Input
                   label="Flight Departure Time"
                   type="time"
