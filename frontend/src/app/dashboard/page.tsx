@@ -33,19 +33,23 @@ function DashboardContent() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 to-cream-100 py-12">
         <div className="container mx-auto px-4 max-w-6xl">
-          {/* Welcome Message for New Users */}
+          {/* Welcome Banner for New Users */}
           {isWelcome && (
-            <Card variant="luxury" className="mb-8 border-gold-200 bg-gold-50">
-              <CardContent className="p-6 text-center">
-                <h2 className="text-xl font-serif font-bold text-navy-900 mb-2">
-                  Welcome to ToteTaxi, {user.first_name}!
+            <Card variant="luxury" className="mb-8 border-gold-200 bg-gradient-to-r from-gold-50 to-cream-50">
+              <CardContent className="p-8 text-center">
+                <h2 className="text-2xl font-serif font-bold text-navy-900 mb-3">
+                  Welcome to ToteTaxi, {user.first_name}! 🎉
                 </h2>
-                <p className="text-navy-700 mb-4">
-                  Your account has been created successfully. Ready to book your first luxury move?
+                <p className="text-navy-700 mb-6 max-w-2xl mx-auto">
+                  Your account is ready. Experience white-glove moving and delivery service.
                 </p>
-                <Button variant="primary" onClick={() => router.push('/book')}>
+                <Button 
+                  variant="primary" 
+                  size="lg"
+                  onClick={() => router.push('/book')}
+                >
                   Book Your First Move
                 </Button>
               </CardContent>
@@ -53,12 +57,12 @@ function DashboardContent() {
           )}
 
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-serif font-bold text-navy-900 mb-2">
+          <div className="mb-8">
+            <h1 className="text-4xl font-serif font-bold text-navy-900 mb-2">
               Welcome back, {user.first_name}!
             </h1>
-            <p className="text-navy-700">
-              Your ToteTaxi account dashboard
+            <p className="text-navy-600">
+              Your ToteTaxi dashboard
             </p>
           </div>
 
@@ -67,11 +71,14 @@ function DashboardContent() {
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-medium text-navy-900 mb-4">Book a Move</h3>
-                <p className="text-sm text-navy-700 mb-4">
-                  Schedule your next ToteTaxi delivery or move
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-8 text-center">
+                <div className="text-4xl mb-4">🚚</div>
+                <h3 className="text-xl font-semibold text-navy-900 mb-3">
+                  Book a Move
+                </h3>
+                <p className="text-sm text-navy-600 mb-6">
+                  Schedule your next luxury delivery
                 </p>
                 <Button 
                   variant="primary" 
@@ -83,11 +90,14 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-medium text-navy-900 mb-4">Manage Addresses</h3>
-                <p className="text-sm text-navy-700 mb-4">
-                  Save addresses for faster future bookings
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-8 text-center">
+                <div className="text-4xl mb-4">📍</div>
+                <h3 className="text-xl font-semibold text-navy-900 mb-3">
+                  Manage Addresses
+                </h3>
+                <p className="text-sm text-navy-600 mb-6">
+                  Save locations for faster booking
                 </p>
                 <Button 
                   variant="outline" 

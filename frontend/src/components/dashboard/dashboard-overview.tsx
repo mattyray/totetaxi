@@ -1,12 +1,18 @@
 // src/components/dashboard/dashboard-overview.tsx
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { 
+  CalendarIcon, 
+  CheckCircleIcon,
+  UserCircleIcon,
+  ChevronRightIcon 
+} from '@heroicons/react/24/outline';
 
 interface DashboardData {
   customer_profile: {
@@ -44,30 +50,29 @@ export function DashboardOverview() {
   const router = useRouter();
 
   const { data: dashboardData, isLoading, error, refetch } = useQuery({
-    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
     queryKey: ['customer', 'dashboard', user?.id],
     queryFn: async (): Promise<DashboardData> => {
-      console.log('🔍 Fetching dashboard data for user:', user?.id);
       const response = await apiClient.get('/api/customer/dashboard/');
-      console.log('📊 Dashboard API response for user:', user?.id, 'Data:', response.data);
       return response.data;
     },
     enabled: !!user?.id,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 10,   // 10 minutes
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
   });
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-8 bg-gray-200 rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -76,12 +81,8 @@ export function DashboardOverview() {
     return (
       <Card>
         <CardContent className="p-6 text-center">
-          <p className="text-red-600">Failed to load dashboard data</p>
-          <Button 
-            variant="outline" 
-            onClick={() => refetch()}
-            className="mt-4"
-          >
+          <p className="text-red-600 mb-4">Failed to load dashboard</p>
+          <Button variant="outline" onClick={() => refetch()}>
             Retry
           </Button>
         </CardContent>
@@ -91,170 +92,146 @@ export function DashboardOverview() {
 
   const profile = dashboardData?.customer_profile;
   const bookingSummary = dashboardData?.booking_summary;
+  const recentBookings = dashboardData?.recent_bookings || [];
 
   return (
     <div className="space-y-6">
-      {/* Debug Info - Remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardContent className="p-4">
-            <h4 className="font-medium text-yellow-800">Debug Info (Dev Only)</h4>
-            <p className="text-sm text-yellow-700">
-              User ID: {user?.id} | Email: {user?.email}
-            </p>
-            <p className="text-sm text-yellow-700">
-              Profile Name: {profile?.name} | Bookings: {profile?.total_bookings}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <h3 className="text-sm font-medium text-navy-600">Total Bookings</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-navy-900">
-              {profile?.total_bookings || 0}
+      {/* Key Stats - Clean 3-column */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Bookings */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <CalendarIcon className="h-5 w-5 text-navy-500" />
+              <span className="text-3xl font-bold text-navy-900">
+                {profile?.total_bookings || 0}
+              </span>
             </div>
-            <p className="text-xs text-navy-600">
-              {profile?.last_booking_at 
-                ? `Last booking: ${new Date(profile.last_booking_at).toLocaleDateString()}`
-                : 'No bookings yet'
-              }
+            <p className="text-sm font-medium text-navy-600">Total Bookings</p>
+            {profile?.last_booking_at && (
+              <p className="text-xs text-navy-500 mt-1">
+                Last: {new Date(profile.last_booking_at).toLocaleDateString()}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Upcoming */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <CheckCircleIcon className="h-5 w-5 text-blue-500" />
+              <span className="text-3xl font-bold text-navy-900">
+                {bookingSummary?.pending_bookings || 0}
+              </span>
+            </div>
+            <p className="text-sm font-medium text-navy-600">Upcoming</p>
+            <p className="text-xs text-navy-500 mt-1">
+              {bookingSummary?.completed_bookings || 0} completed
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <h3 className="text-sm font-medium text-navy-600">Total Spent</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-navy-900">
-              ${profile?.total_spent_dollars || 0}
-            </div>
-            <p className="text-xs text-navy-600">Lifetime value</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <h3 className="text-sm font-medium text-navy-600">Account Status</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
+        {/* Account Status */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <UserCircleIcon className="h-5 w-5 text-gold-500" />
               {profile?.is_vip ? (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold-100 text-gold-800">
-                  VIP Member
+                <span className="px-3 py-1 bg-gold-100 text-gold-800 rounded-full text-xs font-semibold">
+                  VIP
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-navy-100 text-navy-800">
+                <span className="px-3 py-1 bg-navy-100 text-navy-800 rounded-full text-xs font-semibold">
                   Standard
                 </span>
               )}
             </div>
-            <p className="text-xs text-navy-600 mt-1">
+            <p className="text-sm font-medium text-navy-600">Account Status</p>
+            <p className="text-xs text-navy-500 mt-1">
               {profile?.is_vip 
-                ? 'Priority scheduling & exclusive benefits'
-                : 'Book 3+ moves to unlock VIP status'
+                ? 'Priority access' 
+                : `${3 - (profile?.total_bookings || 0)} more for VIP`
               }
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Booking Summary */}
-      {bookingSummary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-lg font-semibold text-navy-900">{bookingSummary.pending_bookings}</div>
-              <div className="text-sm text-navy-600">Pending Bookings</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-lg font-semibold text-navy-900">{bookingSummary.completed_bookings}</div>
-              <div className="text-sm text-navy-600">Completed Bookings</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-lg font-semibold text-navy-900">{bookingSummary.total_bookings}</div>
-              <div className="text-sm text-navy-600">Total Bookings</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Recent Bookings */}
-      {dashboardData?.recent_bookings && dashboardData.recent_bookings.length > 0 && (
+      {recentBookings.length > 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <h3 className="text-lg font-medium text-navy-900">Recent Bookings</h3>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <h3 className="text-lg font-semibold text-navy-900">Recent Bookings</h3>
             <Button 
               variant="ghost" 
+              size="sm"
               onClick={() => router.push('/dashboard/bookings')}
+              className="text-navy-600 hover:text-navy-900"
             >
               View All
+              <ChevronRightIcon className="h-4 w-4 ml-1" />
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {dashboardData.recent_bookings.slice(0, 3).map((booking) => (
-                <div key={booking.id} className="flex items-center justify-between p-4 border border-cream-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-navy-900">#{booking.booking_number}</p>
-                    <p className="text-sm text-navy-600">{booking.service_type}</p>
-                    <p className="text-xs text-navy-500">
-                      {new Date(booking.pickup_date).toLocaleDateString()}
+          <CardContent className="space-y-3">
+            {recentBookings.slice(0, 3).map((booking) => (
+              <div 
+                key={booking.id} 
+                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-navy-300 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => alert('Booking details coming soon!')}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <p className="font-semibold text-navy-900">
+                      #{booking.booking_number}
                     </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-navy-900">${booking.total_price_dollars}</p>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       booking.status === 'completed' 
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-green-100 text-green-700'
                         : booking.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-blue-100 text-blue-800'
+                        ? 'bg-yellow-100 text-yellow-700' 
+                        : 'bg-blue-100 text-blue-700'
                     }`}>
                       {booking.status}
                     </span>
                   </div>
+                  <p className="text-sm text-navy-600">{booking.service_type}</p>
+                  <p className="text-xs text-navy-500 mt-1">
+                    {new Date(booking.pickup_date).toLocaleDateString()}
+                  </p>
                 </div>
-              ))}
-            </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-navy-900">
+                    ${booking.total_price_dollars}
+                  </p>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
-      {/* Quick Stats Summary */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-xl font-bold text-navy-900">{dashboardData?.saved_addresses_count || 0}</div>
-              <div className="text-sm text-navy-600">Saved Addresses</div>
-            </div>
-            <div>
-              <div className="text-xl font-bold text-navy-900">{dashboardData?.payment_methods_count || 0}</div>
-              <div className="text-sm text-navy-600">Payment Methods</div>
-            </div>
-            <div>
-              <div className="text-xl font-bold text-navy-900">{bookingSummary?.pending_bookings || 0}</div>
-              <div className="text-sm text-navy-600">Upcoming</div>
-            </div>
-            <div>
-              <div className="text-xl font-bold text-navy-900">{bookingSummary?.completed_bookings || 0}</div>
-              <div className="text-sm text-navy-600">Complete</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Empty State */}
+      {recentBookings.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="text-6xl mb-4">📦</div>
+            <h3 className="text-xl font-semibold text-navy-900 mb-2">
+              No bookings yet
+            </h3>
+            <p className="text-navy-600 mb-6">
+              Ready to experience luxury moving?
+            </p>
+            <Button 
+              variant="primary" 
+              size="lg"
+              onClick={() => router.push('/book')}
+            >
+              Book Your First Move
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
