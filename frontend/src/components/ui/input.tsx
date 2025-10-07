@@ -1,6 +1,6 @@
 // frontend/src/components/ui/input.tsx
 import { cn } from '@/utils/cn';
-import { InputHTMLAttributes, forwardRef, useState } from 'react';
+import { InputHTMLAttributes, forwardRef, useState, useRef } from 'react';
 
 const inputVariants = {
   variant: {
@@ -77,10 +77,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   onChange,
   value,
   type,
+  id,
   ...props
 }, ref) => {
   const [internalValue, setInternalValue] = useState(value || '');
   const [validationError, setValidationError] = useState('');
+  const internalRef = useRef<HTMLInputElement>(null);
+  const generatedId = useRef(`input-${Math.random().toString(36).substr(2, 9)}`);
+  const inputId = id || generatedId.current;
+
+  // Use the forwarded ref if provided, otherwise use internal ref
+  const inputRef = (ref as React.RefObject<HTMLInputElement>) || internalRef;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value;
@@ -110,37 +117,71 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     onChange?.(newEvent);
   };
 
+  // Make entire container clickable for date/time inputs on desktop
+  const handleContainerClick = () => {
+    if (type === 'date' || type === 'time') {
+      const input = inputRef.current;
+      if (input) {
+        // Modern browsers support showPicker() for date/time inputs
+        try {
+          input.showPicker?.();
+        } catch (e) {
+          // Fallback for browsers that don't support showPicker
+          input.focus();
+          input.click();
+        }
+      }
+    }
+  };
+
   const displayValue = value !== undefined ? value : internalValue;
   const actualVariant = error || validationError ? 'error' : success ? 'success' : variant;
 
-  // Enhanced styling for date and time inputs to make them stand out on mobile
+  // Enhanced styling for date and time inputs to make them stand out and more clickable
   const isDateOrTime = type === 'date' || type === 'time';
   const dateTimeStyles = isDateOrTime 
-    ? 'border-2 border-navy-400 bg-navy-50/30 focus:bg-white focus:border-navy-600 font-medium text-navy-900 cursor-pointer' 
+    ? 'border-2 border-navy-400 bg-navy-50/30 focus:bg-white focus:border-navy-600 font-medium text-navy-900 cursor-pointer min-h-[48px] text-base' 
     : '';
 
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-semibold text-navy-900">
+        <label 
+          htmlFor={inputId}
+          onClick={handleContainerClick}
+          className={cn(
+            "block text-sm font-semibold text-navy-900",
+            isDateOrTime && "cursor-pointer select-none hover:text-navy-700 transition-colors"
+          )}
+        >
           {label}
           {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <input
-        ref={ref}
-        type={type}
-        value={displayValue}
-        onChange={handleChange}
+      
+      <div 
+        onClick={handleContainerClick}
         className={cn(
-          baseStyles,
-          inputVariants.variant[actualVariant],
-          inputVariants.size[inputSize],
-          dateTimeStyles,
-          className
+          isDateOrTime && "cursor-pointer"
         )}
-        {...props}
-      />
+      >
+        <input
+          ref={inputRef}
+          id={inputId}
+          type={type}
+          value={displayValue}
+          onChange={handleChange}
+          className={cn(
+            baseStyles,
+            inputVariants.variant[actualVariant],
+            inputVariants.size[inputSize],
+            dateTimeStyles,
+            className
+          )}
+          {...props}
+        />
+      </div>
+      
       {(error || validationError) && (
         <p className="text-sm text-red-600 flex items-center">
           <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
