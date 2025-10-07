@@ -632,83 +632,102 @@ export function ReviewPaymentStep() {
       </Card>
 
       {bookingData.pricing_data && (
-              <Card variant="elevated">
-                <CardHeader>
-                  <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-navy-900 font-medium">Base Price:</span>
-                      <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                    </div>
-                    
-                    {bookingData.service_type === 'blade_transfer' && (
-                      <div className="text-sm text-navy-900 italic">
-                        {bookingData.blade_bag_count} bags × $75
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.surcharge_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.coi_fee_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">COI Fee:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.coi_fee_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.organizing_total_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Organizing Services:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_total_dollars}</span>
-                      </div>
-                    )}
-
-                    {bookingData.pricing_data.organizing_tax_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_tax_dollars}</span>
-                      </div>
-                    )}
-
-                    {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
-                      </div>
-                    )}
-                    
-                    <hr className="border-gray-200" />
-                    
-                    <div className="flex justify-between text-xl font-bold">
-                      <span className="text-navy-900">Total:</span>
-                      <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
-                    </div>
-                    
-                    {bookingData.service_type === 'blade_transfer' && (
-                      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800">
-                          <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
-                        </p>
-                      </div>
-                    )}
+        <Card variant="elevated">
+          <CardHeader>
+            <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {/* Specialty Item - Show Individual Items */}
+              {bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0 ? (
+                <>
+                  {/* We need to fetch the specialty items details - for now show base price with note */}
+                  <div className="flex justify-between">
+                    <span className="text-navy-900 font-medium">Specialty Items:</span>
+                    <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </>
+              ) : (
+                /* All other service types show base price normally */
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Base Price:</span>
+                  <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="text-sm text-navy-900 italic">
+                  {bookingData.blade_bag_count} bags × $75
+                </div>
+              )}
+              
+              {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.coi_fee_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.coi_fee_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.organizing_total_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              {bookingData.pricing_data.organizing_tax_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.geographic_surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.geographic_surcharge_dollars}</span>
+                </div>
+              )}
+              
+              <hr className="border-gray-200" />
+              
+              <div className="flex justify-between text-xl font-bold">
+                <span className="text-navy-900">Total:</span>
+                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+              </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card variant="default" className="border-navy-200">
         <CardHeader>
