@@ -607,7 +607,6 @@ export function ServiceSelectionStep() {
                   value={bookingData.blade_flight_date || ''}
                   onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
-                  helper="📅 Tap here to select your flight date"
                   required
                 />
                 
@@ -616,7 +615,6 @@ export function ServiceSelectionStep() {
                   type="time"
                   value={bookingData.blade_flight_time || ''}
                   onChange={(e) => updateBookingData({ blade_flight_time: e.target.value })}
-                  helper="🕒 Tap here to select your departure time"
                   required
                 />
                 
