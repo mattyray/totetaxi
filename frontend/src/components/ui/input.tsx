@@ -113,10 +113,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const displayValue = value !== undefined ? value : internalValue;
   const actualVariant = error || validationError ? 'error' : success ? 'success' : variant;
 
+  // Enhanced styling for date and time inputs to make them stand out on mobile
+  const isDateOrTime = type === 'date' || type === 'time';
+  const dateTimeStyles = isDateOrTime 
+    ? 'border-2 border-navy-400 bg-navy-50/30 focus:bg-white focus:border-navy-600 font-medium text-navy-900 cursor-pointer' 
+    : '';
+
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium text-navy-900">
+        <label className="block text-sm font-semibold text-navy-900">
           {label}
           {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -130,6 +136,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           baseStyles,
           inputVariants.variant[actualVariant],
           inputVariants.size[inputSize],
+          dateTimeStyles,
           className
         )}
         {...props}
@@ -151,7 +158,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         </p>
       )}
       {helper && !error && !validationError && !success && (
-        <p className="text-sm text-gray-500">{helper}</p>
+        <p className="text-sm text-navy-600 font-medium">{helper}</p>
       )}
     </div>
   );
