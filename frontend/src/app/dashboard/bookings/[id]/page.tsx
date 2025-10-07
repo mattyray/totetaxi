@@ -1,5 +1,6 @@
-'use client';
 // frontend/src/app/dashboard/bookings/[id]/page.tsx
+'use client';
+
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,8 +14,7 @@ import {
   MapPinIcon,
   CalendarIcon,
   ClockIcon,
-  CurrencyDollarIcon,
-  DocumentArrowDownIcon
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 interface BookingDetail {
@@ -397,28 +397,6 @@ export default function BookingDetailPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => alert('Receipt download coming soon!')}
-              >
-                <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                Download Receipt
-              </Button>
-              
-              {booking.can_rebook && (
-                <Button
-                  variant="primary"
-                  className="flex-1"
-                  onClick={() => alert('Rebook functionality coming soon!')}
-                >
-                  Book Again
-                </Button>
-              )}
-            </div>
 
             {/* Booking Info Footer */}
             <Card className="bg-gray-50">

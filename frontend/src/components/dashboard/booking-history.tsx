@@ -44,16 +44,13 @@ export function BookingHistory() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data, isLoading, error, refetch } = useQuery({
-    // ✅ FIXED: Include user ID to prevent cross-user cache contamination
     queryKey: ['customer', 'bookings', user?.id, searchTerm, statusFilter],
     queryFn: async (): Promise<BookingHistoryResponse> => {
-      console.log('🔍 Fetching bookings for user:', user?.id);
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
       
       const response = await apiClient.get(`/api/customer/bookings/?${params}`);
-      console.log('📊 Bookings API response for user:', user?.id, 'Count:', response.data.total_count);
       return response.data;
     },
     enabled: !!user?.id,
@@ -122,15 +119,6 @@ export function BookingHistory() {
           </div>
         </div>
 
-        {/* Debug Info - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
-            <p className="text-xs text-yellow-700">
-              Debug: Showing bookings for user {user?.id} ({user?.email})
-            </p>
-          </div>
-        )}
-
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <div className="flex-1">
             <Input
@@ -161,7 +149,10 @@ export function BookingHistory() {
             <p className="text-navy-600 mb-4">
               Start your ToteTaxi experience by booking your first move
             </p>
-            <Button variant="primary">
+            <Button 
+              variant="primary"
+              onClick={() => router.push('/book')}
+            >
               Book Your First Move
             </Button>
           </div>
@@ -214,18 +205,13 @@ export function BookingHistory() {
                     <div className="text-2xl font-bold text-navy-900 mb-2">
                       ${booking.total_price}
                     </div>
-                    <div className="space-y-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
-                      >
-                        View Details
-                      </Button>
-                      {booking.status === 'completed' && (
-
-                      )}
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
+                    >
+                      View Details
+                    </Button>
                   </div>
                 </div>
               </div>
