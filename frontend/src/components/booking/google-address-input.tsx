@@ -35,7 +35,13 @@ export function GoogleAddressInput({
     // Load Google Maps API using singleton loader
     loadGoogleMapsAPI()
       .then(() => {
-        setIsLoaded(true);
+        // Double-check that google.maps.places actually exists
+        if (window.google?.maps?.places) {
+          setIsLoaded(true);
+        } else {
+          console.error('Google Maps loaded but places library not available');
+          setApiError(true);
+        }
       })
       .catch((error) => {
         console.error('Failed to load Google Maps API:', error);
@@ -44,7 +50,15 @@ export function GoogleAddressInput({
   }, []);
 
   useEffect(() => {
+    // Don't proceed if not loaded or already initialized
     if (!isLoaded || !inputRef.current || autocompleteRef.current || disabled) return;
+
+    // Extra safety check
+    if (!window.google?.maps?.places?.Autocomplete) {
+      console.error('Google Places Autocomplete not available');
+      setApiError(true);
+      return;
+    }
 
     try {
       // Initialize autocomplete with restrictions
@@ -94,7 +108,7 @@ export function GoogleAddressInput({
           } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <p className="text-xs text-red-600">Address autocomplete unavailable. Please enter manually.</p>
+        <p className="text-xs text-orange-600">⚠️ Address autocomplete unavailable. Please enter address manually.</p>
       </div>
     );
   }
@@ -118,7 +132,7 @@ export function GoogleAddressInput({
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!isLoaded && !apiError && (
-        <p className="text-xs text-navy-500">Loading address suggestions...</p>
+        <p className="text-xs text-navy-500">⏳ Loading address suggestions...</p>
       )}
     </div>
   );
