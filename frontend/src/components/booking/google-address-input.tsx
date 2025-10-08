@@ -30,7 +30,6 @@ export function GoogleAddressInput({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [apiError, setApiError] = useState(false);
-  const lastProcessedValue = useRef<string>('');
 
   useEffect(() => {
     loadGoogleMapsAPI()
@@ -38,12 +37,10 @@ export function GoogleAddressInput({
         if (window.google?.maps?.places) {
           setIsLoaded(true);
         } else {
-          console.error('Google Maps loaded but places library not available');
           setApiError(true);
         }
       })
-      .catch((error) => {
-        console.error('Failed to load Google Maps API:', error);
+      .catch(() => {
         setApiError(true);
       });
   }, []);
@@ -52,29 +49,9 @@ export function GoogleAddressInput({
     if (!isLoaded || !inputRef.current || autocompleteRef.current || disabled) return;
 
     if (!window.google?.maps?.places?.Autocomplete) {
-      console.error('Google Places Autocomplete not available');
       setApiError(true);
       return;
     }
-
-    // Declare function here so it's accessible in cleanup
-    const checkForFormattedAddress = () => {
-      const currentValue = inputRef.current?.value || '';
-      
-      // Check if Google filled it with formatted address (contains comma)
-      // And we haven't processed this exact value yet
-      if (currentValue.includes(',') && currentValue !== lastProcessedValue.current) {
-        // Google filled the input, but place_changed hasn't fired yet
-        // Give it a moment, then try to get the place manually
-        setTimeout(() => {
-          const place = autocompleteRef.current?.getPlace();
-          if (place?.address_components && inputRef.current?.value.includes(',')) {
-            lastProcessedValue.current = inputRef.current?.value || '';
-            onPlaceSelected(place);
-          }
-        }, 100);
-      }
-    };
 
     try {
       // Initialize autocomplete
@@ -84,41 +61,26 @@ export function GoogleAddressInput({
         fields: ['address_components', 'formatted_address', 'geometry']
       });
 
-      // Primary handler: place_changed event
+      // Listen for place selection
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         
         if (place?.address_components) {
-          lastProcessedValue.current = inputRef.current?.value || '';
+          // Immediately call parent handler
           onPlaceSelected(place);
         }
       });
-
-      // Listen for input changes
-      if (inputRef.current) {
-        inputRef.current.addEventListener('input', checkForFormattedAddress);
-        
-        // Also check on blur in case they tabbed through
-        const blurHandler = () => {
-          setTimeout(checkForFormattedAddress, 200);
-        };
-        inputRef.current.addEventListener('blur', blurHandler);
-      }
 
     } catch (error) {
       console.error('Error initializing Google Autocomplete:', error);
       setApiError(true);
     }
 
-    // Cleanup
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
       }
-      if (inputRef.current) {
-        inputRef.current.removeEventListener('input', checkForFormattedAddress);
-      }
-      autocompleteRef.current = null;
     };
   }, [isLoaded, onPlaceSelected, disabled]);
 
@@ -140,7 +102,7 @@ export function GoogleAddressInput({
           } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <p className="text-xs text-orange-600">⚠️ Address autocomplete unavailable. Please enter address manually.</p>
+        <p className="text-xs text-orange-600">⚠️ Address autocomplete unavailable. Please enter manually.</p>
       </div>
     );
   }
@@ -165,7 +127,7 @@ export function GoogleAddressInput({
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!isLoaded && !apiError && (
-        <p className="text-xs text-navy-500">⏳ Loading address suggestions...</p>
+        <p className="text-xs text-navy-500">⏳ Loading...</p>
       )}
     </div>
   );

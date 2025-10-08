@@ -131,6 +131,8 @@ function AddressForm({
               const parsed = parseGooglePlace(place);
               
               if (parsed) {
+                console.log('✅ Parsed address:', parsed);
+                
                 // Auto-fill all address fields
                 onAddressChange({
                   ...address,
@@ -139,12 +141,13 @@ function AddressForm({
                 
                 // Immediately trigger ZIP validation
                 if (onZipChange && parsed.zip_code) {
-                  setTimeout(() => {
+                  // Use requestAnimationFrame to ensure state has updated
+                  requestAnimationFrame(() => {
                     onZipChange(parsed.zip_code!);
-                  }, 100);
+                  });
                 }
               } else {
-                console.error('Failed to parse Google Place');
+                console.error('❌ Failed to parse Google Place');
               }
             }}
             error={errors.address_line_1}
@@ -152,7 +155,7 @@ function AddressForm({
             required
             disabled={readOnly}
           />
-          
+                    
           <Input
             label="Apartment, Suite, etc. (Optional)"
             value={address?.address_line_2 || ''}
