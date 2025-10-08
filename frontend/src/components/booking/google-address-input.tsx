@@ -30,6 +30,7 @@ export function GoogleAddressInput({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [apiError, setApiError] = useState(false);
+  const lastProcessedValue = useRef<string>('');
 
   useEffect(() => {
     loadGoogleMapsAPI()
@@ -56,6 +57,25 @@ export function GoogleAddressInput({
       return;
     }
 
+    // Declare function here so it's accessible in cleanup
+    const checkForFormattedAddress = () => {
+      const currentValue = inputRef.current?.value || '';
+      
+      // Check if Google filled it with formatted address (contains comma)
+      // And we haven't processed this exact value yet
+      if (currentValue.includes(',') && currentValue !== lastProcessedValue.current) {
+        // Google filled the input, but place_changed hasn't fired yet
+        // Give it a moment, then try to get the place manually
+        setTimeout(() => {
+          const place = autocompleteRef.current?.getPlace();
+          if (place?.address_components && inputRef.current?.value.includes(',')) {
+            lastProcessedValue.current = inputRef.current?.value || '';
+            onPlaceSelected(place);
+          }
+        }, 100);
+      }
+    };
+
     try {
       // Initialize autocomplete
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
@@ -64,43 +84,25 @@ export function GoogleAddressInput({
         fields: ['address_components', 'formatted_address', 'geometry']
       });
 
-      // Listen for place selection
+      // Primary handler: place_changed event
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         
         if (place?.address_components) {
-          // Call the parent's place selected handler
+          lastProcessedValue.current = inputRef.current?.value || '';
           onPlaceSelected(place);
-          
-          // IMPORTANT: Clear the input after selection
-          // This prevents the full formatted address from showing
-          // The parent component will set the proper street address only
-          if (inputRef.current) {
-            inputRef.current.blur(); // Remove focus to trigger any blur handlers
-          }
         }
       });
 
-      // Prevent Google from filling the input with formatted address
-      // Listen for the DOM mutation when Google tries to fill the input
+      // Listen for input changes
       if (inputRef.current) {
-        inputRef.current.addEventListener('focus', () => {
-          // Store the current value when focused
-          const currentValue = inputRef.current?.value || '';
-          
-          // Use setTimeout to check after Google fills it
-          setTimeout(() => {
-            const newValue = inputRef.current?.value || '';
-            // If Google added city/state/zip to the input, remove it
-            if (newValue.includes(',') && newValue !== currentValue) {
-              // Google filled it with formatted address, keep only street
-              const streetOnly = newValue.split(',')[0].trim();
-              if (inputRef.current) {
-                onChange(streetOnly);
-              }
-            }
-          }, 100);
-        });
+        inputRef.current.addEventListener('input', checkForFormattedAddress);
+        
+        // Also check on blur in case they tabbed through
+        const blurHandler = () => {
+          setTimeout(checkForFormattedAddress, 200);
+        };
+        inputRef.current.addEventListener('blur', blurHandler);
       }
 
     } catch (error) {
@@ -108,13 +110,17 @@ export function GoogleAddressInput({
       setApiError(true);
     }
 
+    // Cleanup
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
-        autocompleteRef.current = null;
       }
+      if (inputRef.current) {
+        inputRef.current.removeEventListener('input', checkForFormattedAddress);
+      }
+      autocompleteRef.current = null;
     };
-  }, [isLoaded, onPlaceSelected, onChange, disabled]);
+  }, [isLoaded, onPlaceSelected, disabled]);
 
   if (apiError) {
     return (
