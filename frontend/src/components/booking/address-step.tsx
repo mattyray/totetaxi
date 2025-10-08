@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
+import { GoogleAddressInput } from './google-address-input';
+import { parseGooglePlace } from '@/lib/google-places-utils';
 
 const STATES = [
   { value: 'NY', label: 'New York' },
@@ -121,12 +123,32 @@ function AddressForm({
       
       <CardContent className="p-0">
         <div className="space-y-6">
-          <Input
+          <GoogleAddressInput
             label="Street Address"
             value={address?.address_line_1 || ''}
-            onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
+            onChange={(value) => handleFieldChange('address_line_1', value)}
+            onPlaceSelected={(place) => {
+              const parsed = parseGooglePlace(place);
+              
+              if (parsed) {
+                // Auto-fill all address fields
+                onAddressChange({
+                  ...address,
+                  ...parsed
+                } as BookingAddress);
+                
+                // Immediately trigger ZIP validation
+                if (onZipChange && parsed.zip_code) {
+                  setTimeout(() => {
+                    onZipChange(parsed.zip_code!);
+                  }, 100);
+                }
+              } else {
+                console.error('Failed to parse Google Place');
+              }
+            }}
             error={errors.address_line_1}
-            placeholder="123 Main Street"
+            placeholder="Start typing your address..."
             required
             disabled={readOnly}
           />
