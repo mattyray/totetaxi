@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-07 12:09:41.719641
+# Generated: 2025-10-08 12:18:14.345066
 # Files: 81
 
 # ==== next-env.d.ts ====
@@ -5284,11 +5284,12 @@ export function UserMenu({ variant = 'header' }: UserMenuProps) {
 ```
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiClient } from '@/lib/api-client';
 
 const STATES = [
   { value: 'NY', label: 'New York' },
@@ -5354,9 +5355,24 @@ interface AddressFormProps {
   onAddressChange: (address: BookingAddress) => void;
   errors: Record<string, string>;
   readOnly?: boolean;
+  onZipChange?: (zip: string) => void;
+  validationMessage?: {
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null;
+  isValidating?: boolean;
 }
 
-function AddressForm({ title, address, onAddressChange, errors, readOnly = false }: AddressFormProps) {
+function AddressForm({ 
+  title, 
+  address, 
+  onAddressChange, 
+  errors, 
+  readOnly = false,
+  onZipChange,
+  validationMessage,
+  isValidating = false
+}: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
     if (readOnly) return;
     
@@ -5364,6 +5380,16 @@ function AddressForm({ title, address, onAddressChange, errors, readOnly = false
       ...address,
       [field]: value
     } as BookingAddress);
+  };
+
+  const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    handleFieldChange('zip_code', value);
+    
+    // Trigger validation when ZIP is 5 digits
+    if (onZipChange && value.length === 5) {
+      onZipChange(value);
+    }
   };
 
   return (
@@ -5431,16 +5457,36 @@ function AddressForm({ title, address, onAddressChange, errors, readOnly = false
             </div>
           </div>
           
-          <Input
-            label="ZIP Code"
-            mask="zip"
-            value={address?.zip_code || ''}
-            onChange={(e) => handleFieldChange('zip_code', e.target.value)}
-            error={errors.zip_code}
-            placeholder="10001"
-            required
-            disabled={readOnly}
-          />
+          <div className="relative">
+            <Input
+              label="ZIP Code"
+              mask="zip"
+              value={address?.zip_code || ''}
+              onChange={handleZipChange}
+              error={errors.zip_code}
+              placeholder="10001"
+              required
+              disabled={readOnly}
+            />
+            {isValidating && (
+              <div className="absolute right-3 top-9 text-sm text-navy-500">
+                Validating...
+              </div>
+            )}
+          </div>
+          
+          {/* ZIP Validation Message */}
+          {validationMessage && (
+            <div className={`p-3 rounded-lg text-sm ${
+              validationMessage.type === 'error' 
+                ? 'bg-red-50 text-red-800 border border-red-200' 
+                : validationMessage.type === 'warning'
+                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                : 'bg-green-50 text-green-800 border border-green-200'
+            }`}>
+              {validationMessage.message}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -5449,6 +5495,18 @@ function AddressForm({ title, address, onAddressChange, errors, readOnly = false
 
 export function AddressStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+  const [pickupValidation, setPickupValidation] = useState<{
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null>(null);
+  const [deliveryValidation, setDeliveryValidation] = useState<{
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null>(null);
+  const [pickupValidating, setPickupValidating] = useState(false);
+  const [deliveryValidating, setDeliveryValidating] = useState(false);
+  const [pickupDebounce, setPickupDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [deliveryDebounce, setDeliveryDebounce] = useState<NodeJS.Timeout | null>(null);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
 
@@ -5458,6 +5516,95 @@ export function AddressStep() {
       updateBookingData({ delivery_address: airportAddress });
     }
   }, [isBlade, bookingData.blade_airport]);
+
+  const validateZipCode = async (
+    zipCode: string, 
+    addressType: 'pickup' | 'delivery'
+  ): Promise<boolean> => {
+    if (!zipCode || zipCode.length < 5) return false;
+    
+    const setValidation = addressType === 'pickup' ? setPickupValidation : setDeliveryValidation;
+    const setValidating = addressType === 'pickup' ? setPickupValidating : setDeliveryValidating;
+    
+    setValidating(true);
+    setValidation(null);
+    
+    try {
+      const response = await apiClient.post('/api/public/validate-zip/', { 
+        zip_code: zipCode 
+      });
+      
+      const { is_serviceable, requires_surcharge, error } = response.data;
+      
+      if (!is_serviceable) {
+        setValidation({
+          type: 'error',
+          message: error || 'This ZIP code is not in our service area.'
+        });
+        return false;
+      }
+      
+      if (requires_surcharge) {
+        setValidation({
+          type: 'warning',
+          message: '⚠️ This address includes a $175 distance surcharge.'
+        });
+        return true;
+      }
+      
+      setValidation({
+        type: 'success',
+        message: '✓ This address is in our standard service area.'
+      });
+      return true;
+      
+    } catch (error) {
+      console.error('ZIP validation error:', error);
+      return true;
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handlePickupZipChange = (zipCode: string) => {
+    // Clear previous debounce
+    if (pickupDebounce) {
+      clearTimeout(pickupDebounce);
+    }
+    
+    // Clear validation while typing
+    setPickupValidation(null);
+    
+    // Set new debounce
+    if (zipCode.length === 5) {
+      const timeout = setTimeout(() => {
+        validateZipCode(zipCode, 'pickup');
+      }, 500); // Wait 500ms after user stops typing
+      
+      setPickupDebounce(timeout);
+    }
+  };
+
+  const handleDeliveryZipChange = (zipCode: string) => {
+    if (isBlade) return;
+    
+    // Clear previous debounce
+    if (deliveryDebounce) {
+      clearTimeout(deliveryDebounce);
+    }
+    
+    // Clear validation while typing
+    setDeliveryValidation(null);
+    
+    // Set new debounce
+    if (zipCode.length === 5) {
+      const timeout = setTimeout(() => {
+        validateZipCode(zipCode, 'delivery');
+      }, 500); // Wait 500ms after user stops typing
+      
+      setDeliveryDebounce(timeout);
+    }
+  };
 
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
@@ -5483,6 +5630,11 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.hamptons,
           special_instructions: 'Test booking - Manhattan to Hamptons route'
         });
+        // Trigger validation for both addresses
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.hamptons.zip_code, 'delivery');
+        }, 100);
         break;
       case 'brooklyn-manhattan':
         updateBookingData({
@@ -5490,6 +5642,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.manhattan,
           special_instructions: 'Test booking - Brooklyn to Manhattan route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.brooklyn.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-westchester':
         updateBookingData({
@@ -5497,6 +5653,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.westchester,
           special_instructions: 'Test booking - Manhattan to Westchester route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.westchester.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-connecticut':
         updateBookingData({
@@ -5504,6 +5664,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.connecticut,
           special_instructions: 'Test booking - Manhattan to Connecticut route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.connecticut.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-jfk':
         updateBookingData({
@@ -5511,6 +5675,9 @@ export function AddressStep() {
           delivery_address: AIRPORT_ADDRESSES.JFK,
           special_instructions: 'Test booking - Manhattan to JFK Airport'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+        }, 100);
         break;
       case 'manhattan-ewr':
         updateBookingData({
@@ -5518,11 +5685,20 @@ export function AddressStep() {
           delivery_address: AIRPORT_ADDRESSES.EWR,
           special_instructions: 'Test booking - Manhattan to Newark Airport'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+        }, 100);
         break;
     }
   };
 
   const handleContinue = () => {
+    // Block if there are ZIP validation errors
+    if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
+      setError('general', 'Please enter valid service area addresses.');
+      return;
+    }
+    
     let hasErrors = false;
 
     if (!bookingData.pickup_address?.address_line_1) {
@@ -5577,7 +5753,11 @@ export function AddressStep() {
     bookingData.delivery_address?.address_line_1 &&
     bookingData.delivery_address?.city &&
     bookingData.delivery_address?.state &&
-    bookingData.delivery_address?.zip_code;
+    bookingData.delivery_address?.zip_code &&
+    pickupValidation?.type !== 'error' &&
+    deliveryValidation?.type !== 'error' &&
+    !pickupValidating &&
+    !deliveryValidating;
 
   return (
     <div className="space-y-8">
@@ -5668,6 +5848,9 @@ export function AddressStep() {
           state: errors.pickup_state || '',
           zip_code: errors.pickup_zip || ''
         }}
+        onZipChange={handlePickupZipChange}
+        validationMessage={pickupValidation}
+        isValidating={pickupValidating}
       />
 
       {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
@@ -5692,6 +5875,9 @@ export function AddressStep() {
           zip_code: errors.delivery_zip || ''
         }}
         readOnly={isBlade}
+        onZipChange={handleDeliveryZipChange}
+        validationMessage={deliveryValidation}
+        isValidating={deliveryValidating}
       />
 
       <Card variant="default" className="p-6">
@@ -7904,83 +8090,102 @@ export function ReviewPaymentStep() {
       </Card>
 
       {bookingData.pricing_data && (
-              <Card variant="elevated">
-                <CardHeader>
-                  <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-navy-900 font-medium">Base Price:</span>
-                      <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                    </div>
-                    
-                    {bookingData.service_type === 'blade_transfer' && (
-                      <div className="text-sm text-navy-900 italic">
-                        {bookingData.blade_bag_count} bags × $75
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.surcharge_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.coi_fee_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">COI Fee:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.coi_fee_dollars}</span>
-                      </div>
-                    )}
-                    
-                    {bookingData.pricing_data.organizing_total_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Organizing Services:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_total_dollars}</span>
-                      </div>
-                    )}
-
-                    {bookingData.pricing_data.organizing_tax_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_tax_dollars}</span>
-                      </div>
-                    )}
-
-                    {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                        <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
-                      </div>
-                    )}
-                    
-                    <hr className="border-gray-200" />
-                    
-                    <div className="flex justify-between text-xl font-bold">
-                      <span className="text-navy-900">Total:</span>
-                      <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
-                    </div>
-                    
-                    {bookingData.service_type === 'blade_transfer' && (
-                      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800">
-                          <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
-                        </p>
-                      </div>
-                    )}
+        <Card variant="elevated">
+          <CardHeader>
+            <h3 className="text-xl font-serif font-bold text-navy-900">Pricing</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {/* Specialty Item - Show Individual Items */}
+              {bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0 ? (
+                <>
+                  {/* We need to fetch the specialty items details - for now show base price with note */}
+                  <div className="flex justify-between">
+                    <span className="text-navy-900 font-medium">Specialty Items:</span>
+                    <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </>
+              ) : (
+                /* All other service types show base price normally */
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Base Price:</span>
+                  <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="text-sm text-navy-900 italic">
+                  {bookingData.blade_bag_count} bags × $75
+                </div>
+              )}
+              
+              {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.same_day_delivery_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.coi_fee_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.coi_fee_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.organizing_total_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              {bookingData.pricing_data.organizing_tax_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.time_window_surcharge_dollars}</span>
+                </div>
+              )}
+              
+              {bookingData.pricing_data.geographic_surcharge_dollars > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.geographic_surcharge_dollars}</span>
+                </div>
+              )}
+              
+              <hr className="border-gray-200" />
+              
+              <div className="flex justify-between text-xl font-bold">
+                <span className="text-navy-900">Total:</span>
+                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+              </div>
+              
+              {bookingData.service_type === 'blade_transfer' && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card variant="default" className="border-navy-200">
         <CardHeader>
@@ -8191,6 +8396,8 @@ export function ServiceSelectionStep() {
   const { bookingData, updateBookingData, nextStep } = useBookingWizard();
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
+  const [dateError, setDateError] = useState<string>('');
+  const [timeError, setTimeError] = useState<string>('');
 
   console.log('SERVICE STEP - Current booking data:', bookingData);
   console.log('mini_move_package_id:', bookingData.mini_move_package_id);
@@ -8203,6 +8410,53 @@ export function ServiceSelectionStep() {
       return response.data;
     }
   });
+
+  const validateBladeData = () => {
+    setDateError('');
+    setTimeError('');
+    
+    if (!bookingData.blade_airport) {
+      return false;
+    }
+    
+    if (!bookingData.blade_flight_date) {
+      setDateError('Please select your flight date');
+      return false;
+    }
+    
+    // Validate date is at least tomorrow
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const selected = new Date(bookingData.blade_flight_date + 'T00:00:00');
+    
+    if (selected < tomorrow) {
+      setDateError('Flight must be booked at least 1 day in advance');
+      return false;
+    }
+    
+    if (!bookingData.blade_flight_time) {
+      setTimeError('Please select your flight departure time');
+      return false;
+    }
+    
+    if (!bookingData.blade_bag_count || bookingData.blade_bag_count < 2) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleContinue = () => {
+    if (bookingData.service_type === 'blade_transfer') {
+      if (!validateBladeData()) {
+        return; // Don't proceed if validation fails
+      }
+    }
+    
+    nextStep();
+  };
 
   const handleMiniMoveSelect = (packageId: string) => {
     const selectedPackage = services?.mini_move_packages.find(pkg => pkg.id === packageId);
@@ -8714,18 +8968,34 @@ export function ServiceSelectionStep() {
                   label="Flight Date"
                   type="date"
                   value={bookingData.blade_flight_date || ''}
-                  onChange={(e) => updateBookingData({ blade_flight_date: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    setDateError(''); // Clear error when they change it
+                    updateBookingData({ blade_flight_date: e.target.value });
+                  }}
+                  min={(() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    return tomorrow.toISOString().split('T')[0];
+                  })()}
+                  error={dateError}
+                  helper={!dateError ? "Select your flight date (must be tomorrow or call us)" : undefined}
+                  required
                 />
                 
                 <Input
                   label="Flight Departure Time"
                   type="time"
                   value={bookingData.blade_flight_time || ''}
-                  onChange={(e) => updateBookingData({ blade_flight_time: e.target.value })}
+                  onChange={(e) => {
+                    setTimeError('');
+                    updateBookingData({ blade_flight_time: e.target.value });
+                  }}
+                  error={timeError}
+                  helper={!timeError ? "Select your departure time" : undefined}
+                  required
                 />
                 
-                {bookingData.blade_flight_time && (
+                {bookingData.blade_flight_time && !timeError && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
                       <strong>Bags Ready Time:</strong> Your bags must be ready for pickup by{' '}
@@ -8794,7 +9064,7 @@ export function ServiceSelectionStep() {
 
       <div className="flex justify-end pt-4">
         <Button
-          onClick={nextStep}
+          onClick={handleContinue}
           disabled={!canContinue()}
           size="lg"
         >
@@ -12894,7 +13164,7 @@ export { Select } from './select';
 ```
 // frontend/src/components/ui/input.tsx
 import { cn } from '@/utils/cn';
-import { InputHTMLAttributes, forwardRef, useState } from 'react';
+import { InputHTMLAttributes, forwardRef, useState, useRef } from 'react';
 
 const inputVariants = {
   variant: {
@@ -12971,10 +13241,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   onChange,
   value,
   type,
+  id,
   ...props
 }, ref) => {
   const [internalValue, setInternalValue] = useState(value || '');
   const [validationError, setValidationError] = useState('');
+  const internalRef = useRef<HTMLInputElement>(null);
+  const generatedId = useRef(`input-${Math.random().toString(36).substr(2, 9)}`);
+  const inputId = id || generatedId.current;
+
+  // Use the forwarded ref if provided, otherwise use internal ref
+  const inputRef = (ref as React.RefObject<HTMLInputElement>) || internalRef;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value;
@@ -13004,30 +13281,71 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     onChange?.(newEvent);
   };
 
+  // Make entire container clickable for date/time inputs on desktop
+  const handleContainerClick = () => {
+    if (type === 'date' || type === 'time') {
+      const input = inputRef.current;
+      if (input) {
+        // Modern browsers support showPicker() for date/time inputs
+        try {
+          input.showPicker?.();
+        } catch (e) {
+          // Fallback for browsers that don't support showPicker
+          input.focus();
+          input.click();
+        }
+      }
+    }
+  };
+
   const displayValue = value !== undefined ? value : internalValue;
   const actualVariant = error || validationError ? 'error' : success ? 'success' : variant;
+
+  // Enhanced styling for date and time inputs to make them stand out and more clickable
+  const isDateOrTime = type === 'date' || type === 'time';
+  const dateTimeStyles = isDateOrTime 
+    ? 'border-2 border-navy-400 bg-navy-50/30 focus:bg-white focus:border-navy-600 font-medium text-navy-900 cursor-pointer min-h-[48px] text-base' 
+    : '';
 
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium text-navy-900">
+        <label 
+          htmlFor={inputId}
+          onClick={handleContainerClick}
+          className={cn(
+            "block text-sm font-semibold text-navy-900",
+            isDateOrTime && "cursor-pointer select-none hover:text-navy-700 transition-colors"
+          )}
+        >
           {label}
           {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
-      <input
-        ref={ref}
-        type={type}
-        value={displayValue}
-        onChange={handleChange}
+      
+      <div 
+        onClick={handleContainerClick}
         className={cn(
-          baseStyles,
-          inputVariants.variant[actualVariant],
-          inputVariants.size[inputSize],
-          className
+          isDateOrTime && "cursor-pointer"
         )}
-        {...props}
-      />
+      >
+        <input
+          ref={inputRef}
+          id={inputId}
+          type={type}
+          value={displayValue}
+          onChange={handleChange}
+          className={cn(
+            baseStyles,
+            inputVariants.variant[actualVariant],
+            inputVariants.size[inputSize],
+            dateTimeStyles,
+            className
+          )}
+          {...props}
+        />
+      </div>
+      
       {(error || validationError) && (
         <p className="text-sm text-red-600 flex items-center">
           <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -13045,7 +13363,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         </p>
       )}
       {helper && !error && !validationError && !success && (
-        <p className="text-sm text-gray-500">{helper}</p>
+        <p className="text-sm text-navy-600 font-medium">{helper}</p>
       )}
     </div>
   );

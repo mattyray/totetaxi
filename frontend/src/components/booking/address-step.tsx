@@ -71,11 +71,12 @@ interface AddressFormProps {
   onAddressChange: (address: BookingAddress) => void;
   errors: Record<string, string>;
   readOnly?: boolean;
-  onZipBlur?: () => void;
+  onZipChange?: (zip: string) => void;
   validationMessage?: {
     type: 'error' | 'warning' | 'success';
     message: string;
   } | null;
+  isValidating?: boolean;
 }
 
 function AddressForm({ 
@@ -84,8 +85,9 @@ function AddressForm({
   onAddressChange, 
   errors, 
   readOnly = false,
-  onZipBlur,
-  validationMessage
+  onZipChange,
+  validationMessage,
+  isValidating = false
 }: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
     if (readOnly) return;
@@ -94,6 +96,16 @@ function AddressForm({
       ...address,
       [field]: value
     } as BookingAddress);
+  };
+
+  const handleZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    handleFieldChange('zip_code', value);
+    
+    // Trigger validation when ZIP is 5 digits
+    if (onZipChange && value.length === 5) {
+      onZipChange(value);
+    }
   };
 
   return (
@@ -161,17 +173,23 @@ function AddressForm({
             </div>
           </div>
           
-          <Input
-            label="ZIP Code"
-            mask="zip"
-            value={address?.zip_code || ''}
-            onChange={(e) => handleFieldChange('zip_code', e.target.value)}
-            onBlur={onZipBlur}
-            error={errors.zip_code}
-            placeholder="10001"
-            required
-            disabled={readOnly}
-          />
+          <div className="relative">
+            <Input
+              label="ZIP Code"
+              mask="zip"
+              value={address?.zip_code || ''}
+              onChange={handleZipChange}
+              error={errors.zip_code}
+              placeholder="10001"
+              required
+              disabled={readOnly}
+            />
+            {isValidating && (
+              <div className="absolute right-3 top-9 text-sm text-navy-500">
+                Validating...
+              </div>
+            )}
+          </div>
           
           {/* ZIP Validation Message */}
           {validationMessage && (
@@ -201,6 +219,10 @@ export function AddressStep() {
     type: 'error' | 'warning' | 'success';
     message: string;
   } | null>(null);
+  const [pickupValidating, setPickupValidating] = useState(false);
+  const [deliveryValidating, setDeliveryValidating] = useState(false);
+  const [pickupDebounce, setPickupDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [deliveryDebounce, setDeliveryDebounce] = useState<NodeJS.Timeout | null>(null);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
 
@@ -215,9 +237,12 @@ export function AddressStep() {
     zipCode: string, 
     addressType: 'pickup' | 'delivery'
   ): Promise<boolean> => {
-    if (!zipCode) return false;
+    if (!zipCode || zipCode.length < 5) return false;
     
     const setValidation = addressType === 'pickup' ? setPickupValidation : setDeliveryValidation;
+    const setValidating = addressType === 'pickup' ? setPickupValidating : setDeliveryValidating;
+    
+    setValidating(true);
     setValidation(null);
     
     try {
@@ -252,6 +277,48 @@ export function AddressStep() {
     } catch (error) {
       console.error('ZIP validation error:', error);
       return true;
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handlePickupZipChange = (zipCode: string) => {
+    // Clear previous debounce
+    if (pickupDebounce) {
+      clearTimeout(pickupDebounce);
+    }
+    
+    // Clear validation while typing
+    setPickupValidation(null);
+    
+    // Set new debounce
+    if (zipCode.length === 5) {
+      const timeout = setTimeout(() => {
+        validateZipCode(zipCode, 'pickup');
+      }, 500); // Wait 500ms after user stops typing
+      
+      setPickupDebounce(timeout);
+    }
+  };
+
+  const handleDeliveryZipChange = (zipCode: string) => {
+    if (isBlade) return;
+    
+    // Clear previous debounce
+    if (deliveryDebounce) {
+      clearTimeout(deliveryDebounce);
+    }
+    
+    // Clear validation while typing
+    setDeliveryValidation(null);
+    
+    // Set new debounce
+    if (zipCode.length === 5) {
+      const timeout = setTimeout(() => {
+        validateZipCode(zipCode, 'delivery');
+      }, 500); // Wait 500ms after user stops typing
+      
+      setDeliveryDebounce(timeout);
     }
   };
 
@@ -260,11 +327,6 @@ export function AddressStep() {
     if (address.address_line_1) clearError('pickup_address');
     if (address.city) clearError('pickup_city');
     if (address.zip_code) clearError('pickup_zip');
-    
-    // Clear validation when ZIP changes
-    if (address.zip_code !== bookingData.pickup_address?.zip_code) {
-      setPickupValidation(null);
-    }
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
@@ -274,27 +336,6 @@ export function AddressStep() {
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
-    
-    // Clear validation when ZIP changes
-    if (address.zip_code !== bookingData.delivery_address?.zip_code) {
-      setDeliveryValidation(null);
-    }
-  };
-
-  const handlePickupZipBlur = async () => {
-    const zipCode = bookingData.pickup_address?.zip_code;
-    if (zipCode) {
-      await validateZipCode(zipCode, 'pickup');
-    }
-  };
-
-  const handleDeliveryZipBlur = async () => {
-    if (isBlade) return;
-    
-    const zipCode = bookingData.delivery_address?.zip_code;
-    if (zipCode) {
-      await validateZipCode(zipCode, 'delivery');
-    }
   };
 
   const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
@@ -305,6 +346,11 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.hamptons,
           special_instructions: 'Test booking - Manhattan to Hamptons route'
         });
+        // Trigger validation for both addresses
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.hamptons.zip_code, 'delivery');
+        }, 100);
         break;
       case 'brooklyn-manhattan':
         updateBookingData({
@@ -312,6 +358,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.manhattan,
           special_instructions: 'Test booking - Brooklyn to Manhattan route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.brooklyn.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-westchester':
         updateBookingData({
@@ -319,6 +369,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.westchester,
           special_instructions: 'Test booking - Manhattan to Westchester route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.westchester.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-connecticut':
         updateBookingData({
@@ -326,6 +380,10 @@ export function AddressStep() {
           delivery_address: TEST_ADDRESSES.connecticut,
           special_instructions: 'Test booking - Manhattan to Connecticut route'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+          validateZipCode(TEST_ADDRESSES.connecticut.zip_code, 'delivery');
+        }, 100);
         break;
       case 'manhattan-jfk':
         updateBookingData({
@@ -333,6 +391,9 @@ export function AddressStep() {
           delivery_address: AIRPORT_ADDRESSES.JFK,
           special_instructions: 'Test booking - Manhattan to JFK Airport'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+        }, 100);
         break;
       case 'manhattan-ewr':
         updateBookingData({
@@ -340,6 +401,9 @@ export function AddressStep() {
           delivery_address: AIRPORT_ADDRESSES.EWR,
           special_instructions: 'Test booking - Manhattan to Newark Airport'
         });
+        setTimeout(() => {
+          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
+        }, 100);
         break;
     }
   };
@@ -407,7 +471,9 @@ export function AddressStep() {
     bookingData.delivery_address?.state &&
     bookingData.delivery_address?.zip_code &&
     pickupValidation?.type !== 'error' &&
-    deliveryValidation?.type !== 'error';
+    deliveryValidation?.type !== 'error' &&
+    !pickupValidating &&
+    !deliveryValidating;
 
   return (
     <div className="space-y-8">
@@ -498,8 +564,9 @@ export function AddressStep() {
           state: errors.pickup_state || '',
           zip_code: errors.pickup_zip || ''
         }}
-        onZipBlur={handlePickupZipBlur}
+        onZipChange={handlePickupZipChange}
         validationMessage={pickupValidation}
+        isValidating={pickupValidating}
       />
 
       {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
@@ -524,8 +591,9 @@ export function AddressStep() {
           zip_code: errors.delivery_zip || ''
         }}
         readOnly={isBlade}
-        onZipBlur={handleDeliveryZipBlur}
+        onZipChange={handleDeliveryZipChange}
         validationMessage={deliveryValidation}
+        isValidating={deliveryValidating}
       />
 
       <Card variant="default" className="p-6">
