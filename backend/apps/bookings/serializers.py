@@ -259,19 +259,43 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     # Additional info
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
-    
+    #
     def validate_pickup_address(self, value):
+        """Validate pickup address including service area check"""
+        # Existing validation
         required_fields = ['address_line_1', 'city', 'state', 'zip_code']
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing required field: {field}")
+        
+        # NEW: ZIP code service area validation
+        from .zip_codes import validate_service_area
+        
+        zip_code = value.get('zip_code')
+        is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
+        
+        if not is_serviceable:
+            raise serializers.ValidationError(error)
+        
         return value
-    
+
     def validate_delivery_address(self, value):
+        """Validate delivery address including service area check"""
+        # Existing validation
         required_fields = ['address_line_1', 'city', 'state', 'zip_code']
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing required field: {field}")
+        
+        # NEW: ZIP code service area validation
+        from .zip_codes import validate_service_area
+        
+        zip_code = value.get('zip_code')
+        is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
+        
+        if not is_serviceable:
+            raise serializers.ValidationError(error)
+        
         return value
     
     def validate(self, attrs):

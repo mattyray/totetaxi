@@ -249,6 +249,40 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                 )
             
             return address
+        
+    def validate_new_pickup_address(self, value):
+        """Validate new pickup address including ZIP code service area check"""
+        if not value:
+            return value
+        
+        # NEW: ZIP code service area validation
+        from apps.bookings.zip_codes import validate_service_area
+        
+        zip_code = value.get('zip_code')
+        if zip_code:
+            is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
+            
+            if not is_serviceable:
+                raise serializers.ValidationError(error)
+        
+        return value
+
+    def validate_new_delivery_address(self, value):
+        """Validate new delivery address including ZIP code service area check"""
+        if not value:
+            return value
+        
+        # NEW: ZIP code service area validation
+        from apps.bookings.zip_codes import validate_service_area
+        
+        zip_code = value.get('zip_code')
+        if zip_code:
+            is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
+            
+            if not is_serviceable:
+                raise serializers.ValidationError(error)
+        
+        return value
 
 
 class CustomerBookingDetailSerializer(serializers.ModelSerializer):

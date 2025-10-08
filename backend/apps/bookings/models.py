@@ -251,8 +251,9 @@ class Booking(models.Model):
                 name='booking_exactly_one_customer_type'
             )
         ]
-    
+    #jew
     def save(self, *args, **kwargs):
+        # Generate booking number if new
         if not self.booking_number:
             last_booking = Booking.objects.order_by('created_at').last()
             if last_booking and last_booking.booking_number:
@@ -261,6 +262,25 @@ class Booking(models.Model):
             else:
                 next_num = 1
             self.booking_number = f"TT-{next_num:06d}"
+        
+        # ========== AUTO-SET GEOGRAPHIC SURCHARGE (NEW) ==========
+        if self.pickup_address and self.delivery_address:
+            from .zip_codes import validate_service_area
+            
+            # Validate pickup ZIP
+            pickup_valid, pickup_surcharge, _, _ = validate_service_area(
+                self.pickup_address.zip_code
+            )
+            
+            # Validate delivery ZIP
+            delivery_valid, delivery_surcharge, _, _ = validate_service_area(
+                self.delivery_address.zip_code
+            )
+            
+            # Apply surcharge if EITHER address is in surcharge zone
+            self.is_outside_core_area = pickup_surcharge or delivery_surcharge
+        # ========== END AUTO-SET GEOGRAPHIC SURCHARGE ==========
+        
         
         self.calculate_pricing()
         super().save(*args, **kwargs)

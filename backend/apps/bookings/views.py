@@ -501,6 +501,34 @@ class OrganizingServiceDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+class ValidateZipCodeView(APIView):
+    """
+    Public endpoint to validate a single ZIP code.
+    Returns service area information without requiring authentication.
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        from .zip_codes import validate_service_area
+        
+        zip_code = request.data.get('zip_code')
+        
+        if not zip_code:
+            return Response(
+                {'error': 'ZIP code is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
+        
+        return Response({
+            'is_serviceable': is_serviceable,
+            'requires_surcharge': requires_surcharge,
+            'zone': zone,
+            'error': error,
+            'zip_code': zip_code.split('-')[0].strip()
+        })
+        
 
 class FixOrganizingServicesView(APIView):
     """TEMPORARY: Create missing organizing services in production"""

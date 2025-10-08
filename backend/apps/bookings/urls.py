@@ -1,3 +1,4 @@
+# backend/apps/bookings/urls.py
 from django.urls import path
 from . import views
 
@@ -20,6 +21,7 @@ urlpatterns = [
     path('booking-status/<str:booking_number>/', views.BookingStatusView.as_view(), name='booking-status'),
     path('calendar/availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
     path('fix-organizing-services/', views.FixOrganizingServicesView.as_view()),
-
-
+    
+    # NEW: ZIP code validation endpoint
+    path('validate-zip/', views.ValidateZipCodeView.as_view(), name='validate-zip'),
 ]

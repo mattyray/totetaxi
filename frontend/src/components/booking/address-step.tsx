@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookingWizard, type BookingAddress } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiClient } from '@/lib/api-client';
 
 const STATES = [
   { value: 'NY', label: 'New York' },
@@ -70,9 +71,22 @@ interface AddressFormProps {
   onAddressChange: (address: BookingAddress) => void;
   errors: Record<string, string>;
   readOnly?: boolean;
+  onZipBlur?: () => void;
+  validationMessage?: {
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null;
 }
 
-function AddressForm({ title, address, onAddressChange, errors, readOnly = false }: AddressFormProps) {
+function AddressForm({ 
+  title, 
+  address, 
+  onAddressChange, 
+  errors, 
+  readOnly = false,
+  onZipBlur,
+  validationMessage
+}: AddressFormProps) {
   const handleFieldChange = (field: keyof BookingAddress, value: string) => {
     if (readOnly) return;
     
@@ -152,11 +166,25 @@ function AddressForm({ title, address, onAddressChange, errors, readOnly = false
             mask="zip"
             value={address?.zip_code || ''}
             onChange={(e) => handleFieldChange('zip_code', e.target.value)}
+            onBlur={onZipBlur}
             error={errors.zip_code}
             placeholder="10001"
             required
             disabled={readOnly}
           />
+          
+          {/* ZIP Validation Message */}
+          {validationMessage && (
+            <div className={`p-3 rounded-lg text-sm ${
+              validationMessage.type === 'error' 
+                ? 'bg-red-50 text-red-800 border border-red-200' 
+                : validationMessage.type === 'warning'
+                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                : 'bg-green-50 text-green-800 border border-green-200'
+            }`}>
+              {validationMessage.message}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -165,6 +193,14 @@ function AddressForm({ title, address, onAddressChange, errors, readOnly = false
 
 export function AddressStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError } = useBookingWizard();
+  const [pickupValidation, setPickupValidation] = useState<{
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null>(null);
+  const [deliveryValidation, setDeliveryValidation] = useState<{
+    type: 'error' | 'warning' | 'success';
+    message: string;
+  } | null>(null);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
 
@@ -175,11 +211,60 @@ export function AddressStep() {
     }
   }, [isBlade, bookingData.blade_airport]);
 
+  const validateZipCode = async (
+    zipCode: string, 
+    addressType: 'pickup' | 'delivery'
+  ): Promise<boolean> => {
+    if (!zipCode) return false;
+    
+    const setValidation = addressType === 'pickup' ? setPickupValidation : setDeliveryValidation;
+    setValidation(null);
+    
+    try {
+      const response = await apiClient.post('/api/public/validate-zip/', { 
+        zip_code: zipCode 
+      });
+      
+      const { is_serviceable, requires_surcharge, error } = response.data;
+      
+      if (!is_serviceable) {
+        setValidation({
+          type: 'error',
+          message: error || 'This ZIP code is not in our service area.'
+        });
+        return false;
+      }
+      
+      if (requires_surcharge) {
+        setValidation({
+          type: 'warning',
+          message: '⚠️ This address includes a $175 distance surcharge.'
+        });
+        return true;
+      }
+      
+      setValidation({
+        type: 'success',
+        message: '✓ This address is in our standard service area.'
+      });
+      return true;
+      
+    } catch (error) {
+      console.error('ZIP validation error:', error);
+      return true;
+    }
+  };
+
   const handlePickupChange = (address: BookingAddress) => {
     updateBookingData({ pickup_address: address });
     if (address.address_line_1) clearError('pickup_address');
     if (address.city) clearError('pickup_city');
     if (address.zip_code) clearError('pickup_zip');
+    
+    // Clear validation when ZIP changes
+    if (address.zip_code !== bookingData.pickup_address?.zip_code) {
+      setPickupValidation(null);
+    }
   };
 
   const handleDeliveryChange = (address: BookingAddress) => {
@@ -189,6 +274,27 @@ export function AddressStep() {
     if (address.address_line_1) clearError('delivery_address');
     if (address.city) clearError('delivery_city');
     if (address.zip_code) clearError('delivery_zip');
+    
+    // Clear validation when ZIP changes
+    if (address.zip_code !== bookingData.delivery_address?.zip_code) {
+      setDeliveryValidation(null);
+    }
+  };
+
+  const handlePickupZipBlur = async () => {
+    const zipCode = bookingData.pickup_address?.zip_code;
+    if (zipCode) {
+      await validateZipCode(zipCode, 'pickup');
+    }
+  };
+
+  const handleDeliveryZipBlur = async () => {
+    if (isBlade) return;
+    
+    const zipCode = bookingData.delivery_address?.zip_code;
+    if (zipCode) {
+      await validateZipCode(zipCode, 'delivery');
+    }
   };
 
   const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
@@ -239,6 +345,12 @@ export function AddressStep() {
   };
 
   const handleContinue = () => {
+    // Block if there are ZIP validation errors
+    if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
+      setError('general', 'Please enter valid service area addresses.');
+      return;
+    }
+    
     let hasErrors = false;
 
     if (!bookingData.pickup_address?.address_line_1) {
@@ -293,7 +405,9 @@ export function AddressStep() {
     bookingData.delivery_address?.address_line_1 &&
     bookingData.delivery_address?.city &&
     bookingData.delivery_address?.state &&
-    bookingData.delivery_address?.zip_code;
+    bookingData.delivery_address?.zip_code &&
+    pickupValidation?.type !== 'error' &&
+    deliveryValidation?.type !== 'error';
 
   return (
     <div className="space-y-8">
@@ -384,6 +498,8 @@ export function AddressStep() {
           state: errors.pickup_state || '',
           zip_code: errors.pickup_zip || ''
         }}
+        onZipBlur={handlePickupZipBlur}
+        validationMessage={pickupValidation}
       />
 
       {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
@@ -408,6 +524,8 @@ export function AddressStep() {
           zip_code: errors.delivery_zip || ''
         }}
         readOnly={isBlade}
+        onZipBlur={handleDeliveryZipBlur}
+        validationMessage={deliveryValidation}
       />
 
       <Card variant="default" className="p-6">
