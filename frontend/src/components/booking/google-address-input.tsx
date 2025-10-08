@@ -32,10 +32,8 @@ export function GoogleAddressInput({
   const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
-    // Load Google Maps API using singleton loader
     loadGoogleMapsAPI()
       .then(() => {
-        // Double-check that google.maps.places actually exists
         if (window.google?.maps?.places) {
           setIsLoaded(true);
         } else {
@@ -50,10 +48,8 @@ export function GoogleAddressInput({
   }, []);
 
   useEffect(() => {
-    // Don't proceed if not loaded or already initialized
     if (!isLoaded || !inputRef.current || autocompleteRef.current || disabled) return;
 
-    // Extra safety check
     if (!window.google?.maps?.places?.Autocomplete) {
       console.error('Google Places Autocomplete not available');
       setApiError(true);
@@ -61,7 +57,7 @@ export function GoogleAddressInput({
     }
 
     try {
-      // Initialize autocomplete with restrictions
+      // Initialize autocomplete
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
         types: ['address'],
         componentRestrictions: { country: ['us'] },
@@ -71,25 +67,55 @@ export function GoogleAddressInput({
       // Listen for place selection
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
+        
         if (place?.address_components) {
+          // Call the parent's place selected handler
           onPlaceSelected(place);
+          
+          // IMPORTANT: Clear the input after selection
+          // This prevents the full formatted address from showing
+          // The parent component will set the proper street address only
+          if (inputRef.current) {
+            inputRef.current.blur(); // Remove focus to trigger any blur handlers
+          }
         }
       });
+
+      // Prevent Google from filling the input with formatted address
+      // Listen for the DOM mutation when Google tries to fill the input
+      if (inputRef.current) {
+        inputRef.current.addEventListener('focus', () => {
+          // Store the current value when focused
+          const currentValue = inputRef.current?.value || '';
+          
+          // Use setTimeout to check after Google fills it
+          setTimeout(() => {
+            const newValue = inputRef.current?.value || '';
+            // If Google added city/state/zip to the input, remove it
+            if (newValue.includes(',') && newValue !== currentValue) {
+              // Google filled it with formatted address, keep only street
+              const streetOnly = newValue.split(',')[0].trim();
+              if (inputRef.current) {
+                onChange(streetOnly);
+              }
+            }
+          }, 100);
+        });
+      }
+
     } catch (error) {
       console.error('Error initializing Google Autocomplete:', error);
       setApiError(true);
     }
 
-    // Cleanup
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
         autocompleteRef.current = null;
       }
     };
-  }, [isLoaded, onPlaceSelected, disabled]);
+  }, [isLoaded, onPlaceSelected, onChange, disabled]);
 
-  // Fallback to regular input if API fails
   if (apiError) {
     return (
       <div className="space-y-2">
@@ -129,6 +155,7 @@ export function GoogleAddressInput({
         className={`w-full px-4 py-3 text-base border rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
           error ? 'border-red-500' : 'border-gray-300'
         } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+        autoComplete="off"
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!isLoaded && !apiError && (
