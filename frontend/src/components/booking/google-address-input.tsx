@@ -1,8 +1,7 @@
-
-// frontend/src/components/booking/google-address-input.tsx
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { loadGoogleMapsAPI } from '@/lib/google-maps-loader';
 
 interface GoogleAddressInputProps {
   label: string;
@@ -33,33 +32,15 @@ export function GoogleAddressInput({
   const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
-    // Check if Google is already loaded
-    if (typeof window !== 'undefined' && window.google?.maps?.places) {
-      setIsLoaded(true);
-      return;
-    }
-
-    // Load Google Places API
-    if (typeof window !== 'undefined' && !window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => setIsLoaded(true);
-      script.onerror = () => {
-        console.error('Failed to load Google Places API');
+    // Load Google Maps API using singleton loader
+    loadGoogleMapsAPI()
+      .then(() => {
+        setIsLoaded(true);
+      })
+      .catch((error) => {
+        console.error('Failed to load Google Maps API:', error);
         setApiError(true);
-      };
-      document.head.appendChild(script);
-
-      // Timeout fallback
-      setTimeout(() => {
-        if (!isLoaded) {
-          console.warn('Google Places API loading timeout');
-          setApiError(true);
-        }
-      }, 5000);
-    }
+      });
   }, []);
 
   useEffect(() => {
@@ -84,6 +65,14 @@ export function GoogleAddressInput({
       console.error('Error initializing Google Autocomplete:', error);
       setApiError(true);
     }
+
+    // Cleanup
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
   }, [isLoaded, onPlaceSelected, disabled]);
 
   // Fallback to regular input if API fails
@@ -105,6 +94,7 @@ export function GoogleAddressInput({
           } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
+        <p className="text-xs text-red-600">Address autocomplete unavailable. Please enter manually.</p>
       </div>
     );
   }
