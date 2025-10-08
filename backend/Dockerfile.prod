@@ -42,9 +42,8 @@ RUN mkdir -p /app/logs /app/staticfiles /app/media \
 # Switch to non-root user
 USER appuser
 
-# Collect static files
-RUN python manage.py collectstatic --no-input
-    
+# Collect static files (allow failure during build, will run again at deploy)
+RUN python manage.py collectstatic --no-input || true
 
 EXPOSE 8000
 
