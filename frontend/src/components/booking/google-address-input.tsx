@@ -30,6 +30,10 @@ export function GoogleAddressInput({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [apiError, setApiError] = useState(false);
+  
+  // 🔥 NEW: Track when a place is being selected to prevent onChange interference
+  const isSelectingPlace = useRef(false);
+  const selectionTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadGoogleMapsAPI()
@@ -58,16 +62,41 @@ export function GoogleAddressInput({
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
         types: ['address'],
         componentRestrictions: { country: ['us'] },
-        fields: ['address_components', 'formatted_address', 'geometry']
+        fields: ['address_components', 'formatted_address', 'geometry', 'name']
       });
 
-      // Listen for place selection
+      // 🔥 FIXED: Listen for place selection
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         
+        console.log('📍 Place changed event fired:', place);
+        
+        // Set flag to prevent onChange from interfering
+        isSelectingPlace.current = true;
+        
+        // Clear any existing timeout
+        if (selectionTimeout.current) {
+          clearTimeout(selectionTimeout.current);
+        }
+        
+        // Check if we have address components (might not be loaded yet)
         if (place?.address_components) {
+          console.log('✅ Address components available, parsing...');
+          
           // Immediately call parent handler
           onPlaceSelected(place);
+          
+          // Reset flag after a short delay to allow state updates
+          selectionTimeout.current = setTimeout(() => {
+            isSelectingPlace.current = false;
+          }, 100);
+        } else {
+          console.warn('⚠️ No address components yet. User may need to select again.');
+          
+          // Reset flag more quickly if no components
+          selectionTimeout.current = setTimeout(() => {
+            isSelectingPlace.current = false;
+          }, 50);
         }
       });
 
@@ -81,8 +110,23 @@ export function GoogleAddressInput({
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
         autocompleteRef.current = null;
       }
+      if (selectionTimeout.current) {
+        clearTimeout(selectionTimeout.current);
+      }
     };
   }, [isLoaded, onPlaceSelected, disabled]);
+
+  // 🔥 FIXED: Modified onChange to ignore events during place selection
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // If user is selecting from autocomplete, ignore this onChange
+    if (isSelectingPlace.current) {
+      console.log('🚫 Ignoring onChange during place selection');
+      return;
+    }
+    
+    // Otherwise, it's manual typing - allow it
+    onChange(e.target.value);
+  };
 
   if (apiError) {
     return (
@@ -116,7 +160,7 @@ export function GoogleAddressInput({
         ref={inputRef}
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleInputChange}  // 🔥 Use new handler
         onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
@@ -127,7 +171,7 @@ export function GoogleAddressInput({
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!isLoaded && !apiError && (
-        <p className="text-xs text-navy-500">⏳ Loading...</p>
+        <p className="text-xs text-navy-500">⏳ Loading address suggestions...</p>
       )}
     </div>
   );
