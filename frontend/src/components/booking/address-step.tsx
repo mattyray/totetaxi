@@ -69,7 +69,6 @@ function AddressForm({
     const value = e.target.value;
     handleFieldChange('zip_code', value);
     
-    // Trigger validation when ZIP is 5 digits
     if (onZipChange && value.length === 5) {
       onZipChange(value);
     }
@@ -96,22 +95,16 @@ function AddressForm({
               const parsed = parseGooglePlace(place);
               
               if (parsed) {
-                console.log('✅ Parsed address:', parsed);
-                
-                // Auto-fill all address fields
                 onAddressChange({
                   ...address,
                   ...parsed
                 } as BookingAddress);
                 
-                // Immediately trigger ZIP validation
                 if (onZipChange && parsed.zip_code) {
                   requestAnimationFrame(() => {
                     onZipChange(parsed.zip_code!);
                   });
                 }
-              } else {
-                console.error('❌ Failed to parse Google Place');
               }
             }}
             error={errors.address_line_1}
@@ -180,7 +173,6 @@ function AddressForm({
             )}
           </div>
           
-          {/* ZIP Validation Message */}
           {validationMessage && (
             <div className={`p-3 rounded-lg text-sm ${
               validationMessage.type === 'error' 
@@ -236,9 +228,12 @@ export function AddressStep() {
     setValidation(null);
     
     try {
+      console.log(`🔍 Validating ${addressType} ZIP:`, zipCode);
       const response = await apiClient.post('/api/public/validate-zip/', { 
         zip_code: zipCode 
       });
+      
+      console.log(`📦 ZIP validation response for ${addressType}:`, response.data);
       
       const { is_serviceable, requires_surcharge, error } = response.data;
       
@@ -250,9 +245,8 @@ export function AddressStep() {
         return false;
       }
       
-      // Update is_outside_core_area flag when either address needs surcharge
       if (requires_surcharge) {
-        console.log(`🚨 ${addressType} address requires surcharge - setting flag`);
+        console.log(`🚨 ${addressType} ZIP ${zipCode} REQUIRES SURCHARGE - Setting is_outside_core_area = true`);
         updateBookingData({ is_outside_core_area: true });
         setValidation({
           type: 'warning',
@@ -261,14 +255,14 @@ export function AddressStep() {
         return true;
       }
       
-      // Only clear flag if BOTH addresses are in core area
       const otherAddressType = addressType === 'pickup' ? 'delivery' : 'pickup';
       const otherValidation = addressType === 'pickup' ? deliveryValidation : pickupValidation;
       
-      // Only clear flag if the other address doesn't have a surcharge warning
       if (!otherValidation || otherValidation.type !== 'warning') {
         console.log('✅ Both addresses in core area - clearing surcharge flag');
         updateBookingData({ is_outside_core_area: false });
+      } else {
+        console.log('⚠️ Other address still has surcharge - keeping flag true');
       }
       
       setValidation({
@@ -336,10 +330,15 @@ export function AddressStep() {
   };
 
   const handleContinue = async () => {
-    console.log('🔍 ADDRESS STEP - Starting validation...');
-    console.log('Current is_outside_core_area:', bookingData.is_outside_core_area);
+    console.log('═══════════════════════════════════════');
+    console.log('🚀 ADDRESS STEP - CONTINUE CLICKED');
+    console.log('═══════════════════════════════════════');
+    console.log('📍 Pickup ZIP:', bookingData.pickup_address?.zip_code);
+    console.log('📍 Delivery ZIP:', bookingData.delivery_address?.zip_code);
+    console.log('🏴 is_outside_core_area FLAG:', bookingData.is_outside_core_area);
+    console.log('⚠️ Pickup validation:', pickupValidation);
+    console.log('⚠️ Delivery validation:', deliveryValidation);
     
-    // Block if there are ZIP validation errors
     if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
       setError('general', 'Please enter valid service area addresses.');
       return;
@@ -378,10 +377,10 @@ export function AddressStep() {
     }
 
     if (hasErrors) {
+      console.log('❌ Validation errors, stopping');
       return;
     }
 
-    // CRITICAL FIX: Recalculate pricing with updated geographic surcharge
     setIsRecalculating(true);
     try {
       const payload: any = {
@@ -405,13 +404,14 @@ export function AddressStep() {
         payload.specialty_item_ids = bookingData.specialty_item_ids;
       }
 
-      console.log('🔄 Recalculating pricing with payload:', payload);
+      console.log('📤 SENDING PRICING REQUEST WITH PAYLOAD:', JSON.stringify(payload, null, 2));
       const response = await apiClient.post('/api/public/pricing-preview/', payload);
       
-      console.log('✅ NEW PRICING:', response.data.pricing);
+      console.log('📥 PRICING RESPONSE RECEIVED:', JSON.stringify(response.data.pricing, null, 2));
+      console.log('💰 Geographic Surcharge in response:', response.data.pricing.geographic_surcharge_dollars);
       
-      // Save the updated pricing
       updateBookingData({ pricing_data: response.data.pricing });
+      console.log('✅ Pricing saved to store');
       
     } catch (error) {
       console.error('❌ Failed to recalculate pricing:', error);
@@ -421,6 +421,7 @@ export function AddressStep() {
     }
     
     setIsRecalculating(false);
+    console.log('═══════════════════════════════════════');
     nextStep();
   };
 
