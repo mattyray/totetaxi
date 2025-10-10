@@ -250,7 +250,7 @@ export function AddressStep() {
         updateBookingData({ is_outside_core_area: true });
         setValidation({
           type: 'warning',
-          message: '⚠️ This address includes a $220 distance surcharge.'
+          message: '⚠️ This address includes a $175 distance surcharge.'
         });
         return true;
       }
