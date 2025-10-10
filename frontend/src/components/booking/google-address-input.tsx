@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import usePlacesAutocomplete, {
   getGeocode,
-  getLatLng,
 } from 'use-places-autocomplete';
 import { loadGoogleMapsAPI } from '@/lib/google-maps-loader';
 
@@ -31,19 +30,16 @@ export function GoogleAddressInput({
   disabled
 }: GoogleAddressInputProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     loadGoogleMapsAPI()
       .then(() => {
         if (window.google?.maps?.places) {
           setIsLoaded(true);
-        } else {
-          setApiError(true);
         }
       })
-      .catch(() => {
-        setApiError(true);
+      .catch((err) => {
+        console.error('Failed to load Google Maps:', err);
       });
   }, []);
 
@@ -57,23 +53,23 @@ export function GoogleAddressInput({
       componentRestrictions: { country: 'us' },
     },
     debounce: 300,
-    cache: 24 * 60 * 60, // 1 day
+    initOnMount: false, // Don't init until we manually call init
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     onChange(inputValue);
-    setPlacesValue(inputValue);
+    if (isLoaded) {
+      setPlacesValue(inputValue);
+    }
   };
 
   const handleSelect = async (description: string) => {
-    // Set the input value
     onChange(description);
     setPlacesValue(description, false);
     clearSuggestions();
 
     try {
-      // Get geocode results
       const results = await getGeocode({ address: description });
       
       if (results && results[0]) {
@@ -81,7 +77,6 @@ export function GoogleAddressInput({
         
         console.log('✅ Place selected:', placeResult);
 
-        // Convert to PlaceResult format
         const place: google.maps.places.PlaceResult = {
           address_components: placeResult.address_components,
           formatted_address: placeResult.formatted_address,
@@ -89,41 +84,12 @@ export function GoogleAddressInput({
           place_id: placeResult.place_id,
         };
 
-        // Call parent handler
         onPlaceSelected(place);
       }
     } catch (error) {
       console.error('❌ Error selecting place:', error);
     }
   };
-
-  if (apiError || !isLoaded) {
-    return (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-navy-900">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          disabled={disabled}
-          className={`w-full px-4 py-3 text-base border rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
-            error ? 'border-red-500' : 'border-gray-300'
-          } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {!isLoaded && !apiError && (
-          <p className="text-xs text-navy-500">⏳ Loading...</p>
-        )}
-        {apiError && (
-          <p className="text-xs text-orange-600">⚠️ Autocomplete unavailable.</p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-2 relative">
@@ -137,7 +103,7 @@ export function GoogleAddressInput({
         onChange={handleInputChange}
         onBlur={onBlur}
         placeholder={placeholder}
-        disabled={disabled || !ready}
+        disabled={disabled}
         className={`w-full px-4 py-3 text-base border rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
           error ? 'border-red-500' : 'border-gray-300'
         } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
@@ -145,7 +111,7 @@ export function GoogleAddressInput({
       />
 
       {/* Suggestions Dropdown */}
-      {status === 'OK' && data.length > 0 && (
+      {isLoaded && status === 'OK' && data.length > 0 && (
         <ul className="absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
           {data.map((suggestion) => {
             const {
@@ -168,6 +134,9 @@ export function GoogleAddressInput({
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+      {!isLoaded && (
+        <p className="text-xs text-navy-500">⏳ Loading address suggestions...</p>
+      )}
     </div>
   );
 }
