@@ -32,41 +32,6 @@ const AIRPORT_ADDRESSES = {
   }
 };
 
-const TEST_ADDRESSES = {
-  manhattan: {
-    address_line_1: '123 Park Avenue',
-    address_line_2: 'Apt 5B',
-    city: 'New York',
-    state: 'NY' as const,
-    zip_code: '10001'
-  },
-  hamptons: {
-    address_line_1: '456 Ocean Drive',
-    address_line_2: 'Suite 12',
-    city: 'Southampton',
-    state: 'NY' as const,
-    zip_code: '11968'
-  },
-  brooklyn: {
-    address_line_1: '789 Atlantic Avenue',
-    city: 'Brooklyn',
-    state: 'NY' as const,
-    zip_code: '11217'
-  },
-  westchester: {
-    address_line_1: '321 Main Street',
-    city: 'White Plains',
-    state: 'NY' as const,
-    zip_code: '10601'
-  },
-  connecticut: {
-    address_line_1: '654 Elm Street',
-    city: 'Greenwich',
-    state: 'CT' as const,
-    zip_code: '06830'
-  }
-};
-
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
@@ -141,7 +106,6 @@ function AddressForm({
                 
                 // Immediately trigger ZIP validation
                 if (onZipChange && parsed.zip_code) {
-                  // Use requestAnimationFrame to ensure state has updated
                   requestAnimationFrame(() => {
                     onZipChange(parsed.zip_code!);
                   });
@@ -248,6 +212,7 @@ export function AddressStep() {
   const [deliveryValidating, setDeliveryValidating] = useState(false);
   const [pickupDebounce, setPickupDebounce] = useState<NodeJS.Timeout | null>(null);
   const [deliveryDebounce, setDeliveryDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
 
@@ -285,8 +250,9 @@ export function AddressStep() {
         return false;
       }
       
-      // ✅ FIX: Update is_outside_core_area flag when either address needs surcharge
+      // Update is_outside_core_area flag when either address needs surcharge
       if (requires_surcharge) {
+        console.log(`🚨 ${addressType} address requires surcharge - setting flag`);
         updateBookingData({ is_outside_core_area: true });
         setValidation({
           type: 'warning',
@@ -295,13 +261,13 @@ export function AddressStep() {
         return true;
       }
       
-      // ✅ FIX: Only clear flag if BOTH addresses are in core area
-      // Check the OTHER address to see if we should keep the flag
+      // Only clear flag if BOTH addresses are in core area
       const otherAddressType = addressType === 'pickup' ? 'delivery' : 'pickup';
       const otherValidation = addressType === 'pickup' ? deliveryValidation : pickupValidation;
       
       // Only clear flag if the other address doesn't have a surcharge warning
       if (!otherValidation || otherValidation.type !== 'warning') {
+        console.log('✅ Both addresses in core area - clearing surcharge flag');
         updateBookingData({ is_outside_core_area: false });
       }
       
@@ -320,19 +286,16 @@ export function AddressStep() {
   };
 
   const handlePickupZipChange = (zipCode: string) => {
-    // Clear previous debounce
     if (pickupDebounce) {
       clearTimeout(pickupDebounce);
     }
     
-    // Clear validation while typing
     setPickupValidation(null);
     
-    // Set new debounce
     if (zipCode.length === 5) {
       const timeout = setTimeout(() => {
         validateZipCode(zipCode, 'pickup');
-      }, 500); // Wait 500ms after user stops typing
+      }, 500);
       
       setPickupDebounce(timeout);
     }
@@ -341,19 +304,16 @@ export function AddressStep() {
   const handleDeliveryZipChange = (zipCode: string) => {
     if (isBlade) return;
     
-    // Clear previous debounce
     if (deliveryDebounce) {
       clearTimeout(deliveryDebounce);
     }
     
-    // Clear validation while typing
     setDeliveryValidation(null);
     
-    // Set new debounce
     if (zipCode.length === 5) {
       const timeout = setTimeout(() => {
         validateZipCode(zipCode, 'delivery');
-      }, 500); // Wait 500ms after user stops typing
+      }, 500);
       
       setDeliveryDebounce(timeout);
     }
@@ -375,77 +335,10 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
-    switch (route) {
-      case 'manhattan-hamptons':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.hamptons,
-          special_instructions: 'Test booking - Manhattan to Hamptons route'
-        });
-        // Trigger validation for both addresses
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.hamptons.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'brooklyn-manhattan':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.brooklyn,
-          delivery_address: TEST_ADDRESSES.manhattan,
-          special_instructions: 'Test booking - Brooklyn to Manhattan route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.brooklyn.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-westchester':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.westchester,
-          special_instructions: 'Test booking - Manhattan to Westchester route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.westchester.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-connecticut':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.connecticut,
-          special_instructions: 'Test booking - Manhattan to Connecticut route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.connecticut.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-jfk':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: AIRPORT_ADDRESSES.JFK,
-          special_instructions: 'Test booking - Manhattan to JFK Airport'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-        }, 100);
-        break;
-      case 'manhattan-ewr':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: AIRPORT_ADDRESSES.EWR,
-          special_instructions: 'Test booking - Manhattan to Newark Airport'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-        }, 100);
-        break;
-    }
-  };
-
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    console.log('🔍 ADDRESS STEP - Starting validation...');
+    console.log('Current is_outside_core_area:', bookingData.is_outside_core_area);
+    
     // Block if there are ZIP validation errors
     if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
       setError('general', 'Please enter valid service area addresses.');
@@ -484,65 +377,55 @@ export function AddressStep() {
       }
     }
 
-    if (!hasErrors) {
-      nextStep();
+    if (hasErrors) {
+      return;
     }
+
+    // CRITICAL FIX: Recalculate pricing with updated geographic surcharge
+    setIsRecalculating(true);
+    try {
+      const payload: any = {
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.pickup_date,
+        is_outside_core_area: bookingData.is_outside_core_area || false,
+      };
+
+      if (bookingData.service_type === 'mini_move') {
+        payload.mini_move_package_id = bookingData.mini_move_package_id;
+        payload.include_packing = bookingData.include_packing;
+        payload.include_unpacking = bookingData.include_unpacking;
+        payload.pickup_time = bookingData.pickup_time;
+        payload.specific_pickup_hour = bookingData.specific_pickup_hour;
+        payload.coi_required = bookingData.coi_required || false;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        payload.specialty_item_ids = bookingData.specialty_item_ids;
+      }
+
+      console.log('🔄 Recalculating pricing with payload:', payload);
+      const response = await apiClient.post('/api/public/pricing-preview/', payload);
+      
+      console.log('✅ NEW PRICING:', response.data.pricing);
+      
+      // Save the updated pricing
+      updateBookingData({ pricing_data: response.data.pricing });
+      
+    } catch (error) {
+      console.error('❌ Failed to recalculate pricing:', error);
+      setError('general', 'Failed to calculate pricing. Please try again.');
+      setIsRecalculating(false);
+      return;
+    }
+    
+    setIsRecalculating(false);
+    nextStep();
   };
 
   return (
     <div className="space-y-8">
-      {process.env.NODE_ENV === 'development' && (
-        <Card variant="elevated" className="p-6">
-          <CardContent className="p-0">
-            <h4 className="font-medium text-navy-900 mb-4">🧪 Test Routes (Dev Only)</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('manhattan-hamptons')}
-              >
-                Manhattan → Hamptons
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('brooklyn-manhattan')}
-              >
-                Brooklyn → Manhattan
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('manhattan-westchester')}
-              >
-                Manhattan → Westchester ($220)
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('manhattan-connecticut')}
-              >
-                Manhattan → CT ($220)
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('manhattan-jfk')}
-              >
-                Manhattan → JFK
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => fillCommonRoutes('manhattan-ewr')}
-              >
-                Manhattan → EWR
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <AddressForm
         title="Pickup Address"
         address={bookingData.pickup_address}
@@ -584,9 +467,10 @@ export function AddressStep() {
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}
+          disabled={isRecalculating}
           size="lg"
         >
-          Continue to Review & Payment →
+          {isRecalculating ? 'Recalculating Pricing...' : 'Continue to Review & Payment →'}
         </Button>
       </div>
     </div>
