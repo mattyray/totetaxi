@@ -285,12 +285,24 @@ export function AddressStep() {
         return false;
       }
       
+      // ✅ FIX: Update is_outside_core_area flag when either address needs surcharge
       if (requires_surcharge) {
+        updateBookingData({ is_outside_core_area: true });
         setValidation({
           type: 'warning',
-          message: '⚠️ This address includes a $175 distance surcharge.'
+          message: '⚠️ This address includes a $220 distance surcharge.'
         });
         return true;
+      }
+      
+      // ✅ FIX: Only clear flag if BOTH addresses are in core area
+      // Check the OTHER address to see if we should keep the flag
+      const otherAddressType = addressType === 'pickup' ? 'delivery' : 'pickup';
+      const otherValidation = addressType === 'pickup' ? deliveryValidation : pickupValidation;
+      
+      // Only clear flag if the other address doesn't have a surcharge warning
+      if (!otherValidation || otherValidation.type !== 'warning') {
+        updateBookingData({ is_outside_core_area: false });
       }
       
       setValidation({
@@ -439,46 +451,37 @@ export function AddressStep() {
       setError('general', 'Please enter valid service area addresses.');
       return;
     }
-    
+
+    const pickup = bookingData.pickup_address;
+    const delivery = bookingData.delivery_address;
     let hasErrors = false;
 
-    if (!bookingData.pickup_address?.address_line_1) {
+    if (!pickup?.address_line_1) {
       setError('pickup_address', 'Pickup address is required');
       hasErrors = true;
     }
-    if (!bookingData.pickup_address?.city) {
-      setError('pickup_city', 'City is required');
+    if (!pickup?.city) {
+      setError('pickup_city', 'Pickup city is required');
       hasErrors = true;
     }
-    if (!bookingData.pickup_address?.state) {
-      setError('pickup_state', 'State is required');
-      hasErrors = true;
-    }
-    if (!bookingData.pickup_address?.zip_code) {
-      setError('pickup_zip', 'ZIP code is required');
+    if (!pickup?.zip_code) {
+      setError('pickup_zip', 'Pickup ZIP code is required');
       hasErrors = true;
     }
 
-    if (isBlade && bookingData.pickup_address?.state !== 'NY') {
-      setError('pickup_state', 'BLADE service requires NYC pickup address (NY state only)');
-      hasErrors = true;
-    }
-
-    if (!bookingData.delivery_address?.address_line_1) {
-      setError('delivery_address', 'Delivery address is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.city) {
-      setError('delivery_city', 'City is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.state) {
-      setError('delivery_state', 'State is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.zip_code) {
-      setError('delivery_zip', 'ZIP code is required');
-      hasErrors = true;
+    if (!isBlade) {
+      if (!delivery?.address_line_1) {
+        setError('delivery_address', 'Delivery address is required');
+        hasErrors = true;
+      }
+      if (!delivery?.city) {
+        setError('delivery_city', 'Delivery city is required');
+        hasErrors = true;
+      }
+      if (!delivery?.zip_code) {
+        setError('delivery_zip', 'Delivery ZIP code is required');
+        hasErrors = true;
+      }
     }
 
     if (!hasErrors) {
@@ -486,168 +489,104 @@ export function AddressStep() {
     }
   };
 
-  const canContinue = 
-    bookingData.pickup_address?.address_line_1 &&
-    bookingData.pickup_address?.city &&
-    bookingData.pickup_address?.state &&
-    bookingData.pickup_address?.zip_code &&
-    bookingData.delivery_address?.address_line_1 &&
-    bookingData.delivery_address?.city &&
-    bookingData.delivery_address?.state &&
-    bookingData.delivery_address?.zip_code &&
-    pickupValidation?.type !== 'error' &&
-    deliveryValidation?.type !== 'error' &&
-    !pickupValidating &&
-    !deliveryValidating;
-
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <p className="text-navy-700">
-          {isBlade 
-            ? 'Where should we pick up your bags in NYC?'
-            : 'Where should we pick up and deliver your items?'}
-        </p>
-        <p className="text-sm text-navy-600 mt-1">
-          {isBlade
-            ? 'BLADE service is only available from NYC addresses. Airport delivery is automatic.'
-            : 'We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.'}
-        </p>
-        
-        {!isBlade && (
-          <div className="mt-6 space-y-3">
-            <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
-            <div className="flex flex-wrap justify-center gap-2">
+      {process.env.NODE_ENV === 'development' && (
+        <Card variant="elevated" className="p-6">
+          <CardContent className="p-0">
+            <h4 className="font-medium text-navy-900 mb-4">🧪 Test Routes (Dev Only)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('manhattan-hamptons')}
-                className="text-xs"
               >
                 Manhattan → Hamptons
               </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('brooklyn-manhattan')}
-                className="text-xs"
               >
                 Brooklyn → Manhattan
               </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('manhattan-westchester')}
-                className="text-xs"
               >
-                Manhattan → Westchester
+                Manhattan → Westchester ($220)
               </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('manhattan-connecticut')}
-                className="text-xs"
               >
-                Manhattan → Connecticut
+                Manhattan → CT ($220)
               </Button>
-            </div>
-          </div>
-        )}
-        
-        {isBlade && (
-          <div className="mt-6 space-y-3">
-            <p className="text-xs text-navy-500">Quick Fill - BLADE Routes:</p>
-            <div className="flex flex-wrap justify-center gap-2">
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('manhattan-jfk')}
-                className="text-xs"
               >
                 Manhattan → JFK
               </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
                 onClick={() => fillCommonRoutes('manhattan-ewr')}
-                className="text-xs"
               >
                 Manhattan → EWR
               </Button>
             </div>
-          </div>
-        )}
-      </div>
-
-      <AddressForm
-        title={isBlade ? 'Pickup Address (NYC Only)' : 'Pickup Address'}
-        address={bookingData.pickup_address}
-        onAddressChange={handlePickupChange}
-        errors={{
-          address_line_1: errors.pickup_address || '',
-          city: errors.pickup_city || '',
-          state: errors.pickup_state || '',
-          zip_code: errors.pickup_zip || ''
-        }}
-        onZipChange={handlePickupZipChange}
-        validationMessage={pickupValidation}
-        isValidating={pickupValidating}
-      />
-
-      {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent>
-            <p className="text-sm text-orange-800">
-              <strong>BLADE Restriction:</strong> BLADE service is only available for NYC (NY state) pickups. 
-              Please enter a New York address for pickup.
-            </p>
           </CardContent>
         </Card>
       )}
 
       <AddressForm
-        title={isBlade ? `Delivery Address (${bookingData.blade_airport})` : 'Delivery Address'}
-        address={bookingData.delivery_address}
-        onAddressChange={handleDeliveryChange}
-        errors={{
-          address_line_1: errors.delivery_address || '',
-          city: errors.delivery_city || '',
-          state: errors.delivery_state || '',
-          zip_code: errors.delivery_zip || ''
-        }}
-        readOnly={isBlade}
-        onZipChange={handleDeliveryZipChange}
-        validationMessage={deliveryValidation}
-        isValidating={deliveryValidating}
+        title="Pickup Address"
+        address={bookingData.pickup_address}
+        onAddressChange={handlePickupChange}
+        errors={errors}
+        onZipChange={handlePickupZipChange}
+        validationMessage={pickupValidation}
+        isValidating={pickupValidating}
       />
 
-      <Card variant="default" className="p-6">
-        <CardContent className="p-0">
-          <label className="block text-sm font-medium text-navy-900 mb-3">
-            Special Instructions (Optional)
-          </label>
-          <textarea
-            value={bookingData.special_instructions || ''}
-            onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
-            placeholder={isBlade 
-              ? 'Building access codes, doorman instructions, or any special notes for pickup...'
-              : 'Any special delivery instructions, building access codes, or notes for our team...'}
-            rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
-          />
-          <p className="text-sm text-navy-600 mt-2">
-            Include building access codes, doorman instructions, or any special handling requests.
-          </p>
-        </CardContent>
-      </Card>
+      {!isBlade && (
+        <AddressForm
+          title="Delivery Address"
+          address={bookingData.delivery_address}
+          onAddressChange={handleDeliveryChange}
+          errors={errors}
+          onZipChange={handleDeliveryZipChange}
+          validationMessage={deliveryValidation}
+          isValidating={deliveryValidating}
+        />
+      )}
+
+      {isBlade && bookingData.delivery_address && (
+        <AddressForm
+          title="Delivery Address (Airport)"
+          address={bookingData.delivery_address}
+          onAddressChange={handleDeliveryChange}
+          errors={{}}
+          readOnly={true}
+        />
+      )}
+
+      {errors.general && (
+        <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200">
+          {errors.general}
+        </div>
+      )}
 
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}
-          disabled={!canContinue}
           size="lg"
         >
-          Continue to {bookingData.service_type === 'blade_transfer' ? 'Review' : 'Your Info'} →
+          Continue to Review & Payment →
         </Button>
       </div>
     </div>
