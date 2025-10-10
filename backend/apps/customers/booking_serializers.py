@@ -272,7 +272,11 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         if not value:
             return value
         
-        # NEW: ZIP code service area validation
+        # ✅ SKIP ZIP VALIDATION FOR BLADE TRANSFERS - airports are the destination!
+        if self.initial_data.get('service_type') == 'blade_transfer':
+            return value
+        
+        # NEW: ZIP code service area validation (only for non-BLADE services)
         from apps.bookings.zip_codes import validate_service_area
         
         zip_code = value.get('zip_code')

@@ -259,7 +259,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     # Additional info
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
-    #
+    
     def validate_pickup_address(self, value):
         """Validate pickup address including service area check"""
         # Existing validation
@@ -287,7 +287,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             if field not in value:
                 raise serializers.ValidationError(f"Missing required field: {field}")
         
-        # NEW: ZIP code service area validation
+        # ✅ SKIP ZIP VALIDATION FOR BLADE TRANSFERS - airports are the destination!
+        if self.initial_data.get('service_type') == 'blade_transfer':
+            return value
+        
+        # NEW: ZIP code service area validation (only for non-BLADE services)
         from .zip_codes import validate_service_area
         
         zip_code = value.get('zip_code')
