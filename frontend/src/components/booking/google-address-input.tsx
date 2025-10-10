@@ -31,9 +31,8 @@ export function GoogleAddressInput({
   const [isLoaded, setIsLoaded] = useState(false);
   const [apiError, setApiError] = useState(false);
   
-  // 🔥 NEW: Track when a place is being selected to prevent onChange interference
+  // Track if we're in the middle of selecting a place
   const isSelectingPlace = useRef(false);
-  const selectionTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadGoogleMapsAPI()
@@ -58,43 +57,43 @@ export function GoogleAddressInput({
     }
 
     try {
-      // Initialize autocomplete
+      // Initialize autocomplete with getPlaceDetails to ensure we get full data
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
         types: ['address'],
         componentRestrictions: { country: ['us'] },
         fields: ['address_components', 'formatted_address', 'geometry', 'name']
       });
 
-      // 🔥 FIXED: Listen for place selection
+      // CRITICAL: Listen for place selection
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         
-        console.log('📍 Place changed event fired:', place);
+        console.log('📍 Place changed event:', place);
         
-        // Set flag to prevent onChange from interfering
+        // Set flag immediately
         isSelectingPlace.current = true;
         
-        // Clear any existing timeout
-        if (selectionTimeout.current) {
-          clearTimeout(selectionTimeout.current);
-        }
-        
-        // Check if we have address components (might not be loaded yet)
-        if (place?.address_components) {
-          console.log('✅ Address components available, parsing...');
+        // Check if we have address components
+        if (place && place.address_components && place.address_components.length > 0) {
+          console.log('✅ Address components found:', place.address_components);
           
-          // Immediately call parent handler
+          // Clear the input field first to prevent showing formatted address
+          if (inputRef.current) {
+            inputRef.current.value = '';
+          }
+          
+          // Call parent handler to parse and populate all fields
           onPlaceSelected(place);
           
-          // Reset flag after a short delay to allow state updates
-          selectionTimeout.current = setTimeout(() => {
+          // Reset flag after a delay
+          setTimeout(() => {
             isSelectingPlace.current = false;
           }, 100);
         } else {
-          console.warn('⚠️ No address components yet. User may need to select again.');
+          console.warn('⚠️ No address components - user may have pressed Enter without selecting');
           
-          // Reset flag more quickly if no components
-          selectionTimeout.current = setTimeout(() => {
+          // If no components, restore the value and allow typing
+          setTimeout(() => {
             isSelectingPlace.current = false;
           }, 50);
         }
@@ -110,22 +109,27 @@ export function GoogleAddressInput({
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
         autocompleteRef.current = null;
       }
-      if (selectionTimeout.current) {
-        clearTimeout(selectionTimeout.current);
-      }
     };
   }, [isLoaded, onPlaceSelected, disabled]);
 
-  // 🔥 FIXED: Modified onChange to ignore events during place selection
+  // Handle manual typing - allow it unless actively selecting
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // If user is selecting from autocomplete, ignore this onChange
+    // If selecting from dropdown, ignore manual typing
     if (isSelectingPlace.current) {
       console.log('🚫 Ignoring onChange during place selection');
       return;
     }
     
-    // Otherwise, it's manual typing - allow it
+    // Normal typing - allow it
     onChange(e.target.value);
+  };
+
+  // Handle keyboard input to reset flag if user starts typing again
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // If user presses any key other than Tab or Enter, they're manually typing
+    if (e.key !== 'Tab' && e.key !== 'Enter') {
+      isSelectingPlace.current = false;
+    }
   };
 
   if (apiError) {
@@ -160,7 +164,8 @@ export function GoogleAddressInput({
         ref={inputRef}
         type="text"
         value={value}
-        onChange={handleInputChange}  // 🔥 Use new handler
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
         onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
