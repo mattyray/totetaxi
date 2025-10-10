@@ -332,12 +332,8 @@ export function AddressStep() {
   const handleContinue = async () => {
     console.log('═══════════════════════════════════════');
     console.log('🚀 ADDRESS STEP - CONTINUE CLICKED');
+    console.log('Service Type:', bookingData.service_type);
     console.log('═══════════════════════════════════════');
-    console.log('📍 Pickup ZIP:', bookingData.pickup_address?.zip_code);
-    console.log('📍 Delivery ZIP:', bookingData.delivery_address?.zip_code);
-    console.log('🏴 is_outside_core_area FLAG:', bookingData.is_outside_core_area);
-    console.log('⚠️ Pickup validation:', pickupValidation);
-    console.log('⚠️ Delivery validation:', deliveryValidation);
     
     if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
       setError('general', 'Please enter valid service area addresses.');
@@ -381,46 +377,50 @@ export function AddressStep() {
       return;
     }
 
-    setIsRecalculating(true);
-    try {
-      const payload: any = {
-        service_type: bookingData.service_type,
-        pickup_date: bookingData.pickup_date,
-        is_outside_core_area: bookingData.is_outside_core_area || false,
-      };
+    // ✅ ONLY recalculate for mini_move, standard_delivery, and specialty_item
+    // BLADE doesn't need pricing recalculation here
+    if (bookingData.service_type !== 'blade_transfer') {
+      setIsRecalculating(true);
+      try {
+        const payload: any = {
+          service_type: bookingData.service_type,
+          pickup_date: bookingData.pickup_date,
+          is_outside_core_area: bookingData.is_outside_core_area || false,
+        };
 
-      if (bookingData.service_type === 'mini_move') {
-        payload.mini_move_package_id = bookingData.mini_move_package_id;
-        payload.include_packing = bookingData.include_packing;
-        payload.include_unpacking = bookingData.include_unpacking;
-        payload.pickup_time = bookingData.pickup_time;
-        payload.specific_pickup_hour = bookingData.specific_pickup_hour;
-        payload.coi_required = bookingData.coi_required || false;
-      } else if (bookingData.service_type === 'standard_delivery') {
-        payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
-        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
-        payload.specialty_item_ids = bookingData.specialty_item_ids;
-      } else if (bookingData.service_type === 'specialty_item') {
-        payload.specialty_item_ids = bookingData.specialty_item_ids;
+        if (bookingData.service_type === 'mini_move') {
+          payload.mini_move_package_id = bookingData.mini_move_package_id;
+          payload.include_packing = bookingData.include_packing || false;
+          payload.include_unpacking = bookingData.include_unpacking || false;
+          payload.pickup_time = bookingData.pickup_time;
+          payload.specific_pickup_hour = bookingData.specific_pickup_hour;
+          payload.coi_required = bookingData.coi_required || false;
+        } else if (bookingData.service_type === 'standard_delivery') {
+          payload.standard_delivery_item_count = bookingData.standard_delivery_item_count || 0;
+          payload.is_same_day_delivery = bookingData.is_same_day_delivery || false;
+          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+        } else if (bookingData.service_type === 'specialty_item') {
+          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+        }
+
+        console.log('📤 SENDING PRICING REQUEST:', JSON.stringify(payload, null, 2));
+        const response = await apiClient.post('/api/public/pricing-preview/', payload);
+        
+        console.log('📥 PRICING RESPONSE:', JSON.stringify(response.data.pricing, null, 2));
+        
+        updateBookingData({ pricing_data: response.data.pricing });
+        console.log('✅ Pricing saved to store');
+        
+      } catch (error: any) {
+        console.error('❌ Failed to recalculate pricing:', error);
+        console.error('Error response:', error.response?.data);
+        setError('general', 'Failed to calculate pricing. Please try again.');
+        setIsRecalculating(false);
+        return;
       }
-
-      console.log('📤 SENDING PRICING REQUEST WITH PAYLOAD:', JSON.stringify(payload, null, 2));
-      const response = await apiClient.post('/api/public/pricing-preview/', payload);
-      
-      console.log('📥 PRICING RESPONSE RECEIVED:', JSON.stringify(response.data.pricing, null, 2));
-      console.log('💰 Geographic Surcharge in response:', response.data.pricing.geographic_surcharge_dollars);
-      
-      updateBookingData({ pricing_data: response.data.pricing });
-      console.log('✅ Pricing saved to store');
-      
-    } catch (error) {
-      console.error('❌ Failed to recalculate pricing:', error);
-      setError('general', 'Failed to calculate pricing. Please try again.');
       setIsRecalculating(false);
-      return;
     }
     
-    setIsRecalculating(false);
     console.log('═══════════════════════════════════════');
     nextStep();
   };
