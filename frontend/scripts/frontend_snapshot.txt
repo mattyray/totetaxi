@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-08 12:18:14.345066
-# Files: 81
+# Generated: 2025-10-10 16:51:44.757389
+# Files: 83
 
 # ==== next-env.d.ts ====
 
@@ -141,8 +141,10 @@ export default nextConfig;
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-google-autocomplete": "^2.7.5",
     "react-hook-form": "^7.62.0",
     "tailwind-merge": "^2.6.0",
+    "use-places-autocomplete": "^4.0.1",
     "zod": "^3.25.76",
     "zustand": "^4.5.7"
   },
@@ -5290,6 +5292,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
+import { GoogleAddressInput } from './google-address-input';
+import { parseGooglePlace } from '@/lib/google-places-utils';
 
 const STATES = [
   { value: 'NY', label: 'New York' },
@@ -5405,16 +5409,39 @@ function AddressForm({
       
       <CardContent className="p-0">
         <div className="space-y-6">
-          <Input
+          <GoogleAddressInput
             label="Street Address"
             value={address?.address_line_1 || ''}
-            onChange={(e) => handleFieldChange('address_line_1', e.target.value)}
+            onChange={(value) => handleFieldChange('address_line_1', value)}
+            onPlaceSelected={(place) => {
+              const parsed = parseGooglePlace(place);
+              
+              if (parsed) {
+                console.log('✅ Parsed address:', parsed);
+                
+                // Auto-fill all address fields
+                onAddressChange({
+                  ...address,
+                  ...parsed
+                } as BookingAddress);
+                
+                // Immediately trigger ZIP validation
+                if (onZipChange && parsed.zip_code) {
+                  // Use requestAnimationFrame to ensure state has updated
+                  requestAnimationFrame(() => {
+                    onZipChange(parsed.zip_code!);
+                  });
+                }
+              } else {
+                console.error('❌ Failed to parse Google Place');
+              }
+            }}
             error={errors.address_line_1}
-            placeholder="123 Main Street"
+            placeholder="Start typing your address..."
             required
             disabled={readOnly}
           />
-          
+                    
           <Input
             label="Apartment, Suite, etc. (Optional)"
             value={address?.address_line_2 || ''}
@@ -7436,6 +7463,67 @@ export function DateTimeStep() {
           Continue to Date & Time →
         </Button>
       </div>
+    </div>
+  );
+}
+```
+
+# ==== src/components/booking/google-address-input.tsx ====
+
+```
+// frontend/src/components/booking/google-address-input.tsx
+'use client';
+
+import Autocomplete from 'react-google-autocomplete';
+
+interface GoogleAddressInputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onPlaceSelected: (place: google.maps.places.PlaceResult) => void;
+  error?: string;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+}
+
+export function GoogleAddressInput({
+  label,
+  value,
+  onChange,
+  onPlaceSelected,
+  error,
+  placeholder,
+  required,
+  disabled
+}: GoogleAddressInputProps) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-navy-900">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      
+      <Autocomplete
+        apiKey={process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
+        onPlaceSelected={(place) => {
+          console.log('✅ Place selected:', place);
+          onPlaceSelected(place);
+        }}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        options={{
+          types: ['address'],
+          componentRestrictions: { country: 'us' },
+          fields: ['address_components', 'formatted_address', 'geometry', 'place_id']
+        }}
+        className={`w-full px-4 py-3 text-base border rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 ${
+          error ? 'border-red-500' : 'border-gray-300'
+        } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+      />
+      
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
@@ -13681,6 +13769,88 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+```
+
+# ==== src/lib/google-places-utils.ts ====
+
+```
+import type { BookingAddress } from '@/stores/booking-store';
+
+export function parseGooglePlace(
+  place: google.maps.places.PlaceResult
+): Partial<BookingAddress> | null {
+  if (!place.address_components) {
+    console.warn('No address components in place result');
+    return null;
+  }
+
+  const components = place.address_components;
+
+  // Extract components with proper typing
+  const streetNumber = components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('street_number')
+  )?.long_name || '';
+  
+  const route = components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('route')
+  )?.long_name || '';
+  
+  const city = components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('locality')
+  )?.long_name || 
+  components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('sublocality')
+  )?.long_name || '';
+  
+  const state = components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('administrative_area_level_1')
+  )?.short_name || '';
+  
+  const zipCode = components.find((c: google.maps.GeocoderAddressComponent) => 
+    c.types.includes('postal_code')
+  )?.long_name || '';
+
+  // Validate required fields
+  if (!city || !state || !zipCode) {
+    console.warn('Missing required address components:', { 
+      city, state, zipCode 
+    });
+    return null;
+  }
+
+  // Validate state is in service area
+  if (!['NY', 'CT', 'NJ'].includes(state)) {
+    console.warn('Address outside service states:', state);
+    return null;
+  }
+
+  const address_line_1 = `${streetNumber} ${route}`.trim();
+
+  if (!address_line_1) {
+    console.warn('No street address found');
+    return null;
+  }
+
+  return {
+    address_line_1,
+    address_line_2: '',
+    city,
+    state: state as 'NY' | 'CT' | 'NJ',
+    zip_code: zipCode
+  };
+}
+
+export function formatAddressForDisplay(address: BookingAddress): string {
+  const parts = [
+    address.address_line_1,
+    address.address_line_2,
+    address.city,
+    address.state,
+    address.zip_code
+  ].filter(Boolean);
+
+  return parts.join(', ');
+}
 ```
 
 # ==== src/lib/query-client.ts ====
