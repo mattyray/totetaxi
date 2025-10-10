@@ -21,6 +21,7 @@
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-google-autocomplete": "^2.7.5",
     "react-hook-form": "^7.62.0",
     "tailwind-merge": "^2.6.0",
     "use-places-autocomplete": "^4.0.1",
