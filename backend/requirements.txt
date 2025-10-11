@@ -37,16 +37,18 @@ sentry-sdk==2.13.0
 django-debug-toolbar==4.4.6
 django-extensions==3.2.3
 
-# Testing
-pytest==8.3.2
+# Testing (Updated October 2025)
+pytest==8.3.3
 pytest-django==4.9.0
 pytest-cov==5.0.0
-factory-boy==3.3.0
+factory-boy==3.3.1
+faker==30.8.2
+freezegun==1.5.1
 
 # Production Server
 gunicorn==23.0.0
 whitenoise==6.7.0
 
+# Rate Limiting & Caching
 django-ratelimit==4.1.0
 django-redis==5.4.0
-

@@ -1,5 +1,6 @@
 # config/settings.py
 import os
+import sys
 import environ
 from pathlib import Path
 
@@ -318,3 +319,45 @@ LOGGING = {
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
+
+
+# ============================================================================
+# TEST CONFIGURATION
+# ============================================================================
+# Detect if we're running tests
+TESTING = 'test' in sys.argv or 'pytest' in sys.argv[0]
+
+if TESTING:
+    # Use faster in-memory database for tests
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+    
+    # Disable password hashing for faster tests
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+    
+    # Use console email backend for tests
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    
+    # Make Celery tasks run synchronously during tests
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    
+    # Disable rate limiting during tests
+    RATELIMIT_ENABLE = False
+    
+    # Use dummy cache for tests (faster)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
+    
+    # Disable CSRF for tests
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
