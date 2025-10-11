@@ -1,4 +1,3 @@
-//  frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -119,11 +118,86 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   }
 }
 
+// ✅ NEW: Hook to recalculate pricing when Review & Pay loads
+const useRecalculatePricing = () => {
+  const { bookingData, updateBookingData } = useBookingWizard();
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  useEffect(() => {
+    const recalculatePricing = async () => {
+      // Skip if already recalculating or if pricing already exists and matches
+      if (isRecalculating) return;
+
+      console.log('🔄 Recalculating pricing on Review & Pay load');
+      console.log('Current bookingData:', bookingData);
+      
+      setIsRecalculating(true);
+      
+      try {
+        let pricingRequest: any = {
+          service_type: bookingData.service_type,
+          pickup_date: bookingData.service_type === 'blade_transfer' 
+            ? bookingData.blade_flight_date 
+            : bookingData.pickup_date,
+          coi_required: bookingData.coi_required || false,
+          is_outside_core_area: bookingData.is_outside_core_area || false,
+        };
+
+        // Service-specific fields
+        if (bookingData.service_type === 'mini_move') {
+          pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+          pricingRequest.include_packing = bookingData.include_packing;
+          pricingRequest.include_unpacking = bookingData.include_unpacking;
+          pricingRequest.pickup_time = bookingData.pickup_time;
+          pricingRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
+        } else if (bookingData.service_type === 'standard_delivery') {
+          pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        } else if (bookingData.service_type === 'specialty_item') {
+          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        } else if (bookingData.service_type === 'blade_transfer') {
+          pricingRequest.blade_airport = bookingData.blade_airport;
+          pricingRequest.blade_flight_date = bookingData.blade_flight_date;
+          pricingRequest.blade_flight_time = bookingData.blade_flight_time;
+          pricingRequest.blade_bag_count = bookingData.blade_bag_count;
+        }
+
+        console.log('🔄 Pricing request:', pricingRequest);
+        
+        const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
+        
+        console.log('✅ Pricing recalculated:', response.data);
+        
+        // Update booking data with fresh pricing
+        updateBookingData({ 
+          pricing_data: response.data.pricing,
+          blade_ready_time: response.data.details?.ready_time 
+        });
+      } catch (error) {
+        console.error('❌ Failed to recalculate pricing:', error);
+      } finally {
+        setIsRecalculating(false);
+      }
+    };
+
+    // Always recalculate pricing when this component mounts
+    recalculatePricing();
+  }, []); // Empty dependency array - only run once on mount
+
+  return isRecalculating;
+};
+
 export function ReviewPaymentStep() {
   const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
+  
+  // ✅ CRITICAL: Recalculate pricing when this step loads
+  const isPricingRecalculating = useRecalculatePricing();
+  
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -139,8 +213,10 @@ export function ReviewPaymentStep() {
     console.log('User:', user);
     console.log('Customer Info:', bookingData.customer_info);
     console.log('Service Type:', bookingData.service_type);
+    console.log('COI Required:', bookingData.coi_required);
+    console.log('Pricing Data:', bookingData.pricing_data);
     console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type, bookingData.coi_required, bookingData.pricing_data]);
 
   // STEP 1: Create payment intent
   const createPaymentIntentMutation = useMutation({
@@ -335,6 +411,18 @@ export function ReviewPaymentStep() {
       previousStep();
     }
   };
+
+  // Show loading while pricing is recalculating
+  if (isPricingRecalculating) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy-900 mx-auto mb-4"></div>
+          <p className="text-navy-700">Calculating final pricing...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (bookingComplete) {
     return (
@@ -648,7 +736,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
-              {/* ✅ FIX: COI Fee - Show for ALL service types */}
+              {/* ✅ COI Fee - NOW SHOWS FOR ALL SERVICE TYPES */}
               {bookingData.pricing_data.coi_fee_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">COI Fee:</span>
