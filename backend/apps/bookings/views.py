@@ -10,6 +10,7 @@ from .models import Booking, Address, GuestCheckout
 from .serializers import (
     BookingSerializer,
     GuestBookingCreateSerializer,
+    GuestPaymentIntentSerializer,
     BookingStatusSerializer,
     PricingPreviewSerializer,
     AddressSerializer
@@ -31,6 +32,12 @@ from apps.services.serializers import (
     OrganizingServicesByTierSerializer
 )
 from apps.payments.services import StripePaymentService
+import stripe
+from django.conf import settings
+import json
+
+# Initialize Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class ServiceCatalogView(APIView):
@@ -273,12 +280,12 @@ class PricingPreviewView(APIView):
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # ✅ FIX: Apply geographic surcharge for Standard Delivery
+            # Apply geographic surcharge for Standard Delivery
             is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
             if is_outside_core_area:
                 geographic_surcharge_cents = 17500
             
-            # ✅ FIX: Apply COI fee for Standard Delivery
+            # Apply COI fee for Standard Delivery
             coi_required = serializer.validated_data.get('coi_required', False)
             if coi_required:
                 coi_fee_cents = 5000
@@ -300,7 +307,7 @@ class PricingPreviewView(APIView):
                 for item in specialty_items
             ]
             
-            # ✅ FIX: Apply same-day delivery for specialty items
+            # Apply same-day delivery for specialty items
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             if is_same_day:
                 try:
@@ -312,12 +319,12 @@ class PricingPreviewView(APIView):
                 except StandardDeliveryConfig.DoesNotExist:
                     pass
             
-            # ✅ FIX: Apply geographic surcharge for Specialty Items
+            # Apply geographic surcharge for Specialty Items
             is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
             if is_outside_core_area:
                 geographic_surcharge_cents = 17500
             
-            # ✅ FIX: Apply COI fee for Specialty Items
+            # Apply COI fee for Specialty Items
             coi_required = serializer.validated_data.get('coi_required', False)
             if coi_required:
                 coi_fee_cents = 5000
@@ -423,54 +430,121 @@ class CalendarAvailabilityView(APIView):
         })
 
 
+class CreateGuestPaymentIntentView(APIView):
+    """
+    NEW: Create payment intent BEFORE guest booking
+    This separates payment from booking creation to avoid pending bookings
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        print("=" * 80)
+        print("💳 GUEST PAYMENT INTENT REQUEST RECEIVED")
+        print("=" * 80)
+        print(f"Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        
+        serializer = GuestPaymentIntentSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            print(f"❌ Validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get calculated total from serializer
+        validated_data = serializer.validated_data
+        amount_cents = validated_data['calculated_total_cents']
+        customer_email = validated_data.get('email')
+        
+        try:
+            # Create Stripe payment intent
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency='usd',
+                payment_method_types=['card'],
+                metadata={
+                    'service_type': validated_data['service_type'],
+                    'customer_email': customer_email,
+                }
+            )
+            
+            print(f"✅ Payment intent created: {payment_intent.id}")
+            print(f"   Amount: ${amount_cents / 100}")
+            print("=" * 80)
+            
+            return Response({
+                'client_secret': payment_intent.client_secret,
+                'payment_intent_id': payment_intent.id,
+                'amount_dollars': amount_cents / 100
+            }, status=status.HTTP_200_OK)
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe error: {str(e)}")
+            return Response(
+                {'error': f'Payment initialization failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class GuestBookingCreateView(generics.CreateAPIView):
-    """Create booking for guest (non-authenticated) users with payment integration - INCLUDES BLADE"""
+    """
+    REFACTORED: Create booking for guest AFTER payment succeeds
+    Now requires payment_intent_id and verifies payment before creating booking
+    """
     serializer_class = GuestBookingCreateSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
         print("=" * 80)
-        print("GUEST BOOKING CREATE REQUEST RECEIVED")
+        print("🔍 GUEST BOOKING CREATE REQUEST RECEIVED (PAYMENT-FIRST)")
         print("=" * 80)
         print("Guest Email:", request.data.get('email'))
         print("Service Type:", request.data.get('service_type'))
-        print("Request Data:", request.data)
-        print("Create Payment Intent:", request.data.get('create_payment_intent', True))
+        print("Payment Intent ID:", request.data.get('payment_intent_id'))
+        print("Request Data:", json.dumps(request.data, indent=2, default=str))
+        
+        # CRITICAL: Verify payment_intent_id is provided
+        payment_intent_id = request.data.get('payment_intent_id')
+        if not payment_intent_id:
+            return Response(
+                {'error': 'payment_intent_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify payment with Stripe
+        try:
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            if payment_intent.status != 'succeeded':
+                print(f"❌ Payment not succeeded: {payment_intent.status}")
+                return Response(
+                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print(f"✅ Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe verification failed: {str(e)}")
+            return Response(
+                {'error': f'Payment verification failed: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
-        print(f"Guest booking created: {booking.booking_number}")
+        # Update booking status to paid since payment already succeeded
+        booking.status = 'paid'
+        booking.save()
+        
+        print(f"✅ Guest booking created: {booking.booking_number}")
         print(f"Service type: {booking.service_type}")
         print(f"Total price: ${booking.total_price_dollars}")
+        print(f"Status: {booking.status}")
         
         if booking.service_type == 'blade_transfer':
             print(f"BLADE booking - Airport: {booking.blade_airport}, Bags: {booking.blade_bag_count}")
             print(f"Ready time: {booking.blade_ready_time}")
-        
-        create_payment_intent = request.data.get('create_payment_intent', True)
-        payment_data = None
-        
-        if create_payment_intent:
-            print("Creating payment intent for guest...")
-            try:
-                guest_email = booking.guest_checkout.email if booking.guest_checkout else None
-                
-                payment_result = StripePaymentService.create_payment_intent(
-                    booking=booking,
-                    customer_email=guest_email
-                )
-                
-                payment_data = {
-                    'client_secret': payment_result['client_secret'],
-                    'payment_intent_id': payment_result['payment_intent_id']
-                }
-                
-                print(f"Payment intent created: {payment_result['payment_intent_id']}")
-            except Exception as e:
-                print(f"Payment intent failed: {str(e)}")
-                payment_data = None
         
         response_data = {
             'message': 'Booking created successfully',
@@ -479,6 +553,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'booking_number': booking.booking_number,
                 'total_price_dollars': booking.total_price_dollars,
                 'service_type': booking.service_type,
+                'status': booking.status,
             }
         }
         
@@ -491,12 +566,8 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
             }
         
-        if payment_data:
-            response_data['payment'] = payment_data
-        
         print("=" * 80)
-        print("SUCCESS - Returning guest booking response")
-        print("Response includes payment:", bool(payment_data))
+        print("✅ SUCCESS - Returning guest booking response")
         print("=" * 80)
         
         return Response(response_data, status=status.HTTP_201_CREATED)

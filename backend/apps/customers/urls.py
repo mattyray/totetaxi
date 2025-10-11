@@ -23,11 +23,16 @@ urlpatterns = [
     path('addresses/<uuid:pk>/', views.SavedAddressDetailView.as_view(), name='saved-address-detail'),
     
     # Enhanced customer dashboard and preferences
-    path('dashboard/', views.CustomerDashboardView.as_view(), name='customer-dashboard'),
-    path('preferences/', views.BookingPreferencesView.as_view(), name='booking-preferences'),
+    path('dashboard/', booking_views.CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('preferences/', booking_views.BookingPreferencesView.as_view(), name='booking-preferences'),
     
     # Authenticated booking management
     path('bookings/', views.CustomerBookingListView.as_view(), name='customer-bookings'),
+    
+    # ✅ NEW: Payment intent creation (BEFORE booking)
+    path('bookings/create-payment-intent/', booking_views.CreatePaymentIntentView.as_view(), name='create-payment-intent'),
+    
+    # Booking creation (NOW requires payment_intent_id)
     path('bookings/create/', booking_views.CustomerBookingCreateView.as_view(), name='customer-booking-create'),
     path('bookings/<uuid:booking_id>/', booking_views.CustomerBookingDetailView.as_view(), name='customer-booking-detail'),
     path('bookings/<uuid:booking_id>/rebook/', booking_views.QuickRebookView.as_view(), name='quick-rebook'),

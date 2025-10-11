@@ -14,7 +14,10 @@ urlpatterns = [
     path('services/organizing-by-tier/', views.OrganizingServicesByTierView.as_view(), name='organizing-by-tier'),
     path('services/organizing/<uuid:service_id>/', views.OrganizingServiceDetailView.as_view(), name='organizing-service-detail'),
     
-    # Guest booking
+    # ✅ NEW: Payment intent creation (BEFORE booking)
+    path('create-payment-intent/', views.CreateGuestPaymentIntentView.as_view(), name='create-guest-payment-intent'),
+    
+    # Guest booking (NOW requires payment_intent_id)
     path('guest-booking/', views.GuestBookingCreateView.as_view(), name='guest-booking-create'),
     
     # Booking status lookup
@@ -22,6 +25,6 @@ urlpatterns = [
     path('calendar/availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
     path('fix-organizing-services/', views.FixOrganizingServicesView.as_view()),
     
-    # NEW: ZIP code validation endpoint
+    # ZIP code validation endpoint
     path('validate-zip/', views.ValidateZipCodeView.as_view(), name='validate-zip'),
 ]
