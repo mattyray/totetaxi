@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    viewport: { width: 1920, height: 1080 }, // ✅ BIGGER VIEWPORT FOR MODAL
   },
 
   projects: [
