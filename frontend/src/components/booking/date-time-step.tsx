@@ -1,10 +1,11 @@
+// frontend/src/components/booking/date-time-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface AvailabilityDay {
@@ -74,12 +75,18 @@ export function DateTimeStep() {
         payload.pickup_time = selectedTime;
         payload.specific_pickup_hour = selectedTime === 'morning_specific' ? specificHour : undefined;
         payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       } else if (bookingData.service_type === 'standard_delivery') {
         payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         payload.is_same_day_delivery = bookingData.is_same_day_delivery;
         payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       } else if (bookingData.service_type === 'specialty_item') {
         payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+        payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       }
 
       const response = await apiClient.post('/api/public/pricing-preview/', payload);
@@ -165,7 +172,10 @@ export function DateTimeStep() {
         updateBookingData({
           service_type: 'specialty_item',
           standard_delivery_item_count: undefined,
-          is_same_day_delivery: undefined
+          // ✅ FIX: Preserve same-day delivery flag and other fields for specialty items
+          // is_same_day_delivery: keep current value (don't clear it)
+          // coi_required: keep current value
+          // is_outside_core_area: keep current value
         });
       }
     }
@@ -238,6 +248,7 @@ export function DateTimeStep() {
     : bookingData.service_type === 'specialty_item'
       ? !!(selectedDate && pricingMutation.data?.pricing)
       : !!(selectedDate && selectedTime);
+
   if (bookingData.service_type === 'blade_transfer') {
     return (
       <div className="space-y-8">
@@ -407,49 +418,48 @@ export function DateTimeStep() {
         </div>
         
         {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-1 md:gap-4">
-                  {getMonthDays().map((date, index) => {
-                    if (!date) {
-                      return <div key={`empty-${index}`} className="h-16 md:h-20" />;
-                    }
-                    
-                    const dateStr = formatDate(date);
-                    const dayInfo = getDayInfo(date);
-                    const isSelected = selectedDate === dateStr;
-                    const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
-                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
-                    
-                    // FIXED: Add past date check
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const isPastDate = date < today;
+        <div className="grid grid-cols-7 gap-1 md:gap-4">
+          {getMonthDays().map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+            }
+            
+            const dateStr = formatDate(date);
+            const dayInfo = getDayInfo(date);
+            const isSelected = selectedDate === dateStr;
+            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isPastDate = date < today;
 
-                    return (
-                      <button
-                        key={dateStr}
-                        onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
-                        disabled={!isCurrentMonth || isPastDate}
-                        className={`
-                          p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
-                          h-16 md:h-20 flex flex-col items-center justify-center
-                          ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
-                          ${isSelected 
-                            ? 'bg-navy-900 text-white border-navy-900' 
-                            : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                          }
-                        `}
-                      >
-                        <div className="font-medium">{date.getDate()}</div>
-                        <div className="text-xs opacity-75">
-                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                        </div>
-                        {hasSurcharge && isCurrentMonth && !isPastDate && (
-                          <div className="text-xs text-orange-600 mt-1">•</div>
-                        )}
-                      </button>
-                    );
-                  })}
+            return (
+              <button
+                key={dateStr}
+                onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
+                disabled={!isCurrentMonth || isPastDate}
+                className={`
+                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                  h-16 md:h-20 flex flex-col items-center justify-center
+                  ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
+                  ${isSelected 
+                    ? 'bg-navy-900 text-white border-navy-900' 
+                    : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                  }
+                `}
+              >
+                <div className="font-medium">{date.getDate()}</div>
+                <div className="text-xs opacity-75">
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
+                {hasSurcharge && isCurrentMonth && !isPastDate && (
+                  <div className="text-xs text-orange-600 mt-1">•</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
         
         <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">
@@ -576,131 +586,132 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-              <Card variant="luxury" className="p-8">
-                <CardContent className="p-0">
-                  <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
-                  <div className="space-y-4">
-                    
-                    {/* Standard Delivery - Itemized */}
-                    {bookingData.service_type === 'standard_delivery' && (
-                      <>
-                        {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">
-                              Standard Delivery ({bookingData.standard_delivery_item_count} items):
-                            </span>
-                            <span className="text-navy-900 font-semibold">
-                              ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Show specialty items from pricingMutation details */}
-                        {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
-                          <div key={`specialty-${index}`} className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
-                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Mini Move */}
-                    {bookingData.service_type === 'mini_move' && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Mini Move Package:</span>
-                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Specialty Item Only */}
-                    {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
-                      <>
-                        {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
-                          <div key={`specialty-only-${index}`} className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">{item.name}:</span>
-                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                    {/* BLADE - use type assertion since it's not in the type yet */}
-                    {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">
-                          {bookingData.blade_bag_count} bags × $75:
-                        </span>
-                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Same-Day Delivery */}
-                    {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Weekend Surcharge */}
-                    {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* COI Fee */}
-                    {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">COI Fee:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Organizing Services */}
-                    {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Organizing Services:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Organizing Tax */}
-                    {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Time Window Surcharge */}
-                    {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Geographic Surcharge */}
-                    {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Distance Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Total */}
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-navy-900">Total:</span>
-                        <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
-                      </div>
+        <Card variant="luxury" className="p-8">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+            <div className="space-y-4">
+              
+              {/* Standard Delivery - Itemized */}
+              {bookingData.service_type === 'standard_delivery' && (
+                <>
+                  {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">
+                        Standard Delivery ({bookingData.standard_delivery_item_count} items):
+                      </span>
+                      <span className="text-navy-900 font-semibold">
+                        ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
+                      </span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  )}
+                  
+                  {/* Show specialty items from pricingMutation details */}
+                  {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
+                    <div key={`specialty-${index}`} className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
+                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Mini Move */}
+              {bookingData.service_type === 'mini_move' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Mini Move Package:</span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+              )}
+
+              {/* Specialty Item Only */}
+              {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
+                <>
+                  {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
+                    <div key={`specialty-only-${index}`} className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">{item.name}:</span>
+                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* BLADE */}
+              {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">
+                    {bookingData.blade_bag_count} bags × $75:
+                  </span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+              )}
+
+              {/* Same-Day Delivery */}
+              {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
+                </div>
+              )}
+
+              {/* Weekend Surcharge */}
+              {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* COI Fee */}
+              {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                </div>
+              )}
+
+              {/* Organizing Services */}
+              {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              {/* Organizing Tax */}
+              {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {/* Time Window Surcharge */}
+              {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* Geographic Surcharge */}
+              {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold text-navy-900">Total:</span>
+                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">
@@ -715,7 +726,11 @@ export function DateTimeStep() {
               <div>
                 <span className="font-medium text-navy-900">
                   Certificate of Insurance (COI) Required
-                  {packageType === 'petite' && (
+                  {/* ✅ FIX: Show +$50 for all service types that need COI */}
+                  {bookingData.service_type === 'mini_move' && packageType === 'petite' && (
+                    <span className="text-orange-600 ml-2">(+$50)</span>
+                  )}
+                  {(bookingData.service_type === 'standard_delivery' || bookingData.service_type === 'specialty_item') && (
                     <span className="text-orange-600 ml-2">(+$50)</span>
                   )}
                 </span>

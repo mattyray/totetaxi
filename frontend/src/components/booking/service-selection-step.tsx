@@ -1,3 +1,4 @@
+// frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
 import { useState } from 'react';
@@ -593,6 +594,29 @@ export function ServiceSelectionStep() {
                 <span className="text-navy-900 font-medium">
                   Same-Day Delivery (+$360)
                 </span>
+              </label>
+            </CardContent>
+          </Card>
+
+          {/* ✅ FIX: Add COI checkbox for Standard Delivery with +$50 fee displayed */}
+          <Card variant="default">
+            <CardContent>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={bookingData.coi_required || false}
+                  onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
+                  className="mr-3 h-4 w-4"
+                />
+                <div>
+                  <span className="font-medium text-navy-900">
+                    Certificate of Insurance (COI) Required
+                    <span className="text-orange-600 ml-2">(+$50)</span>
+                  </span>
+                  <p className="text-sm text-navy-600">
+                    Required by some buildings. We'll handle the paperwork for you.
+                  </p>
+                </div>
               </label>
             </CardContent>
           </Card>
