@@ -32,28 +32,35 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('Step 1:')).toBeVisible();
     console.log('✓ On Step 1: Service Selection');
     
-    // Click Mini Moves button to select it
+    // Click Mini Moves
     const miniMoveButton = page.locator('button:has-text("Mini Moves")');
     await miniMoveButton.click();
     console.log('✓ Clicked Mini Moves');
     
-    // Wait for packages to load after clicking
-    await page.waitForTimeout(2000);
+    // Wait for packages to load
+    await page.waitForTimeout(3000);
+    
+    // Scroll to "Select Package" heading to ensure packages are in view
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     
     // Verify packages loaded
-    await expect(page.getByText('Select Package')).toBeVisible();
-    await expect(page.getByText('Petite')).toBeVisible();
+    await expect(page.getByText('Petite')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('$995')).toBeVisible();
-    console.log('✓ Packages loaded');
+    console.log('✓ Packages visible');
     
-    // Click on Petite package - use heading role with force click
-    await page.getByRole('heading', { name: 'Petite', exact: true }).click({ force: true });
-    console.log('✓ Clicked Petite package');
+    // Scroll to Petite card and click
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await petiteHeading.click();
+    console.log('✓ Clicked Petite');
     
     await page.waitForTimeout(1500);
     
-    // Verify continue button is now enabled
+    // Continue button should be enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await continueButton.scrollIntoViewIfNeeded();
     await expect(continueButton).toBeEnabled({ timeout: 5000 });
     console.log('✓ Continue button enabled');
     
@@ -67,29 +74,29 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     console.log('✓ On Step 2: Date & Time');
     
-    // Wait for calendar to load
     await page.waitForTimeout(1000);
     
-    // Click first available date in calendar
     const calendarButtons = page.locator('.grid.grid-cols-7 button').filter({ 
       hasNotText: /sun|mon|tue|wed|thu|fri|sat/i 
     });
+    await calendarButtons.first().scrollIntoViewIfNeeded();
     await calendarButtons.first().click();
     console.log('✓ Selected date');
     
     await page.waitForTimeout(1000);
     
-    // Select morning time slot
-    await page.locator('button:has-text("Morning (8 AM - 11 AM)")').click();
+    const morningButton = page.locator('button:has-text("Morning (8 AM - 11 AM)")');
+    await morningButton.scrollIntoViewIfNeeded();
+    await morningButton.click();
     console.log('✓ Selected morning time');
     
-    // Wait for pricing to calculate
     await page.waitForTimeout(3000);
     await expect(page.getByText('Pricing Summary')).toBeVisible({ timeout: 10000 });
     console.log('✓ Pricing calculated');
     
-    // Continue to addresses
-    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    const addressButton = page.getByRole('button', { name: /continue to addresses/i });
+    await addressButton.scrollIntoViewIfNeeded();
+    await addressButton.click();
     await page.waitForTimeout(1000);
     
     // ============================================================
@@ -98,7 +105,6 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
     console.log('✓ On Step 3: Addresses');
     
-    // Fill addresses
     await page.getByLabel('Street Address').first().fill('123 West 57th Street');
     await page.getByLabel('City').first().fill('New York');
     await page.getByLabel('State').first().selectOption('NY');
@@ -111,7 +117,10 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     console.log('✓ Filled addresses');
     
     await page.waitForTimeout(2000);
-    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    const reviewButton = page.getByRole('button', { name: /continue to review/i });
+    await reviewButton.scrollIntoViewIfNeeded();
+    await reviewButton.click();
     await page.waitForTimeout(1000);
     
     // ============================================================
@@ -126,7 +135,9 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await page.getByLabel('Phone Number').fill('2125551234');
     console.log('✓ Filled customer info');
     
-    await page.getByRole('button', { name: /continue to review/i }).click();
+    const finalReviewButton = page.getByRole('button', { name: /continue to review/i });
+    await finalReviewButton.scrollIntoViewIfNeeded();
+    await finalReviewButton.click();
     await page.waitForTimeout(2000);
     
     // ============================================================
@@ -140,11 +151,11 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('John Smith')).toBeVisible();
     console.log('✓ Booking summary correct');
     
-    // Accept terms
-    await page.locator('input[type="checkbox"]').first().check();
+    const termsCheckbox = page.locator('input[type="checkbox"]').first();
+    await termsCheckbox.scrollIntoViewIfNeeded();
+    await termsCheckbox.check();
     console.log('✓ Accepted terms');
     
-    // Verify payment button is enabled
     await expect(page.getByRole('button', { name: /continue to payment/i })).toBeEnabled();
     console.log('✅ COMPLETE BOOKING FLOW TEST PASSED!');
   });
