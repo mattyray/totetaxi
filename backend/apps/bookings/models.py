@@ -1,3 +1,4 @@
+# backend/apps/bookings/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -251,7 +252,7 @@ class Booking(models.Model):
                 name='booking_exactly_one_customer_type'
             )
         ]
-    #jew
+    
     def save(self, *args, **kwargs):
         # Generate booking number if new
         if not self.booking_number:
@@ -407,10 +408,15 @@ class Booking(models.Model):
         return total_organizing_cents
     
     def calculate_coi_fee(self):
-        """Calculate COI fee - $50 for Petite moves if required"""
+        """Calculate COI fee - $50 for Standard Delivery, Specialty Items, and Petite Mini Moves"""
         if not self.coi_required:
             return 0
         
+        # ✅ FIX: $50 COI fee for Standard Delivery and Specialty Items
+        if self.service_type in ['standard_delivery', 'specialty_item']:
+            return 5000
+        
+        # Mini Move COI logic
         if self.service_type == 'mini_move' and self.mini_move_package:
             if self.mini_move_package.package_type == 'petite':
                 return 5000
@@ -499,13 +505,14 @@ class Booking(models.Model):
                         specialty_total = sum(item.price_cents for item in self.specialty_items.all())
                         self.base_price_cents += specialty_total
                     
-                    # FIXED: Apply same-day delivery surcharge
+                    # Apply same-day delivery surcharge
                     if self.is_same_day_delivery:
                         self.same_day_surcharge_cents = config.same_day_flat_rate_cents
                     
             except StandardDeliveryConfig.DoesNotExist:
                 pass
             
+            # Weekend surcharges
             if self.pickup_date:
                 active_surcharges = SurchargeRule.objects.filter(is_active=True)
                 for surcharge in active_surcharges:
@@ -516,7 +523,9 @@ class Booking(models.Model):
                     )
                     self.surcharge_cents += surcharge_amount
             
+            # ✅ FIX: Apply geographic surcharge and COI fee
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+            self.coi_fee_cents = self.calculate_coi_fee()
         
         # Specialty Item pricing
         elif self.service_type == 'specialty_item':
@@ -524,6 +533,30 @@ class Booking(models.Model):
             for item in self.specialty_items.all():
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
+            
+            # ✅ FIX: Apply same-day delivery surcharge for specialty items
+            if self.is_same_day_delivery:
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        self.same_day_surcharge_cents = config.same_day_flat_rate_cents
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # ✅ FIX: Apply weekend surcharges
+            if self.pickup_date:
+                active_surcharges = SurchargeRule.objects.filter(is_active=True)
+                for surcharge in active_surcharges:
+                    surcharge_amount = surcharge.calculate_surcharge(
+                        self.base_price_cents, 
+                        self.pickup_date,
+                        self.service_type
+                    )
+                    self.surcharge_cents += surcharge_amount
+            
+            # ✅ FIX: Apply geographic surcharge and COI fee
+            self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+            self.coi_fee_cents = self.calculate_coi_fee()
         
         # Calculate total
         self.total_price_cents = (

@@ -269,9 +269,19 @@ class PricingPreviewView(APIView):
                         same_day_fee_cents = config.same_day_flat_rate_cents
                         details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-                        
+            
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # ✅ FIX: Apply geographic surcharge for Standard Delivery
+            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
+            if is_outside_core_area:
+                geographic_surcharge_cents = 17500
+            
+            # ✅ FIX: Apply COI fee for Standard Delivery
+            coi_required = serializer.validated_data.get('coi_required', False)
+            if coi_required:
+                coi_fee_cents = 5000
         
         # Specialty Item pricing
         elif service_type == 'specialty_item':
@@ -289,6 +299,28 @@ class PricingPreviewView(APIView):
                 {'name': item.name, 'price_dollars': item.price_dollars}
                 for item in specialty_items
             ]
+            
+            # ✅ FIX: Apply same-day delivery for specialty items
+            is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
+            if is_same_day:
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        same_day_fee_cents = config.same_day_flat_rate_cents
+                        details['is_same_day'] = True
+                        details['same_day_rate'] = config.same_day_flat_rate_cents / 100
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # ✅ FIX: Apply geographic surcharge for Specialty Items
+            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
+            if is_outside_core_area:
+                geographic_surcharge_cents = 17500
+            
+            # ✅ FIX: Apply COI fee for Specialty Items
+            coi_required = serializer.validated_data.get('coi_required', False)
+            if coi_required:
+                coi_fee_cents = 5000
         
         # Apply surcharges (NOT for BLADE)
         if service_type != 'blade_transfer' and pickup_date and base_price_cents > 0:

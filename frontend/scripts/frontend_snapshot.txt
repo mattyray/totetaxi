@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-10 16:51:44.757389
+# Generated: 2025-10-11 09:34:25.848662
 # Files: 83
 
 # ==== next-env.d.ts ====
@@ -5318,41 +5318,6 @@ const AIRPORT_ADDRESSES = {
   }
 };
 
-const TEST_ADDRESSES = {
-  manhattan: {
-    address_line_1: '123 Park Avenue',
-    address_line_2: 'Apt 5B',
-    city: 'New York',
-    state: 'NY' as const,
-    zip_code: '10001'
-  },
-  hamptons: {
-    address_line_1: '456 Ocean Drive',
-    address_line_2: 'Suite 12',
-    city: 'Southampton',
-    state: 'NY' as const,
-    zip_code: '11968'
-  },
-  brooklyn: {
-    address_line_1: '789 Atlantic Avenue',
-    city: 'Brooklyn',
-    state: 'NY' as const,
-    zip_code: '11217'
-  },
-  westchester: {
-    address_line_1: '321 Main Street',
-    city: 'White Plains',
-    state: 'NY' as const,
-    zip_code: '10601'
-  },
-  connecticut: {
-    address_line_1: '654 Elm Street',
-    city: 'Greenwich',
-    state: 'CT' as const,
-    zip_code: '06830'
-  }
-};
-
 interface AddressFormProps {
   title: string;
   address: BookingAddress | undefined;
@@ -5390,7 +5355,6 @@ function AddressForm({
     const value = e.target.value;
     handleFieldChange('zip_code', value);
     
-    // Trigger validation when ZIP is 5 digits
     if (onZipChange && value.length === 5) {
       onZipChange(value);
     }
@@ -5417,23 +5381,16 @@ function AddressForm({
               const parsed = parseGooglePlace(place);
               
               if (parsed) {
-                console.log('✅ Parsed address:', parsed);
-                
-                // Auto-fill all address fields
                 onAddressChange({
                   ...address,
                   ...parsed
                 } as BookingAddress);
                 
-                // Immediately trigger ZIP validation
                 if (onZipChange && parsed.zip_code) {
-                  // Use requestAnimationFrame to ensure state has updated
                   requestAnimationFrame(() => {
                     onZipChange(parsed.zip_code!);
                   });
                 }
-              } else {
-                console.error('❌ Failed to parse Google Place');
               }
             }}
             error={errors.address_line_1}
@@ -5502,7 +5459,6 @@ function AddressForm({
             )}
           </div>
           
-          {/* ZIP Validation Message */}
           {validationMessage && (
             <div className={`p-3 rounded-lg text-sm ${
               validationMessage.type === 'error' 
@@ -5534,6 +5490,7 @@ export function AddressStep() {
   const [deliveryValidating, setDeliveryValidating] = useState(false);
   const [pickupDebounce, setPickupDebounce] = useState<NodeJS.Timeout | null>(null);
   const [deliveryDebounce, setDeliveryDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
 
@@ -5557,9 +5514,12 @@ export function AddressStep() {
     setValidation(null);
     
     try {
+      console.log(`🔍 Validating ${addressType} ZIP:`, zipCode);
       const response = await apiClient.post('/api/public/validate-zip/', { 
         zip_code: zipCode 
       });
+      
+      console.log(`📦 ZIP validation response for ${addressType}:`, response.data);
       
       const { is_serviceable, requires_surcharge, error } = response.data;
       
@@ -5572,11 +5532,23 @@ export function AddressStep() {
       }
       
       if (requires_surcharge) {
+        console.log(`🚨 ${addressType} ZIP ${zipCode} REQUIRES SURCHARGE - Setting is_outside_core_area = true`);
+        updateBookingData({ is_outside_core_area: true });
         setValidation({
           type: 'warning',
           message: '⚠️ This address includes a $175 distance surcharge.'
         });
         return true;
+      }
+      
+      const otherAddressType = addressType === 'pickup' ? 'delivery' : 'pickup';
+      const otherValidation = addressType === 'pickup' ? deliveryValidation : pickupValidation;
+      
+      if (!otherValidation || otherValidation.type !== 'warning') {
+        console.log('✅ Both addresses in core area - clearing surcharge flag');
+        updateBookingData({ is_outside_core_area: false });
+      } else {
+        console.log('⚠️ Other address still has surcharge - keeping flag true');
       }
       
       setValidation({
@@ -5594,19 +5566,16 @@ export function AddressStep() {
   };
 
   const handlePickupZipChange = (zipCode: string) => {
-    // Clear previous debounce
     if (pickupDebounce) {
       clearTimeout(pickupDebounce);
     }
     
-    // Clear validation while typing
     setPickupValidation(null);
     
-    // Set new debounce
     if (zipCode.length === 5) {
       const timeout = setTimeout(() => {
         validateZipCode(zipCode, 'pickup');
-      }, 500); // Wait 500ms after user stops typing
+      }, 500);
       
       setPickupDebounce(timeout);
     }
@@ -5615,19 +5584,16 @@ export function AddressStep() {
   const handleDeliveryZipChange = (zipCode: string) => {
     if (isBlade) return;
     
-    // Clear previous debounce
     if (deliveryDebounce) {
       clearTimeout(deliveryDebounce);
     }
     
-    // Clear validation while typing
     setDeliveryValidation(null);
     
-    // Set new debounce
     if (zipCode.length === 5) {
       const timeout = setTimeout(() => {
         validateZipCode(zipCode, 'delivery');
-      }, 500); // Wait 500ms after user stops typing
+      }, 500);
       
       setDeliveryDebounce(timeout);
     }
@@ -5649,291 +5615,149 @@ export function AddressStep() {
     if (address.zip_code) clearError('delivery_zip');
   };
 
-  const fillCommonRoutes = (route: 'manhattan-hamptons' | 'brooklyn-manhattan' | 'manhattan-westchester' | 'manhattan-connecticut' | 'manhattan-jfk' | 'manhattan-ewr') => {
-    switch (route) {
-      case 'manhattan-hamptons':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.hamptons,
-          special_instructions: 'Test booking - Manhattan to Hamptons route'
-        });
-        // Trigger validation for both addresses
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.hamptons.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'brooklyn-manhattan':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.brooklyn,
-          delivery_address: TEST_ADDRESSES.manhattan,
-          special_instructions: 'Test booking - Brooklyn to Manhattan route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.brooklyn.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-westchester':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.westchester,
-          special_instructions: 'Test booking - Manhattan to Westchester route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.westchester.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-connecticut':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: TEST_ADDRESSES.connecticut,
-          special_instructions: 'Test booking - Manhattan to Connecticut route'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-          validateZipCode(TEST_ADDRESSES.connecticut.zip_code, 'delivery');
-        }, 100);
-        break;
-      case 'manhattan-jfk':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: AIRPORT_ADDRESSES.JFK,
-          special_instructions: 'Test booking - Manhattan to JFK Airport'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-        }, 100);
-        break;
-      case 'manhattan-ewr':
-        updateBookingData({
-          pickup_address: TEST_ADDRESSES.manhattan,
-          delivery_address: AIRPORT_ADDRESSES.EWR,
-          special_instructions: 'Test booking - Manhattan to Newark Airport'
-        });
-        setTimeout(() => {
-          validateZipCode(TEST_ADDRESSES.manhattan.zip_code, 'pickup');
-        }, 100);
-        break;
-    }
-  };
-
-  const handleContinue = () => {
-    // Block if there are ZIP validation errors
+  const handleContinue = async () => {
+    console.log('═══════════════════════════════════════');
+    console.log('🚀 ADDRESS STEP - CONTINUE CLICKED');
+    console.log('Service Type:', bookingData.service_type);
+    console.log('═══════════════════════════════════════');
+    
     if (pickupValidation?.type === 'error' || deliveryValidation?.type === 'error') {
       setError('general', 'Please enter valid service area addresses.');
       return;
     }
-    
+
+    const pickup = bookingData.pickup_address;
+    const delivery = bookingData.delivery_address;
     let hasErrors = false;
 
-    if (!bookingData.pickup_address?.address_line_1) {
+    if (!pickup?.address_line_1) {
       setError('pickup_address', 'Pickup address is required');
       hasErrors = true;
     }
-    if (!bookingData.pickup_address?.city) {
-      setError('pickup_city', 'City is required');
+    if (!pickup?.city) {
+      setError('pickup_city', 'Pickup city is required');
       hasErrors = true;
     }
-    if (!bookingData.pickup_address?.state) {
-      setError('pickup_state', 'State is required');
-      hasErrors = true;
-    }
-    if (!bookingData.pickup_address?.zip_code) {
-      setError('pickup_zip', 'ZIP code is required');
+    if (!pickup?.zip_code) {
+      setError('pickup_zip', 'Pickup ZIP code is required');
       hasErrors = true;
     }
 
-    if (isBlade && bookingData.pickup_address?.state !== 'NY') {
-      setError('pickup_state', 'BLADE service requires NYC pickup address (NY state only)');
-      hasErrors = true;
+    if (!isBlade) {
+      if (!delivery?.address_line_1) {
+        setError('delivery_address', 'Delivery address is required');
+        hasErrors = true;
+      }
+      if (!delivery?.city) {
+        setError('delivery_city', 'Delivery city is required');
+        hasErrors = true;
+      }
+      if (!delivery?.zip_code) {
+        setError('delivery_zip', 'Delivery ZIP code is required');
+        hasErrors = true;
+      }
     }
 
-    if (!bookingData.delivery_address?.address_line_1) {
-      setError('delivery_address', 'Delivery address is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.city) {
-      setError('delivery_city', 'City is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.state) {
-      setError('delivery_state', 'State is required');
-      hasErrors = true;
-    }
-    if (!bookingData.delivery_address?.zip_code) {
-      setError('delivery_zip', 'ZIP code is required');
-      hasErrors = true;
+    if (hasErrors) {
+      console.log('❌ Validation errors, stopping');
+      return;
     }
 
-    if (!hasErrors) {
-      nextStep();
+    // ✅ ONLY recalculate for mini_move, standard_delivery, and specialty_item
+    // BLADE doesn't need pricing recalculation here
+    if (bookingData.service_type !== 'blade_transfer') {
+      setIsRecalculating(true);
+      try {
+        const payload: any = {
+          service_type: bookingData.service_type,
+          pickup_date: bookingData.pickup_date,
+          is_outside_core_area: bookingData.is_outside_core_area || false,
+        };
+
+        if (bookingData.service_type === 'mini_move') {
+          payload.mini_move_package_id = bookingData.mini_move_package_id;
+          payload.include_packing = bookingData.include_packing || false;
+          payload.include_unpacking = bookingData.include_unpacking || false;
+          payload.pickup_time = bookingData.pickup_time;
+          payload.specific_pickup_hour = bookingData.specific_pickup_hour;
+          payload.coi_required = bookingData.coi_required || false;
+        } else if (bookingData.service_type === 'standard_delivery') {
+          payload.standard_delivery_item_count = bookingData.standard_delivery_item_count || 0;
+          payload.is_same_day_delivery = bookingData.is_same_day_delivery || false;
+          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+        } else if (bookingData.service_type === 'specialty_item') {
+          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+        }
+
+        console.log('📤 SENDING PRICING REQUEST:', JSON.stringify(payload, null, 2));
+        const response = await apiClient.post('/api/public/pricing-preview/', payload);
+        
+        console.log('📥 PRICING RESPONSE:', JSON.stringify(response.data.pricing, null, 2));
+        
+        updateBookingData({ pricing_data: response.data.pricing });
+        console.log('✅ Pricing saved to store');
+        
+      } catch (error: any) {
+        console.error('❌ Failed to recalculate pricing:', error);
+        console.error('Error response:', error.response?.data);
+        setError('general', 'Failed to calculate pricing. Please try again.');
+        setIsRecalculating(false);
+        return;
+      }
+      setIsRecalculating(false);
     }
+    
+    console.log('═══════════════════════════════════════');
+    nextStep();
   };
-
-  const canContinue = 
-    bookingData.pickup_address?.address_line_1 &&
-    bookingData.pickup_address?.city &&
-    bookingData.pickup_address?.state &&
-    bookingData.pickup_address?.zip_code &&
-    bookingData.delivery_address?.address_line_1 &&
-    bookingData.delivery_address?.city &&
-    bookingData.delivery_address?.state &&
-    bookingData.delivery_address?.zip_code &&
-    pickupValidation?.type !== 'error' &&
-    deliveryValidation?.type !== 'error' &&
-    !pickupValidating &&
-    !deliveryValidating;
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <p className="text-navy-700">
-          {isBlade 
-            ? 'Where should we pick up your bags in NYC?'
-            : 'Where should we pick up and deliver your items?'}
-        </p>
-        <p className="text-sm text-navy-600 mt-1">
-          {isBlade
-            ? 'BLADE service is only available from NYC addresses. Airport delivery is automatic.'
-            : 'We service Manhattan, Brooklyn, the Hamptons, and surrounding areas.'}
-        </p>
-        
-        {!isBlade && (
-          <div className="mt-6 space-y-3">
-            <p className="text-xs text-navy-500">Quick Fill - Common Routes:</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('manhattan-hamptons')}
-                className="text-xs"
-              >
-                Manhattan → Hamptons
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('brooklyn-manhattan')}
-                className="text-xs"
-              >
-                Brooklyn → Manhattan
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('manhattan-westchester')}
-                className="text-xs"
-              >
-                Manhattan → Westchester
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('manhattan-connecticut')}
-                className="text-xs"
-              >
-                Manhattan → Connecticut
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {isBlade && (
-          <div className="mt-6 space-y-3">
-            <p className="text-xs text-navy-500">Quick Fill - BLADE Routes:</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('manhattan-jfk')}
-                className="text-xs"
-              >
-                Manhattan → JFK
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fillCommonRoutes('manhattan-ewr')}
-                className="text-xs"
-              >
-                Manhattan → EWR
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
       <AddressForm
-        title={isBlade ? 'Pickup Address (NYC Only)' : 'Pickup Address'}
+        title="Pickup Address"
         address={bookingData.pickup_address}
         onAddressChange={handlePickupChange}
-        errors={{
-          address_line_1: errors.pickup_address || '',
-          city: errors.pickup_city || '',
-          state: errors.pickup_state || '',
-          zip_code: errors.pickup_zip || ''
-        }}
+        errors={errors}
         onZipChange={handlePickupZipChange}
         validationMessage={pickupValidation}
         isValidating={pickupValidating}
       />
 
-      {isBlade && bookingData.pickup_address?.state && bookingData.pickup_address.state !== 'NY' && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent>
-            <p className="text-sm text-orange-800">
-              <strong>BLADE Restriction:</strong> BLADE service is only available for NYC (NY state) pickups. 
-              Please enter a New York address for pickup.
-            </p>
-          </CardContent>
-        </Card>
+      {!isBlade && (
+        <AddressForm
+          title="Delivery Address"
+          address={bookingData.delivery_address}
+          onAddressChange={handleDeliveryChange}
+          errors={errors}
+          onZipChange={handleDeliveryZipChange}
+          validationMessage={deliveryValidation}
+          isValidating={deliveryValidating}
+        />
       )}
 
-      <AddressForm
-        title={isBlade ? `Delivery Address (${bookingData.blade_airport})` : 'Delivery Address'}
-        address={bookingData.delivery_address}
-        onAddressChange={handleDeliveryChange}
-        errors={{
-          address_line_1: errors.delivery_address || '',
-          city: errors.delivery_city || '',
-          state: errors.delivery_state || '',
-          zip_code: errors.delivery_zip || ''
-        }}
-        readOnly={isBlade}
-        onZipChange={handleDeliveryZipChange}
-        validationMessage={deliveryValidation}
-        isValidating={deliveryValidating}
-      />
+      {isBlade && bookingData.delivery_address && (
+        <AddressForm
+          title="Delivery Address (Airport)"
+          address={bookingData.delivery_address}
+          onAddressChange={handleDeliveryChange}
+          errors={{}}
+          readOnly={true}
+        />
+      )}
 
-      <Card variant="default" className="p-6">
-        <CardContent className="p-0">
-          <label className="block text-sm font-medium text-navy-900 mb-3">
-            Special Instructions (Optional)
-          </label>
-          <textarea
-            value={bookingData.special_instructions || ''}
-            onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
-            placeholder={isBlade 
-              ? 'Building access codes, doorman instructions, or any special notes for pickup...'
-              : 'Any special delivery instructions, building access codes, or notes for our team...'}
-            rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-navy-500 focus:border-navy-500 text-gray-900 placeholder:text-gray-400 bg-white"
-          />
-          <p className="text-sm text-navy-600 mt-2">
-            Include building access codes, doorman instructions, or any special handling requests.
-          </p>
-        </CardContent>
-      </Card>
+      {errors.general && (
+        <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200">
+          {errors.general}
+        </div>
+      )}
 
       <div className="flex justify-end pt-4">
         <Button
           onClick={handleContinue}
-          disabled={!canContinue}
+          disabled={isRecalculating}
           size="lg"
         >
-          Continue to {bookingData.service_type === 'blade_transfer' ? 'Review' : 'Your Info'} →
+          {isRecalculating ? 'Recalculating Pricing...' : 'Continue to Review & Payment →'}
         </Button>
       </div>
     </div>
@@ -6880,9 +6704,26 @@ export function DateTimeStep() {
   };
 
   const handleContinue = () => {
+    // Check if standard_delivery with only specialty items
+    if (bookingData.service_type === 'standard_delivery') {
+      const itemCount = bookingData.standard_delivery_item_count || 0;
+      const hasSpecialtyItems = bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0;
+      
+      // If 0 regular items but has specialty items, it's specialty_item type
+      if (itemCount === 0 && hasSpecialtyItems) {
+        updateBookingData({
+          service_type: 'specialty_item',
+          standard_delivery_item_count: undefined,
+          is_same_day_delivery: undefined
+        });
+      }
+    }
+    
+    // CRITICAL: Save pricing data before navigation
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
     }
+    
     nextStep();
   };
 
@@ -7438,29 +7279,11 @@ export function DateTimeStep() {
 
       <div className="flex justify-end pt-4">
         <Button
-          onClick={() => {
-            // Check if standard_delivery with only specialty items
-            if (bookingData.service_type === 'standard_delivery') {
-              const itemCount = bookingData.standard_delivery_item_count || 0;
-              const hasSpecialtyItems = bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0;
-              
-              // If 0 regular items but has specialty items, it's specialty_item type
-              if (itemCount === 0 && hasSpecialtyItems) {
-                updateBookingData({
-                  service_type: 'specialty_item',
-                  standard_delivery_item_count: undefined,
-                  is_same_day_delivery: undefined
-                });
-              }
-            }
-            
-            // Then proceed to next step
-            nextStep();
-          }}
+          onClick={handleContinue}
           disabled={!canContinue}
           size="lg"
         >
-          Continue to Date & Time →
+          Continue to Addresses →
         </Button>
       </div>
     </div>
