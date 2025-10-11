@@ -46,16 +46,17 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('$995')).toBeVisible();
     console.log('✓ Packages loaded');
     
-    // Click on Petite package card
-    const petiteCard = page.locator('heading:has-text("Petite")').locator('..');
-    await petiteCard.click();
-    console.log('✓ Selected Petite package');
+    // Click on Petite package - use heading role with force click
+    await page.getByRole('heading', { name: 'Petite', exact: true }).click({ force: true });
+    console.log('✓ Clicked Petite package');
     
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
     
-    // Continue button should now be enabled
+    // Verify continue button is now enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
     await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Continue button enabled');
+    
     await continueButton.click();
     console.log('✓ Continuing to Step 2');
     await page.waitForTimeout(1000);

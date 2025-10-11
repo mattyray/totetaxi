@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - generic [ref=e2]:
     - banner [ref=e3]:
       - generic [ref=e5]:
@@ -77,7 +77,7 @@
   - generic:
     - generic:
       - generic:
-        - dialog:
+        - dialog [active]:
           - generic [ref=e168]:
             - button [ref=e170] [cursor=pointer]:
               - img [ref=e171]
