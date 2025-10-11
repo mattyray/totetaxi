@@ -1,3 +1,4 @@
+//  frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,24 +13,32 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
 
+interface PaymentIntentResponse {
+  client_secret: string;
+  payment_intent_id: string;
+  amount_dollars: number;
+}
+
 interface BookingResponse {
   message: string;
   booking: {
     id: string;
     booking_number: string;
     total_price_dollars: number;
-  };
-  payment?: {
-    client_secret: string;
-    payment_intent_id: string;
+    status: string;
   };
 }
 
-function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: { 
-  clientSecret: string; 
-  bookingNumber: string;
+function CheckoutForm({ 
+  clientSecret, 
+  paymentIntentId,
+  totalAmount, 
+  onSuccess 
+}: { 
+  clientSecret: string;
+  paymentIntentId: string;
   totalAmount: number;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -58,14 +67,8 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
       setErrorMessage(error.message);
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-      try {
-        await apiClient.post('/api/payments/confirm/', {
-          payment_intent_id: paymentIntent.id
-        });
-      } catch (err) {
-        console.error('Failed to confirm payment with backend:', err);
-      }
-      onSuccess();
+      console.log('✅ Payment succeeded:', paymentIntent.id);
+      onSuccess(paymentIntentId);
     }
   };
 
@@ -73,10 +76,6 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-navy-50 border border-navy-200 rounded-lg p-4">
         <div className="flex justify-between items-center">
-          <span className="text-navy-700">Booking Number:</span>
-          <span className="font-bold text-navy-900">{bookingNumber}</span>
-        </div>
-        <div className="flex justify-between items-center mt-2">
           <span className="text-navy-700">Total Amount:</span>
           <span className="text-2xl font-bold text-navy-900">${totalAmount}</span>
         </div>
@@ -129,6 +128,7 @@ export function ReviewPaymentStep() {
   const [bookingNumber, setBookingNumber] = useState<string>('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [clientSecret, setClientSecret] = useState<string>('');
+  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
@@ -142,203 +142,183 @@ export function ReviewPaymentStep() {
     console.log('==================================');
   }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type]);
 
-  const createBookingMutation = useMutation({
-    mutationFn: async (): Promise<BookingResponse> => {
+  // STEP 1: Create payment intent
+  const createPaymentIntentMutation = useMutation({
+    mutationFn: async (): Promise<PaymentIntentResponse> => {
       const endpoint = isAuthenticated 
-        ? '/api/customer/bookings/create/'
-        : '/api/public/guest-booking/';
+        ? '/api/customer/bookings/create-payment-intent/'
+        : '/api/public/create-payment-intent/';
 
-      let bookingRequest;
+      let paymentRequest: any = {
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : bookingData.pickup_date,
+        coi_required: bookingData.coi_required || false,
+        is_outside_core_area: bookingData.is_outside_core_area || false,
+      };
 
-      if (isAuthenticated) {
-        console.log('=== AUTHENTICATED BOOKING REQUEST ===');
-        const timestamp = new Date().toISOString().slice(11, 16);
-        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        bookingRequest = {
-          service_type: bookingData.service_type,
-          mini_move_package_id: bookingData.mini_move_package_id,
-          include_packing: bookingData.include_packing,
-          include_unpacking: bookingData.include_unpacking,
-          standard_delivery_item_count: bookingData.standard_delivery_item_count,
-          is_same_day_delivery: bookingData.is_same_day_delivery,
-          specialty_item_ids: bookingData.specialty_item_ids,
-          
-          blade_airport: bookingData.blade_airport,
-          blade_flight_date: bookingData.blade_flight_date,
-          blade_flight_time: bookingData.blade_flight_time,
-          blade_bag_count: bookingData.blade_bag_count,
-          
-          pickup_date: bookingData.service_type === 'blade_transfer' 
-            ? bookingData.blade_flight_date 
-            : bookingData.pickup_date,
-          pickup_time: bookingData.pickup_time,
-          specific_pickup_hour: bookingData.specific_pickup_hour,
-          
-          new_pickup_address: bookingData.pickup_address,
-          new_delivery_address: bookingData.delivery_address,
-          save_pickup_address: true,
-          save_delivery_address: true,
-          pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`,
-          delivery_address_nickname: `Delivery ${dateStr} ${timestamp}`,
-          
-          special_instructions: bookingData.special_instructions,
-          coi_required: bookingData.coi_required,
-          create_payment_intent: true,
-        };
-      } else {
-        console.log('=== GUEST BOOKING REQUEST ===');
-        
-        if (!bookingData.customer_info || !bookingData.customer_info.email) {
-          console.error('CRITICAL: Guest booking missing customer info');
-          
-          if (user && !bookingData.customer_info) {
-            console.log('Falling back to authenticated user data');
-            bookingRequest = {
-              first_name: user.first_name || 'Guest',
-              last_name: user.last_name || 'User',
-              email: user.email,
-              phone: '555-0000',
-              
-              service_type: bookingData.service_type,
-              mini_move_package_id: bookingData.mini_move_package_id,
-              include_packing: bookingData.include_packing,
-              include_unpacking: bookingData.include_unpacking,
-              standard_delivery_item_count: bookingData.standard_delivery_item_count,
-              is_same_day_delivery: bookingData.is_same_day_delivery,
-              specialty_item_ids: bookingData.specialty_item_ids,
-              
-              blade_airport: bookingData.blade_airport,
-              blade_flight_date: bookingData.blade_flight_date,
-              blade_flight_time: bookingData.blade_flight_time,
-              blade_bag_count: bookingData.blade_bag_count,
-              
-              pickup_date: bookingData.service_type === 'blade_transfer' 
-                ? bookingData.blade_flight_date 
-                : bookingData.pickup_date,
-              pickup_time: bookingData.pickup_time,
-              specific_pickup_hour: bookingData.specific_pickup_hour,
-              
-              pickup_address: bookingData.pickup_address,
-              delivery_address: bookingData.delivery_address,
-              
-              special_instructions: bookingData.special_instructions,
-              coi_required: bookingData.coi_required,
-              create_payment_intent: true,
-            };
-          } else {
-            throw new Error('Customer information is required for guest bookings. Please go back and fill out your contact information.');
-          }
-        } else {
-          bookingRequest = {
-            first_name: bookingData.customer_info.first_name,
-            last_name: bookingData.customer_info.last_name,
-            email: bookingData.customer_info.email,
-            phone: bookingData.customer_info.phone,
-            
-            service_type: bookingData.service_type,
-            mini_move_package_id: bookingData.mini_move_package_id,
-            include_packing: bookingData.include_packing,
-            include_unpacking: bookingData.include_unpacking,
-            standard_delivery_item_count: bookingData.standard_delivery_item_count,
-            is_same_day_delivery: bookingData.is_same_day_delivery,
-            specialty_item_ids: bookingData.specialty_item_ids,
-            
-            blade_airport: bookingData.blade_airport,
-            blade_flight_date: bookingData.blade_flight_date,
-            blade_flight_time: bookingData.blade_flight_time,
-            blade_bag_count: bookingData.blade_bag_count,
-            
-            pickup_date: bookingData.service_type === 'blade_transfer' 
-              ? bookingData.blade_flight_date 
-              : bookingData.pickup_date,
-            pickup_time: bookingData.pickup_time,
-            specific_pickup_hour: bookingData.specific_pickup_hour,
-            
-            pickup_address: bookingData.pickup_address,
-            delivery_address: bookingData.delivery_address,
-            
-            special_instructions: bookingData.special_instructions,
-            coi_required: bookingData.coi_required,
-            create_payment_intent: true,
-          };
-        }
+      // Service-specific fields
+      if (bookingData.service_type === 'mini_move') {
+        paymentRequest.mini_move_package_id = bookingData.mini_move_package_id;
+        paymentRequest.include_packing = bookingData.include_packing;
+        paymentRequest.include_unpacking = bookingData.include_unpacking;
+        paymentRequest.pickup_time = bookingData.pickup_time;
+        paymentRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        paymentRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+      } else if (bookingData.service_type === 'blade_transfer') {
+        paymentRequest.blade_airport = bookingData.blade_airport;
+        paymentRequest.blade_flight_date = bookingData.blade_flight_date;
+        paymentRequest.blade_flight_time = bookingData.blade_flight_time;
+        paymentRequest.blade_bag_count = bookingData.blade_bag_count;
       }
 
-      console.log('ENDPOINT:', endpoint);
-      console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      // Add customer email for guest bookings
+      if (!isAuthenticated && bookingData.customer_info?.email) {
+        paymentRequest.email = bookingData.customer_info.email;
+        paymentRequest.first_name = bookingData.customer_info.first_name;
+        paymentRequest.last_name = bookingData.customer_info.last_name;
+        paymentRequest.phone = bookingData.customer_info.phone;
+      } else if (isAuthenticated && user?.email) {
+        paymentRequest.customer_email = user.email;
+      }
 
-      const response = await apiClient.post(endpoint, bookingRequest);
-      
-      console.log('BOOKING API RESPONSE:', response.data);
+      console.log('💳 Creating payment intent:', paymentRequest);
+      const response = await apiClient.post(endpoint, paymentRequest);
+      console.log('✅ Payment intent created:', response.data);
       
       return response.data;
     },
     onSuccess: (data) => {
-      console.log('=== BOOKING SUCCESS HANDLER ===');
-      console.log('Response data:', data);
-      
-      setBookingNumber(data.booking.booking_number);
-      
-      if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-        console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
-        setClientSecret(data.payment.client_secret);
-        setShowPayment(true);
-      } else {
-        console.log('NO PAYMENT INTENT - MARKING COMPLETE');
-        setBookingCompleteLocal(true);
-        setBookingComplete(data.booking.booking_number);
+      console.log('💳 Payment intent successful:', data);
+      setClientSecret(data.client_secret);
+      setPaymentIntentId(data.payment_intent_id);
+      setShowPayment(true);
+      setLoading(false);
+    },
+    onError: (error: AxiosError | Error) => {
+      console.error('❌ Payment intent failed:', error);
+      setLoading(false);
+      if ('response' in error && error.response) {
+        console.error('Error response:', error.response.data);
       }
+    }
+  });
+
+  // STEP 2: Create booking AFTER payment succeeds
+  const createBookingMutation = useMutation({
+    mutationFn: async (paymentIntentId: string): Promise<BookingResponse> => {
+      const endpoint = isAuthenticated 
+        ? '/api/customer/bookings/create/'
+        : '/api/public/guest-booking/';
+
+      let bookingRequest: any = {
+        payment_intent_id: paymentIntentId,
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : bookingData.pickup_date,
+        pickup_time: bookingData.pickup_time,
+        specific_pickup_hour: bookingData.specific_pickup_hour,
+        special_instructions: bookingData.special_instructions,
+        coi_required: bookingData.coi_required,
+      };
+
+      // Service-specific fields
+      if (bookingData.service_type === 'mini_move') {
+        bookingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+        bookingRequest.include_packing = bookingData.include_packing;
+        bookingRequest.include_unpacking = bookingData.include_unpacking;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+      } else if (bookingData.service_type === 'blade_transfer') {
+        bookingRequest.blade_airport = bookingData.blade_airport;
+        bookingRequest.blade_flight_date = bookingData.blade_flight_date;
+        bookingRequest.blade_flight_time = bookingData.blade_flight_time;
+        bookingRequest.blade_bag_count = bookingData.blade_bag_count;
+      }
+
+      // Addresses
+      if (isAuthenticated) {
+        const timestamp = new Date().toISOString().slice(11, 16);
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        bookingRequest.new_pickup_address = bookingData.pickup_address;
+        bookingRequest.new_delivery_address = bookingData.delivery_address;
+        bookingRequest.save_pickup_address = true;
+        bookingRequest.save_delivery_address = true;
+        bookingRequest.pickup_address_nickname = `Pickup ${dateStr} ${timestamp}`;
+        bookingRequest.delivery_address_nickname = `Delivery ${dateStr} ${timestamp}`;
+      } else {
+        bookingRequest.first_name = bookingData.customer_info?.first_name;
+        bookingRequest.last_name = bookingData.customer_info?.last_name;
+        bookingRequest.email = bookingData.customer_info?.email;
+        bookingRequest.phone = bookingData.customer_info?.phone;
+        bookingRequest.pickup_address = bookingData.pickup_address;
+        bookingRequest.delivery_address = bookingData.delivery_address;
+      }
+
+      console.log('📦 Creating booking with payment:', bookingRequest);
+      const response = await apiClient.post(endpoint, bookingRequest);
+      console.log('✅ Booking created:', response.data);
       
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('✅ Booking creation successful:', data);
+      setBookingNumber(data.booking.booking_number);
+      setBookingCompleteLocal(true);
+      setBookingComplete(data.booking.booking_number);
       setLoading(false);
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
-        
-        // ADD THIS - Refresh CSRF token after booking
-        apiClient.get('/api/customer/csrf-token/').catch(err => {
-          console.warn('Failed to refresh CSRF token:', err);
-        });
       }
     },
     onError: (error: AxiosError | Error) => {
-      console.log('=== BOOKING ERROR HANDLER ===');
+      console.error('❌ Booking creation failed:', error);
       setLoading(false);
-      console.error('Booking creation failed:', error);
-      
       if ('response' in error && error.response) {
-        console.error('FULL ERROR RESPONSE:', error.response);
-        console.error('Error Status:', error.response.status);
-        console.error('Error Data:', error.response.data);
+        console.error('Error response:', error.response.data);
       }
     }
   });
 
-  const handleSubmitBooking = () => {
+  const handleInitiatePayment = () => {
     if (!termsAccepted) {
       alert('Please accept the Terms of Service to continue.');
       return;
     }
     
-    console.log('=== SUBMITTING BOOKING ===');
-    console.log('Service type:', bookingData.service_type);
-    
+    console.log('=== INITIATING PAYMENT FLOW ===');
     setLoading(true);
-    createBookingMutation.mutate();
+    createPaymentIntentMutation.mutate();
   };
 
-  const handlePaymentSuccess = () => {
-    console.log('PAYMENT SUCCESSFUL - SHOWING SUCCESS SCREEN');
-    setBookingCompleteLocal(true);
-    setBookingComplete(bookingNumber);
+  const handlePaymentSuccess = (paymentIntentId: string) => {
+    console.log('💳 Payment successful, creating booking with payment ID:', paymentIntentId);
+    setLoading(true);
+    createBookingMutation.mutate(paymentIntentId);
   };
 
   const handleStartOver = () => {
-    console.log('STARTING OVER - RESETTING WIZARD');
+    console.log('Starting over - resetting wizard');
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
+    setPaymentIntentId('');
     setShowPayment(false);
     resetWizard();
     router.push('/book');
@@ -346,11 +326,14 @@ export function ReviewPaymentStep() {
 
   const handlePreviousStep = () => {
     if (showPayment) {
+      // Go back from payment to review
       setShowPayment(false);
       setClientSecret('');
+      setPaymentIntentId('');
+    } else {
+      // Go back to previous step
+      previousStep();
     }
-    
-    previousStep();
   };
 
   if (bookingComplete) {
@@ -449,10 +432,10 @@ export function ReviewPaymentStep() {
           <CardContent>
             <Elements stripe={stripePromise} options={{ clientSecret }}>        
               <CheckoutForm 
-                clientSecret={clientSecret} 
-                bookingNumber={bookingNumber}
+                clientSecret={clientSecret}
+                paymentIntentId={paymentIntentId}
                 totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
-                onSuccess={handlePaymentSuccess} 
+                onSuccess={handlePaymentSuccess}
               />
             </Elements>
           </CardContent>
@@ -460,7 +443,7 @@ export function ReviewPaymentStep() {
 
         <div className="flex justify-between">
           <Button variant="outline" onClick={handlePreviousStep}>
-            ← Previous
+            ← Back to Review
           </Button>
           <Button variant="outline" onClick={handleStartOver}>
             Start Over
@@ -638,29 +621,18 @@ export function ReviewPaymentStep() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {/* Specialty Item - Show Individual Items */}
-              {bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0 ? (
-                <>
-                  {/* We need to fetch the specialty items details - for now show base price with note */}
-                  <div className="flex justify-between">
-                    <span className="text-navy-900 font-medium">Specialty Items:</span>
-                    <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                  </div>
-                </>
-              ) : (
-                /* All other service types show base price normally */
-                <div className="flex justify-between">
-                  <span className="text-navy-900 font-medium">Base Price:</span>
-                  <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                </div>
-              )}
+              {/* Base Price */}
+              <div className="flex justify-between">
+                <span className="text-navy-900 font-medium">
+                  {bookingData.service_type === 'blade_transfer' && `${bookingData.blade_bag_count} bags × $75:`}
+                  {bookingData.service_type === 'mini_move' && 'Mini Move Package:'}
+                  {bookingData.service_type === 'standard_delivery' && 'Standard Delivery:'}
+                  {bookingData.service_type === 'specialty_item' && 'Specialty Items:'}
+                </span>
+                <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
+              </div>
               
-              {bookingData.service_type === 'blade_transfer' && (
-                <div className="text-sm text-navy-900 italic">
-                  {bookingData.blade_bag_count} bags × $75
-                </div>
-              )}
-              
+              {/* Same-Day Delivery */}
               {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
@@ -668,6 +640,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Weekend Surcharge */}
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
@@ -675,6 +648,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* ✅ FIX: COI Fee - Show for ALL service types */}
               {bookingData.pricing_data.coi_fee_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">COI Fee:</span>
@@ -682,6 +656,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Organizing Services */}
               {bookingData.pricing_data.organizing_total_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Organizing Services:</span>
@@ -689,6 +664,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
+              {/* Organizing Tax */}
               {bookingData.pricing_data.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Tax (8.25%):</span>
@@ -696,6 +672,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
+              {/* Time Window Surcharge */}
               {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">1-Hour Window:</span>
@@ -703,6 +680,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Geographic Surcharge */}
               {bookingData.pricing_data.geographic_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Distance Surcharge:</span>
@@ -712,6 +690,7 @@ export function ReviewPaymentStep() {
               
               <hr className="border-gray-200" />
               
+              {/* Total */}
               <div className="flex justify-between text-xl font-bold">
                 <span className="text-navy-900">Total:</span>
                 <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
@@ -840,10 +819,10 @@ export function ReviewPaymentStep() {
         <Button 
           variant="primary" 
           size="lg"
-          onClick={handleSubmitBooking}
-          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
+          onClick={handleInitiatePayment}
+          disabled={isLoading || createPaymentIntentMutation.isPending || !termsAccepted}
         >
-          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
+          {isLoading || createPaymentIntentMutation.isPending ? 'Preparing Payment...' : 'Continue to Payment'}
         </Button>
       </div>
     </div>
