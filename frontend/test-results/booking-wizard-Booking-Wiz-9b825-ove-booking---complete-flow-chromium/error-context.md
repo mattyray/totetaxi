@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e1]:
+- generic [active] [ref=e1]:
   - generic [ref=e2]:
     - banner [ref=e3]:
       - generic [ref=e5]:
@@ -107,7 +107,7 @@
                   - generic [ref=e208]:
                     - heading "Choose Your Service" [level=3] [ref=e209]
                     - generic [ref=e210]:
-                      - button "Mini Moves Complete packages for seasonal relocation" [active] [ref=e211] [cursor=pointer]:
+                      - button "Mini Moves Complete packages for seasonal relocation" [ref=e211] [cursor=pointer]:
                         - heading "Mini Moves" [level=4] [ref=e212]
                         - paragraph [ref=e213]: Complete packages for seasonal relocation
                       - button "Standard Delivery Regular items + specialty items" [ref=e214] [cursor=pointer]:
