@@ -13,21 +13,24 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    viewport: { width: 1920, height: 1080 }, // ✅ BIGGER VIEWPORT FOR MODAL
+    viewport: { width: 2560, height: 1600 }, // ✅ MASSIVE viewport - modal won't be cut off
+    deviceScaleFactor: 1, // No zoom
   },
 
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        viewport: { width: 2560, height: 1600 }, // Override device viewport
+      },
     },
   ],
 
-  // ✅ CRITICAL: Start Next.js dev server before tests
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000, // 2 minutes to start
+    timeout: 120000,
   },
 });
