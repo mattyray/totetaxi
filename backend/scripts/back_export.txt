@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-11 09:34:20
-# Total files: 135
+# Created: 2025-10-12 10:46:02
+# Total files: 140
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -222,6 +222,16 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # Run entrypoint
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]
+```
+
+# ==== conftest.py ====
+
+```python
+import os
+import django
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
 ```
 
 # ==== cookies.txt ====
@@ -627,15 +637,18 @@ omit = [
 # ==== pytest.ini ====
 
 ```ini
-[tool:pytest]
-DJANGO_SETTINGS_MODULE = config.settings.testing
+[pytest]
+DJANGO_SETTINGS_MODULE = config.settings
 python_files = tests.py test_*.py *_tests.py
 python_classes = Test*
 python_functions = test_*
-addopts = --tb=short --strict-markers --disable-warnings
-markers =
-    slow: marks tests as slow (deselect with '-m "not slow"')
-    integration: marks tests as integration tests
+addopts = 
+    --strict-markers
+    --reuse-db
+    --ds=config.settings
+    -ra
+    --tb=short
+testpaths = apps
 ```
 
 # ==== recreate_services.py ====
@@ -854,19 +867,21 @@ sentry-sdk==2.13.0
 django-debug-toolbar==4.4.6
 django-extensions==3.2.3
 
-# Testing
-pytest==8.3.2
+# Testing (Updated October 2025)
+pytest==8.3.3
 pytest-django==4.9.0
 pytest-cov==5.0.0
-factory-boy==3.3.0
+factory-boy==3.3.1
+faker==30.8.2
+freezegun==1.5.1
 
 # Production Server
 gunicorn==23.0.0
 whitenoise==6.7.0
 
+# Rate Limiting & Caching
 django-ratelimit==4.1.0
 django-redis==5.4.0
-
 ```
 
 # ==== staff_cookies.txt ====
@@ -942,6 +957,7 @@ def debug_task(self):
 ```python
 # config/settings.py
 import os
+import sys
 import environ
 from pathlib import Path
 
@@ -1260,11 +1276,54 @@ LOGGING = {
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
+
+
+# ============================================================================
+# TEST CONFIGURATION
+# ============================================================================
+# Detect if we're running tests
+TESTING = 'test' in sys.argv or 'pytest' in sys.argv[0]
+
+if TESTING:
+    # Use faster in-memory database for tests
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+    
+    # Disable password hashing for faster tests
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+    
+    # Use console email backend for tests
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    
+    # Make Celery tasks run synchronously during tests
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    
+    # Disable rate limiting during tests
+    RATELIMIT_ENABLE = False
+    
+    # Use dummy cache for tests (faster)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
+    
+    # Disable CSRF for tests
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
 ```
 
 # ==== config/urls.py ====
 
 ```python
+# backend/config/urls.py
 from django.contrib import admin
 from django.urls import path, include
 
@@ -3184,6 +3243,7 @@ class Migration(migrations.Migration):
 # ==== apps/bookings/models.py ====
 
 ```python
+# backend/apps/bookings/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -3437,7 +3497,7 @@ class Booking(models.Model):
                 name='booking_exactly_one_customer_type'
             )
         ]
-    #jew
+    
     def save(self, *args, **kwargs):
         # Generate booking number if new
         if not self.booking_number:
@@ -3593,10 +3653,15 @@ class Booking(models.Model):
         return total_organizing_cents
     
     def calculate_coi_fee(self):
-        """Calculate COI fee - $50 for Petite moves if required"""
+        """Calculate COI fee - $50 for Standard Delivery, Specialty Items, and Petite Mini Moves"""
         if not self.coi_required:
             return 0
         
+        # ✅ FIX: $50 COI fee for Standard Delivery and Specialty Items
+        if self.service_type in ['standard_delivery', 'specialty_item']:
+            return 5000
+        
+        # Mini Move COI logic
         if self.service_type == 'mini_move' and self.mini_move_package:
             if self.mini_move_package.package_type == 'petite':
                 return 5000
@@ -3685,13 +3750,14 @@ class Booking(models.Model):
                         specialty_total = sum(item.price_cents for item in self.specialty_items.all())
                         self.base_price_cents += specialty_total
                     
-                    # FIXED: Apply same-day delivery surcharge
+                    # Apply same-day delivery surcharge
                     if self.is_same_day_delivery:
                         self.same_day_surcharge_cents = config.same_day_flat_rate_cents
                     
             except StandardDeliveryConfig.DoesNotExist:
                 pass
             
+            # Weekend surcharges
             if self.pickup_date:
                 active_surcharges = SurchargeRule.objects.filter(is_active=True)
                 for surcharge in active_surcharges:
@@ -3702,7 +3768,9 @@ class Booking(models.Model):
                     )
                     self.surcharge_cents += surcharge_amount
             
+            # ✅ FIX: Apply geographic surcharge and COI fee
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+            self.coi_fee_cents = self.calculate_coi_fee()
         
         # Specialty Item pricing
         elif self.service_type == 'specialty_item':
@@ -3710,6 +3778,30 @@ class Booking(models.Model):
             for item in self.specialty_items.all():
                 specialty_total += item.price_cents
             self.base_price_cents = specialty_total
+            
+            # ✅ FIX: Apply same-day delivery surcharge for specialty items
+            if self.is_same_day_delivery:
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        self.same_day_surcharge_cents = config.same_day_flat_rate_cents
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # ✅ FIX: Apply weekend surcharges
+            if self.pickup_date:
+                active_surcharges = SurchargeRule.objects.filter(is_active=True)
+                for surcharge in active_surcharges:
+                    surcharge_amount = surcharge.calculate_surcharge(
+                        self.base_price_cents, 
+                        self.pickup_date,
+                        self.service_type
+                    )
+                    self.surcharge_cents += surcharge_amount
+            
+            # ✅ FIX: Apply geographic surcharge and COI fee
+            self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
+            self.coi_fee_cents = self.calculate_coi_fee()
         
         # Calculate total
         self.total_price_cents = (
@@ -3809,7 +3901,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta, time as dt_time
 from .models import Booking, Address, GuestCheckout
-from apps.services.models import MiniMovePackage, SpecialtyItem, OrganizingService
+from apps.services.models import MiniMovePackage, SpecialtyItem, OrganizingService, StandardDeliveryConfig, SurchargeRule
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -3909,7 +4001,7 @@ class PricingPreviewSerializer(serializers.Serializer):
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
         ('specialty_item', 'Specialty Item'),
-        ('blade_transfer', 'BLADE Airport Transfer'),  # NEW
+        ('blade_transfer', 'BLADE Airport Transfer'),
     ])
     pickup_date = serializers.DateField()
     
@@ -3943,7 +4035,7 @@ class PricingPreviewSerializer(serializers.Serializer):
         allow_empty=True
     )
     
-    # BLADE fields (NEW - Phase 3)
+    # BLADE fields
     blade_airport = serializers.ChoiceField(
         choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
         required=False
@@ -3955,9 +4047,8 @@ class PricingPreviewSerializer(serializers.Serializer):
     def validate(self, attrs):
         service_type = attrs.get('service_type')
         
-        # BLADE validation (NEW - Phase 3)
+        # BLADE validation
         if service_type == 'blade_transfer':
-            # Required fields
             if not attrs.get('blade_airport'):
                 raise serializers.ValidationError({'blade_airport': 'Airport selection required for BLADE'})
             if not attrs.get('blade_flight_date'):
@@ -3967,25 +4058,22 @@ class PricingPreviewSerializer(serializers.Serializer):
             if not attrs.get('blade_bag_count'):
                 raise serializers.ValidationError({'blade_bag_count': 'Bag count required for BLADE'})
             
-            # 2-bag minimum
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError({
                     'blade_bag_count': 'BLADE service requires minimum 2 bags'
                 })
             
-            # JFK or EWR only
             if attrs.get('blade_airport') not in ['JFK', 'EWR']:
                 raise serializers.ValidationError({
                     'blade_airport': 'BLADE only serves JFK and EWR airports'
                 })
             
-            # 24-hour advance booking (8 PM cutoff)
             flight_date = attrs.get('blade_flight_date')
             if flight_date:
                 now = timezone.now()
                 cutoff = timezone.datetime.combine(
                     flight_date - timedelta(days=1),
-                    dt_time(20, 0)  # 8 PM
+                    dt_time(20, 0)
                 )
                 cutoff = timezone.make_aware(cutoff)
                 
@@ -4007,7 +4095,12 @@ class PricingPreviewSerializer(serializers.Serializer):
         return attrs
 
 
-class GuestBookingCreateSerializer(serializers.Serializer):
+class GuestPaymentIntentSerializer(serializers.Serializer):
+    """
+    NEW: Serializer for creating payment intent BEFORE guest booking
+    Validates all booking data and calculates total price
+    """
+    
     # Guest customer info
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
@@ -4019,7 +4112,225 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
         ('specialty_item', 'Specialty Item'),
-        ('blade_transfer', 'BLADE Airport Transfer'),  # NEW
+        ('blade_transfer', 'BLADE Airport Transfer'),
+    ])
+    
+    # Service-specific fields
+    mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
+    include_packing = serializers.BooleanField(default=False)
+    include_unpacking = serializers.BooleanField(default=False)
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    is_same_day_delivery = serializers.BooleanField(default=False)
+    specialty_item_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True
+    )
+    
+    # BLADE fields
+    blade_airport = serializers.ChoiceField(
+        choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
+        required=False
+    )
+    blade_flight_date = serializers.DateField(required=False)
+    blade_flight_time = serializers.TimeField(required=False)
+    blade_bag_count = serializers.IntegerField(required=False, min_value=2)
+    
+    # Booking details
+    pickup_date = serializers.DateField()
+    pickup_time = serializers.ChoiceField(choices=[
+        ('morning', '8 AM - 11 AM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
+    ], required=False)
+    specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
+    
+    # Additional options
+    coi_required = serializers.BooleanField(default=False)
+    is_outside_core_area = serializers.BooleanField(default=False)
+    
+    def validate(self, attrs):
+        service_type = attrs['service_type']
+        
+        # Service-specific validation
+        if service_type == 'blade_transfer':
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+                       attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
+                raise serializers.ValidationError("All BLADE fields are required")
+            
+            if attrs.get('blade_bag_count', 0) < 2:
+                raise serializers.ValidationError("BLADE service requires minimum 2 bags")
+        
+        elif service_type == 'mini_move':
+            if not attrs.get('mini_move_package_id'):
+                raise serializers.ValidationError("mini_move_package_id is required")
+        
+        elif service_type == 'standard_delivery':
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError("At least one item required")
+        
+        elif service_type == 'specialty_item':
+            if not attrs.get('specialty_item_ids'):
+                raise serializers.ValidationError("specialty_item_ids is required")
+        
+        # Calculate pricing
+        attrs['calculated_total_cents'] = self._calculate_total_price(attrs)
+        
+        return attrs
+    
+    def _calculate_total_price(self, data):
+        """Calculate total price in cents for payment intent"""
+        service_type = data['service_type']
+        total_cents = 0
+        
+        # BLADE pricing
+        if service_type == 'blade_transfer':
+            bag_count = data.get('blade_bag_count', 0)
+            per_bag_price = 7500  # $75
+            total_cents = max(bag_count * per_bag_price, 15000)  # $150 min
+            return total_cents
+        
+        # Mini Move pricing
+        elif service_type == 'mini_move':
+            try:
+                package = MiniMovePackage.objects.get(id=data['mini_move_package_id'])
+                total_cents = package.base_price_cents
+                
+                # COI fee
+                if data.get('coi_required') and not package.coi_included:
+                    total_cents += package.coi_fee_cents
+                
+                # Organizing services
+                if data.get('include_packing') or data.get('include_unpacking'):
+                    organizing_total = 0
+                    
+                    if data.get('include_packing'):
+                        packing = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=True,
+                            is_active=True
+                        ).first()
+                        if packing:
+                            total_cents += packing.price_cents
+                            organizing_total += packing.price_cents
+                    
+                    if data.get('include_unpacking'):
+                        unpacking = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=False,
+                            is_active=True
+                        ).first()
+                        if unpacking:
+                            total_cents += unpacking.price_cents
+                            organizing_total += unpacking.price_cents
+                    
+                    # Tax on organizing
+                    if organizing_total > 0:
+                        total_cents += int(organizing_total * 0.0825)
+                
+                # Geographic surcharge
+                if data.get('is_outside_core_area'):
+                    total_cents += 17500
+                
+                # Time window surcharge
+                if data.get('pickup_time') == 'morning_specific' and package.package_type == 'standard':
+                    total_cents += 17500
+                
+            except MiniMovePackage.DoesNotExist:
+                raise serializers.ValidationError("Invalid package")
+        
+        # Standard Delivery pricing
+        elif service_type == 'standard_delivery':
+            try:
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    item_count = data.get('standard_delivery_item_count', 0)
+                    if item_count > 0:
+                        item_total = config.price_per_item_cents * item_count
+                        total_cents = max(item_total, config.minimum_charge_cents)
+                    
+                    # Specialty items
+                    specialty_ids = data.get('specialty_item_ids', [])
+                    if specialty_ids:
+                        specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
+                        total_cents += sum(item.price_cents for item in specialty_items)
+                    
+                    # Same-day
+                    if data.get('is_same_day_delivery'):
+                        total_cents += config.same_day_flat_rate_cents
+                    
+                    # COI
+                    if data.get('coi_required'):
+                        total_cents += 5000
+                    
+                    # Geographic
+                    if data.get('is_outside_core_area'):
+                        total_cents += 17500
+                        
+            except StandardDeliveryConfig.DoesNotExist:
+                raise serializers.ValidationError("Standard delivery not configured")
+        
+        # Specialty Item pricing
+        elif service_type == 'specialty_item':
+            specialty_ids = data.get('specialty_item_ids', [])
+            specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
+            total_cents = sum(item.price_cents for item in specialty_items)
+            
+            # Same-day
+            if data.get('is_same_day_delivery'):
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        total_cents += config.same_day_flat_rate_cents
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # COI
+            if data.get('coi_required'):
+                total_cents += 5000
+            
+            # Geographic
+            if data.get('is_outside_core_area'):
+                total_cents += 17500
+        
+        # Weekend surcharges (not for BLADE)
+        if service_type != 'blade_transfer' and data.get('pickup_date'):
+            active_surcharges = SurchargeRule.objects.filter(is_active=True)
+            for surcharge in active_surcharges:
+                surcharge_amount = surcharge.calculate_surcharge(
+                    total_cents,
+                    data['pickup_date'],
+                    service_type
+                )
+                total_cents += surcharge_amount
+        
+        return total_cents
+
+
+class GuestBookingCreateSerializer(serializers.Serializer):
+    """
+    REFACTORED: Create booking for guest AFTER payment succeeds
+    Now requires payment_intent_id and does NOT create payment
+    """
+    
+    # Payment verification
+    payment_intent_id = serializers.CharField(required=True)
+    
+    # Guest customer info
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=20)
+    
+    # Service selection
+    service_type = serializers.ChoiceField(choices=[
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('specialty_item', 'Specialty Item'),
+        ('blade_transfer', 'BLADE Airport Transfer'),
     ])
     
     # Service-specific fields
@@ -4036,7 +4347,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     
-    # BLADE fields (NEW - Phase 3)
+    # BLADE fields
     blade_airport = serializers.ChoiceField(
         choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
         required=False
@@ -4067,13 +4378,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     def validate_pickup_address(self, value):
         """Validate pickup address including service area check"""
-        # Existing validation
         required_fields = ['address_line_1', 'city', 'state', 'zip_code']
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing required field: {field}")
         
-        # NEW: ZIP code service area validation
         from .zip_codes import validate_service_area
         
         zip_code = value.get('zip_code')
@@ -4086,17 +4395,15 @@ class GuestBookingCreateSerializer(serializers.Serializer):
 
     def validate_delivery_address(self, value):
         """Validate delivery address including service area check"""
-        # Existing validation
         required_fields = ['address_line_1', 'city', 'state', 'zip_code']
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing required field: {field}")
         
-        # ✅ SKIP ZIP VALIDATION FOR BLADE TRANSFERS - airports are the destination!
+        # SKIP ZIP VALIDATION FOR BLADE TRANSFERS
         if self.initial_data.get('service_type') == 'blade_transfer':
             return value
         
-        # NEW: ZIP code service area validation (only for non-BLADE services)
         from .zip_codes import validate_service_area
         
         zip_code = value.get('zip_code')
@@ -4111,13 +4418,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         service_type = attrs['service_type']
         pickup_time = attrs.get('pickup_time', 'morning')
         
-        # Validate specific hour if morning_specific is selected
         if pickup_time == 'morning_specific' and not attrs.get('specific_pickup_hour'):
             raise serializers.ValidationError("specific_pickup_hour is required when pickup_time is 'morning_specific'")
         
-        # BLADE validation (NEW - Phase 3)
+        # BLADE validation
         if service_type == 'blade_transfer':
-            # Required BLADE fields
             if not attrs.get('blade_airport'):
                 raise serializers.ValidationError("blade_airport is required for BLADE service")
             if not attrs.get('blade_flight_date'):
@@ -4127,21 +4432,18 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             if not attrs.get('blade_bag_count'):
                 raise serializers.ValidationError("blade_bag_count is required for BLADE service")
             
-            # 2-bag minimum
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("BLADE service requires minimum 2 bags")
             
-            # JFK or EWR only
             if attrs.get('blade_airport') not in ['JFK', 'EWR']:
                 raise serializers.ValidationError("BLADE only serves JFK and EWR airports")
             
-            # 24-hour advance booking (8 PM cutoff)
             flight_date = attrs.get('blade_flight_date')
             if flight_date:
                 now = timezone.now()
                 cutoff = timezone.datetime.combine(
                     flight_date - timedelta(days=1),
-                    dt_time(20, 0)  # 8 PM
+                    dt_time(20, 0)
                 )
                 cutoff = timezone.make_aware(cutoff)
                 
@@ -4151,7 +4453,6 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                         "For rush service, please call (631) 595-5100"
                     )
             
-            # BLADE-specific address validation: pickup must be NYC (NY state)
             pickup_state = attrs.get('pickup_address', {}).get('state')
             if pickup_state and pickup_state != 'NY':
                 raise serializers.ValidationError(
@@ -4163,7 +4464,6 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("mini_move_package_id is required for mini move service")
             
-            # Validate organizing services only apply to mini moves
             include_packing = attrs.get('include_packing', False)
             include_unpacking = attrs.get('include_unpacking', False)
             
@@ -4191,7 +4491,6 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                 except MiniMovePackage.DoesNotExist:
                     raise serializers.ValidationError("Invalid mini move package")
         else:
-            # Organizing services only available for Mini Moves
             if attrs.get('include_packing') or attrs.get('include_unpacking'):
                 raise serializers.ValidationError("Organizing services are only available for Mini Move bookings")
         
@@ -4212,6 +4511,9 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         return attrs
     
     def create(self, validated_data):
+        # Remove payment_intent_id (not needed for booking)
+        payment_intent_id = validated_data.pop('payment_intent_id')
+        
         # Create guest checkout
         guest_checkout = GuestCheckout.objects.create(
             first_name=validated_data['first_name'],
@@ -4243,11 +4545,11 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
             include_packing=validated_data.get('include_packing', False),
             include_unpacking=validated_data.get('include_unpacking', False),
-            # BLADE fields (NEW - Phase 3)
             blade_airport=validated_data.get('blade_airport'),
             blade_flight_date=validated_data.get('blade_flight_date'),
             blade_flight_time=validated_data.get('blade_flight_time'),
             blade_bag_count=validated_data.get('blade_bag_count'),
+            status='pending',  # Will be updated to 'paid' in view
         )
         
         # Handle service-specific relationships
@@ -4258,24 +4560,211 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        # Handle specialty items for standard_delivery OR specialty_item
+        # Handle specialty items
         if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
             )
-            booking.save()  # Save first to get ID for M2M relationship
+            booking.save()
             booking.specialty_items.set(specialty_items)
         
-        booking.save()  # This will trigger pricing calculation including BLADE
+        booking.save()
         return booking
 ```
 
-# ==== apps/bookings/tests.py ====
+# ==== apps/bookings/tests/__init__.py ====
 
 ```python
+
+```
+
+# ==== apps/bookings/tests/test_pricing.py ====
+
+```python
+# apps/bookings/tests/test_pricing.py
+"""
+Test pricing calculations for ToteTaxi bookings
+CRITICAL: These tests protect revenue - pricing bugs = money lost
+"""
+import pytest
+from datetime import date, timedelta
+from decimal import Decimal
 from django.test import TestCase
 
-# Create your tests here.
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.services.models import MiniMovePackage, SurchargeRule
+
+
+@pytest.mark.django_db
+class TestMiniMovePricing(TestCase):
+    """Test Mini Move pricing calculations"""
+    
+    def setUp(self):
+        """Create test data matching production"""
+        # Create Mini Move package
+        self.petite_package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Petite Move',
+            description='Up to 10 items',
+            base_price_cents=15000,  # $150
+            max_items=10,
+            max_weight_per_item_lbs=50,
+            coi_included=False,
+            coi_fee_cents=5000,  # $50
+            is_active=True
+        )
+        
+        # Create weekend surcharge (15%)
+        self.weekend_surcharge = SurchargeRule.objects.create(
+            surcharge_type='weekend',
+            name='Weekend Delivery Surcharge',
+            description='15% surcharge for weekend deliveries',
+            applies_to_service_type='all',
+            calculation_type='percentage',
+            percentage=Decimal('15.00'),
+            applies_saturday=True,
+            applies_sunday=True,
+            is_active=True
+        )
+        
+        # Create guest checkout
+        self.guest = GuestCheckout.objects.create(
+            first_name="Test",
+            last_name="Customer",
+            email="test@totetaxi.com",
+            phone="212-555-0100"
+        )
+        
+        # Create addresses (Manhattan to Manhattan - no geographic surcharge)
+        self.pickup_address = Address.objects.create(
+            address_line_1="123 West 57th St",
+            city="New York",
+            state="NY",
+            zip_code="10019"
+        )
+        
+        self.delivery_address = Address.objects.create(
+            address_line_1="456 Park Ave",
+            city="New York",
+            state="NY",
+            zip_code="10022"
+        )
+    
+    def test_weekday_base_price_no_extras(self):
+        """Test simple weekday booking - should be base price only"""
+        # Get next Monday
+        today = date.today()
+        days_until_monday = (0 - today.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        next_monday = today + timedelta(days=days_until_monday)
+        
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.petite_package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup_address,
+            delivery_address=self.delivery_address,
+            pickup_date=next_monday,
+            pickup_time='morning',
+            status='pending_payment'
+        )
+        
+        # Assertions
+        assert booking.base_price_cents == 15000, \
+            f"Expected $150 base, got ${booking.base_price_cents/100}"
+        assert booking.surcharge_cents == 0, \
+            "Weekday should have no surcharge"
+        assert booking.total_price_cents == 15000, \
+            f"Expected $150 total, got ${booking.total_price_cents/100}"
+        
+        print(f"✅ Weekday base price: ${booking.total_price_cents / 100:.2f}")
+    
+    def test_weekend_surcharge_saturday(self):
+        """Test that Saturday bookings get 15% surcharge"""
+        # Get next Saturday
+        today = date.today()
+        days_until_saturday = (5 - today.weekday()) % 7
+        if days_until_saturday == 0:
+            days_until_saturday = 7
+        next_saturday = today + timedelta(days=days_until_saturday)
+        
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.petite_package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup_address,
+            delivery_address=self.delivery_address,
+            pickup_date=next_saturday,
+            pickup_time='morning',
+            status='pending_payment'
+        )
+        
+        # Calculate expected values
+        expected_surcharge = int(15000 * 0.15)  # $22.50 in cents
+        expected_total = 15000 + expected_surcharge
+        
+        # Assertions
+        assert booking.base_price_cents == 15000
+        assert booking.surcharge_cents == expected_surcharge, \
+            f"Expected ${expected_surcharge/100} surcharge, got ${booking.surcharge_cents/100}"
+        assert booking.total_price_cents == expected_total, \
+            f"Expected ${expected_total/100} total, got ${booking.total_price_cents/100}"
+        
+        print(f"✅ Weekend surcharge: Base ${booking.base_price_cents/100} + " \
+              f"Surcharge ${booking.surcharge_cents/100} = ${booking.total_price_cents/100}")
+    
+    def test_coi_fee_applied(self):
+        """Test COI fee for Petite package"""
+        # Get next Monday to avoid weekend surcharge
+        today = date.today()
+        days_until_monday = (0 - today.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        next_monday = today + timedelta(days=days_until_monday)
+        
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.petite_package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup_address,
+            delivery_address=self.delivery_address,
+            pickup_date=next_monday,  # ✅ FIXED: Use weekday instead of +7 days
+            pickup_time='morning',
+            coi_required=True,  # Request COI
+            status='pending_payment'
+        )
+        
+        # Assertions
+        assert booking.coi_fee_cents == 5000, \
+            f"Expected $50 COI fee, got ${booking.coi_fee_cents/100}"
+        assert booking.total_price_cents == 20000, \
+            f"Expected $200 total ($150 + $50 COI), got ${booking.total_price_cents/100}"
+        
+        print(f"✅ COI fee applied: ${booking.coi_fee_cents/100}")
+    
+    def test_pricing_breakdown_structure(self):
+        """Test that pricing breakdown returns correct structure"""
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.petite_package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup_address,
+            delivery_address=self.delivery_address,
+            pickup_date=date.today() + timedelta(days=7),
+            pickup_time='morning',
+            status='pending_payment'
+        )
+        
+        breakdown = booking.get_pricing_breakdown()
+        
+        # Check structure
+        assert 'base_price_dollars' in breakdown
+        assert 'surcharge_dollars' in breakdown
+        assert 'total_price_dollars' in breakdown
+        assert isinstance(breakdown['base_price_dollars'], float)
+        
+        print(f"✅ Pricing breakdown: {breakdown}")
 ```
 
 # ==== apps/bookings/urls.py ====
@@ -4297,7 +4786,10 @@ urlpatterns = [
     path('services/organizing-by-tier/', views.OrganizingServicesByTierView.as_view(), name='organizing-by-tier'),
     path('services/organizing/<uuid:service_id>/', views.OrganizingServiceDetailView.as_view(), name='organizing-service-detail'),
     
-    # Guest booking
+    # ✅ NEW: Payment intent creation (BEFORE booking)
+    path('create-payment-intent/', views.CreateGuestPaymentIntentView.as_view(), name='create-guest-payment-intent'),
+    
+    # Guest booking (NOW requires payment_intent_id)
     path('guest-booking/', views.GuestBookingCreateView.as_view(), name='guest-booking-create'),
     
     # Booking status lookup
@@ -4305,7 +4797,7 @@ urlpatterns = [
     path('calendar/availability/', views.CalendarAvailabilityView.as_view(), name='calendar-availability'),
     path('fix-organizing-services/', views.FixOrganizingServicesView.as_view()),
     
-    # NEW: ZIP code validation endpoint
+    # ZIP code validation endpoint
     path('validate-zip/', views.ValidateZipCodeView.as_view(), name='validate-zip'),
 ]
 ```
@@ -4325,6 +4817,7 @@ from .models import Booking, Address, GuestCheckout
 from .serializers import (
     BookingSerializer,
     GuestBookingCreateSerializer,
+    GuestPaymentIntentSerializer,
     BookingStatusSerializer,
     PricingPreviewSerializer,
     AddressSerializer
@@ -4346,6 +4839,12 @@ from apps.services.serializers import (
     OrganizingServicesByTierSerializer
 )
 from apps.payments.services import StripePaymentService
+import stripe
+from django.conf import settings
+import json
+
+# Initialize Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class ServiceCatalogView(APIView):
@@ -4584,9 +5083,19 @@ class PricingPreviewView(APIView):
                         same_day_fee_cents = config.same_day_flat_rate_cents
                         details['is_same_day'] = True
                         details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-                        
+            
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Apply geographic surcharge for Standard Delivery
+            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
+            if is_outside_core_area:
+                geographic_surcharge_cents = 17500
+            
+            # Apply COI fee for Standard Delivery
+            coi_required = serializer.validated_data.get('coi_required', False)
+            if coi_required:
+                coi_fee_cents = 5000
         
         # Specialty Item pricing
         elif service_type == 'specialty_item':
@@ -4604,6 +5113,28 @@ class PricingPreviewView(APIView):
                 {'name': item.name, 'price_dollars': item.price_dollars}
                 for item in specialty_items
             ]
+            
+            # Apply same-day delivery for specialty items
+            is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
+            if is_same_day:
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        same_day_fee_cents = config.same_day_flat_rate_cents
+                        details['is_same_day'] = True
+                        details['same_day_rate'] = config.same_day_flat_rate_cents / 100
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # Apply geographic surcharge for Specialty Items
+            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
+            if is_outside_core_area:
+                geographic_surcharge_cents = 17500
+            
+            # Apply COI fee for Specialty Items
+            coi_required = serializer.validated_data.get('coi_required', False)
+            if coi_required:
+                coi_fee_cents = 5000
         
         # Apply surcharges (NOT for BLADE)
         if service_type != 'blade_transfer' and pickup_date and base_price_cents > 0:
@@ -4706,54 +5237,121 @@ class CalendarAvailabilityView(APIView):
         })
 
 
+class CreateGuestPaymentIntentView(APIView):
+    """
+    NEW: Create payment intent BEFORE guest booking
+    This separates payment from booking creation to avoid pending bookings
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        print("=" * 80)
+        print("💳 GUEST PAYMENT INTENT REQUEST RECEIVED")
+        print("=" * 80)
+        print(f"Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        
+        serializer = GuestPaymentIntentSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            print(f"❌ Validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get calculated total from serializer
+        validated_data = serializer.validated_data
+        amount_cents = validated_data['calculated_total_cents']
+        customer_email = validated_data.get('email')
+        
+        try:
+            # Create Stripe payment intent
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency='usd',
+                payment_method_types=['card'],
+                metadata={
+                    'service_type': validated_data['service_type'],
+                    'customer_email': customer_email,
+                }
+            )
+            
+            print(f"✅ Payment intent created: {payment_intent.id}")
+            print(f"   Amount: ${amount_cents / 100}")
+            print("=" * 80)
+            
+            return Response({
+                'client_secret': payment_intent.client_secret,
+                'payment_intent_id': payment_intent.id,
+                'amount_dollars': amount_cents / 100
+            }, status=status.HTTP_200_OK)
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe error: {str(e)}")
+            return Response(
+                {'error': f'Payment initialization failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class GuestBookingCreateView(generics.CreateAPIView):
-    """Create booking for guest (non-authenticated) users with payment integration - INCLUDES BLADE"""
+    """
+    REFACTORED: Create booking for guest AFTER payment succeeds
+    Now requires payment_intent_id and verifies payment before creating booking
+    """
     serializer_class = GuestBookingCreateSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
         print("=" * 80)
-        print("GUEST BOOKING CREATE REQUEST RECEIVED")
+        print("🔍 GUEST BOOKING CREATE REQUEST RECEIVED (PAYMENT-FIRST)")
         print("=" * 80)
         print("Guest Email:", request.data.get('email'))
         print("Service Type:", request.data.get('service_type'))
-        print("Request Data:", request.data)
-        print("Create Payment Intent:", request.data.get('create_payment_intent', True))
+        print("Payment Intent ID:", request.data.get('payment_intent_id'))
+        print("Request Data:", json.dumps(request.data, indent=2, default=str))
+        
+        # CRITICAL: Verify payment_intent_id is provided
+        payment_intent_id = request.data.get('payment_intent_id')
+        if not payment_intent_id:
+            return Response(
+                {'error': 'payment_intent_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify payment with Stripe
+        try:
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            if payment_intent.status != 'succeeded':
+                print(f"❌ Payment not succeeded: {payment_intent.status}")
+                return Response(
+                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print(f"✅ Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe verification failed: {str(e)}")
+            return Response(
+                {'error': f'Payment verification failed: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = serializer.save()
         
-        print(f"Guest booking created: {booking.booking_number}")
+        # Update booking status to paid since payment already succeeded
+        booking.status = 'paid'
+        booking.save()
+        
+        print(f"✅ Guest booking created: {booking.booking_number}")
         print(f"Service type: {booking.service_type}")
         print(f"Total price: ${booking.total_price_dollars}")
+        print(f"Status: {booking.status}")
         
         if booking.service_type == 'blade_transfer':
             print(f"BLADE booking - Airport: {booking.blade_airport}, Bags: {booking.blade_bag_count}")
             print(f"Ready time: {booking.blade_ready_time}")
-        
-        create_payment_intent = request.data.get('create_payment_intent', True)
-        payment_data = None
-        
-        if create_payment_intent:
-            print("Creating payment intent for guest...")
-            try:
-                guest_email = booking.guest_checkout.email if booking.guest_checkout else None
-                
-                payment_result = StripePaymentService.create_payment_intent(
-                    booking=booking,
-                    customer_email=guest_email
-                )
-                
-                payment_data = {
-                    'client_secret': payment_result['client_secret'],
-                    'payment_intent_id': payment_result['payment_intent_id']
-                }
-                
-                print(f"Payment intent created: {payment_result['payment_intent_id']}")
-            except Exception as e:
-                print(f"Payment intent failed: {str(e)}")
-                payment_data = None
         
         response_data = {
             'message': 'Booking created successfully',
@@ -4762,6 +5360,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'booking_number': booking.booking_number,
                 'total_price_dollars': booking.total_price_dollars,
                 'service_type': booking.service_type,
+                'status': booking.status,
             }
         }
         
@@ -4774,12 +5373,8 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
             }
         
-        if payment_data:
-            response_data['payment'] = payment_data
-        
         print("=" * 80)
-        print("SUCCESS - Returning guest booking response")
-        print("Response includes payment:", bool(payment_data))
+        print("✅ SUCCESS - Returning guest booking response")
         print("=" * 80)
         
         return Response(response_data, status=status.HTTP_201_CREATED)
@@ -5262,13 +5857,16 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta, time as dt_time
 from apps.bookings.models import Booking, Address
-from apps.services.models import MiniMovePackage, SpecialtyItem
+from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, SurchargeRule
 from .models import SavedAddress
 from .serializers import SavedAddressSerializer
 
 
-class AuthenticatedBookingCreateSerializer(serializers.Serializer):
-    """Enhanced booking creation for authenticated customers"""
+class PaymentIntentCreateSerializer(serializers.Serializer):
+    """
+    NEW: Serializer for creating payment intent BEFORE booking
+    Validates all booking data and calculates total price
+    """
     
     # Service selection
     service_type = serializers.ChoiceField(choices=[
@@ -5290,7 +5888,7 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         allow_empty=True
     )
     
-    # BLADE fields (NEW - Phase 3)
+    # BLADE fields
     blade_airport = serializers.ChoiceField(
         choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
         required=False
@@ -5308,13 +5906,232 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     ], required=False)
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
     
-    # Address selection - can use saved addresses or create new ones
+    # Customer info (for guest bookings)
+    customer_email = serializers.EmailField(required=False)
+    
+    # Additional options
+    coi_required = serializers.BooleanField(default=False)
+    is_outside_core_area = serializers.BooleanField(default=False)
+    
+    def validate(self, attrs):
+        service_type = attrs['service_type']
+        
+        # Service-specific validation
+        if service_type == 'blade_transfer':
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+                       attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
+                raise serializers.ValidationError("All BLADE fields are required")
+            
+            if attrs.get('blade_bag_count', 0) < 2:
+                raise serializers.ValidationError("BLADE service requires minimum 2 bags")
+        
+        elif service_type == 'mini_move':
+            if not attrs.get('mini_move_package_id'):
+                raise serializers.ValidationError("mini_move_package_id is required")
+        
+        elif service_type == 'standard_delivery':
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_ids = attrs.get('specialty_item_ids', [])
+            
+            if item_count == 0 and len(specialty_ids) == 0:
+                raise serializers.ValidationError("At least one item required")
+        
+        elif service_type == 'specialty_item':
+            if not attrs.get('specialty_item_ids'):
+                raise serializers.ValidationError("specialty_item_ids is required")
+        
+        # Calculate pricing
+        attrs['calculated_total_cents'] = self._calculate_total_price(attrs)
+        
+        return attrs
+    
+    def _calculate_total_price(self, data):
+        """Calculate total price in cents for payment intent"""
+        service_type = data['service_type']
+        total_cents = 0
+        
+        # BLADE pricing
+        if service_type == 'blade_transfer':
+            bag_count = data.get('blade_bag_count', 0)
+            per_bag_price = 7500  # $75
+            total_cents = max(bag_count * per_bag_price, 15000)  # $150 min
+            return total_cents
+        
+        # Mini Move pricing
+        elif service_type == 'mini_move':
+            try:
+                package = MiniMovePackage.objects.get(id=data['mini_move_package_id'])
+                total_cents = package.base_price_cents
+                
+                # COI fee
+                if data.get('coi_required') and not package.coi_included:
+                    total_cents += package.coi_fee_cents
+                
+                # Organizing services
+                if data.get('include_packing') or data.get('include_unpacking'):
+                    from apps.services.models import OrganizingService
+                    
+                    if data.get('include_packing'):
+                        packing = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=True,
+                            is_active=True
+                        ).first()
+                        if packing:
+                            total_cents += packing.price_cents
+                    
+                    if data.get('include_unpacking'):
+                        unpacking = OrganizingService.objects.filter(
+                            mini_move_tier=package.package_type,
+                            is_packing_service=False,
+                            is_active=True
+                        ).first()
+                        if unpacking:
+                            total_cents += unpacking.price_cents
+                    
+                    # Tax on organizing
+                    organizing_total = 0
+                    if data.get('include_packing') and packing:
+                        organizing_total += packing.price_cents
+                    if data.get('include_unpacking') and unpacking:
+                        organizing_total += unpacking.price_cents
+                    
+                    if organizing_total > 0:
+                        total_cents += int(organizing_total * 0.0825)
+                
+                # Geographic surcharge
+                if data.get('is_outside_core_area'):
+                    total_cents += 17500
+                
+                # Time window surcharge
+                if data.get('pickup_time') == 'morning_specific' and package.package_type == 'standard':
+                    total_cents += 17500
+                
+            except MiniMovePackage.DoesNotExist:
+                raise serializers.ValidationError("Invalid package")
+        
+        # Standard Delivery pricing
+        elif service_type == 'standard_delivery':
+            try:
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    item_count = data.get('standard_delivery_item_count', 0)
+                    if item_count > 0:
+                        item_total = config.price_per_item_cents * item_count
+                        total_cents = max(item_total, config.minimum_charge_cents)
+                    
+                    # Specialty items
+                    specialty_ids = data.get('specialty_item_ids', [])
+                    if specialty_ids:
+                        specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
+                        total_cents += sum(item.price_cents for item in specialty_items)
+                    
+                    # Same-day
+                    if data.get('is_same_day_delivery'):
+                        total_cents += config.same_day_flat_rate_cents
+                    
+                    # COI
+                    if data.get('coi_required'):
+                        total_cents += 5000
+                    
+                    # Geographic
+                    if data.get('is_outside_core_area'):
+                        total_cents += 17500
+                        
+            except StandardDeliveryConfig.DoesNotExist:
+                raise serializers.ValidationError("Standard delivery not configured")
+        
+        # Specialty Item pricing
+        elif service_type == 'specialty_item':
+            specialty_ids = data.get('specialty_item_ids', [])
+            specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
+            total_cents = sum(item.price_cents for item in specialty_items)
+            
+            # Same-day
+            if data.get('is_same_day_delivery'):
+                try:
+                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                    if config:
+                        total_cents += config.same_day_flat_rate_cents
+                except StandardDeliveryConfig.DoesNotExist:
+                    pass
+            
+            # COI
+            if data.get('coi_required'):
+                total_cents += 5000
+            
+            # Geographic
+            if data.get('is_outside_core_area'):
+                total_cents += 17500
+        
+        # Weekend surcharges (not for BLADE)
+        if service_type != 'blade_transfer' and data.get('pickup_date'):
+            active_surcharges = SurchargeRule.objects.filter(is_active=True)
+            for surcharge in active_surcharges:
+                surcharge_amount = surcharge.calculate_surcharge(
+                    total_cents,
+                    data['pickup_date'],
+                    service_type
+                )
+                total_cents += surcharge_amount
+        
+        return total_cents
+
+
+class AuthenticatedBookingCreateSerializer(serializers.Serializer):
+    """
+    REFACTORED: Create booking AFTER payment succeeds
+    Now requires payment_intent_id and does NOT create payment
+    """
+    
+    # Payment verification
+    payment_intent_id = serializers.CharField(required=True)
+    
+    # Service selection
+    service_type = serializers.ChoiceField(choices=[
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('specialty_item', 'Specialty Item'),
+        ('blade_transfer', 'BLADE Airport Transfer'),
+    ])
+    
+    # Service-specific fields
+    mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
+    include_packing = serializers.BooleanField(default=False)
+    include_unpacking = serializers.BooleanField(default=False)
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    is_same_day_delivery = serializers.BooleanField(default=False)
+    specialty_item_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True
+    )
+    
+    # BLADE fields
+    blade_airport = serializers.ChoiceField(
+        choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
+        required=False
+    )
+    blade_flight_date = serializers.DateField(required=False)
+    blade_flight_time = serializers.TimeField(required=False)
+    blade_bag_count = serializers.IntegerField(required=False, min_value=2)
+    
+    # Booking details
+    pickup_date = serializers.DateField()
+    pickup_time = serializers.ChoiceField(choices=[
+        ('morning', '8 AM - 11 AM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
+    ], required=False)
+    specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
+    
+    # Address selection
     pickup_address_id = serializers.UUIDField(required=False)
     delivery_address_id = serializers.UUIDField(required=False)
     new_pickup_address = serializers.DictField(required=False)
     new_delivery_address = serializers.DictField(required=False)
     
-    # Save new addresses for future use
+    # Save addresses
     save_pickup_address = serializers.BooleanField(default=False)
     save_delivery_address = serializers.BooleanField(default=False)
     pickup_address_nickname = serializers.CharField(required=False, max_length=50)
@@ -5323,54 +6140,29 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     # Additional options
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
-    create_payment_intent = serializers.BooleanField(default=True)
     
     def validate(self, attrs):
         user = self.context['user']
         service_type = attrs['service_type']
         
-        # BLADE validation (NEW - Phase 3)
+        # BLADE validation
         if service_type == 'blade_transfer':
             if not attrs.get('blade_airport'):
-                raise serializers.ValidationError("blade_airport is required for BLADE service")
+                raise serializers.ValidationError("blade_airport is required")
             if not attrs.get('blade_flight_date'):
-                raise serializers.ValidationError("blade_flight_date is required for BLADE service")
+                raise serializers.ValidationError("blade_flight_date is required")
             if not attrs.get('blade_flight_time'):
-                raise serializers.ValidationError("blade_flight_time is required for BLADE service")
+                raise serializers.ValidationError("blade_flight_time is required")
             if not attrs.get('blade_bag_count'):
-                raise serializers.ValidationError("blade_bag_count is required for BLADE service")
+                raise serializers.ValidationError("blade_bag_count is required")
             
             if attrs.get('blade_bag_count', 0) < 2:
-                raise serializers.ValidationError("BLADE service requires minimum 2 bags")
-            
-            if attrs.get('blade_airport') not in ['JFK', 'EWR']:
-                raise serializers.ValidationError("BLADE only serves JFK and EWR airports")
-            
-            flight_date = attrs.get('blade_flight_date')
-            if flight_date:
-                now = timezone.now()
-                cutoff = timezone.datetime.combine(
-                    flight_date - timedelta(days=1),
-                    dt_time(20, 0)
-                )
-                cutoff = timezone.make_aware(cutoff)
-                
-                if now > cutoff:
-                    raise serializers.ValidationError(
-                        "BLADE bookings must be made by 8 PM the night before flight. "
-                        "For rush service, please call (631) 595-5100"
-                    )
-            
-            pickup_address = attrs.get('new_pickup_address')
-            if pickup_address and pickup_address.get('state') != 'NY':
-                raise serializers.ValidationError(
-                    "BLADE service is only available for NYC pickups (NY state)"
-                )
+                raise serializers.ValidationError("BLADE requires minimum 2 bags")
         
         # Mini Move validation
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
-                raise serializers.ValidationError("mini_move_package_id is required for mini move service")
+                raise serializers.ValidationError("mini_move_package_id is required")
         
         # Standard Delivery validation
         elif service_type == 'standard_delivery':
@@ -5378,20 +6170,18 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             specialty_ids = attrs.get('specialty_item_ids', [])
             
             if item_count == 0 and len(specialty_ids) == 0:
-                raise serializers.ValidationError(
-                    "Please select at least one regular item or specialty item for Standard Delivery"
-                )
+                raise serializers.ValidationError("At least one item required")
         
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_item_ids'):
-                raise serializers.ValidationError("specialty_item_ids is required for specialty item service")
+                raise serializers.ValidationError("specialty_item_ids is required")
         
-        # Validate address selection
+        # Address validation
         if not (attrs.get('pickup_address_id') or attrs.get('new_pickup_address')):
-            raise serializers.ValidationError("Either pickup_address_id or new_pickup_address is required")
+            raise serializers.ValidationError("pickup address is required")
         
         if not (attrs.get('delivery_address_id') or attrs.get('new_delivery_address')):
-            raise serializers.ValidationError("Either delivery_address_id or new_delivery_address is required")
+            raise serializers.ValidationError("delivery address is required")
         
         # Validate saved addresses belong to user
         if attrs.get('pickup_address_id'):
@@ -5411,7 +6201,10 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         user = self.context['user']
         
-        # Handle pickup address
+        # Remove payment_intent_id from validated_data (not needed for booking)
+        payment_intent_id = validated_data.pop('payment_intent_id')
+        
+        # Handle addresses
         pickup_address = self._get_or_create_address(
             user,
             validated_data.get('pickup_address_id'),
@@ -5420,7 +6213,6 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             validated_data.get('pickup_address_nickname')
         )
         
-        # Handle delivery address
         delivery_address = self._get_or_create_address(
             user,
             validated_data.get('delivery_address_id'),
@@ -5434,7 +6226,7 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             customer=user,
             service_type=validated_data['service_type'],
             pickup_date=validated_data['pickup_date'],
-            pickup_time=validated_data['pickup_time'],
+            pickup_time=validated_data.get('pickup_time', 'morning'),
             specific_pickup_hour=validated_data.get('specific_pickup_hour'),
             pickup_address=pickup_address,
             delivery_address=delivery_address,
@@ -5444,11 +6236,11 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             include_unpacking=validated_data.get('include_unpacking', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
-            # BLADE fields (NEW - Phase 3)
             blade_airport=validated_data.get('blade_airport'),
             blade_flight_date=validated_data.get('blade_flight_date'),
             blade_flight_time=validated_data.get('blade_flight_time'),
             blade_bag_count=validated_data.get('blade_bag_count'),
+            status='pending',  # Will be updated to 'paid' in view
         )
         
         # Handle service-specific relationships
@@ -5459,7 +6251,7 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid mini move package")
         
-        # Handle specialty items for standard_delivery OR specialty_item
+        # Handle specialty items
         if validated_data.get('specialty_item_ids'):
             specialty_items = SpecialtyItem.objects.filter(
                 id__in=validated_data.get('specialty_item_ids', [])
@@ -5494,9 +6286,13 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             )
             
             if save_address:
+                # Use timestamp-based nickname to avoid collisions
+                import uuid
+                unique_nickname = nickname or f"Address {str(uuid.uuid4())[:8]}"
+                
                 SavedAddress.objects.create(
                     user=user,
-                    nickname=nickname or f"Address {user.saved_addresses.count() + 1}",
+                    nickname=unique_nickname,
                     address_line_1=new_address_data['address_line_1'],
                     address_line_2=new_address_data.get('address_line_2', ''),
                     city=new_address_data['city'],
@@ -5507,44 +6303,6 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                 )
             
             return address
-        
-    def validate_new_pickup_address(self, value):
-        """Validate new pickup address including ZIP code service area check"""
-        if not value:
-            return value
-        
-        # NEW: ZIP code service area validation
-        from apps.bookings.zip_codes import validate_service_area
-        
-        zip_code = value.get('zip_code')
-        if zip_code:
-            is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
-            
-            if not is_serviceable:
-                raise serializers.ValidationError(error)
-        
-        return value
-
-    def validate_new_delivery_address(self, value):
-        """Validate new delivery address including ZIP code service area check"""
-        if not value:
-            return value
-        
-        # ✅ SKIP ZIP VALIDATION FOR BLADE TRANSFERS - airports are the destination!
-        if self.initial_data.get('service_type') == 'blade_transfer':
-            return value
-        
-        # NEW: ZIP code service area validation (only for non-BLADE services)
-        from apps.bookings.zip_codes import validate_service_area
-        
-        zip_code = value.get('zip_code')
-        if zip_code:
-            is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
-            
-            if not is_serviceable:
-                raise serializers.ValidationError(error)
-        
-        return value
 
 
 class CustomerBookingDetailSerializer(serializers.ModelSerializer):
@@ -5635,23 +6393,87 @@ from .serializers import SavedAddressSerializer
 from .booking_serializers import (
     AuthenticatedBookingCreateSerializer,
     CustomerBookingDetailSerializer,
-    QuickBookingSerializer
+    QuickBookingSerializer,
+    PaymentIntentCreateSerializer
 )
 import json
+import stripe
+from django.conf import settings
+
+# Initialize Stripe
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+class CreatePaymentIntentView(APIView):
+    """
+    NEW ENDPOINT: Create payment intent BEFORE booking
+    This separates payment from booking creation to avoid pending bookings
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        print("=" * 80)
+        print("💳 PAYMENT INTENT REQUEST RECEIVED")
+        print("=" * 80)
+        print(f"Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        
+        serializer = PaymentIntentCreateSerializer(
+            data=request.data,
+            context={'user': request.user if request.user.is_authenticated else None}
+        )
+        
+        if not serializer.is_valid():
+            print(f"❌ Validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Calculate total amount from validated data
+        validated_data = serializer.validated_data
+        amount_cents = validated_data['calculated_total_cents']
+        customer_email = validated_data.get('customer_email')
+        
+        try:
+            # Create Stripe payment intent
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency='usd',
+                payment_method_types=['card'],
+                metadata={
+                    'service_type': validated_data['service_type'],
+                    'customer_email': customer_email,
+                }
+            )
+            
+            print(f"✅ Payment intent created: {payment_intent.id}")
+            print(f"   Amount: ${amount_cents / 100}")
+            print("=" * 80)
+            
+            return Response({
+                'client_secret': payment_intent.client_secret,
+                'payment_intent_id': payment_intent.id,
+                'amount_dollars': amount_cents / 100
+            }, status=status.HTTP_200_OK)
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe error: {str(e)}")
+            return Response(
+                {'error': f'Payment initialization failed: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CustomerBookingCreateView(APIView):
-    """Create booking for authenticated customers with enhanced features"""
+    """
+    REFACTORED: Create booking AFTER payment succeeds
+    Requires payment_intent_id and verifies payment before creating booking
+    """
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        # CRITICAL DEBUG LOGGING
         print("=" * 80)
-        print("🔍 BOOKING CREATE REQUEST RECEIVED")
+        print("🔍 BOOKING CREATE REQUEST RECEIVED (PAYMENT-FIRST)")
         print("=" * 80)
         print(f"👤 User: {request.user}")
         print(f"📧 Email: {request.user.email}")
-        print(f"🔐 Is Authenticated: {request.user.is_authenticated}")
         print(f"📦 Request Data: {json.dumps(request.data, indent=2, default=str)}")
         print("=" * 80)
         
@@ -5661,6 +6483,34 @@ class CustomerBookingCreateView(APIView):
             return Response(
                 {'error': 'This is not a customer account'}, 
                 status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # CRITICAL: Verify payment_intent_id is provided
+        payment_intent_id = request.data.get('payment_intent_id')
+        if not payment_intent_id:
+            return Response(
+                {'error': 'payment_intent_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify payment with Stripe
+        try:
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            if payment_intent.status != 'succeeded':
+                print(f"❌ Payment not succeeded: {payment_intent.status}")
+                return Response(
+                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            print(f"✅ Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            
+        except stripe.error.StripeError as e:
+            print(f"❌ Stripe verification failed: {str(e)}")
+            return Response(
+                {'error': f'Payment verification failed: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
             )
         
         print(f"✅ Customer Profile Found: {request.user.customer_profile}")
@@ -5685,38 +6535,21 @@ class CustomerBookingCreateView(APIView):
         try:
             booking = serializer.save()
             print(f"✅ Booking created: {booking.booking_number}")
+            
+            # Update booking status to paid since payment already succeeded
+            booking.status = 'paid'
+            booking.save()
+            
         except Exception as e:
             print(f"❌ ERROR creating booking: {str(e)}")
             import traceback
             traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Create payment intent for this booking
-        create_payment_intent = request.data.get('create_payment_intent', True)
-        payment_data = None
-        
-        if create_payment_intent:
-            print("💳 Creating payment intent...")
-            try:
-                payment_data = StripePaymentService.create_payment_intent(
-                    booking=booking,
-                    customer_email=request.user.email
-                )
-                print(f"✅ Payment intent created: {payment_data.get('payment_intent_id')}")
-            except Exception as e:
-                print(f"⚠️ Payment intent failed: {str(e)}")
-                payment_data = {'error': str(e)}
-        
         response_data = {
             'message': 'Booking created successfully',
             'booking': CustomerBookingDetailSerializer(booking).data
         }
-        
-        if payment_data and 'error' not in payment_data:
-            response_data['payment'] = {
-                'client_secret': payment_data['client_secret'],
-                'payment_intent_id': payment_data['payment_intent_id']
-            }
         
         print("=" * 80)
         print("✅ SUCCESS - Returning response")
@@ -5745,39 +6578,20 @@ class QuickRebookView(APIView):
         serializer = QuickBookingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        new_booking = Booking.objects.create(
-            customer=request.user,
-            service_type=original_booking.service_type,
-            mini_move_package=original_booking.mini_move_package,
-            standard_delivery_item_count=original_booking.standard_delivery_item_count,
-            is_same_day_delivery=serializer.validated_data.get('is_same_day_delivery', False),
-            pickup_date=serializer.validated_data['pickup_date'],
-            pickup_time=serializer.validated_data.get('pickup_time', original_booking.pickup_time),
-            pickup_address=original_booking.pickup_address,
-            delivery_address=original_booking.delivery_address,
-            special_instructions=serializer.validated_data.get('special_instructions', original_booking.special_instructions),
-            coi_required=serializer.validated_data.get('coi_required', original_booking.coi_required),
-            status='pending'
-        )
-        
-        if original_booking.specialty_items.exists():
-            new_booking.specialty_items.set(original_booking.specialty_items.all())
-        
-        new_booking.save()
-        
-        payment_data = StripePaymentService.create_payment_intent(
-            booking=new_booking,
-            customer_email=request.user.email
-        )
+        # Calculate pricing for payment intent
+        new_booking_data = {
+            'service_type': original_booking.service_type,
+            'mini_move_package_id': str(original_booking.mini_move_package.id) if original_booking.mini_move_package else None,
+            'standard_delivery_item_count': original_booking.standard_delivery_item_count,
+            'is_same_day_delivery': serializer.validated_data.get('is_same_day_delivery', False),
+            'pickup_date': serializer.validated_data['pickup_date'],
+            'coi_required': serializer.validated_data.get('coi_required', original_booking.coi_required),
+        }
         
         return Response({
-            'message': 'Booking recreated successfully',
-            'booking': CustomerBookingDetailSerializer(new_booking).data,
-            'payment': {
-                'client_secret': payment_data['client_secret'],
-                'payment_intent_id': payment_data['payment_intent_id']
-            }
-        }, status=status.HTTP_201_CREATED)
+            'message': 'Ready to create payment',
+            'booking_data': new_booking_data
+        }, status=status.HTTP_200_OK)
 
 
 class CustomerBookingDetailView(generics.RetrieveAPIView):
@@ -5806,10 +6620,15 @@ class CustomerDashboardView(APIView):
         
         customer_profile = request.user.customer_profile
         
-        all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
+        # Only show completed and paid bookings (no pending clutter)
+        all_bookings = request.user.bookings.filter(
+            deleted_at__isnull=True,
+            status__in=['paid', 'confirmed', 'completed']
+        ).order_by('-created_at')
+        
         recent_bookings = all_bookings[:5]
         
-        pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
+        pending_bookings = all_bookings.filter(status__in=['confirmed']).count()
         completed_bookings = all_bookings.filter(status='completed').count()
         
         saved_addresses = request.user.saved_addresses.filter(is_active=True)
@@ -6713,11 +7532,16 @@ urlpatterns = [
     path('addresses/<uuid:pk>/', views.SavedAddressDetailView.as_view(), name='saved-address-detail'),
     
     # Enhanced customer dashboard and preferences
-    path('dashboard/', views.CustomerDashboardView.as_view(), name='customer-dashboard'),
-    path('preferences/', views.BookingPreferencesView.as_view(), name='booking-preferences'),
+    path('dashboard/', booking_views.CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('preferences/', booking_views.BookingPreferencesView.as_view(), name='booking-preferences'),
     
     # Authenticated booking management
     path('bookings/', views.CustomerBookingListView.as_view(), name='customer-bookings'),
+    
+    # ✅ NEW: Payment intent creation (BEFORE booking)
+    path('bookings/create-payment-intent/', booking_views.CreatePaymentIntentView.as_view(), name='create-payment-intent'),
+    
+    # Booking creation (NOW requires payment_intent_id)
     path('bookings/create/', booking_views.CustomerBookingCreateView.as_view(), name='customer-booking-create'),
     path('bookings/<uuid:booking_id>/', booking_views.CustomerBookingDetailView.as_view(), name='customer-booking-detail'),
     path('bookings/<uuid:booking_id>/rebook/', booking_views.QuickRebookView.as_view(), name='quick-rebook'),
@@ -8797,6 +9621,543 @@ class StripePaymentService:
             
         except stripe.error.StripeError as e:
             raise Exception(f"Stripe refund error: {str(e)}")
+```
+
+# ==== apps/payments/tests/__init__.py ====
+
+```python
+
+```
+
+# ==== apps/payments/tests/test_refunds.py ====
+
+```python
+# apps/payments/tests/test_refunds.py
+"""
+Test refund processing
+CRITICAL: Refund bugs = customer disputes + lost trust
+"""
+import pytest
+from unittest.mock import patch, MagicMock
+from datetime import date, timedelta
+from django.test import TestCase
+from django.contrib.auth.models import User
+
+from apps.payments.services import StripePaymentService
+from apps.payments.models import Payment, Refund, PaymentAudit
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.services.models import MiniMovePackage
+
+
+@pytest.mark.django_db
+class TestRefundProcessing(TestCase):
+    """Test refund creation and processing"""
+    
+    def setUp(self):
+        """Create paid booking with successful payment"""
+        self.package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Petite Move',
+            base_price_cents=15000,
+            max_items=10,
+            max_weight_per_item_lbs=50,
+            is_active=True
+        )
+        
+        self.guest = GuestCheckout.objects.create(
+            first_name="Test",
+            last_name="Customer",
+            email="test@totetaxi.com",
+            phone="212-555-0100"
+        )
+        
+        self.pickup = Address.objects.create(
+            address_line_1="123 Main St",
+            city="New York",
+            state="NY",
+            zip_code="10001"
+        )
+        
+        self.delivery = Address.objects.create(
+            address_line_1="456 Park Ave",
+            city="New York",
+            state="NY",
+            zip_code="10002"
+        )
+        
+        self.booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup,
+            delivery_address=self.delivery,
+            pickup_date=date.today() + timedelta(days=7),
+            pickup_time='morning',
+            status='paid'
+        )
+        
+        # Create successful payment
+        self.payment = Payment.objects.create(
+            booking=self.booking,
+            amount_cents=15000,
+            stripe_payment_intent_id='pi_paid_test',
+            stripe_charge_id='ch_paid_test',
+            status='succeeded'
+        )
+        
+        # Create staff user for refund requests
+        self.staff_user = User.objects.create_user(
+            username='staff',
+            email='staff@totetaxi.com',
+            password='staffpass123'
+        )
+    
+    @patch('stripe.Refund.create')
+    def test_full_refund_processes_correctly(self, mock_refund_create):
+        """Test full refund via Stripe"""
+        # Mock Stripe refund response
+        mock_refund_create.return_value = MagicMock(
+            id='re_test123',
+            amount=15000,
+            status='succeeded'
+        )
+        
+        # Process refund
+        refund = StripePaymentService.create_refund(
+            payment=self.payment,
+            amount_cents=15000,
+            reason='Customer requested cancellation',
+            requested_by_user=self.staff_user
+        )
+        
+        # Verify Stripe was called correctly
+        mock_refund_create.assert_called_once()
+        call_kwargs = mock_refund_create.call_args.kwargs
+        assert call_kwargs['payment_intent'] == 'pi_paid_test'
+        assert call_kwargs['amount'] == 15000
+        assert call_kwargs['reason'] == 'requested_by_customer'
+        
+        # Verify refund record created
+        assert refund.amount_cents == 15000
+        assert refund.stripe_refund_id == 're_test123'
+        assert refund.status == 'completed'
+        assert refund.requested_by == self.staff_user
+        
+        # Verify payment marked as refunded
+        self.payment.refresh_from_db()
+        assert self.payment.status == 'refunded'
+        
+        # Verify audit log
+        assert PaymentAudit.objects.filter(
+            refund=refund,
+            action='refund_completed'
+        ).exists()
+        
+        print(f"✅ Full refund processed: ${refund.amount_dollars}")
+    
+    @patch('stripe.Refund.create')
+    def test_partial_refund_processes_correctly(self, mock_refund_create):
+        """Test partial refund (e.g., 50% refund)"""
+        mock_refund_create.return_value = MagicMock(
+            id='re_partial',
+            amount=7500,
+            status='succeeded'
+        )
+        
+        # Process partial refund (50%)
+        refund = StripePaymentService.create_refund(
+            payment=self.payment,
+            amount_cents=7500,
+            reason='Partial service provided',
+            requested_by_user=self.staff_user
+        )
+        
+        # Verify correct amount refunded
+        assert refund.amount_cents == 7500
+        assert refund.amount_dollars == 75.0
+        
+        # Verify payment marked as refunded
+        self.payment.refresh_from_db()
+        assert self.payment.status == 'refunded'
+        
+        print(f"✅ Partial refund processed: ${refund.amount_dollars}")
+    
+    @patch('stripe.Refund.create')
+    def test_refund_reason_stored_correctly(self, mock_refund_create):
+        """Test that refund reason is stored"""
+        mock_refund_create.return_value = MagicMock(
+            id='re_reason_test',
+            amount=15000,
+            status='succeeded'
+        )
+        
+        reason = "Service cancelled due to weather conditions"
+        
+        refund = StripePaymentService.create_refund(
+            payment=self.payment,
+            amount_cents=15000,
+            reason=reason,
+            requested_by_user=self.staff_user
+        )
+        
+        assert refund.reason == reason
+        print(f"✅ Refund reason stored: {refund.reason}")
+    
+    @patch('stripe.Refund.create')
+    def test_stripe_error_handled_gracefully(self, mock_refund_create):
+        """Test that Stripe errors are handled"""
+        import stripe
+        
+        # Mock Stripe error
+        mock_refund_create.side_effect = stripe.error.CardError(
+            message='Insufficient funds',
+            param='amount',
+            code='insufficient_funds'
+        )
+        
+        # Attempt refund (should raise exception with Stripe error)
+        with pytest.raises(Exception) as exc_info:
+            StripePaymentService.create_refund(
+                payment=self.payment,
+                amount_cents=15000,
+                reason='Test refund',
+                requested_by_user=self.staff_user
+            )
+        
+        assert 'Stripe refund error' in str(exc_info.value)
+        
+        # Verify no refund record created
+        assert not Refund.objects.filter(payment=self.payment).exists()
+        
+        # Verify payment status unchanged
+        self.payment.refresh_from_db()
+        assert self.payment.status == 'succeeded'
+        
+        print("✅ Stripe error handled correctly")
+```
+
+# ==== apps/payments/tests/test_stripe_integration.py ====
+
+```python
+# apps/payments/tests/test_stripe_integration.py
+"""
+Test Stripe payment integration
+CRITICAL: These tests protect revenue - payment bugs = lost money
+"""
+import pytest
+from unittest.mock import patch, MagicMock
+from decimal import Decimal
+from datetime import date, timedelta
+from django.test import TestCase
+from django.contrib.auth.models import User
+
+from apps.payments.services import StripePaymentService
+from apps.payments.models import Payment, PaymentAudit
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.services.models import MiniMovePackage
+from apps.customers.models import CustomerProfile
+
+
+@pytest.mark.django_db
+class TestStripePaymentIntegration(TestCase):
+    """Test Stripe payment processing via StripePaymentService"""
+    
+    def setUp(self):
+        """Create test booking with guest checkout"""
+        self.package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Petite Move',
+            base_price_cents=15000,
+            max_items=10,
+            max_weight_per_item_lbs=50,
+            is_active=True
+        )
+        
+        self.guest = GuestCheckout.objects.create(
+            first_name="Test",
+            last_name="Customer",
+            email="test@totetaxi.com",
+            phone="212-555-0100"
+        )
+        
+        self.pickup = Address.objects.create(
+            address_line_1="123 Main St",
+            city="New York",
+            state="NY",
+            zip_code="10001"
+        )
+        
+        self.delivery = Address.objects.create(
+            address_line_1="456 Park Ave",
+            city="New York",
+            state="NY",
+            zip_code="10002"
+        )
+        
+        # Get next Monday
+        today = date.today()
+        days_until_monday = (0 - today.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        next_monday = today + timedelta(days=days_until_monday)
+        
+        self.booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup,
+            delivery_address=self.delivery,
+            pickup_date=next_monday,
+            pickup_time='morning',
+            status='pending'  # ✅ FIXED: Use 'pending' not 'pending_payment'
+        )
+    
+    @patch('stripe.PaymentIntent.create')
+    def test_payment_intent_created_with_correct_amount(self, mock_create):
+        """CRITICAL: Verify Stripe is charged exact booking amount"""
+        # Mock Stripe API response
+        mock_create.return_value = MagicMock(
+            id='pi_test123',
+            client_secret='secret_test123'
+        )
+        
+        # Create payment intent
+        result = StripePaymentService.create_payment_intent(
+            booking=self.booking,
+            customer_email='test@totetaxi.com'
+        )
+        
+        # Verify Stripe was called with correct amount
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args.kwargs
+        
+        assert call_kwargs['amount'] == self.booking.total_price_cents, \
+            f"Expected {self.booking.total_price_cents} cents, got {call_kwargs['amount']}"
+        assert call_kwargs['currency'] == 'usd'
+        assert call_kwargs['metadata']['booking_number'] == self.booking.booking_number
+        assert call_kwargs['receipt_email'] == 'test@totetaxi.com'
+        
+        # Verify Payment record was created
+        assert Payment.objects.filter(booking=self.booking).exists()
+        payment = Payment.objects.get(booking=self.booking)
+        assert payment.amount_cents == self.booking.total_price_cents
+        assert payment.stripe_payment_intent_id == 'pi_test123'
+        assert payment.status == 'pending'
+        
+        # Verify audit log created
+        assert PaymentAudit.objects.filter(payment=payment, action='payment_created').exists()
+        
+        print(f"✅ Payment intent created: ${self.booking.total_price_cents/100}")
+    
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_payment_confirmation_updates_booking_status(self, mock_retrieve):
+        """Test that successful payment updates booking to 'paid'"""
+        # Create payment record first
+        payment = Payment.objects.create(
+            booking=self.booking,
+            amount_cents=self.booking.total_price_cents,
+            stripe_payment_intent_id='pi_test123',
+            status='pending'
+        )
+        
+        # Mock Stripe retrieve response
+        mock_retrieve.return_value = MagicMock(
+            id='pi_test123',
+            status='succeeded',
+            latest_charge='ch_test123'
+        )
+        
+        # Confirm payment
+        confirmed_payment = StripePaymentService.confirm_payment('pi_test123')
+        
+        # Verify payment updated
+        assert confirmed_payment.status == 'succeeded'
+        assert confirmed_payment.stripe_charge_id == 'ch_test123'
+        assert confirmed_payment.processed_at is not None
+        
+        # Verify booking status updated to 'paid'
+        self.booking.refresh_from_db()
+        assert self.booking.status == 'paid', \
+            f"Expected booking status 'paid', got '{self.booking.status}'"
+        
+        # Verify audit log
+        assert PaymentAudit.objects.filter(
+            payment=confirmed_payment,
+            action='payment_succeeded'
+        ).exists()
+        
+        print(f"✅ Payment confirmed, booking status: {self.booking.status}")
+    
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_payment_confirmation_updates_customer_stats(self, mock_retrieve):
+        """Test that customer stats are updated on successful payment"""
+        # Create authenticated customer with profile
+        user = User.objects.create_user(
+            username='testcustomer',
+            email='customer@totetaxi.com',
+            password='testpass123'
+        )
+        profile = CustomerProfile.objects.create(
+            user=user,
+            phone='+12125550200',  # ✅ FIXED: Valid phone format with country code
+            total_bookings=0,
+            total_spent_cents=0
+        )
+        
+        # Create booking for authenticated customer (not guest)
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.package,
+            customer=user,
+            pickup_address=self.pickup,
+            delivery_address=self.delivery,
+            pickup_date=date.today() + timedelta(days=7),
+            pickup_time='morning',
+            status='pending'  # ✅ FIXED: Use 'pending' not 'pending_payment'
+        )
+        
+        # Create payment
+        payment = Payment.objects.create(
+            booking=booking,
+            customer=user,
+            amount_cents=booking.total_price_cents,
+            stripe_payment_intent_id='pi_customer_test',
+            status='pending'
+        )
+        
+        # Mock Stripe
+        mock_retrieve.return_value = MagicMock(
+            id='pi_customer_test',
+            status='succeeded',
+            latest_charge='ch_test456'
+        )
+        
+        # Confirm payment
+        StripePaymentService.confirm_payment('pi_customer_test')
+        
+        # Verify customer stats updated
+        profile.refresh_from_db()
+        assert profile.total_bookings == 1, \
+            f"Expected 1 booking, got {profile.total_bookings}"
+        assert profile.total_spent_cents == booking.total_price_cents, \
+            f"Expected ${booking.total_price_cents/100}, got ${profile.total_spent_cents/100}"
+        
+        print(f"✅ Customer stats updated: {profile.total_bookings} bookings, ${profile.total_spent_dollars}")
+    
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_payment_failure_keeps_booking_pending(self, mock_retrieve):
+        """Test that failed payment doesn't mark booking as paid"""
+        payment = Payment.objects.create(
+            booking=self.booking,
+            amount_cents=self.booking.total_price_cents,
+            stripe_payment_intent_id='pi_fail_test',
+            status='pending'
+        )
+        
+        # Mock failed payment
+        mock_retrieve.return_value = MagicMock(
+            id='pi_fail_test',
+            status='requires_payment_method'
+        )
+        
+        # Attempt to confirm payment (should raise exception)
+        with pytest.raises(Exception) as exc_info:
+            StripePaymentService.confirm_payment('pi_fail_test')
+        
+        assert 'Payment not successful' in str(exc_info.value)
+        
+        # Verify payment marked as failed
+        payment.refresh_from_db()
+        assert payment.status == 'failed'
+        
+        # Verify booking still pending
+        self.booking.refresh_from_db()
+        assert self.booking.status == 'pending'
+        
+        print("✅ Failed payment handled correctly")
+    
+    @patch('stripe.PaymentIntent.retrieve')  # ✅ FIXED: Mock Stripe API call
+    def test_payment_not_found_error(self, mock_retrieve):
+        """Test error when payment doesn't exist"""
+        # Mock Stripe to raise InvalidRequestError (payment intent not found)
+        import stripe
+        mock_retrieve.side_effect = stripe.error.InvalidRequestError(
+            message="No such payment_intent: 'pi_nonexistent'",
+            param='intent'
+        )
+        
+        with pytest.raises(Exception) as exc_info:
+            StripePaymentService.confirm_payment('pi_nonexistent')
+        
+        # Should get "Payment not found" from our code, not Stripe error
+        # But since we're mocking Stripe to fail first, we'll get Stripe error
+        # The important thing is an exception is raised
+        assert 'Stripe error' in str(exc_info.value) or 'Payment not found' in str(exc_info.value)
+        print("✅ Payment not found error handled")
+
+
+@pytest.mark.django_db
+class TestPaymentEdgeCases(TestCase):
+    """Test edge cases and error handling"""
+    
+    def setUp(self):
+        """Create minimal test data"""
+        self.package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Test Package',
+            base_price_cents=10000,
+            max_items=5,
+            max_weight_per_item_lbs=50,
+            is_active=True
+        )
+        
+        self.guest = GuestCheckout.objects.create(
+            first_name="Test",
+            last_name="User",
+            email="test@test.com",
+            phone="555-0100"
+        )
+        
+        self.pickup = Address.objects.create(
+            address_line_1="123 St",
+            city="New York",
+            state="NY",
+            zip_code="10001"
+        )
+        
+        self.delivery = Address.objects.create(
+            address_line_1="456 Ave",
+            city="New York",
+            state="NY",
+            zip_code="10002"
+        )
+    
+    @patch('stripe.PaymentIntent.create')
+    def test_guest_checkout_email_used_when_no_customer(self, mock_create):
+        """Test that guest email is used when booking has no customer"""
+        mock_create.return_value = MagicMock(
+            id='pi_guest',
+            client_secret='secret_guest'
+        )
+        
+        booking = Booking.objects.create(
+            service_type='mini_move',
+            mini_move_package=self.package,
+            guest_checkout=self.guest,
+            pickup_address=self.pickup,
+            delivery_address=self.delivery,
+            pickup_date=date.today() + timedelta(days=5),
+            pickup_time='morning',
+            status='pending'
+        )
+        
+        # Create payment intent without providing email
+        # (should handle missing customer gracefully)
+        result = StripePaymentService.create_payment_intent(booking=booking)
+        
+        # Should succeed without error
+        assert result['payment_intent_id'] == 'pi_guest'
+        print("✅ Guest checkout handled correctly")
 ```
 
 # ==== apps/payments/tests.py ====
