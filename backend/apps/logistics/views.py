@@ -6,6 +6,8 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+import hmac
+import hashlib
 import logging
 
 from .services import ToteTaxiOnfleetIntegration
@@ -92,26 +94,28 @@ def create_task_manually(request):
         booking = Booking.objects.get(id=booking_id, deleted_at__isnull=True)
         
         integration = ToteTaxiOnfleetIntegration()
-        task = integration.create_delivery_task(booking)
+        pickup, dropoff = integration.create_tasks_for_booking(booking)
         
-        if task:
+        if pickup and dropoff:
             return Response({
                 'success': True,
-                'message': f'Created Onfleet task for {booking.booking_number}',
-                'task': {
-                    'id': str(task.id),
-                    'onfleet_task_id': task.onfleet_task_id,
-                    'tracking_url': task.tracking_url,
-                    'status': task.status
+                'message': f'Created Onfleet tasks for {booking.booking_number}',
+                'pickup_task': {
+                    'id': str(pickup.id),
+                    'onfleet_task_id': pickup.onfleet_task_id,
+                    'tracking_url': pickup.tracking_url,
+                },
+                'dropoff_task': {
+                    'id': str(dropoff.id),
+                    'onfleet_task_id': dropoff.onfleet_task_id,
+                    'tracking_url': dropoff.tracking_url,
                 }
             })
         else:
             return Response({
-                'error': 'Failed to create Onfleet task'
+                'error': 'Failed to create Onfleet tasks'
             }, status=500)
             
-    except Booking.DoesNotExist:
-        return Response({'error': 'Booking not found'}, status=404)
     except Exception as e:
         logger.error(f"Manual task creation error: {e}")
         return Response({
@@ -126,9 +130,11 @@ class OnfleetWebhookView(APIView):
     
     def post(self, request):
         try:
-            # TODO: In production, verify webhook signature here
-            # webhook_secret = getattr(settings, 'ONFLEET_WEBHOOK_SECRET', None)
+            # Check if this is Onfleet's verification request (during webhook creation)
+            if self._is_verification_request(request):
+                return self._handle_verification(request)
             
+            # Normal webhook processing
             webhook_data = request.data
             integration = ToteTaxiOnfleetIntegration()
             
@@ -152,6 +158,33 @@ class OnfleetWebhookView(APIView):
                 'error': 'Webhook processing failed',
                 'details': str(e)
             }, status=500)
+    
+    def _is_verification_request(self, request):
+        """Check if this is Onfleet's webhook verification request"""
+        # Onfleet sends a verification check with a specific format
+        # It includes a 'check' parameter in the request
+        check_value = request.data.get('check')
+        return check_value is not None
+    
+    def _handle_verification(self, request):
+        """
+        Handle Onfleet's webhook verification challenge.
+        
+        During webhook creation, Onfleet sends:
+        POST /webhook-url
+        { "check": "some-random-value" }
+        
+        We must respond with:
+        200 OK
+        some-random-value (plain text, same value they sent)
+        """
+        check_value = request.data.get('check')
+        
+        logger.info(f"Onfleet webhook verification received: {check_value}")
+        
+        # Return the check value as plain text
+        from django.http import HttpResponse
+        return HttpResponse(check_value, content_type='text/plain', status=200)
 
 
 class TaskStatusView(APIView):
@@ -183,12 +216,18 @@ class TaskStatusView(APIView):
                     'id': str(task.id),
                     'booking_number': task.booking.booking_number,
                     'customer_name': task.booking.get_customer_name(),
+                    'task_type': task.task_type,
                     'onfleet_task_id': task.onfleet_task_id,
                     'onfleet_short_id': task.onfleet_short_id,
                     'tracking_url': task.tracking_url,
+                    'recipient_name': task.recipient_name,
+                    'recipient_phone': task.recipient_phone,
                     'status': task.status,
+                    'worker_name': task.worker_name,
+                    'environment': task.environment,
                     'created_at': task.created_at,
-                    'last_synced': task.last_synced
+                    'last_synced': task.last_synced,
+                    'linked_to': str(task.linked_task.id) if task.linked_task else None
                 })
             
             return Response({

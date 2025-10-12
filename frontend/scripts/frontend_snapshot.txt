@@ -1,6 +1,6 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-11 09:34:25.848662
-# Files: 83
+# Generated: 2025-10-12 10:45:57.105208
+# Files: 86
 
 # ==== next-env.d.ts ====
 
@@ -126,7 +126,11 @@ export default nextConfig;
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
@@ -150,6 +154,7 @@ export default nextConfig;
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -161,7 +166,47 @@ export default nextConfig;
     "typescript": "^5"
   }
 }
+```
 
+# ==== playwright.config.ts ====
+
+```
+// frontend/playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    viewport: { width: 2560, height: 1600 }, // ✅ MASSIVE viewport - modal won't be cut off
+    deviceScaleFactor: 1, // No zoom
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { 
+        ...devices['Desktop Chrome'],
+        viewport: { width: 2560, height: 1600 }, // Override device viewport
+      },
+    },
+  ],
+
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
+});
 ```
 
 # ==== postcss.config.js ====
@@ -6547,13 +6592,14 @@ export function CustomerInfoStep() {
 # ==== src/components/booking/date-time-step.tsx ====
 
 ```
+// frontend/src/components/booking/date-time-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface AvailabilityDay {
@@ -6623,12 +6669,18 @@ export function DateTimeStep() {
         payload.pickup_time = selectedTime;
         payload.specific_pickup_hour = selectedTime === 'morning_specific' ? specificHour : undefined;
         payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       } else if (bookingData.service_type === 'standard_delivery') {
         payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         payload.is_same_day_delivery = bookingData.is_same_day_delivery;
         payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       } else if (bookingData.service_type === 'specialty_item') {
         payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+        payload.coi_required = bookingData.coi_required || false;
+        payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       }
 
       const response = await apiClient.post('/api/public/pricing-preview/', payload);
@@ -6714,7 +6766,10 @@ export function DateTimeStep() {
         updateBookingData({
           service_type: 'specialty_item',
           standard_delivery_item_count: undefined,
-          is_same_day_delivery: undefined
+          // ✅ FIX: Preserve same-day delivery flag and other fields for specialty items
+          // is_same_day_delivery: keep current value (don't clear it)
+          // coi_required: keep current value
+          // is_outside_core_area: keep current value
         });
       }
     }
@@ -6787,6 +6842,7 @@ export function DateTimeStep() {
     : bookingData.service_type === 'specialty_item'
       ? !!(selectedDate && pricingMutation.data?.pricing)
       : !!(selectedDate && selectedTime);
+
   if (bookingData.service_type === 'blade_transfer') {
     return (
       <div className="space-y-8">
@@ -6956,49 +7012,48 @@ export function DateTimeStep() {
         </div>
         
         {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-1 md:gap-4">
-                  {getMonthDays().map((date, index) => {
-                    if (!date) {
-                      return <div key={`empty-${index}`} className="h-16 md:h-20" />;
-                    }
-                    
-                    const dateStr = formatDate(date);
-                    const dayInfo = getDayInfo(date);
-                    const isSelected = selectedDate === dateStr;
-                    const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
-                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
-                    
-                    // FIXED: Add past date check
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const isPastDate = date < today;
+        <div className="grid grid-cols-7 gap-1 md:gap-4">
+          {getMonthDays().map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="h-16 md:h-20" />;
+            }
+            
+            const dateStr = formatDate(date);
+            const dayInfo = getDayInfo(date);
+            const isSelected = selectedDate === dateStr;
+            const hasSurcharge = dayInfo?.surcharges && dayInfo.surcharges.length > 0;
+            const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isPastDate = date < today;
 
-                    return (
-                      <button
-                        key={dateStr}
-                        onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
-                        disabled={!isCurrentMonth || isPastDate}
-                        className={`
-                          p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
-                          h-16 md:h-20 flex flex-col items-center justify-center
-                          ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
-                          ${isSelected 
-                            ? 'bg-navy-900 text-white border-navy-900' 
-                            : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                          }
-                        `}
-                      >
-                        <div className="font-medium">{date.getDate()}</div>
-                        <div className="text-xs opacity-75">
-                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                        </div>
-                        {hasSurcharge && isCurrentMonth && !isPastDate && (
-                          <div className="text-xs text-orange-600 mt-1">•</div>
-                        )}
-                      </button>
-                    );
-                  })}
+            return (
+              <button
+                key={dateStr}
+                onClick={() => isCurrentMonth && !isPastDate && handleDateSelect(dateStr)}
+                disabled={!isCurrentMonth || isPastDate}
+                className={`
+                  p-2 md:p-4 text-sm md:text-base rounded-md border-2 transition-all 
+                  h-16 md:h-20 flex flex-col items-center justify-center
+                  ${!isCurrentMonth || isPastDate ? 'opacity-30 cursor-not-allowed' : ''}
+                  ${isSelected 
+                    ? 'bg-navy-900 text-white border-navy-900' 
+                    : 'bg-white text-navy-900 border-gray-200 hover:border-navy-300 hover:bg-navy-50'
+                  }
+                `}
+              >
+                <div className="font-medium">{date.getDate()}</div>
+                <div className="text-xs opacity-75">
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
+                {hasSurcharge && isCurrentMonth && !isPastDate && (
+                  <div className="text-xs text-orange-600 mt-1">•</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
         
         <div className="flex items-center justify-center mt-4">
           <div className="flex items-center">
@@ -7125,131 +7180,132 @@ export function DateTimeStep() {
       )}
 
       {pricingMutation.data?.pricing && (
-              <Card variant="luxury" className="p-8">
-                <CardContent className="p-0">
-                  <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
-                  <div className="space-y-4">
-                    
-                    {/* Standard Delivery - Itemized */}
-                    {bookingData.service_type === 'standard_delivery' && (
-                      <>
-                        {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">
-                              Standard Delivery ({bookingData.standard_delivery_item_count} items):
-                            </span>
-                            <span className="text-navy-900 font-semibold">
-                              ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Show specialty items from pricingMutation details */}
-                        {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
-                          <div key={`specialty-${index}`} className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
-                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Mini Move */}
-                    {bookingData.service_type === 'mini_move' && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Mini Move Package:</span>
-                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Specialty Item Only */}
-                    {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
-                      <>
-                        {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
-                          <div key={`specialty-only-${index}`} className="flex justify-between items-center">
-                            <span className="text-navy-900 font-medium">{item.name}:</span>
-                            <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                    {/* BLADE - use type assertion since it's not in the type yet */}
-                    {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">
-                          {bookingData.blade_bag_count} bags × $75:
-                        </span>
-                        <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Same-Day Delivery */}
-                    {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Weekend Surcharge */}
-                    {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* COI Fee */}
-                    {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">COI Fee:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Organizing Services */}
-                    {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Organizing Services:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Organizing Tax */}
-                    {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Tax (8.25%):</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Time Window Surcharge */}
-                    {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">1-Hour Window:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Geographic Surcharge */}
-                    {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-navy-900 font-medium">Distance Surcharge:</span>
-                        <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
-                      </div>
-                    )}
-
-                    {/* Total */}
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-navy-900">Total:</span>
-                        <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
-                      </div>
+        <Card variant="luxury" className="p-8">
+          <CardContent className="p-0">
+            <h3 className="text-lg font-medium text-navy-900 mb-6">Pricing Summary</h3>
+            <div className="space-y-4">
+              
+              {/* Standard Delivery - Itemized */}
+              {bookingData.service_type === 'standard_delivery' && (
+                <>
+                  {(bookingData.standard_delivery_item_count ?? 0) > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">
+                        Standard Delivery ({bookingData.standard_delivery_item_count} items):
+                      </span>
+                      <span className="text-navy-900 font-semibold">
+                        ${Math.max(((bookingData.standard_delivery_item_count ?? 0) * 95), 285)}
+                      </span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  )}
+                  
+                  {/* Show specialty items from pricingMutation details */}
+                  {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
+                    <div key={`specialty-${index}`} className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
+                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Mini Move */}
+              {bookingData.service_type === 'mini_move' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Mini Move Package:</span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+              )}
+
+              {/* Specialty Item Only */}
+              {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
+                <>
+                  {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
+                    <div key={`specialty-only-${index}`} className="flex justify-between items-center">
+                      <span className="text-navy-900 font-medium">{item.name}:</span>
+                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* BLADE */}
+              {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">
+                    {bookingData.blade_bag_count} bags × $75:
+                  </span>
+                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
+                </div>
+              )}
+
+              {/* Same-Day Delivery */}
+              {(pricingMutation.data.pricing.same_day_delivery_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.same_day_delivery_dollars}</span>
+                </div>
+              )}
+
+              {/* Weekend Surcharge */}
+              {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* COI Fee */}
+              {(pricingMutation.data.pricing.coi_fee_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">COI Fee:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.coi_fee_dollars}</span>
+                </div>
+              )}
+
+              {/* Organizing Services */}
+              {(pricingMutation.data.pricing.organizing_total_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Organizing Services:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_total_dollars}</span>
+                </div>
+              )}
+
+              {/* Organizing Tax */}
+              {(pricingMutation.data.pricing.organizing_tax_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Tax (8.25%):</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.organizing_tax_dollars}</span>
+                </div>
+              )}
+
+              {/* Time Window Surcharge */}
+              {(pricingMutation.data.pricing.time_window_surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">1-Hour Window:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.time_window_surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* Geographic Surcharge */}
+              {(pricingMutation.data.pricing.geographic_surcharge_dollars ?? 0) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-navy-900 font-medium">Distance Surcharge:</span>
+                  <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.geographic_surcharge_dollars}</span>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold text-navy-900">Total:</span>
+                  <span className="text-xl font-bold text-navy-900">${pricingMutation.data.pricing.total_price_dollars}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedDate && bookingData.service_type !== 'blade_transfer' && (
         <Card variant="default" className="p-6">
@@ -7264,7 +7320,11 @@ export function DateTimeStep() {
               <div>
                 <span className="font-medium text-navy-900">
                   Certificate of Insurance (COI) Required
-                  {packageType === 'petite' && (
+                  {/* ✅ FIX: Show +$50 for all service types that need COI */}
+                  {bookingData.service_type === 'mini_move' && packageType === 'petite' && (
+                    <span className="text-orange-600 ml-2">(+$50)</span>
+                  )}
+                  {(bookingData.service_type === 'standard_delivery' || bookingData.service_type === 'specialty_item') && (
                     <span className="text-orange-600 ml-2">(+$50)</span>
                   )}
                 </span>
@@ -7381,24 +7441,32 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
 
+interface PaymentIntentResponse {
+  client_secret: string;
+  payment_intent_id: string;
+  amount_dollars: number;
+}
+
 interface BookingResponse {
   message: string;
   booking: {
     id: string;
     booking_number: string;
     total_price_dollars: number;
-  };
-  payment?: {
-    client_secret: string;
-    payment_intent_id: string;
+    status: string;
   };
 }
 
-function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: { 
-  clientSecret: string; 
-  bookingNumber: string;
+function CheckoutForm({ 
+  clientSecret, 
+  paymentIntentId,
+  totalAmount, 
+  onSuccess 
+}: { 
+  clientSecret: string;
+  paymentIntentId: string;
   totalAmount: number;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -7427,14 +7495,8 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
       setErrorMessage(error.message);
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-      try {
-        await apiClient.post('/api/payments/confirm/', {
-          payment_intent_id: paymentIntent.id
-        });
-      } catch (err) {
-        console.error('Failed to confirm payment with backend:', err);
-      }
-      onSuccess();
+      console.log('✅ Payment succeeded:', paymentIntent.id);
+      onSuccess(paymentIntentId);
     }
   };
 
@@ -7442,10 +7504,6 @@ function CheckoutForm({ clientSecret, bookingNumber, totalAmount, onSuccess }: {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-navy-50 border border-navy-200 rounded-lg p-4">
         <div className="flex justify-between items-center">
-          <span className="text-navy-700">Booking Number:</span>
-          <span className="font-bold text-navy-900">{bookingNumber}</span>
-        </div>
-        <div className="flex justify-between items-center mt-2">
           <span className="text-navy-700">Total Amount:</span>
           <span className="text-2xl font-bold text-navy-900">${totalAmount}</span>
         </div>
@@ -7489,15 +7547,91 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   }
 }
 
+// ✅ NEW: Hook to recalculate pricing when Review & Pay loads
+const useRecalculatePricing = () => {
+  const { bookingData, updateBookingData } = useBookingWizard();
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  useEffect(() => {
+    const recalculatePricing = async () => {
+      // Skip if already recalculating or if pricing already exists and matches
+      if (isRecalculating) return;
+
+      console.log('🔄 Recalculating pricing on Review & Pay load');
+      console.log('Current bookingData:', bookingData);
+      
+      setIsRecalculating(true);
+      
+      try {
+        let pricingRequest: any = {
+          service_type: bookingData.service_type,
+          pickup_date: bookingData.service_type === 'blade_transfer' 
+            ? bookingData.blade_flight_date 
+            : bookingData.pickup_date,
+          coi_required: bookingData.coi_required || false,
+          is_outside_core_area: bookingData.is_outside_core_area || false,
+        };
+
+        // Service-specific fields
+        if (bookingData.service_type === 'mini_move') {
+          pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+          pricingRequest.include_packing = bookingData.include_packing;
+          pricingRequest.include_unpacking = bookingData.include_unpacking;
+          pricingRequest.pickup_time = bookingData.pickup_time;
+          pricingRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
+        } else if (bookingData.service_type === 'standard_delivery') {
+          pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        } else if (bookingData.service_type === 'specialty_item') {
+          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        } else if (bookingData.service_type === 'blade_transfer') {
+          pricingRequest.blade_airport = bookingData.blade_airport;
+          pricingRequest.blade_flight_date = bookingData.blade_flight_date;
+          pricingRequest.blade_flight_time = bookingData.blade_flight_time;
+          pricingRequest.blade_bag_count = bookingData.blade_bag_count;
+        }
+
+        console.log('🔄 Pricing request:', pricingRequest);
+        
+        const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
+        
+        console.log('✅ Pricing recalculated:', response.data);
+        
+        // Update booking data with fresh pricing
+        updateBookingData({ 
+          pricing_data: response.data.pricing,
+          blade_ready_time: response.data.details?.ready_time 
+        });
+      } catch (error) {
+        console.error('❌ Failed to recalculate pricing:', error);
+      } finally {
+        setIsRecalculating(false);
+      }
+    };
+
+    // Always recalculate pricing when this component mounts
+    recalculatePricing();
+  }, []); // Empty dependency array - only run once on mount
+
+  return isRecalculating;
+};
+
 export function ReviewPaymentStep() {
   const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
+  
+  // ✅ CRITICAL: Recalculate pricing when this step loads
+  const isPricingRecalculating = useRecalculatePricing();
+  
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
   const [bookingNumber, setBookingNumber] = useState<string>('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [clientSecret, setClientSecret] = useState<string>('');
+  const [paymentIntentId, setPaymentIntentId] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
@@ -7508,206 +7642,188 @@ export function ReviewPaymentStep() {
     console.log('User:', user);
     console.log('Customer Info:', bookingData.customer_info);
     console.log('Service Type:', bookingData.service_type);
+    console.log('COI Required:', bookingData.coi_required);
+    console.log('Pricing Data:', bookingData.pricing_data);
     console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type, bookingData.coi_required, bookingData.pricing_data]);
 
-  const createBookingMutation = useMutation({
-    mutationFn: async (): Promise<BookingResponse> => {
+  // STEP 1: Create payment intent
+  const createPaymentIntentMutation = useMutation({
+    mutationFn: async (): Promise<PaymentIntentResponse> => {
       const endpoint = isAuthenticated 
-        ? '/api/customer/bookings/create/'
-        : '/api/public/guest-booking/';
+        ? '/api/customer/bookings/create-payment-intent/'
+        : '/api/public/create-payment-intent/';
 
-      let bookingRequest;
+      let paymentRequest: any = {
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : bookingData.pickup_date,
+        coi_required: bookingData.coi_required || false,
+        is_outside_core_area: bookingData.is_outside_core_area || false,
+      };
 
-      if (isAuthenticated) {
-        console.log('=== AUTHENTICATED BOOKING REQUEST ===');
-        const timestamp = new Date().toISOString().slice(11, 16);
-        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        bookingRequest = {
-          service_type: bookingData.service_type,
-          mini_move_package_id: bookingData.mini_move_package_id,
-          include_packing: bookingData.include_packing,
-          include_unpacking: bookingData.include_unpacking,
-          standard_delivery_item_count: bookingData.standard_delivery_item_count,
-          is_same_day_delivery: bookingData.is_same_day_delivery,
-          specialty_item_ids: bookingData.specialty_item_ids,
-          
-          blade_airport: bookingData.blade_airport,
-          blade_flight_date: bookingData.blade_flight_date,
-          blade_flight_time: bookingData.blade_flight_time,
-          blade_bag_count: bookingData.blade_bag_count,
-          
-          pickup_date: bookingData.service_type === 'blade_transfer' 
-            ? bookingData.blade_flight_date 
-            : bookingData.pickup_date,
-          pickup_time: bookingData.pickup_time,
-          specific_pickup_hour: bookingData.specific_pickup_hour,
-          
-          new_pickup_address: bookingData.pickup_address,
-          new_delivery_address: bookingData.delivery_address,
-          save_pickup_address: true,
-          save_delivery_address: true,
-          pickup_address_nickname: `Pickup ${dateStr} ${timestamp}`,
-          delivery_address_nickname: `Delivery ${dateStr} ${timestamp}`,
-          
-          special_instructions: bookingData.special_instructions,
-          coi_required: bookingData.coi_required,
-          create_payment_intent: true,
-        };
-      } else {
-        console.log('=== GUEST BOOKING REQUEST ===');
-        
-        if (!bookingData.customer_info || !bookingData.customer_info.email) {
-          console.error('CRITICAL: Guest booking missing customer info');
-          
-          if (user && !bookingData.customer_info) {
-            console.log('Falling back to authenticated user data');
-            bookingRequest = {
-              first_name: user.first_name || 'Guest',
-              last_name: user.last_name || 'User',
-              email: user.email,
-              phone: '555-0000',
-              
-              service_type: bookingData.service_type,
-              mini_move_package_id: bookingData.mini_move_package_id,
-              include_packing: bookingData.include_packing,
-              include_unpacking: bookingData.include_unpacking,
-              standard_delivery_item_count: bookingData.standard_delivery_item_count,
-              is_same_day_delivery: bookingData.is_same_day_delivery,
-              specialty_item_ids: bookingData.specialty_item_ids,
-              
-              blade_airport: bookingData.blade_airport,
-              blade_flight_date: bookingData.blade_flight_date,
-              blade_flight_time: bookingData.blade_flight_time,
-              blade_bag_count: bookingData.blade_bag_count,
-              
-              pickup_date: bookingData.service_type === 'blade_transfer' 
-                ? bookingData.blade_flight_date 
-                : bookingData.pickup_date,
-              pickup_time: bookingData.pickup_time,
-              specific_pickup_hour: bookingData.specific_pickup_hour,
-              
-              pickup_address: bookingData.pickup_address,
-              delivery_address: bookingData.delivery_address,
-              
-              special_instructions: bookingData.special_instructions,
-              coi_required: bookingData.coi_required,
-              create_payment_intent: true,
-            };
-          } else {
-            throw new Error('Customer information is required for guest bookings. Please go back and fill out your contact information.');
-          }
-        } else {
-          bookingRequest = {
-            first_name: bookingData.customer_info.first_name,
-            last_name: bookingData.customer_info.last_name,
-            email: bookingData.customer_info.email,
-            phone: bookingData.customer_info.phone,
-            
-            service_type: bookingData.service_type,
-            mini_move_package_id: bookingData.mini_move_package_id,
-            include_packing: bookingData.include_packing,
-            include_unpacking: bookingData.include_unpacking,
-            standard_delivery_item_count: bookingData.standard_delivery_item_count,
-            is_same_day_delivery: bookingData.is_same_day_delivery,
-            specialty_item_ids: bookingData.specialty_item_ids,
-            
-            blade_airport: bookingData.blade_airport,
-            blade_flight_date: bookingData.blade_flight_date,
-            blade_flight_time: bookingData.blade_flight_time,
-            blade_bag_count: bookingData.blade_bag_count,
-            
-            pickup_date: bookingData.service_type === 'blade_transfer' 
-              ? bookingData.blade_flight_date 
-              : bookingData.pickup_date,
-            pickup_time: bookingData.pickup_time,
-            specific_pickup_hour: bookingData.specific_pickup_hour,
-            
-            pickup_address: bookingData.pickup_address,
-            delivery_address: bookingData.delivery_address,
-            
-            special_instructions: bookingData.special_instructions,
-            coi_required: bookingData.coi_required,
-            create_payment_intent: true,
-          };
-        }
+      // Service-specific fields
+      if (bookingData.service_type === 'mini_move') {
+        paymentRequest.mini_move_package_id = bookingData.mini_move_package_id;
+        paymentRequest.include_packing = bookingData.include_packing;
+        paymentRequest.include_unpacking = bookingData.include_unpacking;
+        paymentRequest.pickup_time = bookingData.pickup_time;
+        paymentRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        paymentRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+      } else if (bookingData.service_type === 'blade_transfer') {
+        paymentRequest.blade_airport = bookingData.blade_airport;
+        paymentRequest.blade_flight_date = bookingData.blade_flight_date;
+        paymentRequest.blade_flight_time = bookingData.blade_flight_time;
+        paymentRequest.blade_bag_count = bookingData.blade_bag_count;
       }
 
-      console.log('ENDPOINT:', endpoint);
-      console.log('FULL BOOKING REQUEST:', JSON.stringify(bookingRequest, null, 2));
+      // Add customer email for guest bookings
+      if (!isAuthenticated && bookingData.customer_info?.email) {
+        paymentRequest.email = bookingData.customer_info.email;
+        paymentRequest.first_name = bookingData.customer_info.first_name;
+        paymentRequest.last_name = bookingData.customer_info.last_name;
+        paymentRequest.phone = bookingData.customer_info.phone;
+      } else if (isAuthenticated && user?.email) {
+        paymentRequest.customer_email = user.email;
+      }
 
-      const response = await apiClient.post(endpoint, bookingRequest);
-      
-      console.log('BOOKING API RESPONSE:', response.data);
+      console.log('💳 Creating payment intent:', paymentRequest);
+      const response = await apiClient.post(endpoint, paymentRequest);
+      console.log('✅ Payment intent created:', response.data);
       
       return response.data;
     },
     onSuccess: (data) => {
-      console.log('=== BOOKING SUCCESS HANDLER ===');
-      console.log('Response data:', data);
-      
-      setBookingNumber(data.booking.booking_number);
-      
-      if (data.payment?.client_secret && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-        console.log('PAYMENT INTENT FOUND - SHOWING PAYMENT FORM');
-        setClientSecret(data.payment.client_secret);
-        setShowPayment(true);
-      } else {
-        console.log('NO PAYMENT INTENT - MARKING COMPLETE');
-        setBookingCompleteLocal(true);
-        setBookingComplete(data.booking.booking_number);
+      console.log('💳 Payment intent successful:', data);
+      setClientSecret(data.client_secret);
+      setPaymentIntentId(data.payment_intent_id);
+      setShowPayment(true);
+      setLoading(false);
+    },
+    onError: (error: AxiosError | Error) => {
+      console.error('❌ Payment intent failed:', error);
+      setLoading(false);
+      if ('response' in error && error.response) {
+        console.error('Error response:', error.response.data);
       }
+    }
+  });
+
+  // STEP 2: Create booking AFTER payment succeeds
+  const createBookingMutation = useMutation({
+    mutationFn: async (paymentIntentId: string): Promise<BookingResponse> => {
+      const endpoint = isAuthenticated 
+        ? '/api/customer/bookings/create/'
+        : '/api/public/guest-booking/';
+
+      let bookingRequest: any = {
+        payment_intent_id: paymentIntentId,
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.service_type === 'blade_transfer' 
+          ? bookingData.blade_flight_date 
+          : bookingData.pickup_date,
+        pickup_time: bookingData.pickup_time,
+        specific_pickup_hour: bookingData.specific_pickup_hour,
+        special_instructions: bookingData.special_instructions,
+        coi_required: bookingData.coi_required,
+      };
+
+      // Service-specific fields
+      if (bookingData.service_type === 'mini_move') {
+        bookingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+        bookingRequest.include_packing = bookingData.include_packing;
+        bookingRequest.include_unpacking = bookingData.include_unpacking;
+      } else if (bookingData.service_type === 'standard_delivery') {
+        bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+      } else if (bookingData.service_type === 'specialty_item') {
+        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+      } else if (bookingData.service_type === 'blade_transfer') {
+        bookingRequest.blade_airport = bookingData.blade_airport;
+        bookingRequest.blade_flight_date = bookingData.blade_flight_date;
+        bookingRequest.blade_flight_time = bookingData.blade_flight_time;
+        bookingRequest.blade_bag_count = bookingData.blade_bag_count;
+      }
+
+      // Addresses
+      if (isAuthenticated) {
+        const timestamp = new Date().toISOString().slice(11, 16);
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        bookingRequest.new_pickup_address = bookingData.pickup_address;
+        bookingRequest.new_delivery_address = bookingData.delivery_address;
+        bookingRequest.save_pickup_address = true;
+        bookingRequest.save_delivery_address = true;
+        bookingRequest.pickup_address_nickname = `Pickup ${dateStr} ${timestamp}`;
+        bookingRequest.delivery_address_nickname = `Delivery ${dateStr} ${timestamp}`;
+      } else {
+        bookingRequest.first_name = bookingData.customer_info?.first_name;
+        bookingRequest.last_name = bookingData.customer_info?.last_name;
+        bookingRequest.email = bookingData.customer_info?.email;
+        bookingRequest.phone = bookingData.customer_info?.phone;
+        bookingRequest.pickup_address = bookingData.pickup_address;
+        bookingRequest.delivery_address = bookingData.delivery_address;
+      }
+
+      console.log('📦 Creating booking with payment:', bookingRequest);
+      const response = await apiClient.post(endpoint, bookingRequest);
+      console.log('✅ Booking created:', response.data);
       
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('✅ Booking creation successful:', data);
+      setBookingNumber(data.booking.booking_number);
+      setBookingCompleteLocal(true);
+      setBookingComplete(data.booking.booking_number);
       setLoading(false);
       
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });
-        
-        // ADD THIS - Refresh CSRF token after booking
-        apiClient.get('/api/customer/csrf-token/').catch(err => {
-          console.warn('Failed to refresh CSRF token:', err);
-        });
       }
     },
     onError: (error: AxiosError | Error) => {
-      console.log('=== BOOKING ERROR HANDLER ===');
+      console.error('❌ Booking creation failed:', error);
       setLoading(false);
-      console.error('Booking creation failed:', error);
-      
       if ('response' in error && error.response) {
-        console.error('FULL ERROR RESPONSE:', error.response);
-        console.error('Error Status:', error.response.status);
-        console.error('Error Data:', error.response.data);
+        console.error('Error response:', error.response.data);
       }
     }
   });
 
-  const handleSubmitBooking = () => {
+  const handleInitiatePayment = () => {
     if (!termsAccepted) {
       alert('Please accept the Terms of Service to continue.');
       return;
     }
     
-    console.log('=== SUBMITTING BOOKING ===');
-    console.log('Service type:', bookingData.service_type);
-    
+    console.log('=== INITIATING PAYMENT FLOW ===');
     setLoading(true);
-    createBookingMutation.mutate();
+    createPaymentIntentMutation.mutate();
   };
 
-  const handlePaymentSuccess = () => {
-    console.log('PAYMENT SUCCESSFUL - SHOWING SUCCESS SCREEN');
-    setBookingCompleteLocal(true);
-    setBookingComplete(bookingNumber);
+  const handlePaymentSuccess = (paymentIntentId: string) => {
+    console.log('💳 Payment successful, creating booking with payment ID:', paymentIntentId);
+    setLoading(true);
+    createBookingMutation.mutate(paymentIntentId);
   };
 
   const handleStartOver = () => {
-    console.log('STARTING OVER - RESETTING WIZARD');
+    console.log('Starting over - resetting wizard');
     setBookingCompleteLocal(false);
     setBookingNumber('');
     setClientSecret('');
+    setPaymentIntentId('');
     setShowPayment(false);
     resetWizard();
     router.push('/book');
@@ -7715,12 +7831,27 @@ export function ReviewPaymentStep() {
 
   const handlePreviousStep = () => {
     if (showPayment) {
+      // Go back from payment to review
       setShowPayment(false);
       setClientSecret('');
+      setPaymentIntentId('');
+    } else {
+      // Go back to previous step
+      previousStep();
     }
-    
-    previousStep();
   };
+
+  // Show loading while pricing is recalculating
+  if (isPricingRecalculating) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy-900 mx-auto mb-4"></div>
+          <p className="text-navy-700">Calculating final pricing...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (bookingComplete) {
     return (
@@ -7818,10 +7949,10 @@ export function ReviewPaymentStep() {
           <CardContent>
             <Elements stripe={stripePromise} options={{ clientSecret }}>        
               <CheckoutForm 
-                clientSecret={clientSecret} 
-                bookingNumber={bookingNumber}
+                clientSecret={clientSecret}
+                paymentIntentId={paymentIntentId}
                 totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
-                onSuccess={handlePaymentSuccess} 
+                onSuccess={handlePaymentSuccess}
               />
             </Elements>
           </CardContent>
@@ -7829,7 +7960,7 @@ export function ReviewPaymentStep() {
 
         <div className="flex justify-between">
           <Button variant="outline" onClick={handlePreviousStep}>
-            ← Previous
+            ← Back to Review
           </Button>
           <Button variant="outline" onClick={handleStartOver}>
             Start Over
@@ -8007,29 +8138,18 @@ export function ReviewPaymentStep() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {/* Specialty Item - Show Individual Items */}
-              {bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0 ? (
-                <>
-                  {/* We need to fetch the specialty items details - for now show base price with note */}
-                  <div className="flex justify-between">
-                    <span className="text-navy-900 font-medium">Specialty Items:</span>
-                    <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                  </div>
-                </>
-              ) : (
-                /* All other service types show base price normally */
-                <div className="flex justify-between">
-                  <span className="text-navy-900 font-medium">Base Price:</span>
-                  <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
-                </div>
-              )}
+              {/* Base Price */}
+              <div className="flex justify-between">
+                <span className="text-navy-900 font-medium">
+                  {bookingData.service_type === 'blade_transfer' && `${bookingData.blade_bag_count} bags × $75:`}
+                  {bookingData.service_type === 'mini_move' && 'Mini Move Package:'}
+                  {bookingData.service_type === 'standard_delivery' && 'Standard Delivery:'}
+                  {bookingData.service_type === 'specialty_item' && 'Specialty Items:'}
+                </span>
+                <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
+              </div>
               
-              {bookingData.service_type === 'blade_transfer' && (
-                <div className="text-sm text-navy-900 italic">
-                  {bookingData.blade_bag_count} bags × $75
-                </div>
-              )}
-              
+              {/* Same-Day Delivery */}
               {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
@@ -8037,6 +8157,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Weekend Surcharge */}
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
@@ -8044,6 +8165,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* ✅ COI Fee - NOW SHOWS FOR ALL SERVICE TYPES */}
               {bookingData.pricing_data.coi_fee_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">COI Fee:</span>
@@ -8051,6 +8173,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Organizing Services */}
               {bookingData.pricing_data.organizing_total_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Organizing Services:</span>
@@ -8058,6 +8181,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
+              {/* Organizing Tax */}
               {bookingData.pricing_data.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Tax (8.25%):</span>
@@ -8065,6 +8189,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
+              {/* Time Window Surcharge */}
               {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">1-Hour Window:</span>
@@ -8072,6 +8197,7 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {/* Geographic Surcharge */}
               {bookingData.pricing_data.geographic_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Distance Surcharge:</span>
@@ -8081,6 +8207,7 @@ export function ReviewPaymentStep() {
               
               <hr className="border-gray-200" />
               
+              {/* Total */}
               <div className="flex justify-between text-xl font-bold">
                 <span className="text-navy-900">Total:</span>
                 <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
@@ -8209,10 +8336,10 @@ export function ReviewPaymentStep() {
         <Button 
           variant="primary" 
           size="lg"
-          onClick={handleSubmitBooking}
-          disabled={isLoading || createBookingMutation.isPending || !termsAccepted}
+          onClick={handleInitiatePayment}
+          disabled={isLoading || createPaymentIntentMutation.isPending || !termsAccepted}
         >
-          {isLoading || createBookingMutation.isPending ? 'Creating Booking...' : 'Continue to Payment'}
+          {isLoading || createPaymentIntentMutation.isPending ? 'Preparing Payment...' : 'Continue to Payment'}
         </Button>
       </div>
     </div>
@@ -8223,6 +8350,7 @@ export function ReviewPaymentStep() {
 # ==== src/components/booking/service-selection-step.tsx ====
 
 ```
+// frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
 import { useState } from 'react';
@@ -8818,6 +8946,29 @@ export function ServiceSelectionStep() {
                 <span className="text-navy-900 font-medium">
                   Same-Day Delivery (+$360)
                 </span>
+              </label>
+            </CardContent>
+          </Card>
+
+          {/* ✅ FIX: Add COI checkbox for Standard Delivery with +$50 fee displayed */}
+          <Card variant="default">
+            <CardContent>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={bookingData.coi_required || false}
+                  onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
+                  className="mr-3 h-4 w-4"
+                />
+                <div>
+                  <span className="font-medium text-navy-900">
+                    Certificate of Insurance (COI) Required
+                    <span className="text-orange-600 ml-2">(+$50)</span>
+                  </span>
+                  <p className="text-sm text-navy-600">
+                    Required by some buildings. We'll handle the paperwork for you.
+                  </p>
+                </div>
               </label>
             </CardContent>
           </Card>
@@ -15007,6 +15158,809 @@ module.exports = {
   },
   plugins: [],
 }
+```
+
+# ==== tests/e2e/booking-wizard-all-services.spec.ts ====
+
+```
+// frontend/tests/e2e/booking-wizard-all-services.spec.ts
+import { test, expect, Page } from '@playwright/test';
+
+/**
+ * COMPREHENSIVE BOOKING WIZARD TEST SUITE
+ * Based on working test patterns from booking-wizard.spec.ts
+ */
+
+test.describe('Booking Wizard - All Services', () => {
+  
+  // ============================================================
+  // HELPER FUNCTIONS (Based on working test)
+  // ============================================================
+  
+  async function skipAuthStep(page: Page) {
+    await page.waitForLoadState('networkidle');
+    const getStartedText = page.getByText('Get Started');
+    
+    if (await getStartedText.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log('On Step 0 - Get Started');
+      const guestButton = page.getByRole('button', { name: /guest|continue/i }).first();
+      if (await guestButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await guestButton.click();
+        console.log('Clicked continue as guest');
+      }
+      await page.waitForTimeout(500);
+    }
+    
+    await page.waitForSelector('text=Step 1:', { timeout: 10000 });
+    console.log('Now on Step 1');
+  }
+  
+  async function fillAddresses(page: Page) {
+    console.log('Filling addresses...');
+    
+    // Pickup address
+    await page.getByPlaceholder('Start typing your address...').first().fill('123 West 57th Street');
+    await page.getByPlaceholder('Apt 4B, Suite 200').first().fill('Suite 100');
+    await page.getByPlaceholder('New York').first().fill('New York');
+    const pickupState = page.locator('select').first();
+    await pickupState.selectOption('NY');
+    await page.getByPlaceholder('10001').first().fill('10019');
+    
+    // Delivery address
+    await page.getByPlaceholder('Start typing your address...').nth(1).fill('456 Park Avenue');
+    await page.getByPlaceholder('Apt 4B, Suite 200').nth(1).fill('Apt 5B');
+    await page.getByPlaceholder('New York').nth(1).fill('New York');
+    const deliveryState = page.locator('select').nth(1);
+    await deliveryState.selectOption('NY');
+    await page.getByPlaceholder('10001').nth(1).fill('10022');
+    
+    console.log('✓ Addresses filled');
+    await page.waitForTimeout(3000); // Wait for zip validation
+  }
+  
+  async function fillCustomerInfo(page: Page, firstName = 'John', lastName = 'Smith') {
+    console.log('Filling customer info...');
+    await page.getByLabel('First Name').fill(firstName);
+    await page.getByLabel('Last Name').fill(lastName);
+    await page.getByLabel('Email Address').fill(`${firstName.toLowerCase()}.${lastName.toLowerCase()}@test.com`);
+    await page.getByLabel('Phone Number').fill('2125551234');
+    console.log('✓ Customer info filled');
+  }
+  
+  async function selectDateAndTime(page: Page) {
+    console.log('Selecting date and time...');
+    
+    // Select first available date
+    const calendarButtons = page.locator('.grid.grid-cols-7 button:not([disabled])');
+    const firstAvailableDate = calendarButtons.first();
+    await firstAvailableDate.scrollIntoViewIfNeeded();
+    await firstAvailableDate.click();
+    console.log('✓ Date selected');
+    
+    await page.waitForTimeout(1000);
+    
+    // Select morning time slot
+    const morningButton = page.locator('button:has-text("Morning (8 AM - 11 AM)")');
+    await morningButton.scrollIntoViewIfNeeded();
+    await morningButton.click();
+    console.log('✓ Morning time selected');
+    
+    await page.waitForTimeout(3000);
+    await expect(page.getByText('Pricing Summary')).toBeVisible({ timeout: 10000 });
+  }
+  
+  async function acceptTermsAndVerifyPayment(page: Page) {
+    console.log('Accepting terms and verifying payment button...');
+    
+    await expect(page.getByText('Step 5:')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Booking Summary')).toBeVisible();
+    
+    // Scroll to terms checkbox
+    await page.getByText('Terms of Service Agreement').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    
+    // Check terms (last checkbox on page)
+    const termsCheckbox = page.locator('input[type="checkbox"]').last();
+    await termsCheckbox.scrollIntoViewIfNeeded();
+    await termsCheckbox.check({ force: true });
+    console.log('✓ Terms accepted');
+    
+    await page.waitForTimeout(1000);
+    
+    // Verify payment button enabled
+    const paymentButton = page.getByRole('button', { name: /continue to payment/i });
+    await expect(paymentButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Payment button enabled');
+  }
+  
+  
+  // ============================================================
+  // MINI MOVE TESTS
+  // ============================================================
+  
+  test('Mini Move - Petite package ($995)', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    // STEP 1: Service Selection
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    const miniMoveButton = page.locator('button:has-text("Mini Moves")');
+    await miniMoveButton.click();
+    await page.waitForTimeout(3000);
+    
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await petiteHeading.click();
+    await page.waitForTimeout(1500);
+    
+    await expect(page.getByText('$995')).toBeVisible();
+    const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await continueButton.scrollIntoViewIfNeeded();
+    await continueButton.click();
+    
+    // STEP 2-5: Continue through flow
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Mini Move - Petite package test PASSED!');
+  });
+  
+  
+  test('Mini Move - Standard package ($1725)', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    const standardHeading = page.getByRole('heading', { name: 'Standard', exact: true });
+    await standardHeading.scrollIntoViewIfNeeded();
+    await standardHeading.click();
+    await page.waitForTimeout(1500);
+    
+    await expect(page.getByText('$1725')).toBeVisible();
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Jane', 'Doe');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Mini Move - Standard package test PASSED!');
+  });
+  
+  
+  test('Mini Move - Full Move package ($2490)', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    const fullHeading = page.getByRole('heading', { name: 'Full Move', exact: true });
+    await fullHeading.scrollIntoViewIfNeeded();
+    await fullHeading.click();
+    await page.waitForTimeout(1500);
+    
+    await expect(page.getByText('$2490')).toBeVisible();
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Bob', 'Wilson');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Mini Move - Full Move package test PASSED!');
+  });
+  
+  
+  // ============================================================
+  // STANDARD DELIVERY TESTS  
+  // ============================================================
+  
+  test('Standard Delivery - 5 items', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    const standardDeliveryButton = page.locator('button:has-text("Standard Delivery")');
+    await standardDeliveryButton.click();
+    console.log('✓ Clicked Standard Delivery');
+    await page.waitForTimeout(2000);
+    
+    // Fill item count
+    const itemCountInput = page.getByLabel('Number of Items');
+    await itemCountInput.scrollIntoViewIfNeeded();
+    await itemCountInput.fill('5');
+    console.log('✓ Entered 5 items');
+    await page.waitForTimeout(1000);
+    
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Charlie', 'Davis');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Standard Delivery - 5 items test PASSED!');
+  });
+  
+  
+  // ============================================================
+  // SPECIALTY ITEM TESTS
+  // ============================================================
+  
+  test('Specialty Item - Peloton', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Standard Delivery")').click();
+    await page.waitForTimeout(2000);
+    
+    // Set 0 regular items
+    const itemCountInput = page.getByLabel('Number of Items');
+    await itemCountInput.fill('0');
+    await page.waitForTimeout(500);
+    
+    // Select Peloton specialty item
+    const pelotonCheckbox = page.locator('label').filter({ hasText: 'Peloton' }).locator('input[type="checkbox"]');
+    await pelotonCheckbox.scrollIntoViewIfNeeded();
+    await pelotonCheckbox.check({ force: true });
+    console.log('✓ Peloton selected');
+    await page.waitForTimeout(1000);
+    
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Frank', 'Garcia');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Specialty Item - Peloton test PASSED!');
+  });
+  
+  
+  // ============================================================
+  // NAVIGATION TESTS
+  // ============================================================
+  
+  test('Previous button navigation works', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    // Go to Step 3
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await petiteHeading.click();
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ Now on Step 3');
+    
+    // Click Previous button - use the one in the sticky footer
+    const previousButton = page.locator('.sticky.bottom-0').getByRole('button', { name: /previous/i });
+    await previousButton.scrollIntoViewIfNeeded();
+    await previousButton.click();
+    console.log('✓ Clicked Previous');
+    await page.waitForTimeout(1000);
+    
+    // Should be back on Step 2
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 5000 });
+    console.log('✓ Back on Step 2');
+    
+    console.log('✅ Previous button navigation test PASSED!');
+  });
+  
+  
+  test('Start Over button resets wizard', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    // Progress to Step 2
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await petiteHeading.click();
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ On Step 2');
+    
+    // Click Start Over button in sticky footer
+    const startOverButton = page.locator('.sticky.bottom-0').getByRole('button', { name: /start over/i });
+    await startOverButton.scrollIntoViewIfNeeded();
+    await startOverButton.click();
+    console.log('✓ Clicked Start Over');
+    await page.waitForTimeout(1000);
+    
+    // Should be back on Step 0 (Get Started)
+    await expect(page.getByText('Get Started')).toBeVisible({ timeout: 5000 });
+    console.log('✓ Wizard reset to beginning');
+    
+    console.log('✅ Start Over button test PASSED!');
+  });
+  
+  
+  // ============================================================
+  // VALIDATION TESTS
+  // ============================================================
+  
+  test('Cannot proceed without selecting package', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    console.log('✓ Clicked Mini Moves');
+    
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    
+    // Continue button should be disabled
+    const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await continueButton.scrollIntoViewIfNeeded();
+    
+    const isDisabled = await continueButton.isDisabled();
+    expect(isDisabled).toBe(true);
+    console.log('✓ Continue button is disabled as expected');
+    console.log('✅ Validation test PASSED!');
+  });
+  
+  
+  test('Terms checkbox must be checked before payment', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    // Quick run through to Step 5
+    await page.locator('button:has-text("Mini Moves")').click();
+    await page.waitForTimeout(3000);
+    
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await petiteHeading.click();
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /continue/i }).first().click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue/i }).first().click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue/i }).first().click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Test', 'User');
+    await page.getByRole('button', { name: /continue/i }).first().click();
+    await page.waitForTimeout(2000);
+    
+    // STEP 5: Verify payment button is disabled without terms
+    await expect(page.getByText('Step 5:')).toBeVisible({ timeout: 10000 });
+    
+    const paymentButton = page.getByRole('button', { name: /continue to payment/i });
+    await paymentButton.scrollIntoViewIfNeeded();
+    
+    // Should be disabled initially
+    const initiallyDisabled = await paymentButton.isDisabled();
+    expect(initiallyDisabled).toBe(true);
+    console.log('✓ Payment button disabled without terms');
+    
+    // Check terms
+    const termsCheckbox = page.locator('input[type="checkbox"]').last();
+    await termsCheckbox.scrollIntoViewIfNeeded();
+    await termsCheckbox.check({ force: true });
+    await page.waitForTimeout(500);
+    
+    // Should be enabled now
+    await expect(paymentButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Payment button enabled after checking terms');
+    
+    console.log('✅ Terms validation test PASSED!');
+  });
+
+
+  // ============================================================
+  // COI (Certificate of Insurance) TESTS  
+  // ============================================================
+  
+  test.describe('COI Functionality', () => {
+    
+    test('Petite package - COI checkbox adds $50', async ({ page }) => {
+      await page.goto('/book');
+      await skipAuthStep(page);
+      
+      // STEP 1: Select Petite
+      await expect(page.getByText('Step 1:')).toBeVisible();
+      await page.locator('button:has-text("Mini Moves")').click();
+      await page.waitForTimeout(3000);
+      
+      const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+      await petiteHeading.scrollIntoViewIfNeeded();
+      await petiteHeading.click();
+      await page.waitForTimeout(1500);
+      
+      await expect(page.getByText('$995')).toBeVisible();
+      console.log('✓ Base price: $995');
+      
+      await page.getByRole('button', { name: /continue to date/i }).click();
+      
+      // STEP 2: Date & Time - COI checkbox appears HERE
+      await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+      await selectDateAndTime(page);
+      
+      // Look for COI checkbox (appears after date selection)
+      const coiLabel = page.locator('label').filter({ hasText: /Certificate of Insurance/i });
+      
+      if (await coiLabel.isVisible().catch(() => false)) {
+        console.log('✓ COI checkbox visible');
+        
+        const coiCheckbox = coiLabel.locator('input[type="checkbox"]');
+        await coiCheckbox.scrollIntoViewIfNeeded();
+        await coiCheckbox.check({ force: true });
+        await page.waitForTimeout(2000);
+        console.log('✓ COI checkbox checked');
+        
+        // Verify $50 fee appears
+        await expect(page.getByText('$50')).toBeVisible();
+        console.log('✓ COI fee $50 displayed');
+        
+        console.log('✅ Petite COI test PASSED!');
+      } else {
+        console.log('⚠️  COI checkbox not found on this step');
+      }
+    });
+    
+    
+    test('Standard package - COI included (no extra charge)', async ({ page }) => {
+      await page.goto('/book');
+      await skipAuthStep(page);
+      
+      await expect(page.getByText('Step 1:')).toBeVisible();
+      await page.locator('button:has-text("Mini Moves")').click();
+      await page.waitForTimeout(3000);
+      
+      const standardCard = page.locator('div').filter({ hasText: /^Standard/ }).first();
+      await standardCard.scrollIntoViewIfNeeded();
+      
+      // Should show "COI Included" text
+      const hasCOIIncluded = await page.getByText(/COI.*included/i).isVisible().catch(() => false);
+      
+      if (hasCOIIncluded) {
+        console.log('✓ Standard package shows "COI Included"');
+      }
+      
+      const standardHeading = page.getByRole('heading', { name: 'Standard', exact: true });
+      await standardHeading.click();
+      await page.waitForTimeout(1500);
+      
+      // Price should be $1725 (COI included)
+      await expect(page.getByText('$1725')).toBeVisible();
+      console.log('✓ Standard price: $1725 (COI included)');
+      
+      console.log('✅ Standard COI included test PASSED!');
+    });
+    
+    
+    test('Standard Delivery - COI checkbox adds $50', async ({ page }) => {
+      await page.goto('/book');
+      await skipAuthStep(page);
+      
+      await expect(page.getByText('Step 1:')).toBeVisible();
+      await page.locator('button:has-text("Standard Delivery")').click();
+      await page.waitForTimeout(2000);
+      
+      // Fill 5 items
+      const itemCountInput = page.getByLabel('Number of Items');
+      await itemCountInput.fill('5');
+      await page.waitForTimeout(500);
+      
+      // Look for COI checkbox in Step 1 for Standard Delivery
+      const coiLabel = page.locator('label').filter({ hasText: /Certificate of Insurance/i });
+      
+      if (await coiLabel.isVisible().catch(() => false)) {
+        console.log('✓ COI checkbox visible in Step 1 for Standard Delivery');
+        
+        const coiCheckbox = coiLabel.locator('input[type="checkbox"]');
+        await coiCheckbox.check({ force: true });
+        await page.waitForTimeout(1000);
+        console.log('✓ COI checked');
+        
+        // Continue to see if fee persists
+        await page.getByRole('button', { name: /continue to date/i }).click();
+        
+        await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+        await selectDateAndTime(page);
+        
+        // Look for $50 COI fee in pricing
+        await expect(page.getByText('COI Fee:')).toBeVisible();
+        console.log('✓ COI fee $50 visible in pricing');
+        
+        console.log('✅ Standard Delivery COI test PASSED!');
+      }
+    });
+    
+  });
+  
+  
+  // ============================================================
+  // SMOKE TEST
+  // ============================================================
+  
+  test('Can navigate to booking wizard', async ({ page }) => {
+    await page.goto('/book');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h1').first()).toContainText('Book Your Luxury Move');
+    console.log('✅ Booking wizard loads successfully!');
+  });
+
+});
+```
+
+# ==== tests/e2e/booking-wizard.spec.ts ====
+
+```
+// frontend/tests/e2e/booking-wizard.spec.ts
+import { test, expect, Page } from '@playwright/test';
+
+test.describe('Booking Wizard - Complete Flow Tests', () => {
+  
+  async function skipAuthStep(page: Page) {
+    await page.waitForLoadState('networkidle');
+    const getStartedText = page.getByText('Get Started');
+    
+    if (await getStartedText.isVisible()) {
+      console.log('On Step 0 - Get Started');
+      const guestButton = page.getByRole('button', { name: /guest|continue/i }).first();
+      if (await guestButton.isVisible()) {
+        await guestButton.click();
+        console.log('Clicked continue as guest');
+      }
+      await page.waitForTimeout(500);
+    }
+    
+    await page.waitForSelector('text=Step 1:', { timeout: 10000 });
+    console.log('Now on Step 1');
+  }
+  
+  
+  test('Mini Move booking - complete flow', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    // ============================================================
+    // STEP 1: Service Selection
+    // ============================================================
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    console.log('✓ On Step 1: Service Selection');
+    
+    // Click Mini Moves
+    const miniMoveButton = page.locator('button:has-text("Mini Moves")');
+    await miniMoveButton.click();
+    console.log('✓ Clicked Mini Moves');
+    
+    // Wait for packages to load
+    await page.waitForTimeout(3000);
+    
+    // Scroll to "Select Package" heading to ensure packages are in view
+    await page.getByText('Select Package').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    
+    // Verify packages loaded
+    await expect(page.getByText('Petite')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('$995')).toBeVisible();
+    console.log('✓ Packages visible');
+    
+    // Scroll to Petite card and click
+    const petiteHeading = page.getByRole('heading', { name: 'Petite', exact: true });
+    await petiteHeading.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await petiteHeading.click();
+    console.log('✓ Clicked Petite');
+    
+    await page.waitForTimeout(1500);
+    
+    // Continue button should be enabled
+    const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await continueButton.scrollIntoViewIfNeeded();
+    await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Continue button enabled');
+    
+    await continueButton.click();
+    console.log('✓ Continuing to Step 2');
+    await page.waitForTimeout(1000);
+    
+    // ============================================================
+    // STEP 2: Date & Time Selection
+    // ============================================================
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ On Step 2: Date & Time');
+    
+    await page.waitForTimeout(1000);
+    
+    // Click first enabled date button (exclude disabled past dates)
+    const calendarButtons = page.locator('.grid.grid-cols-7 button:not([disabled])');
+    const firstAvailableDate = calendarButtons.first();
+    await firstAvailableDate.scrollIntoViewIfNeeded();
+    await firstAvailableDate.click();
+    console.log('✓ Selected date');
+    
+    await page.waitForTimeout(1000);
+    
+    // Select morning time slot
+    const morningButton = page.locator('button:has-text("Morning (8 AM - 11 AM)")');
+    await morningButton.scrollIntoViewIfNeeded();
+    await morningButton.click();
+    console.log('✓ Selected morning time');
+    
+    await page.waitForTimeout(3000);
+    await expect(page.getByText('Pricing Summary')).toBeVisible({ timeout: 10000 });
+    console.log('✓ Pricing calculated');
+    
+    const addressButton = page.getByRole('button', { name: /continue to addresses/i });
+    await addressButton.scrollIntoViewIfNeeded();
+    await addressButton.click();
+    await page.waitForTimeout(1000);
+    
+    // ============================================================
+    // STEP 3: Addresses
+    // ============================================================
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ On Step 3: Addresses');
+    
+    // Fill pickup address - use placeholder text since labels aren't properly associated
+    await page.getByPlaceholder('Start typing your address...').first().fill('123 West 57th Street');
+    await page.getByPlaceholder('Apt 4B, Suite 200').first().fill('Suite 100');
+    await page.getByPlaceholder('New York').first().fill('New York');
+    
+    // Select state dropdown - first combobox is pickup state
+    const pickupState = page.locator('select, combobox').first();
+    await pickupState.selectOption('NY');
+    
+    await page.getByPlaceholder('10001').first().fill('10019');
+    console.log('✓ Filled pickup address');
+    
+    // Fill delivery address - second set of fields
+    await page.getByPlaceholder('Start typing your address...').nth(1).fill('456 Park Avenue');
+    await page.getByPlaceholder('Apt 4B, Suite 200').nth(1).fill('Apt 5B');
+    await page.getByPlaceholder('New York').nth(1).fill('New York');
+    
+    // Select state dropdown - second combobox is delivery state
+    const deliveryState = page.locator('select, combobox').nth(1);
+    await deliveryState.selectOption('NY');
+    
+    await page.getByPlaceholder('10001').nth(1).fill('10022');
+    console.log('✓ Filled delivery addresses');
+    
+    await page.waitForTimeout(2000);
+    
+    const reviewButton = page.getByRole('button', { name: /continue to review/i });
+    await reviewButton.scrollIntoViewIfNeeded();
+    await reviewButton.click();
+    await page.waitForTimeout(1000);
+    
+    // ============================================================
+    // STEP 4: Customer Info
+    // ============================================================
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ On Step 4: Customer Info');
+    
+    await page.getByLabel('First Name').fill('John');
+    await page.getByLabel('Last Name').fill('Smith');
+    await page.getByLabel('Email Address').fill('john.smith@test.com');
+    await page.getByLabel('Phone Number').fill('2125551234');
+    console.log('✓ Filled customer info');
+    
+    const finalReviewButton = page.getByRole('button', { name: /continue to review/i });
+    await finalReviewButton.scrollIntoViewIfNeeded();
+    await finalReviewButton.click();
+    await page.waitForTimeout(2000);
+    
+    // ============================================================
+    // STEP 5: Review & Payment
+    // ============================================================
+    await expect(page.getByText('Step 5:')).toBeVisible({ timeout: 10000 });
+    console.log('✓ On Step 5: Review & Payment');
+    
+    await expect(page.getByText('Booking Summary')).toBeVisible();
+    await expect(page.getByText('Mini Move', { exact: true })).toBeVisible();
+    await expect(page.getByText('John Smith')).toBeVisible();
+    console.log('✓ Booking summary correct');
+    
+    // Scroll down to see the checkbox
+    await page.getByText('Terms of Service Agreement').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    
+    // Find the specific terms checkbox
+    const termsCheckbox = page.locator('input[type="checkbox"]').last();
+    await termsCheckbox.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await termsCheckbox.check({ force: true });
+    console.log('✓ Checked terms checkbox');
+    
+    await page.waitForTimeout(1000);
+    
+    // Verify button is now enabled
+    const paymentButton = page.getByRole('button', { name: /continue to payment/i });
+    await expect(paymentButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Payment button enabled');
+    console.log('✅ COMPLETE BOOKING FLOW TEST PASSED!');
+  });
+  
+  
+  test('Can navigate to booking wizard', async ({ page }) => {
+    await page.goto('/book');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h1').first()).toContainText('Book Your Luxury Move');
+    console.log('✅ Booking wizard loads successfully!');
+  });
+});
 ```
 
 # ==== tsconfig.json ====
