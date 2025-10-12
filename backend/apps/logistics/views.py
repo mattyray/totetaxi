@@ -128,16 +128,29 @@ class OnfleetWebhookView(APIView):
     """Handle Onfleet webhook notifications"""
     permission_classes = []  # Webhooks don't use session auth
     
+    def get(self, request):
+        """
+        Handle Onfleet's webhook verification (sent as GET request)
+        Onfleet sends: GET /webhook/?check=some-random-value
+        We respond with: 200 OK, plain text "some-random-value"
+        """
+        check_value = request.query_params.get('check') or request.GET.get('check')
+        
+        if check_value:
+            logger.info(f"✓ Onfleet webhook verification received: {check_value}")
+            from django.http import HttpResponse
+            return HttpResponse(check_value, content_type='text/plain', status=200)
+        
+        return Response({'error': 'No check parameter provided'}, status=400)
+    
     def post(self, request):
+        """Handle actual webhook events from Onfleet"""
         try:
-            # Check if this is Onfleet's verification request (during webhook creation)
-            if self._is_verification_request(request):
-                return self._handle_verification(request)
-            
-            # Normal webhook processing
             webhook_data = request.data
-            integration = ToteTaxiOnfleetIntegration()
             
+            logger.info(f"Onfleet webhook received: {webhook_data.get('triggerId')}")
+            
+            integration = ToteTaxiOnfleetIntegration()
             success = integration.handle_webhook(webhook_data)
             
             if success:
@@ -153,7 +166,7 @@ class OnfleetWebhookView(APIView):
                 }, status=400)
                 
         except Exception as e:
-            logger.error(f"Webhook error: {e}")
+            logger.error(f"Webhook error: {e}", exc_info=True)
             return Response({
                 'error': 'Webhook processing failed',
                 'details': str(e)
