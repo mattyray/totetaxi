@@ -9,6 +9,16 @@ from .models import SavedAddress
 from .serializers import SavedAddressSerializer
 
 
+class OnfleetTaskSerializer(serializers.Serializer):
+    """Minimal Onfleet task info for customer delivery tracking"""
+    task_type = serializers.CharField()
+    tracking_url = serializers.URLField()
+    status = serializers.CharField()
+    worker_name = serializers.CharField(allow_blank=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    started_at = serializers.DateTimeField(allow_null=True)
+
+
 class PaymentIntentCreateSerializer(serializers.Serializer):
     """
     NEW: Serializer for creating payment intent BEFORE booking
@@ -462,6 +472,7 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     pricing_breakdown = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     can_rebook = serializers.SerializerMethodField()
+    onfleet_tasks = serializers.SerializerMethodField()
     
     class Meta:
         model = Booking
@@ -473,7 +484,9 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
             'blade_airport', 'blade_flight_date', 'blade_flight_time', 
             'blade_bag_count', 'blade_ready_time',
             'total_price_dollars', 'pricing_breakdown',
-            'payment_status', 'can_rebook', 'created_at', 'updated_at'
+            'payment_status', 'can_rebook', 
+            'onfleet_tasks',
+            'created_at', 'updated_at'
         )
     
     def get_customer_name(self, obj):
@@ -506,6 +519,11 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     
     def get_can_rebook(self, obj):
         return obj.status in ['completed', 'paid']
+    
+    def get_onfleet_tasks(self, obj):
+        """Return onfleet tasks for delivery tracking"""
+        tasks = obj.onfleet_tasks.all().order_by('task_type')
+        return OnfleetTaskSerializer(tasks, many=True).data
 
 
 class QuickBookingSerializer(serializers.Serializer):
