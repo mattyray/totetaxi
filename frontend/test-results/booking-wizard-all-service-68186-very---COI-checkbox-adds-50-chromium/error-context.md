@@ -185,7 +185,7 @@
                       - button "21 Tue" [ref=e289] [cursor=pointer]:
                         - generic [ref=e290]: "21"
                         - generic [ref=e291]: Tue
-                      - button "22 Wed" [active] [ref=e292] [cursor=pointer]:
+                      - button "22 Wed" [ref=e292] [cursor=pointer]:
                         - generic [ref=e293]: "22"
                         - generic [ref=e294]: Wed
                       - button "23 Thu" [ref=e295] [cursor=pointer]:
@@ -221,34 +221,40 @@
                         - generic [ref=e325]: "1"
                         - generic [ref=e326]: Sat
                     - generic [ref=e330]: Weekend surcharge applies
-                  - heading "Wednesday, October 22, 2025" [level=4] [ref=e334]
-                  - generic [ref=e335]:
-                    - heading "Select Pickup Time" [level=3] [ref=e336]
-                    - generic [ref=e337]:
-                      - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [ref=e338] [cursor=pointer]:
-                        - generic [ref=e339]: Morning (8 AM - 11 AM)
-                        - generic [ref=e340]: Standard 3-hour pickup window
-                      - button "Flexible Morning Timing 8-11 AM pickup window - we'll coordinate the exact time with you" [ref=e341] [cursor=pointer]:
-                        - generic [ref=e342]: Flexible Morning Timing
-                        - generic [ref=e343]: 8-11 AM pickup window - we'll coordinate the exact time with you
-                  - generic [ref=e345]:
-                    - heading "Pricing Summary" [level=3] [ref=e346]
-                    - generic [ref=e347]:
-                      - generic [ref=e348]:
-                        - generic [ref=e349]: "Mini Move Package:"
-                        - generic [ref=e350]: $995
-                      - generic [ref=e352]:
-                        - generic [ref=e353]: "Total:"
-                        - generic [ref=e354]: $995
-                  - generic [ref=e357]:
-                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e358]
-                    - generic [ref=e359]:
-                      - generic [ref=e360]: Certificate of Insurance (COI) Required(+$50)
-                      - paragraph [ref=e361]: Required by some buildings. We'll handle the paperwork for you.
-                  - button "Continue to Addresses →" [ref=e363] [cursor=pointer]
-              - generic [ref=e366]:
-                - generic [ref=e367]:
-                  - button "← Previous" [ref=e368] [cursor=pointer]
-                  - button "Start Over" [ref=e369] [cursor=pointer]
-                - button "Continue →" [ref=e371] [cursor=pointer]
+                  - generic [ref=e333]:
+                    - heading "Sunday, October 12, 2025" [level=4] [ref=e334]
+                    - generic [ref=e335]:
+                      - strong [ref=e336]: "Weekend surcharge applies:"
+                      - text: • Weekend surcharge for Standard Delivery service - $50 for Sat/Sun bookings
+                  - generic [ref=e337]:
+                    - heading "Select Pickup Time" [level=3] [ref=e338]
+                    - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [active] [ref=e340] [cursor=pointer]:
+                      - generic [ref=e341]: Morning (8 AM - 11 AM)
+                      - generic [ref=e342]: Standard 3-hour pickup window
+                  - generic [ref=e344]:
+                    - heading "Pricing Summary" [level=3] [ref=e345]
+                    - generic [ref=e346]:
+                      - generic [ref=e347]:
+                        - generic [ref=e348]: "Standard Delivery (5 items):"
+                        - generic [ref=e349]: $475
+                      - generic [ref=e350]:
+                        - generic [ref=e351]: "Weekend Surcharge:"
+                        - generic [ref=e352]: +$50
+                      - generic [ref=e353]:
+                        - generic [ref=e354]: "COI Fee:"
+                        - generic [ref=e355]: +$50
+                      - generic [ref=e357]:
+                        - generic [ref=e358]: "Total:"
+                        - generic [ref=e359]: $575
+                  - generic [ref=e362]:
+                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [checked] [ref=e363]
+                    - generic [ref=e364]:
+                      - generic [ref=e365]: Certificate of Insurance (COI) Required(+$50)
+                      - paragraph [ref=e366]: Required by some buildings. We'll handle the paperwork for you.
+                  - button "Continue to Addresses →" [ref=e368] [cursor=pointer]
+              - generic [ref=e371]:
+                - generic [ref=e372]:
+                  - button "← Previous" [ref=e373] [cursor=pointer]
+                  - button "Start Over" [ref=e374] [cursor=pointer]
+                - button "Continue →" [ref=e376] [cursor=pointer]
 ```
