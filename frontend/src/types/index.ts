@@ -162,3 +162,34 @@ export interface RefundRequest {
   amount_cents: number;
   reason: string;
 }
+
+// Onfleet Integration Types
+export interface OnfleetTask {
+  task_type: 'pickup' | 'dropoff';
+  tracking_url: string;
+  status: 'created' | 'assigned' | 'active' | 'completed' | 'failed' | 'deleted';
+  worker_name: string;
+  completed_at: string | null;
+  started_at: string | null;
+}
+
+export interface BookingWithTracking {
+  id: string;
+  booking_number: string;
+  customer_name: string;
+  service_type: string;
+  pickup_date: string;
+  pickup_time: string;
+  status: 'pending' | 'confirmed' | 'paid' | 'in_progress' | 'completed' | 'cancelled';
+  pickup_address: BookingAddress;
+  delivery_address: BookingAddress;
+  special_instructions: string;
+  coi_required: boolean;
+  total_price_dollars: number;
+  pricing_breakdown: any;
+  payment_status: string;
+  can_rebook: boolean;
+  onfleet_tasks: OnfleetTask[];
+  created_at: string;
+  updated_at: string;
+}
