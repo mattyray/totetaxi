@@ -1,4 +1,3 @@
-// src/components/dashboard/dashboard-overview.tsx
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
@@ -178,7 +177,7 @@ export function DashboardOverview() {
               <div 
                 key={booking.id} 
                 className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-navy-300 hover:shadow-sm transition-all cursor-pointer"
-                onClick={() => alert('Booking details coming soon!')}
+                onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
