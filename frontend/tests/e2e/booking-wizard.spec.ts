@@ -161,7 +161,7 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     console.log('✓ On Step 5: Review & Payment');
     
     await expect(page.getByText('Booking Summary')).toBeVisible();
-    await expect(page.getByText('Mini Move')).toBeVisible();
+    await expect(page.getByText('Mini Move', { exact: true })).toBeVisible();
     await expect(page.getByText('John Smith')).toBeVisible();
     console.log('✓ Booking summary correct');
     
@@ -170,10 +170,10 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await page.waitForTimeout(500);
     
     // Find the specific terms checkbox
-    const termsCheckbox = page.locator('input[type="checkbox"]').last(); // Use .last() instead of .first()
+    const termsCheckbox = page.locator('input[type="checkbox"]').last();
     await termsCheckbox.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
-    await termsCheckbox.check({ force: true }); // Force check
+    await termsCheckbox.check({ force: true });
     console.log('✓ Checked terms checkbox');
     
     await page.waitForTimeout(1000);
