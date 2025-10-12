@@ -322,6 +322,20 @@ STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 
 
 # ============================================================================
+# ONFLEET CONFIGURATION
+# ============================================================================
+# Onfleet API Integration for logistics/delivery tracking
+ONFLEET_API_KEY = env('ONFLEET_API_KEY', default='')
+ONFLEET_MOCK_MODE = env.bool('ONFLEET_MOCK_MODE', default=True)
+ONFLEET_ENVIRONMENT = env('ONFLEET_ENVIRONMENT', default='sandbox')  # 'sandbox' or 'production'
+ONFLEET_WEBHOOK_SECRET = env('ONFLEET_WEBHOOK_SECRET', default='')
+
+# BLADE Airport Transfer Integration
+# Phone number where BLADE team receives delivery notifications
+BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
+
+
+# ============================================================================
 # TEST CONFIGURATION
 # ============================================================================
 # Detect if we're running tests
