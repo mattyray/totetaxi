@@ -29,14 +29,17 @@
 │   │   │   │   ├── 0003_booking_geographic_surcharge_cents_and_more.py
 │   │   │   │   ├── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
 │   │   │   │   └── 0005_booking_same_day_surcharge_cents.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── test_pricing.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
 │   │   │   ├── serializers.py
-│   │   │   ├── tests.py
 │   │   │   ├── urls.py
-│   │   │   └── views.py
+│   │   │   ├── views.py
+│   │   │   └── zip_codes.py
 │   │   ├── crm
 │   │   │   ├── migrations
 │   │   │   │   └── __init__.py
@@ -82,7 +85,8 @@
 │   │   ├── logistics
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── 0001_initial.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_alter_onfleettask_options_and_more.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -104,6 +108,10 @@
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── 0001_initial.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_refunds.py
+│   │   │   │   └── test_stripe_integration.py
 │   │   │   ├── __init__.py
 │   │   │   ├── admin.py
 │   │   │   ├── apps.py
@@ -157,6 +165,7 @@
 │   ├── .dockerignore
 │   ├── .env.example
 │   ├── .gitignore
+│   ├── conftest.py
 │   ├── cookies.txt
 │   ├── docker-compose.prod.yml
 │   ├── docker-compose.yml
@@ -172,6 +181,8 @@
 │   ├── requirements.txt
 │   └── staff_cookies.txt
 ├── frontend
+│   ├── playwright-report
+│   │   └── index.html
 │   ├── public
 │   │   ├── assets
 │   │   │   ├── images
@@ -282,6 +293,7 @@
 │   │   │   │   ├── booking-wizard.tsx
 │   │   │   │   ├── customer-info-step.tsx
 │   │   │   │   ├── date-time-step.tsx
+│   │   │   │   ├── google-address-input.tsx
 │   │   │   │   ├── index.ts
 │   │   │   │   ├── review-payment-step.tsx
 │   │   │   │   └── service-selection-step.tsx
@@ -321,6 +333,7 @@
 │   │   │   └── use-click-away.ts
 │   │   ├── lib
 │   │   │   ├── api-client.ts
+│   │   │   ├── google-places-utils.ts
 │   │   │   ├── query-client.ts
 │   │   │   └── stripe.ts
 │   │   ├── stores
@@ -332,18 +345,27 @@
 │   │   │   └── index.ts
 │   │   └── utils
 │   │       └── cn.ts
+│   ├── test-results
+│   │   └── .last-run.json
+│   ├── tests
+│   │   ├── e2e
+│   │   │   ├── booking-wizard-all-services.spec.ts
+│   │   │   └── booking-wizard.spec.ts
+│   │   └── fixtures
 │   ├── .gitignore
 │   ├── eslint.config.mjs
 │   ├── netlify.toml
 │   ├── next.config.ts
 │   ├── package.json
+│   ├── playwright.config.ts
 │   ├── postcss.config.js
 │   ├── postcss.config.mjs
 │   ├── README.md
 │   ├── tailwind.config.js
 │   └── tsconfig.json
 ├── .gitignore
+├── package.json
 ├── project_structure.txt
 └── README.md
 
-84 directories, 263 files
+91 directories, 278 files
