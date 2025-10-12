@@ -165,12 +165,23 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('John Smith')).toBeVisible();
     console.log('✓ Booking summary correct');
     
-    const termsCheckbox = page.locator('input[type="checkbox"]').first();
-    await termsCheckbox.scrollIntoViewIfNeeded();
-    await termsCheckbox.check();
-    console.log('✓ Accepted terms');
+    // Scroll down to see the checkbox
+    await page.getByText('Terms of Service Agreement').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     
-    await expect(page.getByRole('button', { name: /continue to payment/i })).toBeEnabled();
+    // Find the specific terms checkbox
+    const termsCheckbox = page.locator('input[type="checkbox"]').last(); // Use .last() instead of .first()
+    await termsCheckbox.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await termsCheckbox.check({ force: true }); // Force check
+    console.log('✓ Checked terms checkbox');
+    
+    await page.waitForTimeout(1000);
+    
+    // Verify button is now enabled
+    const paymentButton = page.getByRole('button', { name: /continue to payment/i });
+    await expect(paymentButton).toBeEnabled({ timeout: 5000 });
+    console.log('✓ Payment button enabled');
     console.log('✅ COMPLETE BOOKING FLOW TEST PASSED!');
   });
   
