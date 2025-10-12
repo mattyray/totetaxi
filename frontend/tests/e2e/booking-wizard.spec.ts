@@ -76,15 +76,16 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     
     await page.waitForTimeout(1000);
     
-    const calendarButtons = page.locator('.grid.grid-cols-7 button').filter({ 
-      hasNotText: /sun|mon|tue|wed|thu|fri|sat/i 
-    });
-    await calendarButtons.first().scrollIntoViewIfNeeded();
-    await calendarButtons.first().click();
+    // Click first enabled date button (exclude disabled past dates)
+    const calendarButtons = page.locator('.grid.grid-cols-7 button:not([disabled])');
+    const firstAvailableDate = calendarButtons.first();
+    await firstAvailableDate.scrollIntoViewIfNeeded();
+    await firstAvailableDate.click();
     console.log('✓ Selected date');
     
     await page.waitForTimeout(1000);
     
+    // Select morning time slot
     const morningButton = page.locator('button:has-text("Morning (8 AM - 11 AM)")');
     await morningButton.scrollIntoViewIfNeeded();
     await morningButton.click();
