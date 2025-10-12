@@ -106,16 +106,29 @@ test.describe('Booking Wizard - Complete Flow Tests', () => {
     await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
     console.log('✓ On Step 3: Addresses');
     
-    await page.getByLabel('Street Address').first().fill('123 West 57th Street');
-    await page.getByLabel('City').first().fill('New York');
-    await page.getByLabel('State').first().selectOption('NY');
-    await page.getByLabel('ZIP Code').first().fill('10019');
+    // Fill pickup address - use placeholder text since labels aren't properly associated
+    await page.getByPlaceholder('Start typing your address...').first().fill('123 West 57th Street');
+    await page.getByPlaceholder('Apt 4B, Suite 200').first().fill('Suite 100');
+    await page.getByPlaceholder('New York').first().fill('New York');
     
-    await page.getByLabel('Street Address').nth(1).fill('456 Park Avenue');
-    await page.getByLabel('City').nth(1).fill('New York');
-    await page.getByLabel('State').nth(1).selectOption('NY');
-    await page.getByLabel('ZIP Code').nth(1).fill('10022');
-    console.log('✓ Filled addresses');
+    // Select state dropdown - first combobox is pickup state
+    const pickupState = page.locator('select, combobox').first();
+    await pickupState.selectOption('NY');
+    
+    await page.getByPlaceholder('10001').first().fill('10019');
+    console.log('✓ Filled pickup address');
+    
+    // Fill delivery address - second set of fields
+    await page.getByPlaceholder('Start typing your address...').nth(1).fill('456 Park Avenue');
+    await page.getByPlaceholder('Apt 4B, Suite 200').nth(1).fill('Apt 5B');
+    await page.getByPlaceholder('New York').nth(1).fill('New York');
+    
+    // Select state dropdown - second combobox is delivery state
+    const deliveryState = page.locator('select, combobox').nth(1);
+    await deliveryState.selectOption('NY');
+    
+    await page.getByPlaceholder('10001').nth(1).fill('10022');
+    console.log('✓ Filled delivery addresses');
     
     await page.waitForTimeout(2000);
     
