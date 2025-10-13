@@ -12,3 +12,4 @@ urlpatterns = [
     # In config/urls.py, add this to urlpatterns:
     path('api/staff/logistics/', include('apps.logistics.urls')),
 ]
+
