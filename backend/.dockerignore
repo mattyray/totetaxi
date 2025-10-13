@@ -1,3 +1,4 @@
+# backend/.dockerignore
 # Git
 .git
 .gitignore

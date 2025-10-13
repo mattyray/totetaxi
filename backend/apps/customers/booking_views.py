@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 from apps.bookings.models import Booking, Address
 from apps.payments.services import StripePaymentService
+from .emails import send_booking_confirmation_email
+import logging
 from .serializers import SavedAddressSerializer
 from .booking_serializers import (
     AuthenticatedBookingCreateSerializer,
@@ -17,6 +19,9 @@ from .booking_serializers import (
 import json
 import stripe
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -157,6 +162,11 @@ class CustomerBookingCreateView(APIView):
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
+
+            # Send booking confirmation email
+            logger.info(f"📧 Sending booking confirmation email to {booking.get_customer_email()}")
+            send_booking_confirmation_email(booking)
+
             
         except Exception as e:
             print(f"❌ ERROR creating booking: {str(e)}")
