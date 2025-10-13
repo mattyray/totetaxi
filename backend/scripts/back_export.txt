@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-13 10:30:23
-# Total files: 120
+# Created: 2025-10-13 17:52:12
+# Total files: 121
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -15,6 +15,7 @@
 # ==== .dockerignore ====
 
 ```
+# backend/.dockerignore
 # Git
 .git
 .gitignore
@@ -176,6 +177,7 @@ logs/
 # ==== Dockerfile ====
 
 ```dockerfile
+# backend/Dockerfile
 FROM python:3.11-slim
 
 # Set environment variables
@@ -969,8 +971,10 @@ env = environ.Env(
     DEBUG=(bool, False),
 )
 
-# Take environment variables from .env file
-environ.Env.read_env(BASE_DIR / '.env')
+# FIXED: Only read .env file locally, not on Fly.io
+# Fly.io provides environment variables directly, .env would override them
+if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
+    environ.Env.read_env(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
@@ -1198,14 +1202,15 @@ SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_NAME = 'totetaxi_sessionid'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-# Email Configuration
-EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = env('EMAIL_HOST', default='localhost')
-EMAIL_PORT = env.int('EMAIL_PORT', default=587)
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
+# FIXED: Email Configuration - Check OS environment variables FIRST, then fall back to env() defaults
+# This ensures Fly.io secrets are used in production
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST') or env('EMAIL_HOST', default='localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', env.int('EMAIL_PORT', default=587)))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '').lower() in ('true', '1', 'yes') if os.environ.get('EMAIL_USE_TLS') else env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER') or env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD') or env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
 
 # Frontend URL for email links
 FRONTEND_URL = env('FRONTEND_URL', default='https://totetaxi.netlify.app')
@@ -2756,11 +2761,19 @@ class GuestCheckoutAdmin(admin.ModelAdmin):
 # ==== apps/bookings/apps.py ====
 
 ```python
+# backend/apps/bookings/apps.py
 from django.apps import AppConfig
 
 class BookingsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.bookings'  # Changed from 'bookings' to 'apps.bookings'
+    name = 'apps.bookings'
+
+    def ready(self):
+        """
+        Import signals when Django starts
+        This makes sure signals are registered
+        """
+        import apps.bookings.signals
 ```
 
 # ==== apps/bookings/management/__init__.py ====
@@ -4584,6 +4597,42 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         return booking
 ```
 
+# ==== apps/bookings/signals.py ====
+
+```python
+# backend/apps/bookings/signals.py
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from apps.bookings.models import Booking
+from apps.customers.emails import send_booking_status_update_email
+import logging
+
+logger = logging.getLogger(__name__)
+
+@receiver(pre_save, sender=Booking)
+def booking_status_changed(sender, instance, **kwargs):
+    """
+    Automatically send email when booking status changes
+    
+    This runs BEFORE booking is saved to database
+    """
+    if instance.pk:  # Only for existing bookings (not new ones)
+        try:
+            # Get the old booking from database
+            old_booking = Booking.objects.get(pk=instance.pk)
+            old_status = old_booking.status
+            new_status = instance.status
+            
+            # Only send email if status actually changed
+            if old_status != new_status:
+                logger.info(f"📧 Booking {instance.booking_number} status changed: {old_status} → {new_status}")
+                send_booking_status_update_email(instance, old_status, new_status)
+                
+        except Booking.DoesNotExist:
+            # Booking doesn't exist yet (shouldn't happen, but safety check)
+            pass
+```
+
 # ==== apps/bookings/tests/__init__.py ====
 
 ```python
@@ -6364,6 +6413,8 @@ from django.shortcuts import get_object_or_404
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 from apps.bookings.models import Booking, Address
 from apps.payments.services import StripePaymentService
+from .emails import send_booking_confirmation_email
+import logging
 from .serializers import SavedAddressSerializer
 from .booking_serializers import (
     AuthenticatedBookingCreateSerializer,
@@ -6374,6 +6425,9 @@ from .booking_serializers import (
 import json
 import stripe
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -6514,6 +6568,11 @@ class CustomerBookingCreateView(APIView):
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
+
+            # Send booking confirmation email
+            logger.info(f"📧 Sending booking confirmation email to {booking.get_customer_email()}")
+            send_booking_confirmation_email(booking)
+
             
         except Exception as e:
             print(f"❌ ERROR creating booking: {str(e)}")

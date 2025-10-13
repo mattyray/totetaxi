@@ -57,10 +57,10 @@ def categorize_file(file_path, base_dir):
         file_path.name in ['manage.py', 'requirements.txt', 'gunicorn.conf.py', 'pytest.ini']):
         return 'config'
     
-    # ToteTaxi Django apps
+    # ToteTaxi Django apps - UPDATED to 6 apps only
     totetaxi_apps = [
-        'accounts/', 'bookings/', 'crm/', 'customers/', 'documents/', 
-        'logistics/', 'notifications/', 'payments/', 'services/'
+        'accounts/', 'bookings/', 'customers/', 
+        'logistics/', 'payments/', 'services/'
     ]
     if any(f'apps/{app}' in path_str for app in totetaxi_apps):
         return 'apps'
@@ -118,7 +118,7 @@ def main():
         f.write(f"# Total files: {len(all_files)}\n")
         f.write("# 🔒 SECURITY: .env files excluded (contain secrets)\n")
         f.write("# 📋 INCLUDES: All Django apps, migrations, configuration\n")
-        f.write("# Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services\n")
+        f.write("# Apps: accounts (STAFF), bookings, customers, logistics, payments, services\n")  # UPDATED
         f.write("# Tech Stack: Django 5.2.5, DRF 3.16.1, PostgreSQL, Redis, Celery\n")
         f.write("# Integration: S3 storage, SES email, mocked Stripe/Onfleet\n\n\n")
         
@@ -163,8 +163,8 @@ def main():
     
     print(f"✅ Auto-generated ToteTaxi backend snapshot: {output_file}")
     print("🔒 SECURITY: .env files excluded (contain secrets)")
-    print("📋 INCLUDES: All 9 Django apps with migrations")
-    print("🏗️  STRUCTURE: accounts (staff), bookings, crm, customers, documents, logistics, notifications, payments, services")
+    print("📋 INCLUDES: All 6 Django apps with migrations")  # UPDATED
+    print("🏗️  STRUCTURE: accounts (staff), bookings, customers, logistics, payments, services")  # UPDATED
     print("🐳 DOCKER: Configuration and compose files included")
     print("📁 CODE ONLY: Documentation files excluded")
 

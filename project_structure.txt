@@ -37,18 +37,10 @@
 │   │   │   ├── apps.py
 │   │   │   ├── models.py
 │   │   │   ├── serializers.py
+│   │   │   ├── signals.py
 │   │   │   ├── urls.py
 │   │   │   ├── views.py
 │   │   │   └── zip_codes.py
-│   │   ├── crm
-│   │   │   ├── migrations
-│   │   │   │   └── __init__.py
-│   │   │   ├── __init__.py
-│   │   │   ├── admin.py
-│   │   │   ├── apps.py
-│   │   │   ├── models.py
-│   │   │   ├── tests.py
-│   │   │   └── views.py
 │   │   ├── customers
 │   │   │   ├── management
 │   │   │   │   ├── commands
@@ -73,15 +65,6 @@
 │   │   │   ├── tests.py
 │   │   │   ├── urls.py
 │   │   │   └── views.py
-│   │   ├── documents
-│   │   │   ├── migrations
-│   │   │   │   └── __init__.py
-│   │   │   ├── __init__.py
-│   │   │   ├── admin.py
-│   │   │   ├── apps.py
-│   │   │   ├── models.py
-│   │   │   ├── tests.py
-│   │   │   └── views.py
 │   │   ├── logistics
 │   │   │   ├── migrations
 │   │   │   │   ├── __init__.py
@@ -94,15 +77,6 @@
 │   │   │   ├── services.py
 │   │   │   ├── tests.py
 │   │   │   ├── urls.py
-│   │   │   └── views.py
-│   │   ├── notifications
-│   │   │   ├── migrations
-│   │   │   │   └── __init__.py
-│   │   │   ├── __init__.py
-│   │   │   ├── admin.py
-│   │   │   ├── apps.py
-│   │   │   ├── models.py
-│   │   │   ├── tests.py
 │   │   │   └── views.py
 │   │   ├── payments
 │   │   │   ├── migrations
@@ -370,4 +344,4 @@
 ├── project_structure.txt
 └── README.md
 
-91 directories, 280 files
+85 directories, 260 files
