@@ -59,9 +59,6 @@ LOCAL_APPS = [
     'apps.services', 
     'apps.payments',
     'apps.logistics',
-    'apps.documents',
-    'apps.notifications',
-    'apps.crm',
     'apps.customers',
 ]
 

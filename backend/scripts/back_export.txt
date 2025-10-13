@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-12 12:58:01
-# Total files: 141
+# Created: 2025-10-13 10:30:23
+# Total files: 120
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, crm, customers, documents, logistics, notifications, payments, services
@@ -1016,9 +1016,6 @@ LOCAL_APPS = [
     'apps.services', 
     'apps.payments',
     'apps.logistics',
-    'apps.documents',
-    'apps.notifications',
-    'apps.crm',
     'apps.customers',
 ]
 
@@ -1351,6 +1348,7 @@ urlpatterns = [
     # In config/urls.py, add this to urlpatterns:
     path('api/staff/logistics/', include('apps.logistics.urls')),
 ]
+
 ```
 
 # ==== config/wsgi.py ====
@@ -5645,61 +5643,6 @@ def get_service_areas():
     }
 ```
 
-# ==== apps/crm/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/crm/admin.py ====
-
-```python
-from django.contrib import admin
-
-# Register your models here.
-```
-
-# ==== apps/crm/apps.py ====
-
-```python
-from django.apps import AppConfig
-
-
-class CrmConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.crm'
-```
-
-# ==== apps/crm/migrations/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/crm/models.py ====
-
-```python
-from django.db import models
-
-# Create your models here.
-```
-
-# ==== apps/crm/tests.py ====
-
-```python
-from django.test import TestCase
-
-# Create your tests here.
-```
-
-# ==== apps/crm/views.py ====
-
-```python
-from django.shortcuts import render
-
-# Create your views here.
-```
-
 # ==== apps/customers/__init__.py ====
 
 ```python
@@ -5874,6 +5817,16 @@ from apps.bookings.models import Booking, Address
 from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, SurchargeRule
 from .models import SavedAddress
 from .serializers import SavedAddressSerializer
+
+
+class OnfleetTaskSerializer(serializers.Serializer):
+    """Minimal Onfleet task info for customer delivery tracking"""
+    task_type = serializers.CharField()
+    tracking_url = serializers.URLField()
+    status = serializers.CharField()
+    worker_name = serializers.CharField(allow_blank=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    started_at = serializers.DateTimeField(allow_null=True)
 
 
 class PaymentIntentCreateSerializer(serializers.Serializer):
@@ -6329,6 +6282,7 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     pricing_breakdown = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     can_rebook = serializers.SerializerMethodField()
+    onfleet_tasks = serializers.SerializerMethodField()
     
     class Meta:
         model = Booking
@@ -6340,7 +6294,9 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
             'blade_airport', 'blade_flight_date', 'blade_flight_time', 
             'blade_bag_count', 'blade_ready_time',
             'total_price_dollars', 'pricing_breakdown',
-            'payment_status', 'can_rebook', 'created_at', 'updated_at'
+            'payment_status', 'can_rebook', 
+            'onfleet_tasks',
+            'created_at', 'updated_at'
         )
     
     def get_customer_name(self, obj):
@@ -6373,6 +6329,11 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     
     def get_can_rebook(self, obj):
         return obj.status in ['completed', 'paid']
+    
+    def get_onfleet_tasks(self, obj):
+        """Return onfleet tasks for delivery tracking"""
+        tasks = obj.onfleet_tasks.all().order_by('task_type')
+        return OnfleetTaskSerializer(tasks, many=True).data
 
 
 class QuickBookingSerializer(serializers.Serializer):
@@ -8134,61 +8095,6 @@ class PasswordResetConfirmView(APIView):
             )
 ```
 
-# ==== apps/documents/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/documents/admin.py ====
-
-```python
-from django.contrib import admin
-
-# Register your models here.
-```
-
-# ==== apps/documents/apps.py ====
-
-```python
-from django.apps import AppConfig
-
-
-class DocumentsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.documents'
-```
-
-# ==== apps/documents/migrations/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/documents/models.py ====
-
-```python
-from django.db import models
-
-# Create your models here.
-```
-
-# ==== apps/documents/tests.py ====
-
-```python
-from django.test import TestCase
-
-# Create your tests here.
-```
-
-# ==== apps/documents/views.py ====
-
-```python
-from django.shortcuts import render
-
-# Create your views here.
-```
-
 # ==== apps/logistics/__init__.py ====
 
 ```python
@@ -9443,61 +9349,6 @@ class TaskStatusView(APIView):
                 'error': 'Failed to fetch tasks',
                 'details': str(e)
             }, status=500)
-```
-
-# ==== apps/notifications/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/notifications/admin.py ====
-
-```python
-from django.contrib import admin
-
-# Register your models here.
-```
-
-# ==== apps/notifications/apps.py ====
-
-```python
-from django.apps import AppConfig
-
-
-class NotificationsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.notifications'
-```
-
-# ==== apps/notifications/migrations/__init__.py ====
-
-```python
-
-```
-
-# ==== apps/notifications/models.py ====
-
-```python
-from django.db import models
-
-# Create your models here.
-```
-
-# ==== apps/notifications/tests.py ====
-
-```python
-from django.test import TestCase
-
-# Create your tests here.
-```
-
-# ==== apps/notifications/views.py ====
-
-```python
-from django.shortcuts import render
-
-# Create your views here.
 ```
 
 # ==== apps/payments/__init__.py ====
