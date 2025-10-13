@@ -12,8 +12,10 @@ env = environ.Env(
     DEBUG=(bool, False),
 )
 
-# Take environment variables from .env file
-environ.Env.read_env(BASE_DIR / '.env')
+# FIXED: Only read .env file locally, not on Fly.io
+# Fly.io provides environment variables directly, .env would override them
+if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
+    environ.Env.read_env(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
@@ -241,14 +243,15 @@ SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_NAME = 'totetaxi_sessionid'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-# Email Configuration
-EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = env('EMAIL_HOST', default='localhost')
-EMAIL_PORT = env.int('EMAIL_PORT', default=587)
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
+# FIXED: Email Configuration - Check OS environment variables FIRST, then fall back to env() defaults
+# This ensures Fly.io secrets are used in production
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST') or env('EMAIL_HOST', default='localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', env.int('EMAIL_PORT', default=587)))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '').lower() in ('true', '1', 'yes') if os.environ.get('EMAIL_USE_TLS') else env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER') or env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD') or env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
 
 # Frontend URL for email links
 FRONTEND_URL = env('FRONTEND_URL', default='https://totetaxi.netlify.app')
