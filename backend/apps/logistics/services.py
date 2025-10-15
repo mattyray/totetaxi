@@ -41,7 +41,17 @@ class OnfleetService:
             return response.json()
         
         except requests.RequestException as e:
+            # ✅ IMPROVED: Better error logging
+            error_detail = ''
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                except:
+                    error_detail = e.response.text
+            
             logger.error(f"Onfleet API error ({method} {endpoint}): {e}")
+            logger.error(f"Error details: {error_detail}")
+            logger.error(f"Request data: {data}")
             raise
     
     def _mock_response(self, method: str, endpoint: str, data: dict = None) -> dict:
@@ -219,10 +229,9 @@ class ToteTaxiOnfleetIntegration:
     def _create_pickup_task(self, booking) -> dict:
         """Create Onfleet pickup task"""
         
-        # Calculate time windows
-        pickup_datetime = self._get_pickup_datetime(booking)
-        pickup_complete_after = int(pickup_datetime.timestamp() * 1000)
-        pickup_complete_before = int((pickup_datetime + timedelta(hours=3)).timestamp() * 1000)
+        # ✅ KEPT YOUR ORIGINAL METHOD NAMES
+        pickup_complete_after = self._get_complete_after_time(booking)
+        pickup_complete_before = self._get_complete_before_time(booking)
         
         task_data = {
             "pickupTask": True,
@@ -239,7 +248,7 @@ class ToteTaxiOnfleetIntegration:
                 "skipSMSNotifications": False
             }],
             "completeAfter": pickup_complete_after,
-            "completeBefore": pickup_complete_before,
+            "completeBefore": pickup_complete_before,  # ✅ ADDED THIS
             "notes": self._format_task_notes(booking, 'pickup'),
             "metadata": [
                 {"name": "booking_id", "type": "string", "value": str(booking.id)},
@@ -252,7 +261,7 @@ class ToteTaxiOnfleetIntegration:
                 "photo": True,
                 "notes": True,
             }
-            # ✅ REMOVED autoAssign - tasks will be created unassigned
+            # ✅ REMOVED autoAssign - tasks created unassigned
         }
         
         return self.onfleet.create_task(task_data)
@@ -268,7 +277,7 @@ class ToteTaxiOnfleetIntegration:
             blade_contact_name, blade_contact_phone = self._get_blade_contact(booking.blade_airport)
             recipient_name = f"BLADE Team - {blade_contact_name}"
             recipient_phone = blade_contact_phone
-            destination_address = f"{booking.blade_airport} Airport - BLADE Terminal"
+            destination_address = f"{booking.blade_airport} International Airport - BLADE Terminal"
             destination_notes = f"BLADE Terminal - Contact: {blade_contact_name}"
         else:
             recipient_name = booking.get_customer_name()
@@ -276,8 +285,9 @@ class ToteTaxiOnfleetIntegration:
             destination_address = self._format_address(booking.delivery_address)
             destination_notes = self._format_destination_notes(booking.delivery_address)
         
-        # Calculate dropoff deadline
-        dropoff_deadline = self._calculate_dropoff_deadline(booking)
+        # ✅ ADDED: Get dropoff time windows
+        dropoff_complete_after = self._get_dropoff_complete_after_time(booking)
+        dropoff_complete_before = self._get_dropoff_complete_before_time(booking)
         
         task_data = {
             "pickupTask": False,
@@ -294,7 +304,8 @@ class ToteTaxiOnfleetIntegration:
                 "notes": f"Booking #{booking.booking_number}",
                 "skipSMSNotifications": False
             }],
-            "completeBefore": int(dropoff_deadline.timestamp() * 1000),
+            "completeAfter": dropoff_complete_after,      # ✅ ADDED THIS
+            "completeBefore": dropoff_complete_before,    # ✅ ADDED THIS
             "notes": self._format_task_notes(booking, 'dropoff'),
             "metadata": [
                 {"name": "booking_id", "type": "string", "value": str(booking.id)},
@@ -308,10 +319,83 @@ class ToteTaxiOnfleetIntegration:
                 "photo": True,
                 "notes": True,
             }
-            # ✅ REMOVED autoAssign - tasks will be created unassigned
+            # ✅ REMOVED autoAssign - tasks created unassigned
         }
         
         return self.onfleet.create_task(task_data)
+    
+    # ✅ KEPT YOUR ORIGINAL TIME CALCULATION METHODS
+    def _get_complete_after_time(self, booking) -> int:
+        """Calculate pickup start time (earliest pickup can happen)"""
+        # Map pickup time to actual hour
+        if booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
+            pickup_hour = booking.specific_pickup_hour
+        else:
+            pickup_hour = 8  # Default morning window starts at 8 AM
+        
+        pickup_datetime = datetime.combine(booking.pickup_date, dt_time(pickup_hour, 0))
+        
+        if timezone.is_naive(pickup_datetime):
+            pickup_datetime = timezone.make_aware(pickup_datetime)
+        
+        return int(pickup_datetime.timestamp() * 1000)
+    
+    def _get_complete_before_time(self, booking) -> int:
+        """Calculate pickup end time (latest pickup can happen)"""
+        if booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
+            # 1-hour window: specific_pickup_hour to specific_pickup_hour + 1
+            complete_before = datetime.combine(
+                booking.pickup_date,
+                dt_time(booking.specific_pickup_hour + 1, 0)
+            )
+        else:
+            # Morning window: 8 AM - 11 AM
+            complete_before = datetime.combine(booking.pickup_date, dt_time(11, 0))
+        
+        if timezone.is_naive(complete_before):
+            complete_before = timezone.make_aware(complete_before)
+        
+        return int(complete_before.timestamp() * 1000)
+    
+    def _get_dropoff_complete_after_time(self, booking) -> int:
+        """Calculate earliest time dropoff can start (after pickup)"""
+        # Dropoff can start 30 minutes after pickup window starts
+        pickup_datetime = datetime.combine(booking.pickup_date, dt_time(8, 0))
+        if booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
+            pickup_datetime = datetime.combine(
+                booking.pickup_date,
+                dt_time(booking.specific_pickup_hour, 0)
+            )
+        
+        dropoff_start = pickup_datetime + timedelta(minutes=30)
+        
+        if timezone.is_naive(dropoff_start):
+            dropoff_start = timezone.make_aware(dropoff_start)
+        
+        return int(dropoff_start.timestamp() * 1000)
+    
+    def _get_dropoff_complete_before_time(self, booking) -> int:
+        """Calculate dropoff deadline based on service type"""
+        if booking.service_type == 'blade_transfer':
+            # BLADE: Must arrive 3hrs before flight
+            flight_datetime = datetime.combine(booking.blade_flight_date, booking.blade_flight_time)
+            if timezone.is_naive(flight_datetime):
+                flight_datetime = timezone.make_aware(flight_datetime)
+            deadline = flight_datetime - timedelta(hours=3)
+        
+        elif booking.is_same_day_delivery:
+            # Same-day: Deliver by 8 PM same day
+            deadline = datetime.combine(booking.pickup_date, dt_time(20, 0))
+            if timezone.is_naive(deadline):
+                deadline = timezone.make_aware(deadline)
+        
+        else:
+            # Standard: Deliver by 8 PM next day
+            deadline = datetime.combine(booking.pickup_date + timedelta(days=1), dt_time(20, 0))
+            if timezone.is_naive(deadline):
+                deadline = timezone.make_aware(deadline)
+        
+        return int(deadline.timestamp() * 1000)
     
     def _format_task_notes(self, booking, task_type: str) -> str:
         """Generate detailed task notes for driver"""
@@ -420,44 +504,6 @@ class ToteTaxiOnfleetIntegration:
             blade_name, _ = self._get_blade_contact(booking.blade_airport)
             return f"BLADE Team - {blade_name}"
         return booking.get_customer_name()
-    
-    def _get_pickup_datetime(self, booking) -> datetime:
-        """Get pickup datetime from booking"""
-        # Map pickup time strings to actual times
-        time_mapping = {
-            'morning': dt_time(8, 0),
-            'morning_specific': dt_time(9, 0),
-            'no_time_preference': dt_time(8, 0),
-        }
-        
-        pickup_time = time_mapping.get(booking.pickup_time, dt_time(8, 0))
-        pickup_datetime = datetime.combine(booking.pickup_date, pickup_time)
-        
-        # Make timezone-aware
-        if timezone.is_naive(pickup_datetime):
-            pickup_datetime = timezone.make_aware(pickup_datetime)
-        
-        return pickup_datetime
-    
-    def _calculate_dropoff_deadline(self, booking) -> datetime:
-        """Calculate dropoff deadline based on service type"""
-        if booking.service_type == 'blade_transfer':
-            # BLADE: Deliver 3 hours before flight time
-            flight_datetime = datetime.combine(booking.blade_flight_date, booking.blade_flight_time)
-            if timezone.is_naive(flight_datetime):
-                flight_datetime = timezone.make_aware(flight_datetime)
-            return flight_datetime - timedelta(hours=3)
-        
-        elif booking.is_same_day_delivery:
-            # Same-day: Deliver within 8 hours of booking
-            return booking.created_at + timedelta(hours=8)
-        
-        else:
-            # Standard: Deliver by 8 PM next day
-            deadline = datetime.combine(booking.pickup_date + timedelta(days=1), dt_time(20, 0))
-            if timezone.is_naive(deadline):
-                deadline = timezone.make_aware(deadline)
-            return deadline
     
     def handle_webhook(self, webhook_data: dict) -> bool:
         """Process Onfleet webhook updates"""
