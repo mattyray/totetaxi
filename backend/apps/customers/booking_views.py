@@ -4,8 +4,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 from apps.bookings.models import Booking, Address
+from apps.payments.models import Payment
 from apps.payments.services import StripePaymentService
 from .emails import send_booking_confirmation_email
 import logging
@@ -159,6 +161,23 @@ class CustomerBookingCreateView(APIView):
             booking = serializer.save()
             print(f"✅ Booking created: {booking.booking_number}")
             
+            # ✅ CREATE PAYMENT RECORD IMMEDIATELY
+            payment, created = Payment.objects.get_or_create(
+                stripe_payment_intent_id=payment_intent_id,
+                defaults={
+                    'booking': booking,
+                    'amount_cents': payment_intent.amount,
+                    'status': 'succeeded',
+                    'stripe_charge_id': payment_intent.get('latest_charge', ''),
+                    'processed_at': timezone.now()
+                }
+            )
+            
+            if created:
+                print(f"✅ Payment record created: {payment.id}")
+            else:
+                print(f"✅ Payment record already exists: {payment.id}")
+            
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
@@ -166,7 +185,6 @@ class CustomerBookingCreateView(APIView):
             # Send booking confirmation email
             logger.info(f"📧 Sending booking confirmation email to {booking.get_customer_email()}")
             send_booking_confirmation_email(booking)
-
             
         except Exception as e:
             print(f"❌ ERROR creating booking: {str(e)}")
