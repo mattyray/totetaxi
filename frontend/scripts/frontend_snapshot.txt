@@ -1,5 +1,5 @@
 # TOTETAXI FRONTEND EXPORT
-# Generated: 2025-10-15 10:25:27.203193
+# Generated: 2025-10-15 16:38:34.945787
 # Files: 88
 
 # ==== next-env.d.ts ====
@@ -982,7 +982,7 @@ export default function BookingDetailPage() {
                         </div>
                         
                         {pickupTask.tracking_url && (
-                          
+                          <a
                             href={pickupTask.tracking_url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -991,10 +991,10 @@ export default function BookingDetailPage() {
                                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                                 : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             }`}
-                          <a>
+                          >
                             Track Pickup →
                           </a>
-                        
+                        )}
                       </div>
                       
                       {pickupTask.status === 'created' && (
@@ -1036,7 +1036,7 @@ export default function BookingDetailPage() {
                         </div>
                         
                         {dropoffTask.tracking_url && (
-                          
+                          <a
                             href={dropoffTask.tracking_url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1045,10 +1045,10 @@ export default function BookingDetailPage() {
                                 ? 'bg-green-600 text-white hover:bg-green-700'
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
                             }`}
-                          <a>
+                          >
                             Track Delivery →
                           </a>
-                        
+                        )}
                       </div>
                       
                       {dropoffTask.status === 'created' && (
@@ -1087,7 +1087,7 @@ export default function BookingDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-            )};
+            )}
             
             <Card>
               <CardHeader>
