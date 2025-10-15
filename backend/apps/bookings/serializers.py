@@ -47,6 +47,10 @@ class BookingSerializer(serializers.ModelSerializer):
     pricing_breakdown = serializers.SerializerMethodField()
     organizing_services_breakdown = serializers.SerializerMethodField()
     
+    # ✅ FIX: Explicitly format date fields as date-only strings (no timezone)
+    pickup_date = serializers.DateField(format='%Y-%m-%d')
+    blade_flight_date = serializers.DateField(format='%Y-%m-%d', allow_null=True)
+    
     class Meta:
         model = Booking
         fields = (
@@ -81,6 +85,10 @@ class BookingStatusSerializer(serializers.ModelSerializer):
     delivery_address = AddressSerializer(read_only=True)
     total_price_dollars = serializers.ReadOnlyField()
     organizing_total_dollars = serializers.ReadOnlyField()
+    
+    # ✅ FIX: Explicitly format date fields as date-only strings (no timezone)
+    pickup_date = serializers.DateField(format='%Y-%m-%d')
+    blade_flight_date = serializers.DateField(format='%Y-%m-%d', allow_null=True)
     
     class Meta:
         model = Booking
