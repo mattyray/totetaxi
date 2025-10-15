@@ -182,7 +182,7 @@ export default function BookingDetailPage() {
                         </div>
                         
                         {pickupTask.tracking_url && (
-                          
+                          <a
                             href={pickupTask.tracking_url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -236,7 +236,7 @@ export default function BookingDetailPage() {
                         </div>
                         
                         {dropoffTask.tracking_url && (
-                          
+                          <a
                             href={dropoffTask.tracking_url}
                             target="_blank"
                             rel="noopener noreferrer"

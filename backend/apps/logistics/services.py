@@ -340,7 +340,6 @@ class ToteTaxiOnfleetIntegration:
                 f"✈️ Flight: {booking.blade_flight_date} @ {booking.blade_flight_time}",
                 f"Airport: {booking.blade_airport}",
                 f"Bag Count: {booking.blade_bag_count}",
-                f"⏰ READY TIME: {booking.blade_ready_time} (3hrs before flight)",
                 f"📞 BLADE Contact: {blade_contact_name}"
             ])
         
