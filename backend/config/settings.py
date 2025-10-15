@@ -334,7 +334,29 @@ ONFLEET_WEBHOOK_SECRET = env('ONFLEET_WEBHOOK_SECRET', default='')
 # Phone number where BLADE team receives delivery notifications
 BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
 
+# BLADE Airport Transfer Integration
+# Phone number where BLADE team receives delivery notifications
 
+
+# ============================================================================
+# CELERY BEAT SCHEDULE
+# ============================================================================
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'send-booking-reminders-hourly': {
+        'task': 'apps.bookings.tasks.send_booking_reminders',
+        'schedule': crontab(minute=0),  # Run every hour at :00
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour
+        }
+    },
+}
+
+
+# ============================================================================
+# TEST CONFIGURATION
+# ============================================================================
 # ============================================================================
 # TEST CONFIGURATION
 # ============================================================================

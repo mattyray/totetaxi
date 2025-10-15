@@ -2,6 +2,7 @@
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.utils import timezone  # ← ADD THIS LINE
 import logging
 
 logger = logging.getLogger(__name__)
@@ -126,4 +127,49 @@ def send_email_verification(user, token, verify_url):
         return True
     except Exception as e:
         logger.error(f'Failed to send verification email to {user.email}: {str(e)}')
+        return False
+    
+def send_booking_reminder_email(booking):
+    """Send 24-hour reminder email before pickup"""
+    try:
+        # Check if reminder already sent
+        if booking.reminder_sent_at:
+            logger.info(f'Reminder already sent for {booking.booking_number} at {booking.reminder_sent_at}')
+            return False
+        
+        # Get tracking info if available
+        has_tracking = False
+        tracking_url = ''
+        if hasattr(booking, 'onfleet_tasks'):
+            pickup_task = booking.onfleet_tasks.filter(task_type='pickup').first()
+            if pickup_task and pickup_task.tracking_url:
+                has_tracking = True
+                tracking_url = pickup_task.tracking_url
+        
+        subject = f'Reminder: Your ToteTaxi Pickup is Tomorrow! - {booking.booking_number}'
+        context = {
+            'booking': booking,
+            'customer_name': booking.get_customer_name(),
+            'has_tracking': has_tracking,
+            'tracking_url': tracking_url,
+        }
+        message = render_to_string('emails/booking_reminder.txt', context)
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[booking.get_customer_email()],
+            fail_silently=False,
+        )
+        
+        # Mark reminder as sent
+        booking.reminder_sent_at = timezone.now()
+        booking.save(update_fields=['reminder_sent_at'])
+        
+        logger.info(f'✓ Reminder email sent for {booking.booking_number}')
+        return True
+        
+    except Exception as e:
+        logger.error(f'Failed to send reminder for {booking.booking_number}: {str(e)}')
         return False

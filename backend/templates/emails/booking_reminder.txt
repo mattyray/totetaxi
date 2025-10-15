@@ -1,0 +1,56 @@
+Your ToteTaxi Pickup is Tomorrow!
+
+Hi {{ customer_name }},
+
+This is a friendly reminder that your booking is scheduled for pickup tomorrow.
+
+📋 Booking Details:
+- Booking Number: {{ booking.booking_number }}
+- Service: {{ booking.get_service_type_display }}
+- Pickup Date: {{ booking.pickup_date|date:"l, F j, Y" }}
+- Pickup Time: {{ booking.get_pickup_time_display }}
+
+📍 Pickup Address:
+{{ booking.pickup_address.address_line_1 }}
+{% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}
+{{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
+
+📍 Delivery Address:
+{{ booking.delivery_address.address_line_1 }}
+{% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
+{{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+
+{% if booking.special_instructions %}
+📝 Special Instructions:
+{{ booking.special_instructions }}
+{% endif %}
+
+{% if booking.service_type == 'blade_transfer' %}
+✈️ Flight Details:
+- Flight Date: {{ booking.blade_flight_date }}
+- Flight Time: {{ booking.blade_flight_time }}
+- Airport: {{ booking.blade_airport }}
+- Bags: {{ booking.blade_bag_count }}
+- Ready Time: {{ booking.blade_ready_time }} (3 hours before flight)
+{% endif %}
+
+💰 Total: ${{ booking.total_price_dollars }}
+
+{% if has_tracking %}
+📱 Track Your Delivery:
+Once your driver starts your pickup, you can track them in real-time at:
+{{ tracking_url }}
+{% endif %}
+
+Need to make changes? View your booking at:
+https://totetaxi.netlify.app/dashboard/bookings/{{ booking.id }}
+
+Questions? Contact us at support@totetaxi.com or call (555) TOTE-TAXI
+
+See you tomorrow!
+
+Best regards,
+The ToteTaxi Team
+
+---
+This is an automated reminder. Please do not reply to this email.
