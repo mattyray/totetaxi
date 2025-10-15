@@ -344,8 +344,7 @@ export default function BookingDetailPage() {
                     </>
                   ) : (
                     <>
-                      <div className="text-sm text-navy-800"><strong className="text-navy-900">Date:</strong> {new Date(booking.booking?.pickup_date).toLocaleDateString()}</div>
-                      <div className="text-sm text-navy-800"><strong className="text-navy-900">Time:</strong> {booking.booking?.pickup_time_display}</div>
+                      <div className="text-sm text-navy-800"><strong className="text-navy-900">Date:</strong> {new Date(booking.booking?.pickup_date + 'T00:00:00').toLocaleDateString()}</div>
                       {booking.booking?.special_instructions && (
                         <div className="text-sm text-navy-800"><strong className="text-navy-900">Instructions:</strong> {booking.booking.special_instructions}</div>
                       )}
@@ -460,7 +459,7 @@ export default function BookingDetailPage() {
                     <div className="font-semibold text-navy-900">BLADE Airport Transfer</div>
                     <div className="space-y-1 text-navy-800">
                       <div>Airport: <strong>{serviceDetails.blade_transfer.airport}</strong></div>
-                      <div>Flight: {new Date(serviceDetails.blade_transfer.flight_date).toLocaleDateString()} at {serviceDetails.blade_transfer.flight_time}</div>
+                      <div>Flight: {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()} at {serviceDetails.blade_transfer.flight_time}</div>
                       <div>Bags: {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
                       {serviceDetails.blade_transfer.ready_time && (
                         <div>Ready: {serviceDetails.blade_transfer.ready_time}</div>

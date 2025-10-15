@@ -196,7 +196,7 @@ export function DashboardOverview() {
                   </div>
                   <p className="text-sm text-navy-600">{booking.service_type}</p>
                   <p className="text-xs text-navy-500 mt-1">
-                    {new Date(booking.pickup_date).toLocaleDateString()}
+                    {new Date(booking.pickup_date + 'T00:00:00').toLocaleDateString()}
                   </p>
                 </div>
                 <div className="text-right">

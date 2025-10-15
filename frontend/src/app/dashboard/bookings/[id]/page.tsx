@@ -299,8 +299,7 @@ export default function BookingDetailPage() {
                   <div>
                     <p className="text-sm font-medium text-navy-900">Pickup Date</p>
                     <p className="text-navy-700">
-                      {new Date(booking.pickup_date).toLocaleDateString('en-US', {
-                        weekday: 'long',
+                      {new Date(booking.pickup_date + 'T00:00:00').toLocaleDateString('en-US', {        
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'

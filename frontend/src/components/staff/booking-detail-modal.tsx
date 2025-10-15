@@ -452,7 +452,7 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div><strong>Airport:</strong> {serviceDetails.blade_transfer.airport}</div>
-                    <div><strong>Flight Date:</strong> {new Date(serviceDetails.blade_transfer.flight_date).toLocaleDateString()}</div>
+                    <div><strong>Flight Date:</strong> {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()}</div>
                     <div><strong>Flight Time:</strong> {serviceDetails.blade_transfer.flight_time}</div>
                     <div><strong>Bag Count:</strong> {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
                     {serviceDetails.blade_transfer.ready_time && (

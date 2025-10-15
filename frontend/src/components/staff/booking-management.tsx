@@ -183,7 +183,7 @@ export function BookingManagement() {
                       <p><strong>Service:</strong> {booking.service_type}</p>
                     </div>
                     <div>
-                      <p><strong>Pickup Date:</strong> {new Date(booking.pickup_date).toLocaleDateString()}</p>
+                      <p><strong>Pickup Date:</strong> {new Date(booking.pickup_date + 'T00:00:00').toLocaleDateString()}</p>
                       <p><strong>Pickup Time:</strong> {booking.pickup_time}</p>
                       <p><strong>Total:</strong> ${booking.total_price_dollars}</p>
                     </div>

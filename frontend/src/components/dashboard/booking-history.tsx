@@ -182,7 +182,7 @@ export function BookingHistory() {
                       <div>
                         <p className="font-medium text-navy-700">Date & Time</p>
                         <p className="text-navy-600">
-                          {new Date(booking.pickup_date).toLocaleDateString()}
+                          {new Date(booking.pickup_date + 'T00:00:00').toLocaleDateString()}
                           {booking.pickup_time && ` - ${booking.pickup_time}`}
                         </p>
                       </div>

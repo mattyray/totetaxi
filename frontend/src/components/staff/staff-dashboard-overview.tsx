@@ -289,7 +289,7 @@ export function StaffDashboardOverview() {
                       {booking.customer_name} - {booking.service_type}
                     </p>
                     <p className="text-xs text-navy-500">
-                      Pickup: {new Date(booking.pickup_date).toLocaleDateString()}
+                      Pickup: {new Date(booking.pickup_date + 'T00:00:00').toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">
