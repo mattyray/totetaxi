@@ -65,6 +65,7 @@ class OnfleetService:
                 'shortId': f'mt{hash(booking_number) % 1000:03d}',
                 'trackingURL': f'https://onf.lt/mock{hash(f"{booking_number}{task_type}") % 10000:04d}',
                 'state': 0,  # 0 = unassigned
+                'worker': None,  # No worker in mock mode
                 'merchant': 'mock_org_id',
                 'creator': 'mock_admin_id',
                 'pickupTask': data.get('pickupTask', False),
@@ -82,6 +83,14 @@ class OnfleetService:
                 ]
             }
         
+        elif endpoint.startswith('workers/'):
+            # Mock worker lookup
+            return {
+                'id': endpoint.split('/')[-1],
+                'name': 'Test Driver',
+                'onDuty': True
+            }
+        
         return {'success': True, 'mock': True}
     
     def create_task(self, task_data: dict) -> dict:
@@ -91,6 +100,10 @@ class OnfleetService:
     def get_organization_info(self) -> dict:
         """Get organization info"""
         return self._make_request('GET', 'organization')
+    
+    def get_worker(self, worker_id: str) -> dict:
+        """Get worker details"""
+        return self._make_request('GET', f'workers/{worker_id}')
 
 
 class ToteTaxiOnfleetIntegration:
@@ -125,7 +138,7 @@ class ToteTaxiOnfleetIntegration:
             dropoff_response = self._create_dropoff_task(booking, depends_on=pickup_response['id'])
             logger.info(f"✓ Dropoff task created: {dropoff_response['id']}")
             
-            # 3. Save to database
+            # 3. Save to database with correct status
             db_pickup = OnfleetTask.objects.create(
                 booking=booking,
                 task_type='pickup',
@@ -135,7 +148,11 @@ class ToteTaxiOnfleetIntegration:
                 tracking_url=pickup_response.get('trackingURL', ''),
                 recipient_name=booking.get_customer_name(),
                 recipient_phone=self._get_customer_phone(booking),
-                status='created'
+                # ✅ FIX: Map Onfleet state to our status
+                status=self._map_onfleet_state(pickup_response.get('state', 0)),
+                # ✅ FIX: Save worker info if auto-assigned
+                worker_id=pickup_response.get('worker', '') or '',
+                worker_name=self._get_worker_name(pickup_response.get('worker'))
             )
             
             db_dropoff = OnfleetTask.objects.create(
@@ -148,7 +165,11 @@ class ToteTaxiOnfleetIntegration:
                 recipient_name=self._get_dropoff_recipient_name(booking),
                 recipient_phone=self._get_dropoff_recipient_phone(booking),
                 linked_task=db_pickup,
-                status='created'
+                # ✅ FIX: Map Onfleet state to our status
+                status=self._map_onfleet_state(dropoff_response.get('state', 0)),
+                # ✅ FIX: Save worker info if auto-assigned
+                worker_id=dropoff_response.get('worker', '') or '',
+                worker_name=self._get_worker_name(dropoff_response.get('worker'))
             )
             
             logger.info(f"✓ Successfully created 2 tasks for booking {booking.booking_number}")
@@ -160,6 +181,31 @@ class ToteTaxiOnfleetIntegration:
         except Exception as e:
             logger.error(f"Failed to create Onfleet tasks for {booking.booking_number}: {e}", exc_info=True)
             return None, None
+    
+    def _map_onfleet_state(self, onfleet_state: int) -> str:
+        """
+        Map Onfleet state (0-3) to our status
+        0 = unassigned, 1 = assigned, 2 = active, 3 = completed
+        """
+        mapping = {
+            0: 'created',    # unassigned
+            1: 'assigned',   # assigned to driver
+            2: 'active',     # driver started
+            3: 'completed'   # done
+        }
+        return mapping.get(onfleet_state, 'created')
+    
+    def _get_worker_name(self, worker_id: str) -> str:
+        """Get worker name from Onfleet (or return empty if not assigned)"""
+        if not worker_id:
+            return ''
+        
+        try:
+            worker_response = self.onfleet.get_worker(worker_id)
+            return worker_response.get('name', 'Driver')
+        except Exception as e:
+            logger.warning(f"Could not fetch worker name for {worker_id}: {e}")
+            return 'Driver'
     
     def _create_pickup_task(self, booking) -> dict:
         """Create Onfleet pickup task"""
@@ -195,11 +241,9 @@ class ToteTaxiOnfleetIntegration:
             ],
             "completionRequirements": {
                 "photo": True,
-                "notes": True,  # For item count
-            },
-            "autoAssign": {
-                "mode": "manual"
+                "notes": True,
             }
+            # ✅ REMOVED autoAssign - tasks will be created unassigned
         }
         
         return self.onfleet.create_task(task_data)
@@ -252,10 +296,8 @@ class ToteTaxiOnfleetIntegration:
                 "signature": True,
                 "photo": True,
                 "notes": True,
-            },
-            "autoAssign": {
-                "mode": "manual"
             }
+            # ✅ REMOVED autoAssign - tasks will be created unassigned
         }
         
         return self.onfleet.create_task(task_data)
@@ -475,6 +517,16 @@ class ToteTaxiOnfleetIntegration:
                     onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_timestamp / 1000)
                     onfleet_task.save()
             
+            elif trigger_id == 8:  # Task Assigned
+                onfleet_task.status = 'assigned'
+                worker = task_data.get('worker')
+                if worker:
+                    worker_id = worker if isinstance(worker, str) else worker.get('id', '')
+                    onfleet_task.worker_id = worker_id
+                    onfleet_task.worker_name = self._get_worker_name(worker_id)
+                onfleet_task.save()
+                logger.info(f"Task assigned: {task_id} to {onfleet_task.worker_name}")
+            
             return True
             
         except Exception as e:
@@ -540,7 +592,3 @@ class ToteTaxiOnfleetIntegration:
         """
         pickup, dropoff = self.create_tasks_for_booking(booking)
         return pickup
-    
-
-
-    

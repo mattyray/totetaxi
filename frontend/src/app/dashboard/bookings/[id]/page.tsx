@@ -8,14 +8,15 @@ import { apiClient } from '@/lib/api-client';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DeliveryTracking } from '@/components/dashboard/delivery-tracking';
 import type { BookingWithTracking } from '@/types';
 import { 
   ArrowLeftIcon, 
   MapPinIcon,
   CalendarIcon,
   ClockIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  TruckIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 
 export default function BookingDetailPage() {
@@ -77,11 +78,35 @@ export default function BookingDetailPage() {
     }
   };
 
+  const getTaskStatusBadge = (status: string) => {
+    switch (status) {
+      case 'created':
+        return <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">Unassigned</span>;
+      case 'assigned':
+        return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Driver Assigned</span>;
+      case 'active':
+        return (
+          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded inline-flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            In Progress
+          </span>
+        );
+      case 'completed':
+        return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Completed</span>;
+      case 'failed':
+        return <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Failed</span>;
+      default:
+        return null;
+    }
+  };
+
+  const pickupTask = booking.onfleet_tasks?.find(t => t.task_type === 'pickup');
+  const dropoffTask = booking.onfleet_tasks?.find(t => t.task_type === 'dropoff');
+  const hasAnyActiveTask = booking.onfleet_tasks?.some(t => t.status === 'active') || false;
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
-        
-        {/* Header */}
         <div className="mb-6">
           <Button 
             variant="ghost" 
@@ -110,19 +135,158 @@ export default function BookingDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column - Delivery Tracking + Service Details */}
           <div className="lg:col-span-2 space-y-6">
-            
-            {/* Delivery Tracking Section */}
             {booking.onfleet_tasks && booking.onfleet_tasks.length > 0 && (
-              <DeliveryTracking 
-                bookingStatus={booking.status}
-                onfleetTasks={booking.onfleet_tasks}
-              />
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TruckIcon className="w-5 h-5 text-navy-600" />
+                      <h3 className="text-lg font-medium text-navy-900">Delivery Tracking</h3>
+                    </div>
+                    {hasAnyActiveTask && (
+                      <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full inline-flex items-center gap-1">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Live Tracking Available
+                      </span>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <InformationCircleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-amber-900 text-sm mb-1">
+                          📍 Live Tracking Information
+                        </h4>
+                        <p className="text-xs text-amber-800">
+                          Tracking links become active when your driver starts each task. 
+                          You&apos;ll receive SMS notifications when pickup and delivery begin.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {pickupTask && (
+                    <div className="border-l-4 border-blue-500 pl-4 py-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-gray-700 font-medium">📦 Pickup</span>
+                            {getTaskStatusBadge(pickupTask.status)}
+                          </div>
+                          {pickupTask.worker_name && (
+                            <p className="text-sm text-gray-600">Driver: {pickupTask.worker_name}</p>
+                          )}
+                        </div>
+                        
+                        {pickupTask.tracking_url && (
+                          
+                            href={pickupTask.tracking_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                              pickupTask.status === 'active'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            }`}
+                          >
+                            Track Pickup {'->'} 
+                          </a>
+                        )}
+                      </div>
+                      
+                      {pickupTask.status === 'created' && (
+                        <p className="text-xs text-gray-500 italic">
+                          Waiting for driver assignment
+                        </p>
+                      )}
+                      {pickupTask.status === 'assigned' && (
+                        <p className="text-xs text-gray-500 italic">
+                          Driver assigned. Tracking available once task starts.
+                        </p>
+                      )}
+                      {pickupTask.status === 'active' && (
+                        <p className="text-xs text-green-600 font-medium">
+                          🚗 Driver is on the way! Click above for live tracking.
+                        </p>
+                      )}
+                      {pickupTask.status === 'completed' && pickupTask.completed_at && (
+                        <p className="text-xs text-gray-500">
+                          Completed: {new Date(pickupTask.completed_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {dropoffTask && (
+                    <div className="border-l-4 border-green-500 pl-4 py-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-gray-700 font-medium">🚚 Delivery</span>
+                            {getTaskStatusBadge(dropoffTask.status)}
+                          </div>
+                          {dropoffTask.worker_name && (
+                            <p className="text-sm text-gray-600">Driver: {dropoffTask.worker_name}</p>
+                          )}
+                        </div>
+                        
+                        {dropoffTask.tracking_url && (
+                          
+                            href={dropoffTask.tracking_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                              dropoffTask.status === 'active'
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            }`}
+                          >
+                            Track Delivery {'->'} 
+                          </a>
+                        )}
+                      </div>
+                      
+                      {dropoffTask.status === 'created' && (
+                        <p className="text-xs text-gray-500 italic">
+                          Waiting for driver assignment
+                        </p>
+                      )}
+                      {dropoffTask.status === 'assigned' && pickupTask?.status !== 'completed' && (
+                        <p className="text-xs text-gray-500 italic">
+                          Available after pickup is completed
+                        </p>
+                      )}
+                      {dropoffTask.status === 'assigned' && pickupTask?.status === 'completed' && (
+                        <p className="text-xs text-gray-500 italic">
+                          Driver assigned. Tracking available once delivery starts.
+                        </p>
+                      )}
+                      {dropoffTask.status === 'active' && (
+                        <p className="text-xs text-green-600 font-medium">
+                          🚗 Driver is delivering now! Click above for live tracking.
+                        </p>
+                      )}
+                      {dropoffTask.status === 'completed' && dropoffTask.completed_at && (
+                        <p className="text-xs text-gray-500">
+                          Delivered: {new Date(dropoffTask.completed_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-700">
+                      <strong>📱 SMS Notifications:</strong> You&apos;ll receive text updates when your driver 
+                      starts pickup and delivery tasks.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
             
-            {/* Service Details */}
             <Card>
               <CardHeader>
                 <h3 className="text-lg font-medium text-navy-900">Service Details</h3>
@@ -168,7 +332,6 @@ export default function BookingDetailPage() {
               </CardContent>
             </Card>
             
-            {/* Addresses */}
             <Card>
               <CardHeader>
                 <h3 className="text-lg font-medium text-navy-900">Addresses</h3>
@@ -213,7 +376,6 @@ export default function BookingDetailPage() {
             </Card>
           </div>
           
-          {/* Right Column - Pricing */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -224,29 +386,29 @@ export default function BookingDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  {booking.pricing_breakdown?.base_price_dollars > 0 && (
+                  {(booking.pricing_breakdown?.base_price_dollars ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-700">Base Price:</span>
                       <span className="font-medium text-navy-900">
-                        ${booking.pricing_breakdown.base_price_dollars.toFixed(2)}
+                        ${(booking.pricing_breakdown?.base_price_dollars ?? 0).toFixed(2)}
                       </span>
                     </div>
                   )}
                   
-                  {booking.pricing_breakdown?.surcharge_dollars > 0 && (
+                  {(booking.pricing_breakdown?.surcharge_dollars ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-700">Surcharges:</span>
                       <span className="font-medium text-navy-900">
-                        ${booking.pricing_breakdown.surcharge_dollars.toFixed(2)}
+                        ${(booking.pricing_breakdown?.surcharge_dollars ?? 0).toFixed(2)}
                       </span>
                     </div>
                   )}
                   
-                  {booking.pricing_breakdown?.coi_fee_dollars > 0 && (
+                  {(booking.pricing_breakdown?.coi_fee_dollars ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span className="text-navy-700">COI Fee:</span>
                       <span className="font-medium text-navy-900">
-                        ${booking.pricing_breakdown.coi_fee_dollars.toFixed(2)}
+                        ${(booking.pricing_breakdown?.coi_fee_dollars ?? 0).toFixed(2)}
                       </span>
                     </div>
                   )}
