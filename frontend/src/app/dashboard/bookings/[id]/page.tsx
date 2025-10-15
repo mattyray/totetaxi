@@ -192,7 +192,7 @@ export default function BookingDetailPage() {
                                 : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                             }`}
                           >
-                            Track Pickup {'->'} 
+                            Track Pickup →
                           </a>
                         )}
                       </div>
@@ -225,7 +225,9 @@ export default function BookingDetailPage() {
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-gray-700 font-medium">🚚 Delivery</span>
+                            <span className="text-gray-700 font-medium">
+                              {booking.service_type === 'blade_transfer' ? '🚁 BLADE Delivery' : '🚚 Delivery'}
+                            </span>
                             {getTaskStatusBadge(dropoffTask.status)}
                           </div>
                           {dropoffTask.worker_name && (
@@ -244,7 +246,7 @@ export default function BookingDetailPage() {
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
                             }`}
                           >
-                            Track Delivery {'->'} 
+                            Track Delivery →
                           </a>
                         )}
                       </div>
@@ -358,7 +360,9 @@ export default function BookingDetailPage() {
                   <div>
                     <div className="flex items-center space-x-2 mb-2">
                       <MapPinIcon className="w-5 h-5 text-green-600" />
-                      <h4 className="font-medium text-navy-900">Delivery</h4>
+                      <h4 className="font-medium text-navy-900">
+                        {booking.service_type === 'blade_transfer' ? 'BLADE Delivery' : 'Delivery'}
+                      </h4>
                     </div>
                     <div className="text-navy-700 text-sm">
                       <p>{booking.delivery_address.address_line_1}</p>

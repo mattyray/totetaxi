@@ -207,6 +207,15 @@ class ToteTaxiOnfleetIntegration:
             logger.warning(f"Could not fetch worker name for {worker_id}: {e}")
             return 'Driver'
     
+    def _get_blade_contact(self, airport: str) -> Tuple[str, str]:
+        """Get BLADE contact info based on airport"""
+        contacts = {
+            'JFK': ('Bowie Tam', '+17185410177'),
+            'EWR': ('Nathan', '+19083992284')
+        }
+        # Default to JFK if airport not found
+        return contacts.get(airport, ('Bowie Tam', '+17185410177'))
+    
     def _create_pickup_task(self, booking) -> dict:
         """Create Onfleet pickup task"""
         
@@ -255,10 +264,12 @@ class ToteTaxiOnfleetIntegration:
         is_blade = booking.service_type == 'blade_transfer'
         
         if is_blade:
-            recipient_name = "BLADE Team"
-            recipient_phone = getattr(settings, 'BLADE_PHONE_NUMBER', '+1234567890')
+            # Get correct BLADE contact based on airport
+            blade_contact_name, blade_contact_phone = self._get_blade_contact(booking.blade_airport)
+            recipient_name = f"BLADE Team - {blade_contact_name}"
+            recipient_phone = blade_contact_phone
             destination_address = f"{booking.blade_airport} Airport - BLADE Terminal"
-            destination_notes = "BLADE Terminal - Check in with agent"
+            destination_notes = f"BLADE Terminal - Contact: {blade_contact_name}"
         else:
             recipient_name = booking.get_customer_name()
             recipient_phone = self._format_phone(self._get_customer_phone(booking))
@@ -324,11 +335,13 @@ class ToteTaxiOnfleetIntegration:
                 lines.append("⚠️ UNPACKING SERVICE INCLUDED")
         
         elif booking.service_type == 'blade_transfer':
+            blade_contact_name, _ = self._get_blade_contact(booking.blade_airport)
             lines.extend([
                 f"✈️ Flight: {booking.blade_flight_date} @ {booking.blade_flight_time}",
                 f"Airport: {booking.blade_airport}",
                 f"Bag Count: {booking.blade_bag_count}",
-                f"⏰ READY TIME: {booking.blade_ready_time} (3hrs before flight)"
+                f"⏰ READY TIME: {booking.blade_ready_time} (3hrs before flight)",
+                f"📞 BLADE Contact: {blade_contact_name}"
             ])
         
         elif booking.service_type == 'specialty_item':
@@ -398,13 +411,15 @@ class ToteTaxiOnfleetIntegration:
     def _get_dropoff_recipient_phone(self, booking) -> str:
         """Get recipient phone for dropoff task"""
         if booking.service_type == 'blade_transfer':
-            return getattr(settings, 'BLADE_PHONE_NUMBER', '+1234567890')
+            _, blade_phone = self._get_blade_contact(booking.blade_airport)
+            return blade_phone
         return self._get_customer_phone(booking)
     
     def _get_dropoff_recipient_name(self, booking) -> str:
         """Get recipient name for dropoff task"""
         if booking.service_type == 'blade_transfer':
-            return "BLADE Team"
+            blade_name, _ = self._get_blade_contact(booking.blade_airport)
+            return f"BLADE Team - {blade_name}"
         return booking.get_customer_name()
     
     def _get_pickup_datetime(self, booking) -> datetime:
