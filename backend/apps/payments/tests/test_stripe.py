@@ -100,18 +100,17 @@ class TestPaymentIntents:
         mock_stripe.assert_called_once()
 
 
+# backend/apps/payments/tests/test_stripe.py
+
 @pytest.mark.django_db
 class TestStripeWebhooks:
     """Test Stripe webhook handling"""
     
     @patch('stripe.Webhook.construct_event')
-    @patch('apps.logistics.services.OnfleetService.create_booking_tasks')
-    def test_payment_succeeded_webhook(self, mock_onfleet, mock_construct, test_booking):
+    @patch('apps.bookings.signals.booking_status_changed.send')  # ← CHANGED: Mock the signal instead
+    def test_payment_succeeded_webhook(self, mock_signal, mock_construct, test_booking):
         """Test handling payment_intent.succeeded webhook"""
         client = APIClient()
-        
-        # Mock Onfleet to avoid real API calls
-        mock_onfleet.return_value = ({'pickup': 'task1', 'dropoff': 'task2'}, None)
         
         # Create payment record
         payment = Payment.objects.create(

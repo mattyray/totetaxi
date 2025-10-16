@@ -106,6 +106,9 @@ def authenticated_customer(db):
     return client, user
 
 
+# backend/apps/bookings/tests/test_booking_flow.py
+# Replace the two failing test methods in TestGuestBookingFlow:
+
 @pytest.mark.django_db
 class TestGuestBookingFlow:
     """Test complete guest booking flow with payment"""
@@ -134,7 +137,7 @@ class TestGuestBookingFlow:
             'last_name': 'User',
             'email': 'guest@example.com',
             'phone': '5559876543'
-        })
+        }, format='json')  # ← ADD THIS
         
         assert payment_response.status_code == 200
         assert 'client_secret' in payment_response.data
@@ -170,7 +173,7 @@ class TestGuestBookingFlow:
                 'state': 'NY',
                 'zip_code': '10002'
             }
-        })
+        }, format='json')  # ← ADD THIS
         
         assert booking_response.status_code == 201
         assert 'booking_number' in booking_response.data['booking']
@@ -208,7 +211,7 @@ class TestGuestBookingFlow:
                 'state': 'NY',
                 'zip_code': '10002'
             }
-        })
+        }, format='json')  # ← ADD THIS
         
         assert response.status_code == 400
         assert 'payment_intent_id' in str(response.data)
@@ -238,7 +241,7 @@ class TestAuthenticatedBookingFlow:
             'mini_move_package_id': str(package.id),
             'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
             'customer_email': user.email
-        })
+        }, format='json')  # ← ADD THIS
         
         assert payment_response.status_code == 200
         
@@ -250,16 +253,26 @@ class TestAuthenticatedBookingFlow:
             get=lambda x, default='': 'ch_test_789' if x == 'latest_charge' else default
         )
         
-        # Step 3: Create booking
+        # Step 3: Create booking - USE ADDRESSES DIRECTLY, NOT IDs
         booking_response = client.post('/api/customer/bookings/create/', {
             'payment_intent_id': 'pi_test_456',
             'service_type': 'mini_move',
             'mini_move_package_id': str(package.id),
-            'pickup_address_id': str(pickup.id),
-            'delivery_address_id': str(delivery.id),
+            'pickup_address': {  # ← CHANGED from pickup_address_id
+                'address_line_1': pickup.address_line_1,
+                'city': pickup.city,
+                'state': pickup.state,
+                'zip_code': pickup.zip_code
+            },
+            'delivery_address': {  # ← CHANGED from delivery_address_id
+                'address_line_1': delivery.address_line_1,
+                'city': delivery.city,
+                'state': delivery.state,
+                'zip_code': delivery.zip_code
+            },
             'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
             'pickup_time': 'morning'
-        })
+        }, format='json')  # ← ADD THIS
         
         assert booking_response.status_code == 201
         assert 'booking' in booking_response.data
@@ -267,7 +280,7 @@ class TestAuthenticatedBookingFlow:
         # Verify booking
         booking = Booking.objects.get(customer=user)
         assert booking.status == 'paid'
-        assert booking.customer == user
+    assert booking.customer == user
 
 
 @pytest.mark.django_db
