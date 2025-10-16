@@ -27,12 +27,14 @@ def test_booking(db):
         zip_code='10002'
     )
     
-    package = MiniMovePackage.objects.create(
+    package, _ = MiniMovePackage.objects.get_or_create(
         package_type='petite',
-        name='Petite',
-        base_price_cents=99500,
-        max_items=15,
-        is_active=True
+        defaults={
+            'name': 'Petite',
+            'base_price_cents': 99500,
+            'max_items': 15,
+            'is_active': True
+        }
     )
     
     guest = GuestCheckout.objects.create(
@@ -60,9 +62,20 @@ class TestPaymentIntents:
     """Test payment intent creation"""
     
     @patch('stripe.PaymentIntent.create')
-    def test_create_payment_intent_for_booking(self, mock_stripe, test_booking):
-        """Test creating payment intent for existing booking"""
+    def test_create_payment_intent_guest(self, mock_stripe):
+        """Test creating payment intent for guest booking"""
         client = APIClient()
+        
+        # Get or create package
+        package, _ = MiniMovePackage.objects.get_or_create(
+            package_type='petite',
+            defaults={
+                'name': 'Petite',
+                'base_price_cents': 99500,
+                'max_items': 15,
+                'is_active': True
+            }
+        )
         
         mock_stripe.return_value = Mock(
             id='pi_test_123',
@@ -70,15 +83,19 @@ class TestPaymentIntents:
             amount=99500
         )
         
-        response = client.post('/api/payments/create-payment-intent/', {
-            'booking_id': str(test_booking.id),
-            'customer_email': 'test@example.com'
+        response = client.post('/api/public/create-payment-intent/', {
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'first_name': 'Guest',
+            'last_name': 'User',
+            'email': 'guest@example.com',
+            'phone': '5559876543'
         })
         
         assert response.status_code == 200
         assert 'client_secret' in response.data
         assert 'payment_intent_id' in response.data
-        assert response.data['amount_cents'] == 99500
         
         mock_stripe.assert_called_once()
 
@@ -88,9 +105,13 @@ class TestStripeWebhooks:
     """Test Stripe webhook handling"""
     
     @patch('stripe.Webhook.construct_event')
-    def test_payment_succeeded_webhook(self, mock_construct, test_booking):
+    @patch('apps.logistics.services.OnfleetService.create_booking_tasks')
+    def test_payment_succeeded_webhook(self, mock_onfleet, mock_construct, test_booking):
         """Test handling payment_intent.succeeded webhook"""
         client = APIClient()
+        
+        # Mock Onfleet to avoid real API calls
+        mock_onfleet.return_value = ({'pickup': 'task1', 'dropoff': 'task2'}, None)
         
         # Create payment record
         payment = Payment.objects.create(

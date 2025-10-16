@@ -12,46 +12,54 @@ from unittest.mock import patch, Mock
 
 @pytest.fixture
 def test_services(db):
-    """Create test services"""
+    """Create or get test services"""
     # Mini Move Package
-    package = MiniMovePackage.objects.create(
+    package, _ = MiniMovePackage.objects.get_or_create(
         package_type='petite',
-        name='Petite',
-        description='Test package',
-        base_price_cents=99500,
-        max_items=15,
-        max_weight_per_item_lbs=50,
-        coi_fee_cents=5000,
-        is_active=True
+        defaults={
+            'name': 'Petite',
+            'description': 'Test package',
+            'base_price_cents': 99500,
+            'max_items': 15,
+            'max_weight_per_item_lbs': 50,
+            'coi_fee_cents': 5000,
+            'is_active': True
+        }
     )
     
     # Organizing Services
-    packing = OrganizingService.objects.create(
+    packing, _ = OrganizingService.objects.get_or_create(
         service_type='petite_packing',
-        mini_move_tier='petite',
-        name='Petite Packing',
-        price_cents=140000,
-        duration_hours=4,
-        organizer_count=2,
-        supplies_allowance_cents=25000,
-        is_packing_service=True,
-        is_active=True
+        defaults={
+            'mini_move_tier': 'petite',
+            'name': 'Petite Packing',
+            'price_cents': 140000,
+            'duration_hours': 4,
+            'organizer_count': 2,
+            'supplies_allowance_cents': 25000,
+            'is_packing_service': True,
+            'is_active': True
+        }
     )
     
     # Specialty Item
-    peloton = SpecialtyItem.objects.create(
+    peloton, _ = SpecialtyItem.objects.get_or_create(
         item_type='peloton',
-        name='Peloton',
-        price_cents=50000,
-        is_active=True
+        defaults={
+            'name': 'Peloton',
+            'price_cents': 50000,
+            'is_active': True
+        }
     )
     
     # Standard Delivery Config
-    config = StandardDeliveryConfig.objects.create(
-        price_per_item_cents=9500,
-        minimum_charge_cents=28500,
-        same_day_flat_rate_cents=36000,
-        is_active=True
+    config, _ = StandardDeliveryConfig.objects.get_or_create(
+        is_active=True,
+        defaults={
+            'price_per_item_cents': 9500,
+            'minimum_charge_cents': 28500,
+            'same_day_flat_rate_cents': 36000
+        }
     )
     
     return {
@@ -416,10 +424,9 @@ class TestBladeTransfer:
         assert booking.blade_ready_time is not None
     
     def test_blade_minimum_bags(self, test_addresses):
-        """Test BLADE requires minimum 2 bags"""
+        """Test BLADE minimum price enforcement"""
         pickup, delivery = test_addresses
         
-        # Frontend should catch this, but model allows it
         booking = Booking.objects.create(
             guest_checkout=GuestCheckout.objects.create(
                 first_name='BLADE',
