@@ -106,9 +106,6 @@ def authenticated_customer(db):
     return client, user
 
 
-# backend/apps/bookings/tests/test_booking_flow.py
-# Replace the two failing test methods in TestGuestBookingFlow:
-
 @pytest.mark.django_db
 class TestGuestBookingFlow:
     """Test complete guest booking flow with payment"""
@@ -137,7 +134,7 @@ class TestGuestBookingFlow:
             'last_name': 'User',
             'email': 'guest@example.com',
             'phone': '5559876543'
-        }, format='json')  # ← ADD THIS
+        }, format='json')
         
         assert payment_response.status_code == 200
         assert 'client_secret' in payment_response.data
@@ -173,7 +170,7 @@ class TestGuestBookingFlow:
                 'state': 'NY',
                 'zip_code': '10002'
             }
-        }, format='json')  # ← ADD THIS
+        }, format='json')
         
         assert booking_response.status_code == 201
         assert 'booking_number' in booking_response.data['booking']
@@ -211,11 +208,13 @@ class TestGuestBookingFlow:
                 'state': 'NY',
                 'zip_code': '10002'
             }
-        }, format='json')  # ← ADD THIS
+        }, format='json')
         
         assert response.status_code == 400
         assert 'payment_intent_id' in str(response.data)
 
+# backend/apps/bookings/tests/test_booking_flow.py
+# Replace the TestAuthenticatedBookingFlow class:
 
 @pytest.mark.django_db
 class TestAuthenticatedBookingFlow:
@@ -241,7 +240,7 @@ class TestAuthenticatedBookingFlow:
             'mini_move_package_id': str(package.id),
             'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
             'customer_email': user.email
-        }, format='json')  # ← ADD THIS
+        }, format='json')
         
         assert payment_response.status_code == 200
         
@@ -253,18 +252,18 @@ class TestAuthenticatedBookingFlow:
             get=lambda x, default='': 'ch_test_789' if x == 'latest_charge' else default
         )
         
-        # Step 3: Create booking - USE ADDRESSES DIRECTLY, NOT IDs
+        # Step 3: Create booking - USE new_pickup_address and new_delivery_address
         booking_response = client.post('/api/customer/bookings/create/', {
             'payment_intent_id': 'pi_test_456',
             'service_type': 'mini_move',
             'mini_move_package_id': str(package.id),
-            'pickup_address': {  # ← CHANGED from pickup_address_id
+            'new_pickup_address': {  # ← CHANGED to new_pickup_address
                 'address_line_1': pickup.address_line_1,
                 'city': pickup.city,
                 'state': pickup.state,
                 'zip_code': pickup.zip_code
             },
-            'delivery_address': {  # ← CHANGED from delivery_address_id
+            'new_delivery_address': {  # ← CHANGED to new_delivery_address
                 'address_line_1': delivery.address_line_1,
                 'city': delivery.city,
                 'state': delivery.state,
@@ -272,7 +271,7 @@ class TestAuthenticatedBookingFlow:
             },
             'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
             'pickup_time': 'morning'
-        }, format='json')  # ← ADD THIS
+        }, format='json')
         
         assert booking_response.status_code == 201
         assert 'booking' in booking_response.data
@@ -280,8 +279,7 @@ class TestAuthenticatedBookingFlow:
         # Verify booking
         booking = Booking.objects.get(customer=user)
         assert booking.status == 'paid'
-    assert booking.customer == user
-
+        assert booking.customer == user
 
 @pytest.mark.django_db
 class TestBookingPricing:
@@ -452,7 +450,7 @@ class TestBladeTransfer:
             delivery_address=delivery,
             pickup_date=timezone.now().date() + timedelta(days=2),
             blade_airport='JFK',
-            blade_bag_count=1,  # Less than minimum
+            blade_bag_count=1,
             blade_flight_date=timezone.now().date() + timedelta(days=2),
             blade_flight_time=timezone.now().time(),
             status='pending'

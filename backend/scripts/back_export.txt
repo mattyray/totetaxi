@@ -1,7 +1,7 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-15 19:37:02
-# Total files: 124
+# Created: 2025-10-16 17:30:58
+# Total files: 132
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
 # Apps: accounts (STAFF), bookings, customers, logistics, payments, services
@@ -4789,6 +4789,602 @@ def send_booking_reminders():
 
 ```
 
+# ==== apps/bookings/tests/test_booking_flow.py ====
+
+```python
+# backend/apps/bookings/tests/test_booking_flow.py
+import pytest
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient
+from apps.customers.models import CustomerProfile
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.services.models import MiniMovePackage, StandardDeliveryConfig, SpecialtyItem, OrganizingService
+from django.utils import timezone
+from datetime import timedelta
+from unittest.mock import patch, Mock
+
+
+@pytest.fixture
+def test_services(db):
+    """Create or get test services"""
+    # Mini Move Package
+    package, _ = MiniMovePackage.objects.get_or_create(
+        package_type='petite',
+        defaults={
+            'name': 'Petite',
+            'description': 'Test package',
+            'base_price_cents': 99500,
+            'max_items': 15,
+            'max_weight_per_item_lbs': 50,
+            'coi_fee_cents': 5000,
+            'is_active': True
+        }
+    )
+    
+    # Organizing Services
+    packing, _ = OrganizingService.objects.get_or_create(
+        service_type='petite_packing',
+        defaults={
+            'mini_move_tier': 'petite',
+            'name': 'Petite Packing',
+            'price_cents': 140000,
+            'duration_hours': 4,
+            'organizer_count': 2,
+            'supplies_allowance_cents': 25000,
+            'is_packing_service': True,
+            'is_active': True
+        }
+    )
+    
+    # Specialty Item
+    peloton, _ = SpecialtyItem.objects.get_or_create(
+        item_type='peloton',
+        defaults={
+            'name': 'Peloton',
+            'price_cents': 50000,
+            'is_active': True
+        }
+    )
+    
+    # Standard Delivery Config
+    config, _ = StandardDeliveryConfig.objects.get_or_create(
+        is_active=True,
+        defaults={
+            'price_per_item_cents': 9500,
+            'minimum_charge_cents': 28500,
+            'same_day_flat_rate_cents': 36000
+        }
+    )
+    
+    return {
+        'package': package,
+        'packing': packing,
+        'peloton': peloton,
+        'config': config
+    }
+
+
+@pytest.fixture
+def test_addresses(db):
+    """Create test addresses"""
+    pickup = Address.objects.create(
+        address_line_1='123 Pickup St',
+        city='New York',
+        state='NY',
+        zip_code='10001'
+    )
+    delivery = Address.objects.create(
+        address_line_1='456 Delivery Ave',
+        city='New York',
+        state='NY',
+        zip_code='10002'
+    )
+    return pickup, delivery
+
+
+@pytest.fixture
+def authenticated_customer(db):
+    """Create authenticated customer"""
+    user = User.objects.create_user(
+        username='customer@example.com',
+        email='customer@example.com',
+        password='testpass123',
+        first_name='Test',
+        last_name='Customer',
+        is_active=True
+    )
+    CustomerProfile.objects.create(user=user, phone='5551234567')
+    
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client, user
+
+
+@pytest.mark.django_db
+class TestGuestBookingFlow:
+    """Test complete guest booking flow with payment"""
+    
+    @patch('stripe.PaymentIntent.create')
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_guest_booking_complete_flow(self, mock_retrieve, mock_create, test_services, test_addresses):
+        """Test full guest booking: create payment intent → pay → create booking"""
+        client = APIClient()
+        pickup, delivery = test_addresses
+        package = test_services['package']
+        
+        # Step 1: Create payment intent
+        mock_create.return_value = Mock(
+            id='pi_test_123',
+            client_secret='pi_test_123_secret_456',
+            amount=99500,
+            status='requires_payment_method'
+        )
+        
+        payment_response = client.post('/api/public/create-payment-intent/', {
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'first_name': 'Guest',
+            'last_name': 'User',
+            'email': 'guest@example.com',
+            'phone': '5559876543'
+        }, format='json')
+        
+        assert payment_response.status_code == 200
+        assert 'client_secret' in payment_response.data
+        assert 'payment_intent_id' in payment_response.data
+        
+        # Step 2: Simulate payment success
+        mock_retrieve.return_value = Mock(
+            id='pi_test_123',
+            status='succeeded',
+            amount=99500
+        )
+        
+        # Step 3: Create booking with payment_intent_id
+        booking_response = client.post('/api/public/guest-booking/', {
+            'payment_intent_id': 'pi_test_123',
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'first_name': 'Guest',
+            'last_name': 'User',
+            'email': 'guest@example.com',
+            'phone': '5559876543',
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'pickup_time': 'morning',
+            'pickup_address': {
+                'address_line_1': '123 Pickup St',
+                'city': 'New York',
+                'state': 'NY',
+                'zip_code': '10001'
+            },
+            'delivery_address': {
+                'address_line_1': '456 Delivery Ave',
+                'city': 'New York',
+                'state': 'NY',
+                'zip_code': '10002'
+            }
+        }, format='json')
+        
+        assert booking_response.status_code == 201
+        assert 'booking_number' in booking_response.data['booking']
+        
+        # Verify booking was created
+        booking = Booking.objects.get(booking_number=booking_response.data['booking']['booking_number'])
+        assert booking.guest_checkout is not None
+        assert booking.guest_checkout.email == 'guest@example.com'
+        assert booking.status == 'paid'
+        assert booking.total_price_cents == 99500
+    
+    def test_guest_booking_without_payment_intent_fails(self, test_services, test_addresses):
+        """Test booking creation fails without payment_intent_id"""
+        client = APIClient()
+        package = test_services['package']
+        
+        response = client.post('/api/public/guest-booking/', {
+            # Missing payment_intent_id
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'first_name': 'Guest',
+            'last_name': 'User',
+            'email': 'guest@example.com',
+            'phone': '5559876543',
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'pickup_address': {
+                'address_line_1': '123 Test St',
+                'city': 'New York',
+                'state': 'NY',
+                'zip_code': '10001'
+            },
+            'delivery_address': {
+                'address_line_1': '456 Test Ave',
+                'city': 'New York',
+                'state': 'NY',
+                'zip_code': '10002'
+            }
+        }, format='json')
+        
+        assert response.status_code == 400
+        assert 'payment_intent_id' in str(response.data)
+
+# backend/apps/bookings/tests/test_booking_flow.py
+# Replace the TestAuthenticatedBookingFlow class:
+
+@pytest.mark.django_db
+class TestAuthenticatedBookingFlow:
+    """Test authenticated customer booking flow"""
+    
+    @patch('stripe.PaymentIntent.create')
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_authenticated_booking_complete_flow(self, mock_retrieve, mock_create, authenticated_customer, test_services, test_addresses):
+        """Test full authenticated booking flow"""
+        client, user = authenticated_customer
+        package = test_services['package']
+        pickup, delivery = test_addresses
+        
+        # Step 1: Create payment intent
+        mock_create.return_value = Mock(
+            id='pi_test_456',
+            client_secret='pi_test_456_secret',
+            amount=99500
+        )
+        
+        payment_response = client.post('/api/customer/bookings/create-payment-intent/', {
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'customer_email': user.email
+        }, format='json')
+        
+        assert payment_response.status_code == 200
+        
+        # Step 2: Simulate payment success
+        mock_retrieve.return_value = Mock(
+            id='pi_test_456',
+            status='succeeded',
+            amount=99500,
+            get=lambda x, default='': 'ch_test_789' if x == 'latest_charge' else default
+        )
+        
+        # Step 3: Create booking - USE new_pickup_address and new_delivery_address
+        booking_response = client.post('/api/customer/bookings/create/', {
+            'payment_intent_id': 'pi_test_456',
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'new_pickup_address': {  # ← CHANGED to new_pickup_address
+                'address_line_1': pickup.address_line_1,
+                'city': pickup.city,
+                'state': pickup.state,
+                'zip_code': pickup.zip_code
+            },
+            'new_delivery_address': {  # ← CHANGED to new_delivery_address
+                'address_line_1': delivery.address_line_1,
+                'city': delivery.city,
+                'state': delivery.state,
+                'zip_code': delivery.zip_code
+            },
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'pickup_time': 'morning'
+        }, format='json')
+        
+        assert booking_response.status_code == 201
+        assert 'booking' in booking_response.data
+        
+        # Verify booking
+        booking = Booking.objects.get(customer=user)
+        assert booking.status == 'paid'
+        assert booking.customer == user
+
+@pytest.mark.django_db
+class TestBookingPricing:
+    """Test booking pricing calculations"""
+    
+    def test_mini_move_pricing_calculation(self, test_services, test_addresses):
+        """Test mini move pricing"""
+        pickup, delivery = test_addresses
+        package = test_services['package']
+        
+        booking = Booking.objects.create(
+            guest_checkout=GuestCheckout.objects.create(
+                first_name='Test',
+                last_name='User',
+                email='test@example.com',
+                phone='5551234567'
+            ),
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            status='pending'
+        )
+        
+        assert booking.base_price_cents == 99500
+        assert booking.total_price_cents >= 99500
+        assert booking.booking_number.startswith('TT-')
+    
+    def test_mini_move_with_organizing_services(self, test_services, test_addresses):
+        """Test mini move with packing service"""
+        pickup, delivery = test_addresses
+        package = test_services['package']
+        
+        booking = Booking.objects.create(
+            guest_checkout=GuestCheckout.objects.create(
+                first_name='Test',
+                last_name='User',
+                email='test@example.com',
+                phone='5551234567'
+            ),
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            include_packing=True,
+            status='pending'
+        )
+        
+        assert booking.organizing_total_cents > 0
+        assert booking.organizing_tax_cents > 0
+        assert booking.total_price_cents > booking.base_price_cents
+    
+    def test_specialty_item_pricing(self, test_services, test_addresses):
+        """Test specialty item pricing"""
+        pickup, delivery = test_addresses
+        peloton = test_services['peloton']
+        
+        booking = Booking.objects.create(
+            guest_checkout=GuestCheckout.objects.create(
+                first_name='Test',
+                last_name='User',
+                email='test@example.com',
+                phone='5551234567'
+            ),
+            service_type='specialty_item',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            status='pending'
+        )
+        
+        booking.specialty_items.add(peloton)
+        booking.save()
+        
+        assert booking.base_price_cents == 50000
+
+
+@pytest.mark.django_db
+class TestBookingValidation:
+    """Test booking validation rules"""
+    
+    def test_booking_requires_customer_or_guest(self, test_services, test_addresses):
+        """Test booking must have either customer or guest"""
+        pickup, delivery = test_addresses
+        package = test_services['package']
+        
+        # This should fail due to CheckConstraint
+        with pytest.raises(Exception):
+            Booking.objects.create(
+                service_type='mini_move',
+                mini_move_package=package,
+                pickup_address=pickup,
+                delivery_address=delivery,
+                pickup_date=timezone.now().date() + timedelta(days=1),
+                # No customer or guest_checkout
+                status='pending'
+            )
+    
+    def test_get_customer_name_and_email(self, test_addresses):
+        """Test booking customer name/email methods"""
+        pickup, delivery = test_addresses
+        
+        guest = GuestCheckout.objects.create(
+            first_name='Guest',
+            last_name='User',
+            email='guest@example.com',
+            phone='5551234567'
+        )
+        
+        booking = Booking.objects.create(
+            guest_checkout=guest,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1),
+            status='pending'
+        )
+        
+        assert booking.get_customer_name() == 'Guest User'
+        assert booking.get_customer_email() == 'guest@example.com'
+
+
+@pytest.mark.django_db
+class TestBladeTransfer:
+    """Test BLADE airport transfer bookings"""
+    
+    def test_blade_transfer_pricing(self, test_addresses):
+        """Test BLADE pricing calculation"""
+        pickup, delivery = test_addresses
+        
+        booking = Booking.objects.create(
+            guest_checkout=GuestCheckout.objects.create(
+                first_name='BLADE',
+                last_name='User',
+                email='blade@example.com',
+                phone='5551234567'
+            ),
+            service_type='blade_transfer',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            blade_airport='JFK',
+            blade_bag_count=3,
+            blade_flight_date=timezone.now().date() + timedelta(days=2),
+            blade_flight_time=timezone.now().time(),
+            status='pending'
+        )
+        
+        # $75 per bag, 3 bags = $225
+        assert booking.base_price_cents == 22500
+        assert booking.blade_ready_time is not None
+    
+    def test_blade_minimum_bags(self, test_addresses):
+        """Test BLADE minimum price enforcement"""
+        pickup, delivery = test_addresses
+        
+        booking = Booking.objects.create(
+            guest_checkout=GuestCheckout.objects.create(
+                first_name='BLADE',
+                last_name='User',
+                email='blade@example.com',
+                phone='5551234567'
+            ),
+            service_type='blade_transfer',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            blade_airport='JFK',
+            blade_bag_count=1,
+            blade_flight_date=timezone.now().date() + timedelta(days=2),
+            blade_flight_time=timezone.now().time(),
+            status='pending'
+        )
+        
+        # Minimum price is $150
+        assert booking.base_price_cents == 15000
+```
+
+# ==== apps/bookings/tests/test_models.py ====
+
+```python
+# backend/apps/bookings/tests/test_models.py
+import pytest
+from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
+from apps.bookings.models import Booking, Address
+from apps.customers.models import CustomerProfile
+from apps.services.models import MiniMovePackage
+from django.utils import timezone
+from datetime import timedelta
+
+
+@pytest.fixture
+def addresses(db):
+    pickup = Address.objects.create(
+        address_line_1='123 Test St',
+        city='New York',
+        state='NY',
+        zip_code='10001'
+    )
+    delivery = Address.objects.create(
+        address_line_1='456 Test Ave',
+        city='New York',
+        state='NY',
+        zip_code='10002'
+    )
+    return pickup, delivery
+
+
+@pytest.fixture
+def customer_user(db):
+    user = User.objects.create_user(
+        username='customer',
+        email='customer@example.com',
+        password='testpass123'
+    )
+    CustomerProfile.objects.create(user=user, phone='5551234567')
+    return user
+
+
+@pytest.mark.django_db
+class TestBookingModel:
+    """Test Booking model business logic"""
+    
+    def test_booking_number_generation(self, customer_user, addresses):
+        """Test booking numbers are generated sequentially"""
+        pickup, delivery = addresses
+        
+        booking1 = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1)
+        )
+        
+        booking2 = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1)
+        )
+        
+        assert booking1.booking_number.startswith('TT-')
+        assert booking2.booking_number.startswith('TT-')
+        assert booking1.booking_number != booking2.booking_number
+    
+    def test_pricing_calculation(self, customer_user, addresses, db):
+        """Test booking pricing is calculated correctly"""
+        pickup, delivery = addresses
+        
+        package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Petite',
+            base_price_cents=99500,
+            max_items=15,
+            is_active=True
+        )
+        
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1)
+        )
+        
+        assert booking.base_price_cents == 99500
+        assert booking.total_price_cents >= 99500
+    
+    def test_get_customer_name_authenticated(self, customer_user, addresses):
+        """Test getting customer name from authenticated user"""
+        pickup, delivery = addresses
+        
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1)
+        )
+        
+        name = booking.get_customer_name()
+        assert 'customer' in name.lower() or customer_user.get_full_name() in name
+    
+    def test_reminder_timestamp(self, customer_user, addresses):
+        """Test reminder sent timestamp"""
+        pickup, delivery = addresses
+        
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=1),
+            status='confirmed'
+        )
+        
+        assert booking.reminder_sent_at is None
+        
+        from apps.customers.emails import send_booking_reminder_email
+        send_booking_reminder_email(booking)
+        
+        booking.refresh_from_db()
+        assert booking.reminder_sent_at is not None
+```
+
 # ==== apps/bookings/tests/test_pricing.py ====
 
 ```python
@@ -4976,6 +5572,211 @@ class TestMiniMovePricing(TestCase):
         assert isinstance(breakdown['base_price_dollars'], float)
         
         print(f"✅ Pricing breakdown: {breakdown}")
+```
+
+# ==== apps/bookings/tests/test_tasks.py ====
+
+```python
+# backend/apps/bookings/tests/test_tasks.py
+import pytest
+from django.utils import timezone
+from datetime import timedelta
+from django.core import mail
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.bookings.tasks import send_booking_reminders
+
+
+@pytest.fixture
+def test_addresses(db):
+    """Create pickup and delivery addresses"""
+    pickup = Address.objects.create(
+        address_line_1='123 Pickup St',
+        city='New York',
+        state='NY',
+        zip_code='10001'
+    )
+    delivery = Address.objects.create(
+        address_line_1='456 Delivery Ave',
+        city='New York',
+        state='NY',
+        zip_code='10002'
+    )
+    return pickup, delivery
+
+
+@pytest.mark.django_db
+class TestBookingReminderTask:
+    """Test Celery reminder task"""
+    
+    def setup_method(self):
+        mail.outbox = []
+        Booking.objects.all().delete()
+    
+    def test_sends_reminders_for_tomorrow_bookings(self, test_addresses):
+        """Test reminders sent for bookings tomorrow"""
+        pickup, delivery = test_addresses
+        tomorrow = timezone.now().date() + timedelta(days=1)
+        
+        guest = GuestCheckout.objects.create(
+            first_name='Test',
+            last_name='User',
+            email='test@example.com',
+            phone='5551234567'
+        )
+        
+        booking = Booking.objects.create(
+            guest_checkout=guest,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=tomorrow,
+            total_price_cents=99500,
+            status='confirmed',
+            reminder_sent_at=None
+        )
+        
+        result = send_booking_reminders()
+        
+        assert result['sent'] == 1
+        assert result['failed'] == 0
+        assert len(mail.outbox) == 1
+        
+        booking.refresh_from_db()
+        assert booking.reminder_sent_at is not None
+    
+    def test_no_reminders_for_past_bookings(self, test_addresses):
+        """Test no reminders sent for past bookings"""
+        pickup, delivery = test_addresses
+        yesterday = timezone.now().date() - timedelta(days=1)
+        
+        guest = GuestCheckout.objects.create(
+            first_name='Test',
+            last_name='User',
+            email='test@example.com',
+            phone='5551234567'
+        )
+        
+        Booking.objects.create(
+            guest_checkout=guest,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=yesterday,
+            total_price_cents=99500,
+            status='confirmed',
+            reminder_sent_at=None
+        )
+        
+        result = send_booking_reminders()
+        
+        assert result['sent'] == 0
+        assert len(mail.outbox) == 0
+    
+    def test_no_duplicate_reminders(self, test_addresses):
+        """Test reminder not sent twice"""
+        pickup, delivery = test_addresses
+        tomorrow = timezone.now().date() + timedelta(days=1)
+        
+        guest = GuestCheckout.objects.create(
+            first_name='Test',
+            last_name='User',
+            email='test@example.com',
+            phone='5551234567'
+        )
+        
+        Booking.objects.create(
+            guest_checkout=guest,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=tomorrow,
+            total_price_cents=99500,
+            status='confirmed',
+            reminder_sent_at=timezone.now()
+        )
+        
+        result = send_booking_reminders()
+        
+        assert result['sent'] == 0
+        assert len(mail.outbox) == 0
+    
+    def test_only_confirmed_bookings_get_reminders(self, test_addresses):
+        """Test only confirmed/paid bookings get reminders"""
+        pickup, delivery = test_addresses
+        tomorrow = timezone.now().date() + timedelta(days=1)
+        
+        # Cancelled booking
+        guest1 = GuestCheckout.objects.create(
+            first_name='Cancelled',
+            last_name='User',
+            email='cancelled@example.com',
+            phone='5551234567'
+        )
+        
+        Booking.objects.create(
+            guest_checkout=guest1,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=tomorrow,
+            total_price_cents=99500,
+            status='cancelled',
+            reminder_sent_at=None
+        )
+        
+        # Confirmed booking
+        guest2 = GuestCheckout.objects.create(
+            first_name='Confirmed',
+            last_name='User',
+            email='confirmed@example.com',
+            phone='5559876543'
+        )
+        
+        Booking.objects.create(
+            guest_checkout=guest2,
+            service_type='mini_move',
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=tomorrow,
+            total_price_cents=99500,
+            status='confirmed',
+            reminder_sent_at=None
+        )
+        
+        result = send_booking_reminders()
+        
+        assert result['sent'] == 1
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ['confirmed@example.com']
+    
+    def test_handles_multiple_bookings(self, test_addresses):
+        """Test task handles multiple bookings correctly"""
+        pickup, delivery = test_addresses
+        tomorrow = timezone.now().date() + timedelta(days=1)
+        
+        for i in range(3):
+            guest = GuestCheckout.objects.create(
+                first_name='Test',
+                last_name=f'User{i}',
+                email=f'test{i}@example.com',
+                phone='5551234567'
+            )
+            
+            Booking.objects.create(
+                guest_checkout=guest,
+                service_type='mini_move',
+                pickup_address=pickup,
+                delivery_address=delivery,
+                pickup_date=tomorrow,
+                total_price_cents=99500,
+                status='confirmed',
+                reminder_sent_at=None
+            )
+        
+        result = send_booking_reminders()
+        
+        assert result['sent'] == 3
+        assert len(mail.outbox) == 3
 ```
 
 # ==== apps/bookings/urls.py ====
@@ -7750,10 +8551,708 @@ class CustomerPaymentMethodSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'stripe_payment_method_id')
 ```
 
-# ==== apps/customers/tests.py ====
+# ==== apps/customers/tests/__init__.py ====
 
 ```python
 
+```
+
+# ==== apps/customers/tests/test_api.py ====
+
+```python
+# backend/apps/customers/tests/test_api.py
+import pytest
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient
+from apps.customers.models import CustomerProfile, EmailVerificationToken
+
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+
+@pytest.fixture
+def verified_user(db):
+    """Create a verified user with customer profile"""
+    user = User.objects.create_user(
+        username='test@example.com',  # ← FIX: Use email as username
+        email='test@example.com',
+        password='testpass123',
+        first_name='Test',
+        last_name='User',
+        is_active=True
+    )
+    CustomerProfile.objects.create(user=user, phone='5551234567')
+    return user
+
+
+@pytest.mark.django_db
+class TestAuthenticationAPI:
+    """Test authentication endpoints"""
+    
+    def test_registration_success(self, api_client):
+        """Test successful registration"""
+        response = api_client.post('/api/customer/auth/register/', {
+            'first_name': 'New',
+            'last_name': 'User',
+            'email': 'newuser@example.com',
+            'phone': '5559876543',
+            'password': 'newpass123',
+            'password_confirm': 'newpass123'
+        })
+        
+        assert response.status_code == 201
+        assert 'message' in response.data
+        assert 'verify' in response.data['message'].lower()
+        
+        # User should exist but be inactive
+        user = User.objects.get(email='newuser@example.com')
+        assert not user.is_active
+        assert hasattr(user, 'customer_profile')
+    
+    def test_registration_duplicate_email(self, api_client, verified_user):
+        """Test registration with duplicate email fails"""
+        response = api_client.post('/api/customer/auth/register/', {
+            'first_name': 'Duplicate',
+            'last_name': 'User',
+            'email': verified_user.email,
+            'phone': '5559876543',
+            'password': 'newpass123',
+            'password_confirm': 'newpass123'
+        })
+        
+        assert response.status_code == 400
+    
+    def test_registration_password_mismatch(self, api_client):
+        """Test password confirmation validation"""
+        response = api_client.post('/api/customer/auth/register/', {
+            'first_name': 'Test',
+            'last_name': 'User',
+            'email': 'test@example.com',
+            'phone': '5551234567',
+            'password': 'password123',
+            'password_confirm': 'different123'
+        })
+        
+        assert response.status_code == 400
+        assert 'password' in str(response.data).lower()
+    
+    def test_login_success(self, api_client, verified_user):
+        """Test successful login"""
+        # Get CSRF token first
+        csrf_response = api_client.get('/api/customer/csrf-token/')
+        csrf_token = csrf_response.data['csrf_token']
+        
+        response = api_client.post('/api/customer/auth/login/', {
+            'email': 'test@example.com',
+            'password': 'testpass123'
+        }, HTTP_X_CSRFTOKEN=csrf_token)
+        
+        assert response.status_code == 200
+        assert 'user' in response.data
+        assert 'customer_profile' in response.data
+        assert 'csrf_token' in response.data
+    
+    def test_login_unverified_user(self, api_client, db):
+        """Test login with unverified email fails"""
+        user = User.objects.create_user(
+            username='unverified',
+            email='unverified@example.com',
+            password='testpass123',
+            is_active=False
+        )
+        CustomerProfile.objects.create(user=user, phone='5551234567')
+        
+        # Get CSRF token first
+        csrf_response = api_client.get('/api/customer/csrf-token/')
+        csrf_token = csrf_response.data['csrf_token']
+        
+        response = api_client.post('/api/customer/auth/login/', {
+            'email': 'unverified@example.com',
+            'password': 'testpass123'
+        }, HTTP_X_CSRFTOKEN=csrf_token)
+        
+        assert response.status_code == 400
+        # Check for error message (could be 'error' or 'non_field_errors')
+        error_msg = str(response.data).lower()
+        assert 'verify' in error_msg or 'email' in error_msg
+    
+    def test_login_invalid_credentials(self, api_client, verified_user):
+        """Test login with wrong password fails"""
+        # Get CSRF token first
+        csrf_response = api_client.get('/api/customer/csrf-token/')
+        csrf_token = csrf_response.data['csrf_token']
+        
+        response = api_client.post('/api/customer/auth/login/', {
+            'email': 'test@example.com',
+            'password': 'wrongpassword'
+        }, HTTP_X_CSRFTOKEN=csrf_token)
+        
+        assert response.status_code == 400
+    
+    def test_password_reset_request(self, api_client, verified_user):
+        """Test password reset request"""
+        response = api_client.post('/api/customer/auth/password-reset/', {
+            'email': 'test@example.com'
+        })
+        
+        assert response.status_code == 200
+        assert 'message' in response.data
+        
+        # Token should be created
+        from apps.customers.models import PasswordResetToken
+        token = PasswordResetToken.objects.filter(user=verified_user).first()
+        assert token is not None
+        assert token.is_valid()
+    
+    def test_password_reset_nonexistent_email(self, api_client):
+        """Test password reset with non-existent email (security)"""
+        response = api_client.post('/api/customer/auth/password-reset/', {
+            'email': 'nonexistent@example.com'
+        })
+        
+        # Should return 200 to not reveal if email exists
+        assert response.status_code == 200
+    
+    def test_email_verification(self, api_client, db):
+        """Test email verification endpoint"""
+        user = User.objects.create_user(
+            username='unverified',
+            email='unverified@example.com',
+            password='testpass123',
+            is_active=False
+        )
+        CustomerProfile.objects.create(user=user, phone='5551234567')
+        token = EmailVerificationToken.create_token(user)
+        
+        response = api_client.post('/api/customer/auth/verify-email/', {
+            'token': token.token
+        })
+        
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.is_active
+    
+    def test_current_user_authenticated(self, api_client, verified_user):
+        """Test getting current user when authenticated"""
+        api_client.force_authenticate(user=verified_user)
+        
+        response = api_client.get('/api/customer/auth/user/')
+        
+        assert response.status_code == 200
+        assert response.data['user']['email'] == verified_user.email
+    
+    def test_current_user_unauthenticated(self, api_client):
+        """Test getting current user when not authenticated"""
+        response = api_client.get('/api/customer/auth/user/')
+        
+        assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestProfileAPI:
+    """Test customer profile endpoints"""
+    
+    def test_get_profile(self, api_client, verified_user):
+        """Test getting customer profile"""
+        api_client.force_authenticate(user=verified_user)
+        
+        response = api_client.get('/api/customer/profile/')
+        
+        assert response.status_code == 200
+        assert response.data['phone'] == '5551234567'
+    
+    def test_update_profile(self, api_client, verified_user):
+        """Test updating customer profile"""
+        api_client.force_authenticate(user=verified_user)
+        
+        response = api_client.patch('/api/customer/profile/', {
+            'phone': '5559999999',
+            'email_notifications': False
+        })
+        
+        assert response.status_code == 200
+        verified_user.customer_profile.refresh_from_db()
+        assert verified_user.customer_profile.phone == '5559999999'
+        assert not verified_user.customer_profile.email_notifications
+```
+
+# ==== apps/customers/tests/test_emails.py ====
+
+```python
+# backend/apps/customers/tests/test_emails.py
+import pytest
+from django.core import mail
+from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import timedelta
+from apps.customers.emails import (
+    send_welcome_email,
+    send_password_reset_email,
+    send_email_verification,
+    send_booking_confirmation_email,
+    send_booking_status_update_email,
+    send_booking_reminder_email
+)
+from apps.customers.models import CustomerProfile, EmailVerificationToken, PasswordResetToken
+from apps.bookings.models import Booking, Address, GuestCheckout
+from unittest.mock import patch
+
+
+@pytest.fixture
+def test_user(db):
+    """Create test user with customer profile"""
+    user = User.objects.create_user(
+        username='testuser',
+        email='test@example.com',
+        password='testpass123',
+        first_name='Test',
+        last_name='User'
+    )
+    CustomerProfile.objects.create(
+        user=user,
+        phone='5551234567'
+    )
+    return user
+
+
+@pytest.fixture
+def test_address(db):
+    """Create test address"""
+    return Address.objects.create(
+        address_line_1='123 Test St',
+        city='New York',
+        state='NY',
+        zip_code='10001'
+    )
+
+
+@pytest.fixture
+def test_booking_with_guest(db, test_address):
+    """Create test booking with guest checkout"""
+    # Create second address for delivery
+    delivery_address = Address.objects.create(
+        address_line_1='456 Delivery Ave',
+        city='New York',
+        state='NY',
+        zip_code='10002'
+    )
+    
+    # Create guest checkout
+    guest = GuestCheckout.objects.create(
+        first_name='Guest',
+        last_name='User',
+        email='guest@example.com',
+        phone='5559876543'
+    )
+    
+    # Create booking
+    booking = Booking.objects.create(
+        guest_checkout=guest,
+        service_type='mini_move',
+        pickup_address=test_address,
+        delivery_address=delivery_address,
+        pickup_date=timezone.now().date() + timedelta(days=1),
+        total_price_cents=99500,
+        status='confirmed'
+    )
+    return booking
+
+
+@pytest.mark.django_db
+class TestEmailFunctions:
+    """Test email sending functions"""
+    
+    def setup_method(self):
+        """Clear mail outbox before each test"""
+        mail.outbox = []
+    
+    def test_welcome_email_sent(self, test_user):
+        """Test welcome email is sent with correct content"""
+        result = send_welcome_email(test_user)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert email.subject == 'Welcome to ToteTaxi!'
+        assert email.to == ['test@example.com']
+        assert 'Test User' in email.body or 'test@example.com' in email.body
+        assert 'ToteTaxi' in email.body
+    
+    def test_welcome_email_handles_no_name(self, db):
+        """Test welcome email works when user has no full name"""
+        user = User.objects.create_user(
+            username='noname',
+            email='noname@example.com',
+            password='testpass123'
+        )
+        
+        result = send_welcome_email(user)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        assert 'noname@example.com' in mail.outbox[0].body
+    
+    def test_email_verification_sent(self, test_user):
+        """Test verification email is sent with token"""
+        token = EmailVerificationToken.create_token(test_user)
+        verify_url = f"https://totetaxi.netlify.app/verify-email?token={token.token}"
+        
+        result = send_email_verification(test_user, token.token, verify_url)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert email.subject == 'Verify Your ToteTaxi Account'
+        assert email.to == ['test@example.com']
+        assert verify_url in email.body
+        assert token.token in email.body
+        assert '48 hours' in email.body
+    
+    def test_password_reset_email_sent(self, test_user):
+        """Test password reset email with token"""
+        token = PasswordResetToken.create_token(test_user)
+        reset_url = f"https://totetaxi.netlify.app/reset-password?token={token.token}"
+        
+        result = send_password_reset_email(test_user, token.token, reset_url)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert email.subject == 'Reset Your ToteTaxi Password'
+        assert email.to == ['test@example.com']
+        assert reset_url in email.body
+        assert '24 hours' in email.body
+    
+    def test_booking_confirmation_email(self, test_booking_with_guest):
+        """Test booking confirmation email"""
+        booking = test_booking_with_guest
+        
+        result = send_booking_confirmation_email(booking)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert booking.booking_number in email.subject
+        assert email.to == ['guest@example.com']
+        assert booking.booking_number in email.body
+        assert '123 Test St' in email.body
+        assert '456 Delivery Ave' in email.body
+    
+    def test_booking_status_update_email(self, test_booking_with_guest):
+        """Test booking status update email"""
+        booking = test_booking_with_guest
+        
+        result = send_booking_status_update_email(
+            booking, 
+            old_status='pending', 
+            new_status='confirmed'
+        )
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert 'Update' in email.subject
+        assert email.to == ['guest@example.com']
+        assert 'pending' in email.body.lower()
+        assert 'confirmed' in email.body.lower()
+    
+    def test_booking_reminder_email(self, test_booking_with_guest):
+        """Test 24-hour reminder email"""
+        booking = test_booking_with_guest
+        
+        result = send_booking_reminder_email(booking)
+        
+        assert result is True
+        assert len(mail.outbox) == 1
+        
+        email = mail.outbox[0]
+        assert 'Reminder' in email.subject
+        assert 'Tomorrow' in email.subject or 'tomorrow' in email.body.lower()
+        assert email.to == ['guest@example.com']
+        
+        # Check reminder timestamp was set
+        booking.refresh_from_db()
+        assert booking.reminder_sent_at is not None
+    
+    def test_reminder_not_sent_twice(self, db, test_address):
+        """Test reminder email is not sent twice"""
+        delivery_address = Address.objects.create(
+            address_line_1='456 Delivery Ave',
+            city='New York',
+            state='NY',
+            zip_code='10002'
+        )
+        
+        guest = GuestCheckout.objects.create(
+            first_name='Guest',
+            last_name='User',
+            email='guest@example.com',
+            phone='5559876543'
+        )
+        
+        booking = Booking.objects.create(
+            guest_checkout=guest,
+            service_type='mini_move',
+            pickup_address=test_address,
+            delivery_address=delivery_address,
+            pickup_date=timezone.now().date() + timedelta(days=1),
+            total_price_cents=99500,
+            status='confirmed',
+            reminder_sent_at=timezone.now()  # Already sent
+        )
+        
+        result = send_booking_reminder_email(booking)
+        
+        assert result is False
+        assert len(mail.outbox) == 0
+    
+    @patch('apps.customers.emails.send_mail')
+    def test_email_failure_handling(self, mock_send_mail, test_user):
+        """Test email failure is handled gracefully"""
+        mock_send_mail.side_effect = Exception("SMTP Error")
+        
+        result = send_welcome_email(test_user)
+        
+        assert result is False
+
+
+@pytest.mark.django_db
+class TestEmailContent:
+    """Test email content and formatting"""
+    
+    def setup_method(self):
+        mail.outbox = []
+    
+    def test_email_has_from_address(self, test_user):
+        """Test all emails have correct from address"""
+        send_welcome_email(test_user)
+        
+        email = mail.outbox[0]
+        assert 'totetaxi.com' in email.from_email.lower()
+    
+    def test_email_is_plain_text(self, test_user):
+        """Test emails are plain text (not HTML)"""
+        send_welcome_email(test_user)
+        
+        email = mail.outbox[0]
+        assert email.content_subtype == 'plain'
+    
+    def test_verification_url_format(self, test_user):
+        """Test verification URL is properly formatted"""
+        token = EmailVerificationToken.create_token(test_user)
+        verify_url = f"https://totetaxi.netlify.app/verify-email?token={token.token}"
+        
+        send_email_verification(test_user, token.token, verify_url)
+        
+        email = mail.outbox[0]
+        assert 'https://' in email.body
+        assert 'totetaxi.netlify.app' in email.body
+        assert f'token={token.token}' in email.body
+    
+    def test_no_html_in_plain_text(self, test_user):
+        """Test plain text emails don't contain HTML tags"""
+        send_welcome_email(test_user)
+        
+        email = mail.outbox[0]
+        assert '<html>' not in email.body.lower()
+        assert '<body>' not in email.body.lower()
+        assert '<p>' not in email.body
+```
+
+# ==== apps/customers/tests/test_security.py ====
+
+```python
+# backend/apps/customers/tests/test_security.py
+import pytest
+from rest_framework.test import APIClient
+from django.contrib.auth.models import User
+from apps.customers.models import CustomerProfile
+from apps.accounts.models import StaffProfile
+
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+
+@pytest.mark.django_db
+class TestRateLimiting:
+    """Test rate limiting on critical endpoints"""
+    
+    @pytest.mark.skip(reason="Rate limiting not configured in test environment")
+    def test_password_reset_rate_limit(self, api_client):
+        """Test password reset is rate limited (10/hour)"""
+        # Make 11 requests
+        for i in range(11):
+            response = api_client.post('/api/customer/auth/password-reset/', {
+                'email': f'test{i}@example.com'
+            })
+            
+            if i < 10:
+                assert response.status_code == 200
+            else:
+                # 11th request should be rate limited
+                assert response.status_code == 429
+
+
+@pytest.mark.django_db
+class TestAuthenticationSecurity:
+    """Test authentication security measures"""
+    
+    def test_cannot_have_both_customer_and_staff_profile(self, db):
+        """Test hybrid accounts are prevented"""
+        user = User.objects.create_user(
+            username='hybrid@example.com',
+            email='hybrid@example.com',
+            password='testpass123'
+        )
+        
+        # Create customer profile
+        CustomerProfile.objects.create(user=user, phone='5551234567')
+        
+        # Trying to create staff profile should fail
+        with pytest.raises(Exception):
+            StaffProfile.objects.create(
+                user=user,
+                role='staff',
+                phone='5559876543'
+            )
+    
+    def test_staff_cannot_login_as_customer(self, api_client, db):
+        """Test staff accounts cannot use customer login"""
+        user = User.objects.create_user(
+            username='staff@example.com',
+            email='staff@example.com',
+            password='testpass123',
+            is_active=True
+        )
+        StaffProfile.objects.create(user=user, role='staff', phone='5551234567')
+        
+        # Get CSRF token
+        csrf_response = api_client.get('/api/customer/csrf-token/')
+        csrf_token = csrf_response.data['csrf_token']
+        
+        response = api_client.post('/api/customer/auth/login/', {
+            'email': 'staff@example.com',
+            'password': 'testpass123'
+        }, HTTP_X_CSRFTOKEN=csrf_token)
+        
+        assert response.status_code == 400
+        assert 'staff' in str(response.data).lower()
+    
+    def test_customer_profile_validation(self, db):
+        """Test customer profile prevents hybrid accounts"""
+        user = User.objects.create_user(
+            username='test@example.com',
+            email='test@example.com',
+            password='testpass123'
+        )
+        
+        # Create staff profile first
+        StaffProfile.objects.create(user=user, role='staff', phone='5551234567')
+        
+        # Customer profile creation should fail
+        with pytest.raises(Exception):
+            CustomerProfile.objects.create(user=user, phone='5559876543')
+```
+
+# ==== apps/customers/tests/test_ses_integration.py ====
+
+```python
+# backend/apps/customers/tests/test_ses_integration.py
+import pytest
+from django.core import mail
+from django.conf import settings
+from django.contrib.auth.models import User
+from apps.customers.emails import send_welcome_email
+from apps.customers.models import CustomerProfile
+
+
+@pytest.fixture
+def test_user(db):
+    """Create test user"""
+    user = User.objects.create_user(
+        username='testuser',
+        email='test@example.com',
+        password='testpass123',
+        first_name='Test',
+        last_name='User'
+    )
+    CustomerProfile.objects.create(
+        user=user,
+        phone='5551234567'
+    )
+    return user
+
+
+@pytest.mark.django_db
+@pytest.mark.skipif(
+    settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend',
+    reason="SES integration tests only run with SES backend"
+)
+class TestSESIntegration:
+    """Test SES-specific email behavior"""
+    
+    def setup_method(self):
+        """Clear mail outbox before each test"""
+        mail.outbox = []
+    
+    def test_email_from_verified_sender(self, test_user):
+        """Test emails are from verified SES sender"""
+        send_welcome_email(test_user)
+        
+        email = mail.outbox[0]
+        # In production, ensure from_email matches SES verified identity
+        assert 'totetaxi.com' in email.from_email.lower()
+    
+    def test_email_headers_for_ses(self, test_user):
+        """Test email has proper headers for SES"""
+        send_welcome_email(test_user)
+        
+        email = mail.outbox[0]
+        # Basic email structure required by SES
+        assert email.subject
+        assert email.body
+        assert email.to
+        assert email.from_email
+
+
+@pytest.mark.django_db
+class TestEmailValidation:
+    """Test email addresses are valid before sending"""
+    
+    def setup_method(self):
+        """Clear mail outbox before each test"""
+        mail.outbox = []
+    
+    def test_invalid_email_format(self, db):
+        """Test handling of invalid email addresses"""
+        # Django's User model will validate email on save
+        # This test ensures our email functions handle edge cases
+        user = User.objects.create_user(
+            username='invaliduser',
+            email='test@example.com',  # Valid email (Django validates on create)
+            password='testpass123'
+        )
+        
+        # Change email to invalid after creation to test error handling
+        user.email = 'invalid-email'
+        
+        # Test that send_welcome_email handles this gracefully
+        result = send_welcome_email(user)
+        
+        # Depending on your email backend, this might:
+        # - Return False (handled gracefully)
+        # - Raise an exception (caught by logger)
+        # Either way, it shouldn't crash
+        assert isinstance(result, bool)
 ```
 
 # ==== apps/customers/urls.py ====
@@ -8273,7 +9772,8 @@ class BookingPreferencesView(APIView):
 
 # Add these new views at the end of the file
 
-@method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=True), name='post')
+@method_decorator(csrf_exempt, name='dispatch')  # ← ADD THIS LINE
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')  # ← CHANGED from 3/h to 10/h
 class PasswordResetRequestView(APIView):
     """Request password reset - sends email with reset link"""
     permission_classes = [permissions.AllowAny]
@@ -8316,9 +9816,10 @@ class PasswordResetRequestView(APIView):
             return Response({
                 'message': 'If an account exists with this email, you will receive password reset instructions.'
             })
-
-
-@method_decorator(ratelimit(key='ip', rate='5/h', method='POST', block=True), name='post')
+        
+# 2. Password Reset Confirm View - Around line 405
+@method_decorator(csrf_exempt, name='dispatch')  # ← ADD THIS LINE
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')  # ← CHANGED from 5/h to 10/h
 class PasswordResetConfirmView(APIView):
     """Confirm password reset with token"""
     permission_classes = [permissions.AllowAny]
@@ -10665,6 +12166,164 @@ class TestRefundProcessing(TestCase):
         print("✅ Stripe error handled correctly")
 ```
 
+# ==== apps/payments/tests/test_stripe.py ====
+
+```python
+# backend/apps/payments/tests/test_stripe.py
+import pytest
+from unittest.mock import patch, Mock
+from rest_framework.test import APIClient
+from django.contrib.auth.models import User
+from apps.customers.models import CustomerProfile
+from apps.payments.models import Payment
+from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.services.models import MiniMovePackage
+from django.utils import timezone
+from datetime import timedelta
+
+
+@pytest.fixture
+def test_booking(db):
+    """Create test booking"""
+    pickup = Address.objects.create(
+        address_line_1='123 Test St',
+        city='New York',
+        state='NY',
+        zip_code='10001'
+    )
+    delivery = Address.objects.create(
+        address_line_1='456 Test Ave',
+        city='New York',
+        state='NY',
+        zip_code='10002'
+    )
+    
+    package, _ = MiniMovePackage.objects.get_or_create(
+        package_type='petite',
+        defaults={
+            'name': 'Petite',
+            'base_price_cents': 99500,
+            'max_items': 15,
+            'is_active': True
+        }
+    )
+    
+    guest = GuestCheckout.objects.create(
+        first_name='Test',
+        last_name='User',
+        email='test@example.com',
+        phone='5551234567'
+    )
+    
+    booking = Booking.objects.create(
+        guest_checkout=guest,
+        service_type='mini_move',
+        mini_move_package=package,
+        pickup_address=pickup,
+        delivery_address=delivery,
+        pickup_date=timezone.now().date() + timedelta(days=2),
+        status='pending'
+    )
+    
+    return booking
+
+
+@pytest.mark.django_db
+class TestPaymentIntents:
+    """Test payment intent creation"""
+    
+    @patch('stripe.PaymentIntent.create')
+    def test_create_payment_intent_guest(self, mock_stripe):
+        """Test creating payment intent for guest booking"""
+        client = APIClient()
+        
+        # Get or create package
+        package, _ = MiniMovePackage.objects.get_or_create(
+            package_type='petite',
+            defaults={
+                'name': 'Petite',
+                'base_price_cents': 99500,
+                'max_items': 15,
+                'is_active': True
+            }
+        )
+        
+        mock_stripe.return_value = Mock(
+            id='pi_test_123',
+            client_secret='pi_test_123_secret',
+            amount=99500
+        )
+        
+        response = client.post('/api/public/create-payment-intent/', {
+            'service_type': 'mini_move',
+            'mini_move_package_id': str(package.id),
+            'pickup_date': (timezone.now().date() + timedelta(days=2)).isoformat(),
+            'first_name': 'Guest',
+            'last_name': 'User',
+            'email': 'guest@example.com',
+            'phone': '5559876543'
+        }, format='json')
+        
+        assert response.status_code == 200
+        assert 'client_secret' in response.data
+        assert 'payment_intent_id' in response.data
+        
+        mock_stripe.assert_called_once()
+
+# backend/apps/payments/test# backend/apps/payments/tests/test_stripe.py
+# backend/apps/payments/tests/test_stripe.py
+
+@pytest.mark.django_db
+class TestStripeWebhooks:
+    """Test Stripe webhook handling"""
+    
+    @patch('stripe.Webhook.construct_event')
+    @patch('apps.logistics.models.create_onfleet_tasks_on_payment')  # ← Mock the signal
+    def test_payment_succeeded_webhook(self, mock_signal, mock_construct, test_booking, settings):
+        """Test handling payment_intent.succeeded webhook"""
+        client = APIClient()
+        
+        # Mock signal to do nothing
+        mock_signal.return_value = None
+        
+        # Create payment record
+        payment = Payment.objects.create(
+            booking=test_booking,
+            stripe_payment_intent_id='pi_test_123',
+            amount_cents=99500,
+            status='processing'
+        )
+        
+        # Mock webhook event
+        mock_construct.return_value = {
+            'id': 'evt_test_123',
+            'type': 'payment_intent.succeeded',
+            'data': {
+                'object': {
+                    'id': 'pi_test_123',
+                    'latest_charge': 'ch_test_456',
+                    'amount': 99500
+                }
+            }
+        }
+        
+        response = client.post('/api/payments/webhook/', 
+            data={},
+            content_type='application/json',
+            HTTP_STRIPE_SIGNATURE='test_signature'
+        )
+        
+        assert response.status_code == 200
+        
+        # Verify payment updated
+        payment.refresh_from_db()
+        assert payment.status == 'succeeded'
+        
+        # Verify booking updated
+        test_booking.refresh_from_db()
+        assert test_booking.status == 'paid'
+```
+
 # ==== apps/payments/tests/test_stripe_integration.py ====
 
 ```python
@@ -10987,14 +12646,6 @@ class TestPaymentEdgeCases(TestCase):
         # Should succeed without error
         assert result['payment_intent_id'] == 'pi_guest'
         print("✅ Guest checkout handled correctly")
-```
-
-# ==== apps/payments/tests.py ====
-
-```python
-from django.test import TestCase
-
-# Create your tests here.
 ```
 
 # ==== apps/payments/urls.py ====
@@ -12904,6 +14555,82 @@ fi
 
 echo "Starting application..."
 exec "$@"
+```
+
+# ==== scripts/validate_ses_setup.py ====
+
+```python
+# backend/scripts/validate_ses_setup.py
+"""
+Validate SES setup for production
+Run locally: docker-compose exec web python manage.py shell < scripts/validate_ses_setup.py
+Run on Fly.io: fly ssh console -a totetaxi-backend -C "python manage.py shell < scripts/validate_ses_setup.py"
+"""
+import sys
+from django.core.mail import send_mail
+from django.conf import settings
+
+print("🔍 Validating SES Configuration...")
+print(f"EMAIL_BACKEND: {settings.EMAIL_BACKEND}")
+print(f"EMAIL_HOST: {settings.EMAIL_HOST}")
+print(f"EMAIL_PORT: {settings.EMAIL_PORT}")
+print(f"EMAIL_USE_TLS: {settings.EMAIL_USE_TLS}")
+print(f"DEFAULT_FROM_EMAIL: {settings.DEFAULT_FROM_EMAIL}")
+
+# Check if using SES in production
+if 'ses' not in settings.EMAIL_BACKEND.lower() and not settings.DEBUG:
+    print("⚠️  WARNING: Not using SES backend in production!")
+    print(f"Current backend: {settings.EMAIL_BACKEND}")
+    sys.exit(1)
+
+# In local dev, skip SES validation
+if settings.DEBUG and 'console' in settings.EMAIL_BACKEND.lower():
+    print("ℹ️  Running in DEBUG mode with console backend - SES validation skipped")
+    print("✅ Email configuration is correct for local development")
+    sys.exit(0)
+
+print("\n📧 Sending test email to mnraynor90@gmail.com...")
+try:
+    send_mail(
+        subject='ToteTaxi SES Test - Production Email Validation',
+        message='''This is a test email from ToteTaxi to validate SES setup.
+
+If you received this email, your SES configuration is working correctly!
+
+Test Details:
+- Backend: {backend}
+- From: {from_email}
+- Host: {host}
+- Port: {port}
+
+Next steps:
+1. Check AWS SES dashboard for delivery metrics
+2. Verify email templates are rendering correctly
+3. Test all email types (welcome, verification, password reset, bookings)
+
+ToteTaxi Backend Team
+'''.format(
+            backend=settings.EMAIL_BACKEND,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            host=settings.EMAIL_HOST,
+            port=settings.EMAIL_PORT
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=['mnraynor90@gmail.com'],
+        fail_silently=False,
+    )
+    print("✅ Test email sent successfully!")
+    print("📬 Check mnraynor90@gmail.com inbox to confirm delivery.")
+    print("\n✨ SES validation complete!")
+except Exception as e:
+    print(f"❌ Failed to send email: {e}")
+    print("\nTroubleshooting steps:")
+    print("1. Verify SES sender identity is verified in AWS console")
+    print("2. Check AWS credentials (ACCESS_KEY_ID and SECRET_ACCESS_KEY)")
+    print("3. Confirm DEFAULT_FROM_EMAIL matches verified identity")
+    print("4. Check SES is out of sandbox mode (or recipient is verified)")
+    print("5. Review CloudWatch logs for detailed error messages")
+    sys.exit(1)
 ```
 
 # ========================= OTHER FILES =========================

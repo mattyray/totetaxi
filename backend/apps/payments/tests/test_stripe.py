@@ -91,7 +91,7 @@ class TestPaymentIntents:
             'last_name': 'User',
             'email': 'guest@example.com',
             'phone': '5559876543'
-        })
+        }, format='json')
         
         assert response.status_code == 200
         assert 'client_secret' in response.data
@@ -99,7 +99,7 @@ class TestPaymentIntents:
         
         mock_stripe.assert_called_once()
 
-
+# backend/apps/payments/test# backend/apps/payments/tests/test_stripe.py
 # backend/apps/payments/tests/test_stripe.py
 
 @pytest.mark.django_db
@@ -107,10 +107,13 @@ class TestStripeWebhooks:
     """Test Stripe webhook handling"""
     
     @patch('stripe.Webhook.construct_event')
-    @patch('apps.bookings.signals.booking_status_changed.send')  # ← CHANGED: Mock the signal instead
-    def test_payment_succeeded_webhook(self, mock_signal, mock_construct, test_booking):
+    @patch('apps.logistics.models.create_onfleet_tasks_on_payment')  # ← Mock the signal
+    def test_payment_succeeded_webhook(self, mock_signal, mock_construct, test_booking, settings):
         """Test handling payment_intent.succeeded webhook"""
         client = APIClient()
+        
+        # Mock signal to do nothing
+        mock_signal.return_value = None
         
         # Create payment record
         payment = Payment.objects.create(
