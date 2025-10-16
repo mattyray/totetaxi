@@ -463,7 +463,8 @@ class BookingPreferencesView(APIView):
 
 # Add these new views at the end of the file
 
-@method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=True), name='post')
+@method_decorator(csrf_exempt, name='dispatch')  # ← ADD THIS LINE
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')  # ← CHANGED from 3/h to 10/h
 class PasswordResetRequestView(APIView):
     """Request password reset - sends email with reset link"""
     permission_classes = [permissions.AllowAny]
@@ -506,9 +507,10 @@ class PasswordResetRequestView(APIView):
             return Response({
                 'message': 'If an account exists with this email, you will receive password reset instructions.'
             })
-
-
-@method_decorator(ratelimit(key='ip', rate='5/h', method='POST', block=True), name='post')
+        
+# 2. Password Reset Confirm View - Around line 405
+@method_decorator(csrf_exempt, name='dispatch')  # ← ADD THIS LINE
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')  # ← CHANGED from 5/h to 10/h
 class PasswordResetConfirmView(APIView):
     """Confirm password reset with token"""
     permission_classes = [permissions.AllowAny]
