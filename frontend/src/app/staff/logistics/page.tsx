@@ -1,11 +1,11 @@
-// frontend/src/app/staff/customers/page.tsx
+// frontend/src/app/staff/logistics/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
 import { StaffLayout } from '@/components/staff/staff-layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { LogisticsManagement } from '@/components/staff/logistics-management';
 
 export default function StaffLogisticsPage() {
   const { isAuthenticated, isLoading } = useStaffAuthStore();
@@ -27,18 +27,7 @@ export default function StaffLogisticsPage() {
 
   return (
     <StaffLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-navy-900">
-          Logistics Management
-        </h1>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-navy-600">
-              Logistics and delivery coordination will be implemented here.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <LogisticsManagement />
     </StaffLayout>
   );
 }
