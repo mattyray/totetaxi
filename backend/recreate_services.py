@@ -1,12 +1,8 @@
-# backend/recreate_services.py
-# Service Catalog Recreation Script
-# Run this after fresh database migration: python manage.py shell < recreate_services.py
-
 from apps.services.models import *
 
 print("🚀 Creating service catalog...")
 
-# Mini Move Packages
+# 1. Mini Move Packages
 print("📦 Creating Mini Move Packages...")
 MiniMovePackage.objects.create(
     package_type='petite',
@@ -22,7 +18,6 @@ MiniMovePackage.objects.create(
     is_most_popular=False,
     is_active=True
 )
-
 
 MiniMovePackage.objects.create(
     package_type='standard',
@@ -54,7 +49,88 @@ MiniMovePackage.objects.create(
     is_active=True
 )
 
-# Specialty Items
+# 2. Organizing Services (CORRECT PRICING FROM MIGRATION)
+print("📋 Creating Organizing Services...")
+
+OrganizingService.objects.create(
+    service_type='petite_packing',
+    mini_move_tier='petite',
+    name='Petite Packing',
+    description='1/2 day (up to 4 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).',
+    price_cents=244500,
+    duration_hours=4,
+    organizer_count=2,
+    supplies_allowance_cents=25000,
+    is_packing_service=True,
+    is_active=True
+)
+
+OrganizingService.objects.create(
+    service_type='petite_unpacking',
+    mini_move_tier='petite',
+    name='Petite Unpacking',
+    description='1/2 day (up to 4 hours) with 2 organizers. Organizing light (no supplies).',
+    price_cents=211000,
+    duration_hours=4,
+    organizer_count=2,
+    supplies_allowance_cents=0,
+    is_packing_service=False,
+    is_active=True
+)
+
+OrganizingService.objects.create(
+    service_type='standard_packing',
+    mini_move_tier='standard',
+    name='Standard Packing',
+    description='1 day (up to 8 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $350).',
+    price_cents=333000,
+    duration_hours=8,
+    organizer_count=2,
+    supplies_allowance_cents=35000,
+    is_packing_service=True,
+    is_active=True
+)
+
+OrganizingService.objects.create(
+    service_type='standard_unpacking',
+    mini_move_tier='standard',
+    name='Standard Unpacking',
+    description='1 day (up to 8 hours) with 2 organizers. Organizing light (no supplies).',
+    price_cents=288500,
+    duration_hours=8,
+    organizer_count=2,
+    supplies_allowance_cents=0,
+    is_packing_service=False,
+    is_active=True
+)
+
+OrganizingService.objects.create(
+    service_type='full_packing',
+    mini_move_tier='full',
+    name='Full Packing',
+    description='1 day (up to 8 hours) with 4 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $500).',
+    price_cents=507000,
+    duration_hours=8,
+    organizer_count=4,
+    supplies_allowance_cents=50000,
+    is_packing_service=True,
+    is_active=True
+)
+
+OrganizingService.objects.create(
+    service_type='full_unpacking',
+    mini_move_tier='full',
+    name='Full Unpacking',
+    description='1 day (up to 8 hours) with 4 organizers. Organizing light (no supplies).',
+    price_cents=452500,
+    duration_hours=8,
+    organizer_count=4,
+    supplies_allowance_cents=0,
+    is_packing_service=False,
+    is_active=True
+)
+
+# 3. Specialty Items
 print("🏄 Creating Specialty Items...")
 SpecialtyItem.objects.create(
     item_type='peloton',
@@ -92,7 +168,7 @@ SpecialtyItem.objects.create(
     is_active=True
 )
 
-# Standard Delivery Config
+# 4. Standard Delivery Config
 print("🚚 Creating Standard Delivery Config...")
 StandardDeliveryConfig.objects.create(
     price_per_item_cents=9500,
@@ -103,7 +179,7 @@ StandardDeliveryConfig.objects.create(
     is_active=True
 )
 
-# Surcharge Rules
+# 5. Surcharge Rules
 print("💰 Creating Surcharge Rules...")
 SurchargeRule.objects.create(
     surcharge_type='weekend',
@@ -161,9 +237,9 @@ SurchargeRule.objects.create(
     is_active=True
 )
 
-print("✅ Service catalog created successfully!")
+print("\n✅ Service catalog created successfully!")
 print(f"📦 {MiniMovePackage.objects.count()} Mini Move Packages")
-print(f"🏄 {SpecialtyItem.objects.count()} Specialty Items") 
-print(f"🚚 {StandardDeliveryConfig.objects.count()} Standard Delivery Configs")
+print(f"📋 {OrganizingService.objects.count()} Organizing Services")
+print(f"🏄 {SpecialtyItem.objects.count()} Specialty Items")
+print(f"🚚 {StandardDeliveryConfig.objects.count()} Standard Delivery Config")
 print(f"💰 {SurchargeRule.objects.count()} Surcharge Rules")
-print(f"📋 {OrganizingService.objects.count()} Organizing Services (from migration)")

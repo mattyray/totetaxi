@@ -7,42 +7,38 @@ import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import {
   TruckIcon,
   ClockIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ArrowPathIcon,
   MapPinIcon,
   PhoneIcon,
   CalendarIcon,
   PlusIcon,
+  XCircleIcon,
 } from '@heroicons/react/24/outline';
 
 interface OnfleetTask {
   id: string;
+  booking_number: string;
+  customer_name: string;
   task_type: 'pickup' | 'dropoff';
+  onfleet_task_id: string;
+  onfleet_short_id: string;
   tracking_url: string;
-  status: 'created' | 'assigned' | 'active' | 'completed' | 'failed' | 'deleted';
-  worker_name: string;
-  worker_id: string;
   recipient_name: string;
   recipient_phone: string;
-  estimated_arrival: string | null;
-  completed_at: string | null;
-  started_at: string | null;
+  status: 'created' | 'assigned' | 'active' | 'completed' | 'failed' | 'deleted';
+  worker_name: string;
+  worker_id?: string;
+  estimated_arrival?: string | null;
+  completed_at?: string | null;
+  started_at?: string | null;
   created_at: string;
+  last_synced?: string | null;
   environment: 'sandbox' | 'production';
-}
-
-interface TaskWithBooking extends OnfleetTask {
-  booking_number: string;
-  booking_id: string;
-  customer_name: string;
-  service_type: string;
-  pickup_address: string;
-  delivery_address: string;
+  linked_to?: string | null;
 }
 
 interface LogisticsSummary {
@@ -65,6 +61,12 @@ interface LogisticsSummary {
   mock_mode: boolean;
 }
 
+interface TasksResponse {
+  success: boolean;
+  tasks: OnfleetTask[];  // Backend returns 'tasks' not 'results'
+  count: number;
+}
+
 interface TaskFilters {
   status: string;
   task_type: string;
@@ -80,11 +82,10 @@ export function LogisticsManagement() {
     date: '',
     search: '',
   });
-  const [selectedTask, setSelectedTask] = useState<TaskWithBooking | null>(null);
+  const [selectedTask, setSelectedTask] = useState<OnfleetTask | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createBookingId, setCreateBookingId] = useState('');
 
-  // Fetch logistics summary
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['staff', 'logistics', 'summary'],
     queryFn: async (): Promise<LogisticsSummary> => {
@@ -94,8 +95,7 @@ export function LogisticsManagement() {
     refetchInterval: 30000,
   });
 
-  // Fetch task list
-  const { data: tasksData, isLoading: tasksLoading } = useQuery({
+  const { data: tasksData, isLoading: tasksLoading } = useQuery<TasksResponse>({
     queryKey: ['staff', 'logistics', 'tasks', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -110,7 +110,6 @@ export function LogisticsManagement() {
     refetchInterval: 30000,
   });
 
-  // Sync with Onfleet
   const syncMutation = useMutation({
     mutationFn: async () => {
       const response = await apiClient.post('/api/staff/logistics/sync/');
@@ -121,7 +120,6 @@ export function LogisticsManagement() {
     },
   });
 
-  // Create task manually
   const createTaskMutation = useMutation({
     mutationFn: async (bookingId: string) => {
       const response = await apiClient.post('/api/staff/logistics/create-task/', {
@@ -367,6 +365,7 @@ export function LogisticsManagement() {
           </div>
         </CardContent>
       </Card>
+
       {/* Tasks List */}
       <Card>
         <CardHeader>
@@ -384,13 +383,13 @@ export function LogisticsManagement() {
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-navy-900"></div>
             </div>
-            ) : tasksData?.tasks?.length === 0 ? (
+          ) : !tasksData?.tasks || tasksData.tasks.length === 0 ? (
             <div className="text-center py-8 text-navy-600">
               No tasks found matching your filters.
             </div>
           ) : (
             <div className="space-y-3">
-              {tasksData?.results.map((task: TaskWithBooking) => (
+              {tasksData.tasks.map((task: OnfleetTask) => (
                 <div
                   key={task.id}
                   className="p-4 border border-gray-200 rounded-lg hover:border-navy-300 transition-colors cursor-pointer"
@@ -415,12 +414,8 @@ export function LogisticsManagement() {
                         </div>
                         <div className="space-y-1 text-sm">
                           <p className="text-navy-900 font-medium">
-                            {task.customer_name} • {task.service_type.replace('_', ' ').toUpperCase()}
+                            {task.customer_name}
                           </p>
-                          <div className="flex items-center gap-2 text-navy-600">
-                            <MapPinIcon className="w-4 h-4" />
-                            <span>{task.task_type === 'pickup' ? task.pickup_address : task.delivery_address}</span>
-                          </div>
                           {task.recipient_name && (
                             <div className="flex items-center gap-2 text-navy-600">
                               <PhoneIcon className="w-4 h-4" />
@@ -562,20 +557,6 @@ export function LogisticsManagement() {
                 <div>
                   <p className="text-sm font-medium text-navy-700">Customer</p>
                   <p className="text-navy-900 mt-1">{selectedTask.customer_name}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-navy-700">Service Type</p>
-                  <p className="text-navy-900 mt-1">{selectedTask.service_type.replace('_', ' ').toUpperCase()}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-navy-700">
-                    {selectedTask.task_type === 'pickup' ? 'Pickup Address' : 'Delivery Address'}
-                  </p>
-                  <p className="text-navy-900 mt-1">
-                    {selectedTask.task_type === 'pickup' ? selectedTask.pickup_address : selectedTask.delivery_address}
-                  </p>
                 </div>
 
                 {selectedTask.recipient_name && (
