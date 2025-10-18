@@ -222,7 +222,7 @@ test.describe('Booking Wizard - All Services', () => {
     console.log('✅ Mini Move - Full Move package test PASSED!');
   });
   
-  // ============================================================
+// ============================================================
   // SPECIALTY ITEM TESTS
   // ============================================================
   
@@ -231,16 +231,17 @@ test.describe('Booking Wizard - All Services', () => {
     await skipAuthStep(page);
     
     await expect(page.getByText('Step 1:')).toBeVisible();
+    
+    // ✅ FIX: Click Standard Delivery (not "Specialty Items")
     await page.locator('button:has-text("Standard Delivery")').click();
     await page.waitForTimeout(2000);
     
-    // Set 0 regular items
+    // Set 0 regular items (specialty only)
     const itemCountInput = page.getByLabel('Number of Items');
     await itemCountInput.fill('0');
     await page.waitForTimeout(500);
     
-    // Find the REAL Peloton (not Test Peloton) by looking for full description
-    // Look for the section containing "Peloton bikes and large equipment"
+    // Find the REAL Peloton by description
     const pelotonSection = page.locator('div').filter({ 
       hasText: 'Peloton bikes and large equipment moving' 
     }).first();
@@ -328,11 +329,11 @@ test.describe('Booking Wizard - All Services', () => {
     await expect(pelotonQuantity).toBeVisible();
     console.log('✓ Peloton quantity: 2');
     
-    // Verify subtotals
-    await expect(page.getByText(/\$750\.00/)).toBeVisible(); // 3 x $250
+    // ✅ FIX: Verify subtotals INSIDE each item card
+    await expect(bicycleSection.getByText(/\$750\.00/)).toBeVisible(); // 3 x $250
     console.log('✓ Bicycle subtotal: $750.00');
     
-    await expect(page.getByText(/\$1,?000\.00/)).toBeVisible(); // 2 x $500
+    await expect(pelotonSection.getByText(/\$1,?000\.00/)).toBeVisible(); // 2 x $500
     console.log('✓ Peloton subtotal: $1,000.00');
     
     // Continue to next step
@@ -408,8 +409,8 @@ test.describe('Booking Wizard - All Services', () => {
     await expect(quantity).toBeVisible();
     console.log('✓ Verified quantity: 5');
     
-    // Now click minus 2 times
-    const bicycleMinusButton = bicycleSection.locator('button').filter({ hasText: '−' }).first();
+    // ✅ FIX: Find minus button - it's the FIRST button (minus is always first, plus is always last)
+    const bicycleMinusButton = bicycleSection.locator('button').first();
     await bicycleMinusButton.click();
     await page.waitForTimeout(300);
     await bicycleMinusButton.click();

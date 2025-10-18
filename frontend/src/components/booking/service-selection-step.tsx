@@ -189,32 +189,32 @@ export function ServiceSelectionStep() {
   };
 
   const canContinue = () => {
-    if (bookingData.service_type === 'mini_move') {
-      return !!bookingData.mini_move_package_id;
-    }
-    
-    if (bookingData.service_type === 'standard_delivery') {
-      const itemCount = bookingData.standard_delivery_item_count || 0;
-      const specialtyCount = bookingData.specialty_items?.length || 0;
-      return itemCount > 0 || specialtyCount > 0;
-    }
-    
-    if (bookingData.service_type === 'specialty_item') {
-      return (bookingData.specialty_items?.length || 0) > 0;
-    }
-    
-    if (bookingData.service_type === 'blade_transfer') {
-      return !!(
-        bookingData.blade_airport &&
-        bookingData.blade_flight_date &&
-        bookingData.blade_flight_time &&
-        bookingData.blade_bag_count &&
-        bookingData.blade_bag_count >= 2
-      );
-    }
-    
-    return false;
-  };
+      if (bookingData.service_type === 'mini_move') {
+        return !!bookingData.mini_move_package_id;
+      }
+      
+      if (bookingData.service_type === 'standard_delivery') {
+        const itemCount = bookingData.standard_delivery_item_count || 0;
+        const hasSpecialtyItems = (bookingData.specialty_items ?? []).some(item => item.quantity > 0); // ✅ FIXED
+        return itemCount > 0 || hasSpecialtyItems;
+      }
+      
+      if (bookingData.service_type === 'specialty_item') {
+        return (bookingData.specialty_items ?? []).some(item => item.quantity > 0); // ✅ FIXED
+      }
+      
+      if (bookingData.service_type === 'blade_transfer') {
+        return !!(
+          bookingData.blade_airport &&
+          bookingData.blade_flight_date &&
+          bookingData.blade_flight_time &&
+          bookingData.blade_bag_count &&
+          bookingData.blade_bag_count >= 2
+        );
+      }
+      
+      return false;
+    };
 
   if (isLoading) {
     return (
@@ -668,15 +668,15 @@ export function ServiceSelectionStep() {
               </label>
             </CardContent>
           </Card>
-
-          {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_items || bookingData.specialty_items.length === 0)) && (
+          {((bookingData.standard_delivery_item_count || 0) === 0 && 
+            !(bookingData.specialty_items ?? []).some(item => item.quantity > 0)) && ( // ✅ FIXED
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-800 font-medium">
                 Please select at least one regular item or specialty item to continue.
               </p>
             </div>
           )}
-        </div>
+        </div> 
       )}
 
       {bookingData.service_type === 'blade_transfer' && (
