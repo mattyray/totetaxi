@@ -73,7 +73,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       return;
     }
     
-    // Initialize for ALL steps, not just step 0
     if (isAuthenticated && user) {
       console.log('Wizard: User authenticated, initializing for user', user.id);
       initializeForUser(user.id.toString(), false);
@@ -82,7 +81,14 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       initializeForUser('guest', true);
     }
   }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
-  // Removed currentStep from dependency - initialize on auth state, not step
+
+  // ✅ FIX: Auto-skip customer info step if authenticated
+  useEffect(() => {
+    if (currentStep === 4 && isAuthenticated && !isGuestMode) {
+      console.log('⏭️ Skipping customer info step - user is authenticated');
+      nextStep();
+    }
+  }, [currentStep, isAuthenticated, isGuestMode, nextStep]);
 
   if (!mounted) {
     return (
