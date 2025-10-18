@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { apiClient } from '@/lib/api-client';
 import { getStripe } from '@/lib/stripe';
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
+import type { ServiceCatalog } from '@/types';
 
 interface PaymentIntentResponse {
   client_secret: string;
@@ -125,7 +126,6 @@ const useRecalculatePricing = () => {
 
   useEffect(() => {
     const recalculatePricing = async () => {
-      // Skip if already recalculating or if pricing already exists and matches
       if (isRecalculating) return;
 
       console.log('🔄 Recalculating pricing on Review & Pay load');
@@ -143,7 +143,6 @@ const useRecalculatePricing = () => {
           is_outside_core_area: bookingData.is_outside_core_area || false,
         };
 
-        // Service-specific fields
         if (bookingData.service_type === 'mini_move') {
           pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
           pricingRequest.include_packing = bookingData.include_packing;
@@ -153,9 +152,9 @@ const useRecalculatePricing = () => {
         } else if (bookingData.service_type === 'standard_delivery') {
           pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
           pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+          pricingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
         } else if (bookingData.service_type === 'specialty_item') {
-          pricingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+          pricingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
           pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
         } else if (bookingData.service_type === 'blade_transfer') {
           pricingRequest.blade_airport = bookingData.blade_airport;
@@ -170,7 +169,6 @@ const useRecalculatePricing = () => {
         
         console.log('✅ Pricing recalculated:', response.data);
         
-        // Update booking data with fresh pricing
         updateBookingData({ 
           pricing_data: response.data.pricing,
           blade_ready_time: response.data.details?.ready_time 
@@ -182,12 +180,41 @@ const useRecalculatePricing = () => {
       }
     };
 
-    // Always recalculate pricing when this component mounts
     recalculatePricing();
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   return isRecalculating;
 };
+
+// ✅ NEW: Component to display specialty items with quantities
+function SpecialtyItemsList({ bookingData }: { bookingData: any }) {
+  const { data: services } = useQuery({
+    queryKey: ['services', 'catalog'],
+    queryFn: async (): Promise<ServiceCatalog> => {
+      const response = await apiClient.get('/api/public/services/');
+      return response.data;
+    }
+  });
+
+  if (!bookingData.specialty_items || bookingData.specialty_items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-1">
+      {bookingData.specialty_items.map((item: { item_id: string; quantity: number }) => {
+        const specialtyItem = services?.specialty_items.find(s => s.id === item.item_id);
+        if (!specialtyItem) return null;
+        
+        return (
+          <div key={item.item_id} className="text-sm text-navy-600">
+            • {item.quantity}x {specialtyItem.name} (${(specialtyItem.price_dollars * item.quantity).toFixed(2)})
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ReviewPaymentStep() {
   const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode } = useBookingWizard();
@@ -195,7 +222,6 @@ export function ReviewPaymentStep() {
   const queryClient = useQueryClient();
   const router = useRouter();
   
-  // ✅ CRITICAL: Recalculate pricing when this step loads
   const isPricingRecalculating = useRecalculatePricing();
   
   const [bookingComplete, setBookingCompleteLocal] = useState(false);
@@ -214,9 +240,10 @@ export function ReviewPaymentStep() {
     console.log('Customer Info:', bookingData.customer_info);
     console.log('Service Type:', bookingData.service_type);
     console.log('COI Required:', bookingData.coi_required);
+    console.log('Specialty Items:', bookingData.specialty_items);
     console.log('Pricing Data:', bookingData.pricing_data);
     console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type, bookingData.coi_required, bookingData.pricing_data]);
+  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type, bookingData.coi_required, bookingData.specialty_items, bookingData.pricing_data]);
 
   // STEP 1: Create payment intent
   const createPaymentIntentMutation = useMutation({
@@ -234,7 +261,6 @@ export function ReviewPaymentStep() {
         is_outside_core_area: bookingData.is_outside_core_area || false,
       };
 
-      // Service-specific fields
       if (bookingData.service_type === 'mini_move') {
         paymentRequest.mini_move_package_id = bookingData.mini_move_package_id;
         paymentRequest.include_packing = bookingData.include_packing;
@@ -244,9 +270,9 @@ export function ReviewPaymentStep() {
       } else if (bookingData.service_type === 'standard_delivery') {
         paymentRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        paymentRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
       } else if (bookingData.service_type === 'specialty_item') {
-        paymentRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        paymentRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
         paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
       } else if (bookingData.service_type === 'blade_transfer') {
         paymentRequest.blade_airport = bookingData.blade_airport;
@@ -255,7 +281,6 @@ export function ReviewPaymentStep() {
         paymentRequest.blade_bag_count = bookingData.blade_bag_count;
       }
 
-      // Add customer email for guest bookings
       if (!isAuthenticated && bookingData.customer_info?.email) {
         paymentRequest.email = bookingData.customer_info.email;
         paymentRequest.first_name = bookingData.customer_info.first_name;
@@ -306,7 +331,6 @@ export function ReviewPaymentStep() {
         coi_required: bookingData.coi_required,
       };
 
-      // Service-specific fields
       if (bookingData.service_type === 'mini_move') {
         bookingRequest.mini_move_package_id = bookingData.mini_move_package_id;
         bookingRequest.include_packing = bookingData.include_packing;
@@ -314,9 +338,9 @@ export function ReviewPaymentStep() {
       } else if (bookingData.service_type === 'standard_delivery') {
         bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        bookingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
       } else if (bookingData.service_type === 'specialty_item') {
-        bookingRequest.specialty_item_ids = bookingData.specialty_item_ids;
+        bookingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
         bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
       } else if (bookingData.service_type === 'blade_transfer') {
         bookingRequest.blade_airport = bookingData.blade_airport;
@@ -325,7 +349,6 @@ export function ReviewPaymentStep() {
         bookingRequest.blade_bag_count = bookingData.blade_bag_count;
       }
 
-      // Addresses
       if (isAuthenticated) {
         const timestamp = new Date().toISOString().slice(11, 16);
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -402,17 +425,14 @@ export function ReviewPaymentStep() {
 
   const handlePreviousStep = () => {
     if (showPayment) {
-      // Go back from payment to review
       setShowPayment(false);
       setClientSecret('');
       setPaymentIntentId('');
     } else {
-      // Go back to previous step
       previousStep();
     }
   };
 
-  // Show loading while pricing is recalculating
   if (isPricingRecalculating) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -576,6 +596,9 @@ export function ReviewPaymentStep() {
                 {bookingData.service_type === 'blade_transfer' && 'BLADE Airport Transfer'}
               </p>
               
+              {/* ✅ Display specialty items with quantities */}
+              <SpecialtyItemsList bookingData={bookingData} />
+              
               {bookingData.include_packing && (
                 <p className="text-sm text-navy-600">+ Professional Packing</p>
               )}
@@ -709,7 +732,6 @@ export function ReviewPaymentStep() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {/* Base Price */}
               <div className="flex justify-between">
                 <span className="text-navy-900 font-medium">
                   {bookingData.service_type === 'blade_transfer' && `${bookingData.blade_bag_count} bags × $75:`}
@@ -720,7 +742,6 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
               </div>
               
-              {/* Same-Day Delivery */}
               {bookingData.pricing_data.same_day_delivery_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Same-Day Delivery:</span>
@@ -728,7 +749,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
-              {/* Weekend Surcharge */}
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
@@ -736,7 +756,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
-              {/* ✅ COI Fee - NOW SHOWS FOR ALL SERVICE TYPES */}
               {bookingData.pricing_data.coi_fee_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">COI Fee:</span>
@@ -744,7 +763,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
-              {/* Organizing Services */}
               {bookingData.pricing_data.organizing_total_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Organizing Services:</span>
@@ -752,7 +770,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
-              {/* Organizing Tax */}
               {bookingData.pricing_data.organizing_tax_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Tax (8.25%):</span>
@@ -760,7 +777,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
 
-              {/* Time Window Surcharge */}
               {bookingData.pricing_data.time_window_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">1-Hour Window:</span>
@@ -768,7 +784,6 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
-              {/* Geographic Surcharge */}
               {bookingData.pricing_data.geographic_surcharge_dollars > 0 && (
                 <div className="flex justify-between">
                   <span className="text-navy-900 font-medium">Distance Surcharge:</span>
@@ -778,7 +793,6 @@ export function ReviewPaymentStep() {
               
               <hr className="border-gray-200" />
               
-              {/* Total */}
               <div className="flex justify-between text-xl font-bold">
                 <span className="text-navy-900">Total:</span>
                 <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>

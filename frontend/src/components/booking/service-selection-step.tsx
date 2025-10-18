@@ -8,7 +8,7 @@ import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronUpIcon, MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { ServiceCatalog } from '@/types';
 
 const TAX_RATE = 0.0825;
@@ -80,7 +80,7 @@ function calculateWithTax(price: number) {
 }
 
 export function ServiceSelectionStep() {
-  const { bookingData, updateBookingData, nextStep } = useBookingWizard();
+  const { bookingData, updateBookingData, updateSpecialtyItemQuantity, getSpecialtyItemQuantity, nextStep } = useBookingWizard();
   const [packingExpanded, setPackingExpanded] = useState(false);
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
   const [dateError, setDateError] = useState<string>('');
@@ -89,6 +89,7 @@ export function ServiceSelectionStep() {
   console.log('SERVICE STEP - Current booking data:', bookingData);
   console.log('mini_move_package_id:', bookingData.mini_move_package_id);
   console.log('service_type:', bookingData.service_type);
+  console.log('specialty_items:', bookingData.specialty_items);
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -111,7 +112,6 @@ export function ServiceSelectionStep() {
       return false;
     }
     
-    // Validate date is at least tomorrow
     const tomorrow = new Date();
     tomorrow.setHours(0, 0, 0, 0);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -138,7 +138,7 @@ export function ServiceSelectionStep() {
   const handleContinue = () => {
     if (bookingData.service_type === 'blade_transfer') {
       if (!validateBladeData()) {
-        return; // Don't proceed if validation fails
+        return;
       }
     }
     
@@ -157,7 +157,7 @@ export function ServiceSelectionStep() {
       mini_move_package_id: packageId,
       package_type: selectedPackage?.package_type,
       standard_delivery_item_count: undefined,
-      specialty_item_ids: undefined,
+      specialty_items: [],
       blade_airport: undefined,
       blade_flight_date: undefined,
       blade_flight_time: undefined,
@@ -181,6 +181,13 @@ export function ServiceSelectionStep() {
     }
   };
 
+  // ✅ NEW: Handle quantity changes for specialty items
+  const handleQuantityChange = (itemId: string, change: number) => {
+    const currentQty = getSpecialtyItemQuantity(itemId);
+    const newQty = Math.max(0, currentQty + change);
+    updateSpecialtyItemQuantity(itemId, newQty);
+  };
+
   const canContinue = () => {
     if (bookingData.service_type === 'mini_move') {
       return !!bookingData.mini_move_package_id;
@@ -188,8 +195,12 @@ export function ServiceSelectionStep() {
     
     if (bookingData.service_type === 'standard_delivery') {
       const itemCount = bookingData.standard_delivery_item_count || 0;
-      const specialtyCount = bookingData.specialty_item_ids?.length || 0;
+      const specialtyCount = bookingData.specialty_items?.length || 0;
       return itemCount > 0 || specialtyCount > 0;
+    }
+    
+    if (bookingData.service_type === 'specialty_item') {
+      return (bookingData.specialty_items?.length || 0) > 0;
     }
     
     if (bookingData.service_type === 'blade_transfer') {
@@ -226,7 +237,7 @@ export function ServiceSelectionStep() {
             onClick={() => updateBookingData({ 
               service_type: 'mini_move',
               standard_delivery_item_count: undefined,
-              specialty_item_ids: undefined,
+              specialty_items: [],
               blade_airport: undefined,
               blade_flight_date: undefined,
               blade_flight_time: undefined,
@@ -272,7 +283,7 @@ export function ServiceSelectionStep() {
               include_packing: false,
               include_unpacking: false,
               standard_delivery_item_count: undefined,
-              specialty_item_ids: undefined,
+              specialty_items: [],
             })}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               bookingData.service_type === 'blade_transfer'
@@ -540,38 +551,76 @@ export function ServiceSelectionStep() {
             </CardContent>
           </Card>
 
+          {/* ✅ NEW: Specialty Items with Quantity Steppers */}
           <Card variant="elevated">
             <CardHeader>
               <h4 className="font-medium text-navy-900">Specialty Items (Optional)</h4>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {services.specialty_items.map((item) => (
-                  <label 
-                    key={item.id}
-                    className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={bookingData.specialty_item_ids?.includes(item.id) || false}
-                      onChange={(e) => {
-                        const currentIds = bookingData.specialty_item_ids || [];
-                        const newIds = e.target.checked
-                          ? [...currentIds, item.id]
-                          : currentIds.filter(id => id !== item.id);
-                        updateBookingData({ specialty_item_ids: newIds });
-                      }}
-                      className="mr-3"
-                    />
-                    <div className="flex-1 flex justify-between items-center">
-                      <div>
-                        <div className="font-medium text-navy-900">{item.name}</div>
-                        <div className="text-sm text-navy-600">{item.description}</div>
+                {services.specialty_items.map((item) => {
+                  const quantity = getSpecialtyItemQuantity(item.id);
+                  const isSelected = quantity > 0;
+                  
+                  return (
+                    <div 
+                      key={item.id}
+                      className={`p-4 border rounded-lg transition-all ${
+                        isSelected 
+                          ? 'border-navy-500 bg-navy-50' 
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-navy-900">{item.name}</div>
+                          <div className="text-sm text-navy-600">{item.description}</div>
+                          <div className="text-lg font-bold text-navy-900 mt-1">
+                            ${item.price_dollars} each
+                          </div>
+                        </div>
+                        
+                        {/* ✅ Quantity Stepper */}
+                        <div className="flex items-center space-x-3 ml-4">
+                          <button
+                            onClick={() => handleQuantityChange(item.id, -1)}
+                            disabled={quantity === 0}
+                            className={`p-2 rounded-lg border transition-all ${
+                              quantity === 0
+                                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                : 'border-navy-500 text-navy-600 hover:bg-navy-50'
+                            }`}
+                          >
+                            <MinusIcon className="h-4 w-4" />
+                          </button>
+                          
+                          <span className="text-lg font-bold text-navy-900 w-8 text-center">
+                            {quantity}
+                          </span>
+                          
+                          <button
+                            onClick={() => handleQuantityChange(item.id, 1)}
+                            className="p-2 rounded-lg border border-navy-500 text-navy-600 hover:bg-navy-50 transition-all"
+                          >
+                            <PlusIcon className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-lg font-bold text-navy-900 ml-4">${item.price_dollars}</div>
+                      
+                      {/* ✅ Show subtotal if quantity > 0 */}
+                      {quantity > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-navy-700">Subtotal:</span>
+                            <span className="font-bold text-navy-900">
+                              ${(item.price_dollars * quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </label>
-                ))}
+                  );
+                })}
               </div>
               
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -598,7 +647,6 @@ export function ServiceSelectionStep() {
             </CardContent>
           </Card>
 
-          {/* ✅ FIX: Add COI checkbox for Standard Delivery with +$50 fee displayed */}
           <Card variant="default">
             <CardContent>
               <label className="flex items-center">
@@ -621,7 +669,7 @@ export function ServiceSelectionStep() {
             </CardContent>
           </Card>
 
-          {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) && (
+          {((bookingData.standard_delivery_item_count || 0) === 0 && (!bookingData.specialty_items || bookingData.specialty_items.length === 0)) && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-800 font-medium">
                 Please select at least one regular item or specialty item to continue.
@@ -679,7 +727,7 @@ export function ServiceSelectionStep() {
                   type="date"
                   value={bookingData.blade_flight_date || ''}
                   onChange={(e) => {
-                    setDateError(''); // Clear error when they change it
+                    setDateError('');
                     updateBookingData({ blade_flight_date: e.target.value });
                   }}
                   min={(() => {
