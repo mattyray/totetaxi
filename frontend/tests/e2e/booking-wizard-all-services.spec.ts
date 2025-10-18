@@ -264,11 +264,7 @@ test.describe('Booking Wizard - All Services', () => {
   });
   
   
-  // ============================================================
-  // SPECIALTY ITEM TESTS
-  // ============================================================
-  
-  test('Specialty Item - Peloton', async ({ page }) => {
+test('Specialty Item - Peloton', async ({ page }) => {
     await page.goto('/book');
     await skipAuthStep(page);
     
@@ -281,10 +277,12 @@ test.describe('Booking Wizard - All Services', () => {
     await itemCountInput.fill('0');
     await page.waitForTimeout(500);
     
-    // Select Peloton specialty item
-    const pelotonCheckbox = page.locator('label').filter({ hasText: 'Peloton' }).locator('input[type="checkbox"]');
-    await pelotonCheckbox.scrollIntoViewIfNeeded();
-    await pelotonCheckbox.check({ force: true });
+    // Select Peloton specialty item using the + button approach
+    const pelotonSection = page.locator('div').filter({ hasText: /^Peloton\s*Peloton bikes/ }).first();
+    await pelotonSection.scrollIntoViewIfNeeded();
+    
+    const pelotonPlusButton = pelotonSection.locator('button:has-text("+")').last();
+    await pelotonPlusButton.click();
     console.log('✓ Peloton selected');
     await page.waitForTimeout(1000);
     
@@ -307,7 +305,165 @@ test.describe('Booking Wizard - All Services', () => {
     console.log('✅ Specialty Item - Peloton test PASSED!');
   });
   
+test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Standard Delivery")').click();
+    await page.waitForTimeout(2000);
+    
+    // Set 0 regular items (specialty only)
+    const itemCountInput = page.getByLabel('Number of Items');
+    await itemCountInput.fill('0');
+    await page.waitForTimeout(500);
+    console.log('✓ Set 0 regular items');
+    
+    // Find Bicycle Transport item and add 3
+    const bicycleSection = page.locator('div').filter({ hasText: /Bicycle Transport/ }).first();
+    await bicycleSection.scrollIntoViewIfNeeded();
+    
+    // Click + button 3 times for Bicycle
+    const bicyclePlusButton = bicycleSection.locator('button:has-text("+")').last();
+    await bicyclePlusButton.click();
+    await page.waitForTimeout(300);
+    await bicyclePlusButton.click();
+    await page.waitForTimeout(300);
+    await bicyclePlusButton.click();
+    await page.waitForTimeout(500);
+    console.log('✓ Added 3x Bicycle');
+    
+    // Verify quantity shows 3 - more flexible selector
+    const bicycleQuantity = bicycleSection.getByText('3', { exact: true });
+    await expect(bicycleQuantity).toBeVisible();
+    console.log('✓ Bicycle quantity: 3');
+    
+    // Find Peloton item (the real one, not "Test Peloton") and add 2
+    const pelotonSection = page.locator('div').filter({ hasText: /^Peloton\s*Peloton bikes/ }).first();
+    await pelotonSection.scrollIntoViewIfNeeded();
+    
+    // Click + button 2 times for Peloton
+    const pelotonPlusButton = pelotonSection.locator('button:has-text("+")').last();
+    await pelotonPlusButton.click();
+    await page.waitForTimeout(300);
+    await pelotonPlusButton.click();
+    await page.waitForTimeout(500);
+    console.log('✓ Added 2x Peloton');
+    
+    // Verify quantity shows 2
+    const pelotonQuantity = pelotonSection.getByText('2', { exact: true });
+    await expect(pelotonQuantity).toBeVisible();
+    console.log('✓ Peloton quantity: 2');
+    
+    // Verify subtotals
+    await expect(page.getByText(/\$750\.00/)).toBeVisible(); // 3 x $250
+    console.log('✓ Bicycle subtotal: $750.00');
+    
+    await expect(page.getByText(/\$1,?000\.00/)).toBeVisible(); // 2 x $500
+    console.log('✓ Peloton subtotal: $1,000.00');
+    
+    // Continue to next step
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    // STEP 2: Verify pricing shows both items
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    
+    // Check that pricing summary shows both specialty items
+    await expect(page.getByText('Pricing Summary')).toBeVisible();
+    console.log('✓ Pricing calculated');
+    
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    // STEP 3: Addresses
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    // STEP 4: Customer Info
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Sarah', 'Johnson');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    // STEP 5: Verify Review shows quantities
+    await expect(page.getByText('Step 5:')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Booking Summary')).toBeVisible();
+    
+    // Verify quantities are shown in review
+    await expect(page.getByText(/3x.*Bicycle/i)).toBeVisible();
+    console.log('✓ Review shows: 3x Bicycle');
+    
+    await expect(page.getByText(/2x.*Peloton/i)).toBeVisible();
+    console.log('✓ Review shows: 2x Peloton');
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Specialty Items with Quantities test PASSED!');
+  });
   
+  
+  test('Specialty Items - Can decrease quantity with minus button', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button:has-text("Standard Delivery")').click();
+    await page.waitForTimeout(2000);
+    
+    const itemCountInput = page.getByLabel('Number of Items');
+    await itemCountInput.fill('0');
+    await page.waitForTimeout(500);
+    
+    // Find Bicycle and add 5
+    const bicycleSection = page.locator('div').filter({ hasText: /Bicycle Transport/ }).first();
+    await bicycleSection.scrollIntoViewIfNeeded();
+    
+    const bicyclePlusButton = bicycleSection.locator('button:has-text("+")').last();
+    
+    // Add 5
+    for (let i = 0; i < 5; i++) {
+      await bicyclePlusButton.click();
+      await page.waitForTimeout(200);
+    }
+    console.log('✓ Added 5x Bicycle');
+    
+    // Verify shows 5 - flexible selector
+    let quantity = bicycleSection.getByText('5', { exact: true });
+    await expect(quantity).toBeVisible();
+    
+    // Now click minus 2 times
+    const bicycleMinusButton = bicycleSection.locator('button:has-text("−")').first();
+    await bicycleMinusButton.click();
+    await page.waitForTimeout(300);
+    await bicycleMinusButton.click();
+    await page.waitForTimeout(500);
+    console.log('✓ Decreased by 2');
+    
+    // Should now show 3
+    quantity = bicycleSection.getByText('3', { exact: true });
+    await expect(quantity).toBeVisible();
+    console.log('✓ Quantity now: 3');
+    
+    // Decrease to 0 (should remove item)
+    await bicycleMinusButton.click();
+    await page.waitForTimeout(200);
+    await bicycleMinusButton.click();
+    await page.waitForTimeout(200);
+    await bicycleMinusButton.click();
+    await page.waitForTimeout(500);
+    console.log('✓ Decreased to 0');
+    
+    // Quantity should show 0
+    quantity = bicycleSection.getByText('0', { exact: true });
+    await expect(quantity).toBeVisible();
+    console.log('✓ Quantity: 0 (item removed)');
+    
+    // Minus button should be disabled
+    await expect(bicycleMinusButton).toBeDisabled();
+    console.log('✓ Minus button disabled at 0');
+    
+    console.log('✅ Quantity decrease test PASSED!');
+  });
   // ============================================================
   // NAVIGATION TESTS
   // ============================================================

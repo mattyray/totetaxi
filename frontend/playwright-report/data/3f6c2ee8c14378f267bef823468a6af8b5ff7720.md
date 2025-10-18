@@ -1,0 +1,228 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "ToteTaxi" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - navigation [ref=e7]:
+          - link "Services" [ref=e8] [cursor=pointer]:
+            - /url: /services
+          - link "About" [ref=e9] [cursor=pointer]:
+            - /url: /about
+          - link "FAQ" [ref=e10] [cursor=pointer]:
+            - /url: /faq
+          - link "Contact" [ref=e11] [cursor=pointer]:
+            - /url: /contact
+          - generic [ref=e12]:
+            - link "Sign In" [ref=e13] [cursor=pointer]:
+              - /url: /login
+              - button "Sign In" [ref=e14]
+            - link "Book Now" [ref=e15] [cursor=pointer]:
+              - /url: /book
+              - button "Book Now" [ref=e16]
+    - main [ref=e17]:
+      - generic [ref=e19]:
+        - heading "Book Your Luxury Move" [level=1] [ref=e20]
+        - paragraph [ref=e21]: Loading booking wizard...
+    - contentinfo [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: ToteTaxi
+            - paragraph [ref=e27]: Luxury delivery service for Manhattan to Hamptons transport
+          - generic [ref=e28]:
+            - heading "Services" [level=4] [ref=e29]
+            - list [ref=e30]:
+              - listitem [ref=e31]:
+                - link "Mini Moves" [ref=e32] [cursor=pointer]:
+                  - /url: /services#mini-moves
+              - listitem [ref=e33]:
+                - link "Standard Delivery" [ref=e34] [cursor=pointer]:
+                  - /url: /services#standard-delivery
+              - listitem [ref=e35]:
+                - link "Specialty Items" [ref=e36] [cursor=pointer]:
+                  - /url: /services#specialty-items
+              - listitem [ref=e37]:
+                - link "Organizing Services" [ref=e38] [cursor=pointer]:
+                  - /url: /services#organizing
+          - generic [ref=e39]:
+            - heading "Company" [level=4] [ref=e40]
+            - list [ref=e41]:
+              - listitem [ref=e42]:
+                - link "About Us" [ref=e43] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e44]:
+                - link "FAQ" [ref=e45] [cursor=pointer]:
+                  - /url: /faq
+              - listitem [ref=e46]:
+                - link "Contact" [ref=e47] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e48]:
+            - heading "Contact" [level=4] [ref=e49]
+            - generic [ref=e50]:
+              - paragraph [ref=e51]: (555) TOTE-TAXI
+              - paragraph [ref=e52]: hello@totetaxi.com
+              - paragraph [ref=e53]: Manhattan to Hamptons
+        - paragraph [ref=e55]: © 2024 ToteTaxi. All rights reserved. | Premium delivery service for discerning clients.
+  - generic [ref=e56]:
+    - img [ref=e58]
+    - button "Open Tanstack query devtools" [ref=e106] [cursor=pointer]:
+      - img [ref=e107]
+  - button "Open Next.js Dev Tools" [ref=e160] [cursor=pointer]:
+    - img [ref=e161]
+  - alert [ref=e164]
+  - generic:
+    - generic:
+      - generic:
+        - dialog:
+          - generic [ref=e168]:
+            - button [ref=e170] [cursor=pointer]:
+              - img [ref=e171]
+            - generic [ref=e175]:
+              - generic [ref=e178]:
+                - heading "Book Your Luxury Move" [level=1] [ref=e179]
+                - paragraph [ref=e180]: From Manhattan to the Hamptons with premium care
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]: "1"
+                  - generic [ref=e186]: Select Service
+                - generic [ref=e188]:
+                  - generic [ref=e189]: "2"
+                  - generic [ref=e190]: Date & Time
+                - generic [ref=e192]:
+                  - generic [ref=e193]: "3"
+                  - generic [ref=e194]: Addresses
+                - generic [ref=e196]:
+                  - generic [ref=e197]: "4"
+                  - generic [ref=e198]: Your Info
+                - generic [ref=e200]:
+                  - generic [ref=e201]: "5"
+                  - generic [ref=e202]: Review & Pay
+              - generic [ref=e205]:
+                - 'heading "Step 1: Select Service" [level=2] [ref=e206]'
+                - generic [ref=e207]:
+                  - generic [ref=e208]:
+                    - heading "Choose Your Service" [level=3] [ref=e209]
+                    - generic [ref=e210]:
+                      - button "Mini Moves Complete packages for seasonal relocation" [ref=e211] [cursor=pointer]:
+                        - heading "Mini Moves" [level=4] [ref=e212]
+                        - paragraph [ref=e213]: Complete packages for seasonal relocation
+                      - button "Standard Delivery Regular items + specialty items" [ref=e214] [cursor=pointer]:
+                        - heading "Standard Delivery" [level=4] [ref=e215]
+                        - paragraph [ref=e216]: Regular items + specialty items
+                      - button "BLADE Airport Transfer NYC → Airport luggage delivery JFK/EWR only" [ref=e217] [cursor=pointer]:
+                        - heading "BLADE Airport Transfer" [level=4] [ref=e218]
+                        - paragraph [ref=e219]: NYC → Airport luggage delivery
+                        - paragraph [ref=e220]: JFK/EWR only
+                  - generic [ref=e221]:
+                    - heading "Configure Your Delivery" [level=3] [ref=e222]
+                    - generic [ref=e223]:
+                      - heading "Regular Items (Optional)" [level=4] [ref=e225]
+                      - generic [ref=e226]:
+                        - generic [ref=e227]:
+                          - generic [ref=e228]: Number of Items
+                          - spinbutton "Number of Items" [active] [ref=e230]: "0"
+                          - paragraph [ref=e231]: $95 per item (under 50 lbs) • $285 minimum applies to 1-3 items
+                        - paragraph [ref=e233]:
+                          - strong [ref=e234]: "Note:"
+                          - text: Standard pricing applies to items under 50 lbs each. Overweight items may incur additional charges.
+                    - generic [ref=e235]:
+                      - heading "Specialty Items (Optional)" [level=4] [ref=e237]
+                      - generic [ref=e238]:
+                        - generic [ref=e239]:
+                          - generic [ref=e241]:
+                            - generic [ref=e242]:
+                              - generic [ref=e243]: Bicycle Transport
+                              - generic [ref=e244]: Professional bicycle delivery
+                              - generic [ref=e245]: $250 each
+                            - generic [ref=e246]:
+                              - button [disabled] [ref=e247]:
+                                - img [ref=e248]
+                              - generic [ref=e249]: "0"
+                              - button [ref=e250] [cursor=pointer]:
+                                - img [ref=e251]
+                          - generic [ref=e254]:
+                            - generic [ref=e255]:
+                              - generic [ref=e256]: Test Peloton
+                              - generic [ref=e257]: Test
+                              - generic [ref=e258]: $500 each
+                            - generic [ref=e259]:
+                              - button [disabled] [ref=e260]:
+                                - img [ref=e261]
+                              - generic [ref=e262]: "0"
+                              - button [ref=e263] [cursor=pointer]:
+                                - img [ref=e264]
+                          - generic [ref=e267]:
+                            - generic [ref=e268]:
+                              - generic [ref=e269]: Test Peloton
+                              - generic [ref=e270]: Test
+                              - generic [ref=e271]: $500 each
+                            - generic [ref=e272]:
+                              - button [disabled] [ref=e273]:
+                                - img [ref=e274]
+                              - generic [ref=e275]: "0"
+                              - button [ref=e276] [cursor=pointer]:
+                                - img [ref=e277]
+                          - generic [ref=e280]:
+                            - generic [ref=e281]:
+                              - generic [ref=e282]: Peloton
+                              - generic [ref=e283]: Peloton bikes and large equipment moving
+                              - generic [ref=e284]: $500 each
+                            - generic [ref=e285]:
+                              - button [disabled] [ref=e286]:
+                                - img [ref=e287]
+                              - generic [ref=e288]: "0"
+                              - button [ref=e289] [cursor=pointer]:
+                                - img [ref=e290]
+                          - generic [ref=e293]:
+                            - generic [ref=e294]:
+                              - generic [ref=e295]: Surfboard
+                              - generic [ref=e296]: Professional surfboard transport
+                              - generic [ref=e297]: $350 each
+                            - generic [ref=e298]:
+                              - button [disabled] [ref=e299]:
+                                - img [ref=e300]
+                              - generic [ref=e301]: "0"
+                              - button [ref=e302] [cursor=pointer]:
+                                - img [ref=e303]
+                          - generic [ref=e306]:
+                            - generic [ref=e307]:
+                              - generic [ref=e308]: Crib
+                              - generic [ref=e309]: Foldable crib delivery (may vary for non-foldable)
+                              - generic [ref=e310]: $350 each
+                            - generic [ref=e311]:
+                              - button [disabled] [ref=e312]:
+                                - img [ref=e313]
+                              - generic [ref=e314]: "0"
+                              - button [ref=e315] [cursor=pointer]:
+                                - img [ref=e316]
+                          - generic [ref=e319]:
+                            - generic [ref=e320]:
+                              - generic [ref=e321]: Wardrobe Box
+                              - generic [ref=e322]: Professional wardrobe box handling
+                              - generic [ref=e323]: $275 each
+                            - generic [ref=e324]:
+                              - button [disabled] [ref=e325]:
+                                - img [ref=e326]
+                              - generic [ref=e327]: "0"
+                              - button [ref=e328] [cursor=pointer]:
+                                - img [ref=e329]
+                        - paragraph [ref=e332]:
+                          - strong [ref=e333]: Item not listed?
+                          - text: "Contact us for a custom quote:"
+                          - strong [ref=e334]: (631) 595-5100
+                    - generic [ref=e337]:
+                      - checkbox "Same-Day Delivery (+$360)" [ref=e338]
+                      - generic [ref=e339]: Same-Day Delivery (+$360)
+                    - generic [ref=e342]:
+                      - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e343]
+                      - generic [ref=e344]:
+                        - generic [ref=e345]: Certificate of Insurance (COI) Required(+$50)
+                        - paragraph [ref=e346]: Required by some buildings. We'll handle the paperwork for you.
+                    - paragraph [ref=e348]: Please select at least one regular item or specialty item to continue.
+                  - button "Continue to Date & Time →" [disabled] [ref=e350]
+              - button "Start Over" [ref=e355] [cursor=pointer]
+```
