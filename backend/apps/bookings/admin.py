@@ -1,6 +1,21 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Booking, Address, GuestCheckout
+from .models import Booking, Address, GuestCheckout, BookingSpecialtyItem
+
+
+class BookingSpecialtyItemInline(admin.TabularInline):
+    """Inline admin for specialty items with quantities"""
+    model = BookingSpecialtyItem
+    extra = 1
+    fields = ('specialty_item', 'quantity', 'get_subtotal')
+    readonly_fields = ('get_subtotal',)
+    
+    def get_subtotal(self, obj):
+        if obj.id:
+            return f"${obj.subtotal_dollars}"
+        return "—"
+    get_subtotal.short_description = 'Subtotal'
+
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
@@ -9,7 +24,7 @@ class BookingAdmin(admin.ModelAdmin):
         'get_customer_name', 
         'service_type', 
         'get_service_details',
-        'get_organizing_services',  # NEW!
+        'get_organizing_services',
         'status', 
         'pickup_date', 
         'total_price_dollars'
@@ -22,6 +37,9 @@ class BookingAdmin(admin.ModelAdmin):
         'created_at', 'updated_at'
     )
     
+    # ✅ ADD INLINE for specialty items
+    inlines = [BookingSpecialtyItemInline]
+    
     fieldsets = (
         ('Customer Info', {
             'fields': ('customer', 'guest_checkout')
@@ -32,10 +50,10 @@ class BookingAdmin(admin.ModelAdmin):
                 'mini_move_package', 
                 'standard_delivery_item_count',
                 'is_same_day_delivery',
-                'specialty_items'
+                # ✅ REMOVED: 'specialty_items' - now handled by inline
             )
         }),
-        ('NEW: Organizing Services', {
+        ('Organizing Services', {
             'fields': ('include_packing', 'include_unpacking'),
             'classes': ('wide',),
             'description': 'Professional packing and unpacking services (Mini Moves only)'
@@ -59,7 +77,7 @@ class BookingAdmin(admin.ModelAdmin):
         })
     )
     
-    filter_horizontal = ('specialty_items',)
+    # ✅ REMOVED: filter_horizontal for specialty_items
     
     def get_customer_name(self, obj):
         return obj.get_customer_name()
@@ -71,8 +89,10 @@ class BookingAdmin(admin.ModelAdmin):
         elif obj.service_type == 'standard_delivery' and obj.standard_delivery_item_count:
             return f"{obj.standard_delivery_item_count} items"
         elif obj.service_type == 'specialty_item':
-            items = list(obj.specialty_items.all())
-            return ", ".join([item.name for item in items[:2]]) + ("..." if len(items) > 2 else "")
+            # ✅ UPDATED: Show quantities
+            booking_items = obj.bookingspecialtyitem_set.all()
+            items_list = [f"{bi.quantity}x {bi.specialty_item.name}" for bi in booking_items[:2]]
+            return ", ".join(items_list) + ("..." if len(booking_items) > 2 else "")
         return "Not configured"
     get_service_details.short_description = 'Service Details'
     
