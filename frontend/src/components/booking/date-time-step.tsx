@@ -32,7 +32,15 @@ interface PricingPreview {
     time_window_surcharge_dollars: number;
     total_price_dollars: number;
   };
-  details: any;
+  details: {
+    specialty_items?: Array<{
+      name: string;
+      price_dollars: number;
+      quantity: number;
+      subtotal_dollars: number;
+    }>;
+    ready_time?: string;
+  };
   pickup_date: string;
 }
 
@@ -79,11 +87,11 @@ export function DateTimeStep() {
       } else if (bookingData.service_type === 'standard_delivery') {
         payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         payload.is_same_day_delivery = bookingData.is_same_day_delivery;
-        payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.specialty_items = bookingData.specialty_items;
         payload.coi_required = bookingData.coi_required || false;
         payload.is_outside_core_area = bookingData.is_outside_core_area || false;
       } else if (bookingData.service_type === 'specialty_item') {
-        payload.specialty_item_ids = bookingData.specialty_item_ids;
+        payload.specialty_items = bookingData.specialty_items;
         payload.is_same_day_delivery = bookingData.is_same_day_delivery;
         payload.coi_required = bookingData.coi_required || false;
         payload.is_outside_core_area = bookingData.is_outside_core_area || false;
@@ -110,13 +118,13 @@ export function DateTimeStep() {
       if (bookingData.service_type === 'standard_delivery' && !bookingData.standard_delivery_item_count) {
         return;
       }
-      if (bookingData.service_type === 'specialty_item' && (!bookingData.specialty_item_ids || bookingData.specialty_item_ids.length === 0)) {
+      if (bookingData.service_type === 'specialty_item' && (!bookingData.specialty_items || bookingData.specialty_items.length === 0)) {
         return;
       }
       
       pricingMutation.mutate();
     }
-  }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_item_ids]);
+  }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_items]);
 
   useEffect(() => {
     if (pricingMutation.data?.pricing) {
@@ -132,8 +140,7 @@ export function DateTimeStep() {
     setSelectedDate(date);
     updateBookingData({ pickup_date: date });
     
-    // Auto-trigger pricing for specialty items (no time selection needed)
-    if (bookingData.service_type === 'specialty_item' && bookingData.specialty_item_ids?.length) {
+    if (bookingData.service_type === 'specialty_item' && bookingData.specialty_items?.length) {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
   };
@@ -162,25 +169,18 @@ export function DateTimeStep() {
   };
 
   const handleContinue = () => {
-    // Check if standard_delivery with only specialty items
     if (bookingData.service_type === 'standard_delivery') {
       const itemCount = bookingData.standard_delivery_item_count || 0;
-      const hasSpecialtyItems = bookingData.specialty_item_ids && bookingData.specialty_item_ids.length > 0;
+      const hasSpecialtyItems = bookingData.specialty_items && bookingData.specialty_items.length > 0;
       
-      // If 0 regular items but has specialty items, it's specialty_item type
       if (itemCount === 0 && hasSpecialtyItems) {
         updateBookingData({
           service_type: 'specialty_item',
           standard_delivery_item_count: undefined,
-          // ✅ FIX: Preserve same-day delivery flag and other fields for specialty items
-          // is_same_day_delivery: keep current value (don't clear it)
-          // coi_required: keep current value
-          // is_outside_core_area: keep current value
         });
       }
     }
     
-    // CRITICAL: Save pricing data before navigation
     if (pricingMutation.data?.pricing) {
       updateBookingData({ pricing_data: pricingMutation.data.pricing });
     }
@@ -196,15 +196,13 @@ export function DateTimeStep() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Get the Sunday before or on the first day of month
     const startDate = new Date(firstDay);
-    const dayOfWeek = startDate.getDay(); // 0 = Sunday
+    const dayOfWeek = startDate.getDay();
     startDate.setDate(startDate.getDate() - dayOfWeek);
     
-    // Get days until end of last week (Saturday)
     const endDate = new Date(lastDay);
     const lastDayOfWeek = endDate.getDay();
-    const daysToAdd = 6 - lastDayOfWeek; // Days until Saturday
+    const daysToAdd = 6 - lastDayOfWeek;
     endDate.setDate(endDate.getDate() + daysToAdd);
     
     const days = [];
@@ -212,14 +210,11 @@ export function DateTimeStep() {
       const isCurrentMonth = d.getMonth() === month;
       const isPastDate = d < today;
       
-      // Only include current month dates that aren't in the past
       if (isCurrentMonth && !isPastDate) {
         days.push(new Date(d));
       } else if (isCurrentMonth || !isPastDate) {
-        // Include padding days from other months only if they're not past dates
         days.push(new Date(d));
       } else {
-        // Push null for past dates to maintain grid structure
         days.push(null);
       }
     }
@@ -408,7 +403,6 @@ export function DateTimeStep() {
 
         <h3 className="text-lg font-medium text-navy-900 mb-6">Select Date</h3>
         
-        {/* Day headers */}
         <div className="grid grid-cols-7 gap-1 md:gap-4 mb-2">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className="text-center text-sm font-medium text-navy-600 p-2">
@@ -417,7 +411,6 @@ export function DateTimeStep() {
           ))}
         </div>
         
-        {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1 md:gap-4">
           {getMonthDays().map((date, index) => {
             if (!date) {
@@ -501,13 +494,7 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && (() => {
-        console.log('Time picker check:', {
-          service_type: bookingData.service_type,
-          shouldShow: bookingData.service_type !== 'specialty_item'
-        });
-        return bookingData.service_type !== 'specialty_item';
-      })() && (
+      {selectedDate && bookingData.service_type !== 'specialty_item' && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
@@ -605,11 +592,13 @@ export function DateTimeStep() {
                     </div>
                   )}
                   
-                  {/* Show specialty items from pricingMutation details */}
-                  {pricingMutation.data?.details?.specialty_items?.map((item: any, index: number) => (
+                  {/* ✅ FIX: Show specialty items with quantities and subtotals */}
+                  {pricingMutation.data?.details?.specialty_items?.map((item, index) => (
                     <div key={`specialty-${index}`} className="flex justify-between items-center">
-                      <span className="text-navy-900 font-medium">{item.name} (Specialty):</span>
-                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                      <span className="text-navy-900 font-medium">
+                        {item.quantity}x {item.name} (Specialty):
+                      </span>
+                      <span className="text-navy-900 font-semibold">${item.subtotal_dollars}</span>
                     </div>
                   ))}
                 </>
@@ -623,26 +612,18 @@ export function DateTimeStep() {
                 </div>
               )}
 
-              {/* Specialty Item Only */}
+              {/* ✅ FIX: Specialty Item Only - show with quantities */}
               {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
                 <>
-                  {pricingMutation.data.details.specialty_items.map((item: any, index: number) => (
+                  {pricingMutation.data.details.specialty_items.map((item, index) => (
                     <div key={`specialty-only-${index}`} className="flex justify-between items-center">
-                      <span className="text-navy-900 font-medium">{item.name}:</span>
-                      <span className="text-navy-900 font-semibold">${item.price_dollars}</span>
+                      <span className="text-navy-900 font-medium">
+                        {item.quantity}x {item.name}:
+                      </span>
+                      <span className="text-navy-900 font-semibold">${item.subtotal_dollars}</span>
                     </div>
                   ))}
                 </>
-              )}
-
-              {/* BLADE */}
-              {(bookingData.service_type as string) === 'blade_transfer' && bookingData.blade_bag_count && (
-                <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">
-                    {bookingData.blade_bag_count} bags × $75:
-                  </span>
-                  <span className="text-navy-900 font-semibold">${pricingMutation.data.pricing.base_price_dollars}</span>
-                </div>
               )}
 
               {/* Same-Day Delivery */}
@@ -726,7 +707,6 @@ export function DateTimeStep() {
               <div>
                 <span className="font-medium text-navy-900">
                   Certificate of Insurance (COI) Required
-                  {/* ✅ FIX: Show +$50 for all service types that need COI */}
                   {bookingData.service_type === 'mini_move' && packageType === 'petite' && (
                     <span className="text-orange-600 ml-2">(+$50)</span>
                   )}

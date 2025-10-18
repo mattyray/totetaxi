@@ -11,31 +11,26 @@ import { Input } from '@/components/ui/input';
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
+  
+  // ✅ FIX: Check authentication status BEFORE any rendering logic
+  useEffect(() => {
+    if (isAuthenticated && !isGuestMode) {
+      console.log('CustomerInfoStep - authenticated user detected, advancing immediately');
+      nextStep();
+    }
+  }, [isAuthenticated, isGuestMode, nextStep]);
+
+  // ✅ FIX: Don't render anything for authenticated users
+  if (isAuthenticated && !isGuestMode) {
+    return null;
+  }
+
   const [formData, setFormData] = useState({
     first_name: bookingData.customer_info?.first_name || '',
     last_name: bookingData.customer_info?.last_name || '',
     email: bookingData.customer_info?.email || '',
     phone: bookingData.customer_info?.phone || '',
   });
-
-  useEffect(() => {
-    console.log('Customer Info Step - Auth state:', { isAuthenticated, isGuestMode, hasUser: !!user });
-    
-    if (isAuthenticated && !isGuestMode) {
-      console.log('CustomerInfoStep - authenticated user detected, advancing immediately');
-      nextStep();
-      return;
-    }
-    
-    if (user && !isGuestMode) {
-      console.log('CustomerInfoStep - user found in store, advancing');
-      nextStep();
-    }
-  }, [isAuthenticated, isGuestMode, nextStep, user]);
-
-  if ((isAuthenticated && !isGuestMode) || (user && !isGuestMode)) {
-    return null;
-  }
 
   const handleFieldChange = (field: string, value: string) => {
     const newFormData = { ...formData, [field]: value };

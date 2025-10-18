@@ -1,3 +1,4 @@
+// frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -119,7 +120,7 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   }
 }
 
-// ✅ NEW: Hook to recalculate pricing when Review & Pay loads
+// ✅ Hook to recalculate pricing when Review & Pay loads
 const useRecalculatePricing = () => {
   const { bookingData, updateBookingData } = useBookingWizard();
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -129,7 +130,6 @@ const useRecalculatePricing = () => {
       if (isRecalculating) return;
 
       console.log('🔄 Recalculating pricing on Review & Pay load');
-      console.log('Current bookingData:', bookingData);
       
       setIsRecalculating(true);
       
@@ -152,9 +152,9 @@ const useRecalculatePricing = () => {
         } else if (bookingData.service_type === 'standard_delivery') {
           pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
           pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-          pricingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+          pricingRequest.specialty_items = bookingData.specialty_items;
         } else if (bookingData.service_type === 'specialty_item') {
-          pricingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+          pricingRequest.specialty_items = bookingData.specialty_items;
           pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
         } else if (bookingData.service_type === 'blade_transfer') {
           pricingRequest.blade_airport = bookingData.blade_airport;
@@ -162,8 +162,6 @@ const useRecalculatePricing = () => {
           pricingRequest.blade_flight_time = bookingData.blade_flight_time;
           pricingRequest.blade_bag_count = bookingData.blade_bag_count;
         }
-
-        console.log('🔄 Pricing request:', pricingRequest);
         
         const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
         
@@ -186,7 +184,7 @@ const useRecalculatePricing = () => {
   return isRecalculating;
 };
 
-// ✅ NEW: Component to display specialty items with quantities
+// ✅ Component to display specialty items with quantities
 function SpecialtyItemsList({ bookingData }: { bookingData: any }) {
   const { data: services } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -232,19 +230,6 @@ export function ReviewPaymentStep() {
   const [showPayment, setShowPayment] = useState(false);
   const stripePromise = getStripe();
 
-  useEffect(() => {
-    console.log('=== REVIEW PAYMENT STEP DEBUG ===');
-    console.log('Is Authenticated:', isAuthenticated);
-    console.log('Is Guest Mode:', isGuestMode);
-    console.log('User:', user);
-    console.log('Customer Info:', bookingData.customer_info);
-    console.log('Service Type:', bookingData.service_type);
-    console.log('COI Required:', bookingData.coi_required);
-    console.log('Specialty Items:', bookingData.specialty_items);
-    console.log('Pricing Data:', bookingData.pricing_data);
-    console.log('==================================');
-  }, [isAuthenticated, isGuestMode, user, bookingData.customer_info, bookingData.service_type, bookingData.coi_required, bookingData.specialty_items, bookingData.pricing_data]);
-
   // STEP 1: Create payment intent
   const createPaymentIntentMutation = useMutation({
     mutationFn: async (): Promise<PaymentIntentResponse> => {
@@ -270,9 +255,9 @@ export function ReviewPaymentStep() {
       } else if (bookingData.service_type === 'standard_delivery') {
         paymentRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        paymentRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+        paymentRequest.specialty_items = bookingData.specialty_items;
       } else if (bookingData.service_type === 'specialty_item') {
-        paymentRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+        paymentRequest.specialty_items = bookingData.specialty_items;
         paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
       } else if (bookingData.service_type === 'blade_transfer') {
         paymentRequest.blade_airport = bookingData.blade_airport;
@@ -338,9 +323,9 @@ export function ReviewPaymentStep() {
       } else if (bookingData.service_type === 'standard_delivery') {
         bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
         bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        bookingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+        bookingRequest.specialty_items = bookingData.specialty_items;
       } else if (bookingData.service_type === 'specialty_item') {
-        bookingRequest.specialty_items = bookingData.specialty_items; // ✅ Changed
+        bookingRequest.specialty_items = bookingData.specialty_items;
         bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
       } else if (bookingData.service_type === 'blade_transfer') {
         bookingRequest.blade_airport = bookingData.blade_airport;
@@ -736,7 +721,7 @@ export function ReviewPaymentStep() {
                 <span className="text-navy-900 font-medium">
                   {bookingData.service_type === 'blade_transfer' && `${bookingData.blade_bag_count} bags × $75:`}
                   {bookingData.service_type === 'mini_move' && 'Mini Move Package:'}
-                  {bookingData.service_type === 'standard_delivery' && 'Standard Delivery:'}
+                  {bookingData.service_type === 'standard_delivery' && 'Base Service:'}
                   {bookingData.service_type === 'specialty_item' && 'Specialty Items:'}
                 </span>
                 <span className="text-navy-900 font-semibold">${bookingData.pricing_data.base_price_dollars}</span>
