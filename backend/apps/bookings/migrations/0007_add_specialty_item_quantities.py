@@ -24,7 +24,7 @@ def migrate_existing_specialty_items(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bookings', '0006_booking_blade_airport_booking_blade_bag_count_and_more'),
+        ('bookings', '0006_booking_reminder_sent_at'),  # ✅ FIXED!
         ('services', '0006_remove_specialtyitem_requires_van_schedule'),
     ]
 
