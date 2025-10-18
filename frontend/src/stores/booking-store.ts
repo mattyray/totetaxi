@@ -18,7 +18,12 @@ export interface BookingData {
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
-  specialty_item_ids?: string[];
+  
+  // ✅ NEW: Specialty items with quantities
+  specialty_items?: Array<{
+    item_id: string;
+    quantity: number;
+  }>;
   
   blade_airport?: 'JFK' | 'EWR';
   blade_flight_date?: string;
@@ -79,6 +84,10 @@ interface BookingWizardActions {
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
   initializeForUser: (userId?: string, isGuest?: boolean) => void;
+  
+  // ✅ NEW: Helper methods for specialty items with quantities
+  updateSpecialtyItemQuantity: (itemId: string, quantity: number) => void;
+  getSpecialtyItemQuantity: (itemId: string) => number;
 }
 
 const initialBookingData: BookingData = {
@@ -89,9 +98,10 @@ const initialBookingData: BookingData = {
   include_unpacking: false,
   is_same_day_delivery: false,
   is_outside_core_area: false,
+  specialty_items: [], // ✅ Initialize as empty array
 };
 
-const STORE_VERSION = 4;
+const STORE_VERSION = 5; // ✅ Bumped version for migration
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -131,7 +141,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       previousStep: () => set((state) => {
         let prevStep = state.currentStep - 1;
         
-        // Skip customer info step (4) for authenticated users going backward
         if (!state.isGuestMode && prevStep === 4) {
           prevStep = 3;
         }
@@ -143,6 +152,51 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         set((state) => ({
           bookingData: { ...state.bookingData, ...data }
         }));
+      },
+      
+      // ✅ NEW: Update specialty item quantity
+      updateSpecialtyItemQuantity: (itemId: string, quantity: number) => {
+        set((state) => {
+          const currentItems = state.bookingData.specialty_items || [];
+          const existing = currentItems.find(item => item.item_id === itemId);
+          
+          if (quantity === 0) {
+            // Remove item if quantity is 0
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: currentItems.filter(item => item.item_id !== itemId)
+              }
+            };
+          }
+          
+          if (existing) {
+            // Update existing item quantity
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: currentItems.map(item =>
+                  item.item_id === itemId ? { ...item, quantity } : item
+                )
+              }
+            };
+          } else {
+            // Add new item
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: [...currentItems, { item_id: itemId, quantity }]
+              }
+            };
+          }
+        });
+      },
+      
+      // ✅ NEW: Get quantity for a specific item
+      getSpecialtyItemQuantity: (itemId: string) => {
+        const state = get();
+        const item = state.bookingData.specialty_items?.find(i => i.item_id === itemId);
+        return item?.quantity || 0;
       },
       
       setLoading: (loading) => set({ isLoading: !!loading }),
@@ -218,7 +272,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         
         const state = get();
         
-        // Preserve auth state during reset
         const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
         const preservedGuestMode = state.isGuestMode;
         
@@ -229,8 +282,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           errors: {},
           isBookingComplete: false,
           completedBookingNumber: undefined,
-          userId: preservedUserId,  // Keep existing user ID
-          isGuestMode: preservedGuestMode,  // Keep existing guest mode
+          userId: preservedUserId,
+          isGuestMode: preservedGuestMode,
           lastResetTimestamp: Date.now()
         };
         
@@ -295,7 +348,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
               (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
-              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
+              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_items?.length)
             );
           case 3:
             if (bookingData.service_type === 'blade_transfer') {
