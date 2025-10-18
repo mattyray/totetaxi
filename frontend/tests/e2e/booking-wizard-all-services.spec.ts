@@ -222,49 +222,11 @@ test.describe('Booking Wizard - All Services', () => {
     console.log('✅ Mini Move - Full Move package test PASSED!');
   });
   
-  
   // ============================================================
-  // STANDARD DELIVERY TESTS  
+  // SPECIALTY ITEM TESTS
   // ============================================================
   
-  test('Standard Delivery - 5 items', async ({ page }) => {
-    await page.goto('/book');
-    await skipAuthStep(page);
-    
-    await expect(page.getByText('Step 1:')).toBeVisible();
-    const standardDeliveryButton = page.locator('button:has-text("Standard Delivery")');
-    await standardDeliveryButton.click();
-    console.log('✓ Clicked Standard Delivery');
-    await page.waitForTimeout(2000);
-    
-    // Fill item count
-    const itemCountInput = page.getByLabel('Number of Items');
-    await itemCountInput.scrollIntoViewIfNeeded();
-    await itemCountInput.fill('5');
-    console.log('✓ Entered 5 items');
-    await page.waitForTimeout(1000);
-    
-    await page.getByRole('button', { name: /continue to date/i }).click();
-    
-    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
-    await selectDateAndTime(page);
-    await page.getByRole('button', { name: /continue to addresses/i }).click();
-    
-    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
-    await fillAddresses(page);
-    await page.getByRole('button', { name: /continue to review/i }).click();
-    
-    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
-    await fillCustomerInfo(page, 'Charlie', 'Davis');
-    await page.getByRole('button', { name: /continue to review/i }).click();
-    await page.waitForTimeout(2000);
-    
-    await acceptTermsAndVerifyPayment(page);
-    console.log('✅ Standard Delivery - 5 items test PASSED!');
-  });
-  
-  
-test('Specialty Item - Peloton', async ({ page }) => {
+  test('Specialty Item - Peloton', async ({ page }) => {
     await page.goto('/book');
     await skipAuthStep(page);
     
@@ -277,11 +239,15 @@ test('Specialty Item - Peloton', async ({ page }) => {
     await itemCountInput.fill('0');
     await page.waitForTimeout(500);
     
-    // Select Peloton specialty item using the + button approach
-    const pelotonSection = page.locator('div').filter({ hasText: /^Peloton\s*Peloton bikes/ }).first();
+    // Find the REAL Peloton (not Test Peloton) by looking for full description
+    // Look for the section containing "Peloton bikes and large equipment"
+    const pelotonSection = page.locator('div').filter({ 
+      hasText: 'Peloton bikes and large equipment moving' 
+    }).first();
     await pelotonSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     
-    const pelotonPlusButton = pelotonSection.locator('button:has-text("+")').last();
+    const pelotonPlusButton = pelotonSection.locator('button').filter({ hasText: '+' }).last();
     await pelotonPlusButton.click();
     console.log('✓ Peloton selected');
     await page.waitForTimeout(1000);
@@ -305,7 +271,8 @@ test('Specialty Item - Peloton', async ({ page }) => {
     console.log('✅ Specialty Item - Peloton test PASSED!');
   });
   
-test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)', async ({ page }) => {
+  
+  test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)', async ({ page }) => {
     await page.goto('/book');
     await skipAuthStep(page);
     
@@ -319,12 +286,15 @@ test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)
     await page.waitForTimeout(500);
     console.log('✓ Set 0 regular items');
     
-    // Find Bicycle Transport item and add 3
-    const bicycleSection = page.locator('div').filter({ hasText: /Bicycle Transport/ }).first();
+    // Find Bicycle Transport by unique description text
+    const bicycleSection = page.locator('div').filter({ 
+      hasText: 'Professional bicycle delivery' 
+    }).first();
     await bicycleSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
     
     // Click + button 3 times for Bicycle
-    const bicyclePlusButton = bicycleSection.locator('button:has-text("+")').last();
+    const bicyclePlusButton = bicycleSection.locator('button').filter({ hasText: '+' }).last();
     await bicyclePlusButton.click();
     await page.waitForTimeout(300);
     await bicyclePlusButton.click();
@@ -333,17 +303,20 @@ test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)
     await page.waitForTimeout(500);
     console.log('✓ Added 3x Bicycle');
     
-    // Verify quantity shows 3 - more flexible selector
+    // Verify quantity shows 3 - flexible selector
     const bicycleQuantity = bicycleSection.getByText('3', { exact: true });
     await expect(bicycleQuantity).toBeVisible();
     console.log('✓ Bicycle quantity: 3');
     
-    // Find Peloton item (the real one, not "Test Peloton") and add 2
-    const pelotonSection = page.locator('div').filter({ hasText: /^Peloton\s*Peloton bikes/ }).first();
+    // Find REAL Peloton (not "Test Peloton") by looking for full description
+    const pelotonSection = page.locator('div').filter({ 
+      hasText: 'Peloton bikes and large equipment moving' 
+    }).first();
     await pelotonSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
     
     // Click + button 2 times for Peloton
-    const pelotonPlusButton = pelotonSection.locator('button:has-text("+")').last();
+    const pelotonPlusButton = pelotonSection.locator('button').filter({ hasText: '+' }).last();
     await pelotonPlusButton.click();
     await page.waitForTimeout(300);
     await pelotonPlusButton.click();
@@ -414,11 +387,14 @@ test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)
     await itemCountInput.fill('0');
     await page.waitForTimeout(500);
     
-    // Find Bicycle and add 5
-    const bicycleSection = page.locator('div').filter({ hasText: /Bicycle Transport/ }).first();
+    // Find Bicycle by unique description
+    const bicycleSection = page.locator('div').filter({ 
+      hasText: 'Professional bicycle delivery' 
+    }).first();
     await bicycleSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
     
-    const bicyclePlusButton = bicycleSection.locator('button:has-text("+")').last();
+    const bicyclePlusButton = bicycleSection.locator('button').filter({ hasText: '+' }).last();
     
     // Add 5
     for (let i = 0; i < 5; i++) {
@@ -430,9 +406,10 @@ test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)
     // Verify shows 5 - flexible selector
     let quantity = bicycleSection.getByText('5', { exact: true });
     await expect(quantity).toBeVisible();
+    console.log('✓ Verified quantity: 5');
     
     // Now click minus 2 times
-    const bicycleMinusButton = bicycleSection.locator('button:has-text("−")').first();
+    const bicycleMinusButton = bicycleSection.locator('button').filter({ hasText: '−' }).first();
     await bicycleMinusButton.click();
     await page.waitForTimeout(300);
     await bicycleMinusButton.click();
@@ -464,6 +441,46 @@ test('Specialty Items - Multiple items with quantities (3x Bicycle + 2x Peloton)
     
     console.log('✅ Quantity decrease test PASSED!');
   });
+  // ============================================================
+  // STANDARD DELIVERY TESTS  
+  // ============================================================
+  
+  test('Standard Delivery - 5 items', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    const standardDeliveryButton = page.locator('button:has-text("Standard Delivery")');
+    await standardDeliveryButton.click();
+    console.log('✓ Clicked Standard Delivery');
+    await page.waitForTimeout(2000);
+    
+    // Fill item count
+    const itemCountInput = page.getByLabel('Number of Items');
+    await itemCountInput.scrollIntoViewIfNeeded();
+    await itemCountInput.fill('5');
+    console.log('✓ Entered 5 items');
+    await page.waitForTimeout(1000);
+    
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    await selectDateAndTime(page);
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    await fillAddresses(page);
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    
+    await expect(page.getByText('Step 4:')).toBeVisible({ timeout: 10000 });
+    await fillCustomerInfo(page, 'Charlie', 'Davis');
+    await page.getByRole('button', { name: /continue to review/i }).click();
+    await page.waitForTimeout(2000);
+    
+    await acceptTermsAndVerifyPayment(page);
+    console.log('✅ Standard Delivery - 5 items test PASSED!');
+  });
+  
   // ============================================================
   // NAVIGATION TESTS
   // ============================================================

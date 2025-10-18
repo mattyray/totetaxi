@@ -110,7 +110,7 @@
                       - button "Mini Moves Complete packages for seasonal relocation" [ref=e211] [cursor=pointer]:
                         - heading "Mini Moves" [level=4] [ref=e212]
                         - paragraph [ref=e213]: Complete packages for seasonal relocation
-                      - button "Standard Delivery Regular items + specialty items" [ref=e214] [cursor=pointer]:
+                      - button "Standard Delivery Regular items + specialty items" [active] [ref=e214] [cursor=pointer]:
                         - heading "Standard Delivery" [level=4] [ref=e215]
                         - paragraph [ref=e216]: Regular items + specialty items
                       - button "BLADE Airport Transfer NYC → Airport luggage delivery JFK/EWR only" [ref=e217] [cursor=pointer]:
@@ -124,7 +124,7 @@
                       - generic [ref=e226]:
                         - generic [ref=e227]:
                           - generic [ref=e228]: Number of Items
-                          - spinbutton "Number of Items" [active] [ref=e230]: "0"
+                          - spinbutton "Number of Items" [ref=e230]: "0"
                           - paragraph [ref=e231]: $95 per item (under 50 lbs) • $285 minimum applies to 1-3 items
                         - paragraph [ref=e233]:
                           - strong [ref=e234]: "Note:"
