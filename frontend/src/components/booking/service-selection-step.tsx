@@ -182,12 +182,20 @@ export function ServiceSelectionStep() {
   };
 
   // ✅ NEW: Handle quantity changes for specialty items
+// ✅ NEW: Handle quantity changes for specialty items
   const handleQuantityChange = (itemId: string, change: number) => {
     const currentQty = getSpecialtyItemQuantity(itemId);
     const newQty = Math.max(0, currentQty + change);
+    
+    console.log('🔄 Updating specialty item:', itemId, 'New quantity:', newQty);
     updateSpecialtyItemQuantity(itemId, newQty);
+    
+    // ✅ ADD THIS - Log bookingData after update
+    setTimeout(() => {
+      console.log('📦 BookingData after update:', bookingData);
+      console.log('🎯 canContinue():', canContinue());
+    }, 100);
   };
-
   const canContinue = () => {
       if (bookingData.service_type === 'mini_move') {
         return !!bookingData.mini_move_package_id;

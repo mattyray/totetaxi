@@ -107,10 +107,10 @@
                   - generic [ref=e208]:
                     - heading "Choose Your Service" [level=3] [ref=e209]
                     - generic [ref=e210]:
-                      - button "Mini Moves Complete packages for seasonal relocation" [ref=e211] [cursor=pointer]:
+                      - button "Mini Moves Complete packages for seasonal relocation" [active] [ref=e211] [cursor=pointer]:
                         - heading "Mini Moves" [level=4] [ref=e212]
                         - paragraph [ref=e213]: Complete packages for seasonal relocation
-                      - button "Standard Delivery Regular items + specialty items" [active] [ref=e214] [cursor=pointer]:
+                      - button "Standard Delivery Regular items + specialty items" [ref=e214] [cursor=pointer]:
                         - heading "Standard Delivery" [level=4] [ref=e215]
                         - paragraph [ref=e216]: Regular items + specialty items
                       - button "BLADE Airport Transfer NYC → Airport luggage delivery JFK/EWR only" [ref=e217] [cursor=pointer]:
