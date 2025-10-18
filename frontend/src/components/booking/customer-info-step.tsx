@@ -12,18 +12,39 @@ export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   
+  const [renderCount, setRenderCount] = useState(0);
+
+  // ✅ DEBUG: Log every render
+  useEffect(() => {
+    setRenderCount(prev => prev + 1);
+    console.log('🔍 CustomerInfoStep RENDER #', renderCount + 1);
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - isGuestMode:', isGuestMode);
+    console.log('  - hasUser:', !!user);
+    console.log('  - user:', user);
+  });
+
   // ✅ FIX: Check authentication status BEFORE any rendering logic
   useEffect(() => {
+    console.log('🔍 CustomerInfoStep useEffect triggered');
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - isGuestMode:', isGuestMode);
+    
     if (isAuthenticated && !isGuestMode) {
-      console.log('CustomerInfoStep - authenticated user detected, advancing immediately');
+      console.log('✅ CustomerInfoStep - authenticated user detected, advancing immediately');
       nextStep();
+    } else {
+      console.log('⚠️ CustomerInfoStep - NOT advancing (isAuth:', isAuthenticated, ', isGuest:', isGuestMode, ')');
     }
   }, [isAuthenticated, isGuestMode, nextStep]);
 
   // ✅ FIX: Don't render anything for authenticated users
   if (isAuthenticated && !isGuestMode) {
+    console.log('🚫 CustomerInfoStep - returning null (authenticated)');
     return null;
   }
+
+  console.log('📝 CustomerInfoStep - rendering form (guest mode)');
 
   const [formData, setFormData] = useState({
     first_name: bookingData.customer_info?.first_name || '',
