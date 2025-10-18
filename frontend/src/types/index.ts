@@ -86,7 +86,10 @@ export interface BookingData {
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
-  specialty_item_ids?: string[];
+  specialty_items?: Array<{
+  item_id: string;
+  quantity: number;
+}>;
   
   blade_airport?: 'JFK' | 'EWR';
   blade_flight_date?: string;
