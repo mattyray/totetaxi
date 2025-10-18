@@ -34,17 +34,20 @@ test.describe('BLADE Airport Transfer', () => {
     await timeInput.fill('14:30');
     await page.waitForTimeout(500);
     
-    // Set bag count to 2
+    // ✅ FIX: Set bag count to 2 AND wait longer for validation
     const bagInput = page.getByLabel('Bag Count');
     await bagInput.fill('2');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000); // ✅ INCREASED from 1000 to 2000
     console.log('✓ Set 2 bags');
     
     // Verify price
     await expect(page.getByText('Estimated Price: $150')).toBeVisible();
     console.log('✓ Price: $150');
     
-    await page.getByRole('button', { name: /continue to date/i }).click();
+    // ✅ FIX: Wait for Continue button to be enabled before clicking
+    const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    await continueButton.click();
     
     // STEP 2: Verify summary
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
@@ -65,8 +68,7 @@ test.describe('BLADE Airport Transfer', () => {
     // Fill NYC pickup
     await page.getByPlaceholder('Start typing your address...').first().fill('123 West 57th Street');
     await page.getByPlaceholder('Apt 4B, Suite 200').first().fill('Apt 10B');
-    const cityInputs = page.locator('input').filter({ hasText: /city/i });
-    await cityInputs.first().fill('New York');
+    await page.getByPlaceholder('New York').first().fill('New York');
     await page.locator('select').first().selectOption('NY');
     await page.getByPlaceholder('10001').first().fill('10019');
     
@@ -75,12 +77,13 @@ test.describe('BLADE Airport Transfer', () => {
     console.log('✓ Delivery auto-filled to JFK');
     
     await page.waitForTimeout(2000);
-    await page.getByRole('button', { name: /continue/i }).click();
+    const continueToCustomerButton = page.getByRole('button', { name: /continue to review/i });
+    await continueToCustomerButton.click();
     
     // STEP 4: Customer Info
     await expect(page.getByText(/Step (4|5):/)).toBeVisible({ timeout: 10000 });
     await fillCustomerInfo(page, 'Alex', 'Turner');
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue to review/i }).click();
     await page.waitForTimeout(2000);
     
     // STEP 5: Review
@@ -111,14 +114,20 @@ test.describe('BLADE Airport Transfer', () => {
     
     await page.locator('input[type="date"]').fill(dateString);
     await page.locator('input[type="time"]').fill('18:45');
+    
+    // ✅ FIX: Add longer wait after bag count
     await page.getByLabel('Bag Count').fill('3');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000); // ✅ INCREASED
     
     // Verify $225
     await expect(page.getByText('Estimated Price: $225')).toBeVisible();
     console.log('✓ Price: $225 for 3 bags');
     
-    await page.getByRole('button', { name: /continue/i }).click();
+    // ✅ FIX: Wait for button to be enabled
+    const continueButton = page.getByRole('button', { name: /continue to date/i });
+    await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    await continueButton.click();
+    
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     
     // Verify EWR in summary

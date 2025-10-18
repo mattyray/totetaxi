@@ -51,21 +51,27 @@ test.describe('Mini Moves', () => {
     await petiteHeading.click();
     await page.waitForTimeout(1500);
     
-    // Check packing
+    // ✅ FIX: Find packing checkbox by the card it's in
     await expect(page.getByText('Professional Organizing Services')).toBeVisible();
-    const packingCheckbox = page.locator('input[type="checkbox"]').filter({ has: page.locator('text=Petite Packing') }).first();
+    
+    // Find the packing card by its heading
+    const packingCard = page.locator('div').filter({ hasText: /Petite Packing/ }).first();
+    await packingCard.scrollIntoViewIfNeeded();
+    
+    // Find checkbox inside the packing card
+    const packingCheckbox = packingCard.locator('input[type="checkbox"]').first();
     await packingCheckbox.check({ force: true });
     await page.waitForTimeout(1000);
-    console.log('✓ Packing selected');
+    console.log('✓ Packing service selected');
     
     await page.getByRole('button', { name: /continue to date/i }).click();
     
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     await selectDateAndTime(page);
     
-    // Verify packing fee
+    // Verify packing fee in pricing
     await expect(page.getByText(/organizing/i)).toBeVisible();
-    console.log('✓ Organizing fee displayed');
+    console.log('✓ Organizing fees displayed');
     
     console.log('✅ Packing test PASSED!');
   });

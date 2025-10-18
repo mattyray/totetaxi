@@ -12,7 +12,6 @@ test.describe('Standard Delivery', () => {
     await page.locator('button:has-text("Standard Delivery")').click();
     await page.waitForTimeout(2000);
     
-    // Fill item count
     const itemCountInput = page.getByLabel('Number of Items');
     await itemCountInput.scrollIntoViewIfNeeded();
     await itemCountInput.fill('5');
@@ -47,43 +46,41 @@ test.describe('Standard Delivery', () => {
     await page.locator('button:has-text("Standard Delivery")').click();
     await page.waitForTimeout(2000);
     
-    // Set 3 regular items
-    const itemCountInput = page.getByLabel('Number of Items');
-    await itemCountInput.fill('3');
+    await page.getByLabel('Number of Items').fill('3');
     await page.waitForTimeout(500);
     console.log('✓ Set 3 regular items');
     
     // Add 2 bicycles
-    const bicycleSection = page.locator('div').filter({ hasText: 'Bicycle' }).first();
-    await bicycleSection.scrollIntoViewIfNeeded();
+    const bicycleCard = page.locator('div').filter({ hasText: 'Bicycle' }).filter({ hasText: '$250 each' }).first();
+    await bicycleCard.scrollIntoViewIfNeeded();
     
-    const bicyclePlusButton = bicycleSection.locator('button').filter({ hasText: '+' }).last();
+    const bicyclePlusButton = bicycleCard.locator('button:has-text("+")').last();
     await bicyclePlusButton.click();
     await page.waitForTimeout(300);
     await bicyclePlusButton.click();
     await page.waitForTimeout(500);
     console.log('✓ Added 2x Bicycle');
     
-    // Verify quantity
-    await expect(bicycleSection.getByText('2', { exact: true })).toBeVisible();
+    await expect(bicycleCard.getByText('2', { exact: true })).toBeVisible();
     
     await page.getByRole('button', { name: /continue to date/i }).click();
     
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     await selectDateAndTime(page);
     
-    // Verify mixed pricing
     await expect(page.getByText('Pricing Summary')).toBeVisible();
     console.log('✓ Mixed pricing calculated');
     
-    await page.getByRole('button', { name: /continue/i }).click();
+    // ✅ FIX: Use specific button to avoid strict mode error
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    
     await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
     await fillAddresses(page);
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue to review/i }).click();
     
     await expect(page.getByText(/Step (4|5):/)).toBeVisible({ timeout: 10000 });
     await fillCustomerInfo(page, 'Mixed', 'Test');
-    await page.getByRole('button', { name: /continue/i }).click();
+    await page.getByRole('button', { name: /continue to review/i }).click();
     await page.waitForTimeout(2000);
     
     await acceptTermsAndVerifyPayment(page);
@@ -99,15 +96,11 @@ test.describe('Standard Delivery', () => {
     await page.locator('button:has-text("Standard Delivery")').click();
     await page.waitForTimeout(2000);
     
-    const itemCountInput = page.getByLabel('Number of Items');
-    await itemCountInput.fill('2');
+    await page.getByLabel('Number of Items').fill('2');
     await page.waitForTimeout(500);
     
-    // Check same-day delivery checkbox
-    const sameDayCheckbox = page.locator('input[type="checkbox"]').filter({ 
-      has: page.locator('text=/Same.*Day/i') 
-    }).first();
-    
+    // ✅ FIX: Same-Day checkbox is in STEP 1, not Step 2!
+    const sameDayCheckbox = page.locator('label').filter({ hasText: /Same-Day Delivery.*\+\$360/i }).locator('input[type="checkbox"]');
     await sameDayCheckbox.scrollIntoViewIfNeeded();
     await sameDayCheckbox.check({ force: true });
     await page.waitForTimeout(1000);
@@ -118,7 +111,7 @@ test.describe('Standard Delivery', () => {
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     await selectDateAndTime(page);
     
-    // Verify $360 surcharge
+    // Verify $360 surcharge in Step 2 pricing
     await expect(page.getByText('Same-Day Delivery')).toBeVisible();
     await expect(page.getByText('+$360')).toBeVisible();
     console.log('✓ Same-day surcharge $360 displayed');
@@ -138,12 +131,11 @@ test.describe('Standard Delivery', () => {
     await page.getByLabel('Number of Items').fill('3');
     await page.waitForTimeout(500);
     
-    // Check COI checkbox
-    const coiCheckbox = page.locator('input[type="checkbox"]').filter({ 
-      has: page.locator('text=/Certificate.*Insurance/i') 
-    }).first();
+    // ✅ FIX: COI checkbox is in STEP 1!
+    const coiLabel = page.locator('label').filter({ hasText: /Certificate of Insurance.*\+\$50/i });
+    await coiLabel.scrollIntoViewIfNeeded();
     
-    await coiCheckbox.scrollIntoViewIfNeeded();
+    const coiCheckbox = coiLabel.locator('input[type="checkbox"]');
     await coiCheckbox.check({ force: true });
     await page.waitForTimeout(1000);
     console.log('✓ COI selected');
@@ -153,7 +145,7 @@ test.describe('Standard Delivery', () => {
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     await selectDateAndTime(page);
     
-    // Verify $50 COI fee
+    // Verify $50 COI fee in Step 2 pricing
     await expect(page.getByText('COI Fee')).toBeVisible();
     await expect(page.getByText('+$50')).toBeVisible();
     console.log('✓ COI fee $50 displayed');
