@@ -126,11 +126,16 @@ class StandardDeliveryConfigAdmin(admin.ModelAdmin):
     same_day_flat_rate_dollars.short_description = 'Same-Day Rate'
 
 
+# apps/services/admin.py
+
 @admin.register(SpecialtyItem)
 class SpecialtyItemAdmin(admin.ModelAdmin):
     list_display = ('name', 'item_type', 'price_dollars', 'special_handling', 'is_active')
     list_filter = ('item_type', 'special_handling', 'is_active')
     search_fields = ('name', 'description')
+    
+    # ✅ ADD THIS: Bulk actions
+    actions = ['mark_as_inactive', 'mark_as_active']
     
     fieldsets = (
         ('Item Details', {
@@ -143,8 +148,18 @@ class SpecialtyItemAdmin(admin.ModelAdmin):
             'fields': ('special_handling',)
         })
     )
-
-
+    
+    # ✅ ADD THESE METHODS:
+    @admin.action(description='Mark selected items as inactive')
+    def mark_as_inactive(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f'{updated} specialty item(s) marked as inactive.')
+    
+    @admin.action(description='Mark selected items as active')
+    def mark_as_active(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} specialty item(s) marked as active.')
+        
 @admin.register(SurchargeRule)
 class SurchargeRuleAdmin(admin.ModelAdmin):
     list_display = ('name', 'surcharge_type', 'applies_to_service_type', 'calculation_type', 'get_surcharge_display', 'get_applies_to', 'is_active')

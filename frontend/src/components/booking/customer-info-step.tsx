@@ -11,40 +11,26 @@ import { Input } from '@/components/ui/input';
 export function CustomerInfoStep() {
   const { bookingData, updateBookingData, nextStep, errors, setError, clearError, isGuestMode } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
-  
-  const [renderCount, setRenderCount] = useState(0);
 
-  // ✅ DEBUG: Log every render
+  // ✅ FIX: Single useEffect with proper dependencies - no infinite loop
   useEffect(() => {
-    setRenderCount(prev => prev + 1);
-    console.log('🔍 CustomerInfoStep RENDER #', renderCount + 1);
+    console.log('🔍 CustomerInfoStep mounted/updated');
     console.log('  - isAuthenticated:', isAuthenticated);
     console.log('  - isGuestMode:', isGuestMode);
     console.log('  - hasUser:', !!user);
-    console.log('  - user:', user);
-  });
-
-  // ✅ FIX: Check authentication status BEFORE any rendering logic
-  useEffect(() => {
-    console.log('🔍 CustomerInfoStep useEffect triggered');
-    console.log('  - isAuthenticated:', isAuthenticated);
-    console.log('  - isGuestMode:', isGuestMode);
     
+    // ✅ If authenticated and NOT in guest mode, skip this step immediately
     if (isAuthenticated && !isGuestMode) {
-      console.log('✅ CustomerInfoStep - authenticated user detected, advancing immediately');
+      console.log('✅ Skipping customer info step - authenticated user');
       nextStep();
-    } else {
-      console.log('⚠️ CustomerInfoStep - NOT advancing (isAuth:', isAuthenticated, ', isGuest:', isGuestMode, ')');
     }
-  }, [isAuthenticated, isGuestMode, nextStep]);
+  }, [isAuthenticated, isGuestMode, nextStep, user]); // ✅ Proper dependencies
 
-  // ✅ FIX: Don't render anything for authenticated users
+  // ✅ Don't render anything for authenticated users
   if (isAuthenticated && !isGuestMode) {
-    console.log('🚫 CustomerInfoStep - returning null (authenticated)');
+    console.log('🚫 CustomerInfoStep - returning null (authenticated, not guest)');
     return null;
   }
-
-  console.log('📝 CustomerInfoStep - rendering form (guest mode)');
 
   const [formData, setFormData] = useState({
     first_name: bookingData.customer_info?.first_name || '',

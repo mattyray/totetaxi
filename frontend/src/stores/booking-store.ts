@@ -19,7 +19,6 @@ export interface BookingData {
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
   
-  // ✅ NEW: Specialty items with quantities
   specialty_items?: Array<{
     item_id: string;
     quantity: number;
@@ -84,8 +83,6 @@ interface BookingWizardActions {
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
   initializeForUser: (userId?: string, isGuest?: boolean) => void;
-  
-  // ✅ NEW: Helper methods for specialty items with quantities
   updateSpecialtyItemQuantity: (itemId: string, quantity: number) => void;
   getSpecialtyItemQuantity: (itemId: string) => number;
 }
@@ -98,10 +95,10 @@ const initialBookingData: BookingData = {
   include_unpacking: false,
   is_same_day_delivery: false,
   is_outside_core_area: false,
-  specialty_items: [], // ✅ Initialize as empty array
+  specialty_items: [],
 };
 
-const STORE_VERSION = 5; // ✅ Bumped version for migration
+const STORE_VERSION = 5;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -154,14 +151,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }));
       },
       
-      // ✅ NEW: Update specialty item quantity
       updateSpecialtyItemQuantity: (itemId: string, quantity: number) => {
         set((state) => {
           const currentItems = state.bookingData.specialty_items || [];
           const existing = currentItems.find(item => item.item_id === itemId);
           
           if (quantity === 0) {
-            // Remove item if quantity is 0
             return {
               bookingData: {
                 ...state.bookingData,
@@ -171,7 +166,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           }
           
           if (existing) {
-            // Update existing item quantity
             return {
               bookingData: {
                 ...state.bookingData,
@@ -181,7 +175,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
               }
             };
           } else {
-            // Add new item
             return {
               bookingData: {
                 ...state.bookingData,
@@ -192,7 +185,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         });
       },
       
-      // ✅ NEW: Get quantity for a specific item
       getSpecialtyItemQuantity: (itemId: string) => {
         const state = get();
         const item = state.bookingData.specialty_items?.find(i => i.item_id === itemId);
@@ -224,19 +216,26 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }
       },
       
+      // ✅ FIX: Properly handle guest mode updates
       initializeForUser: (providedUserId?, isGuest?) => {
         const userId = providedUserId || 'guest';
-        const guestMode = isGuest !== undefined ? isGuest : true;
+        const guestMode = isGuest !== undefined ? isGuest : (userId === 'guest');
         
         const state = get();
         
-        console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        console.log('Initializing booking wizard', { 
+          userId, 
+          guestMode, 
+          currentUserId: state.userId,
+          currentGuestMode: state.isGuestMode 
+        });
         
         const timeSinceLastReset = state.lastResetTimestamp ? 
           Date.now() - state.lastResetTimestamp : Infinity;
         
-        if (timeSinceLastReset < 1000) {
-          console.warn('Ignoring rapid user initialization');
+        // ✅ Allow update if guest mode changed
+        if (timeSinceLastReset < 1000 && state.isGuestMode === guestMode) {
+          console.warn('Ignoring rapid user initialization (same state)');
           return;
         }
         
@@ -246,9 +245,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         if (
           (state.userId && state.userId !== userId && state.userId !== 'guest') ||
           isStale ||
-          state.isBookingComplete
+          state.isBookingComplete ||
+          state.isGuestMode !== guestMode  // ✅ Also reset if guest mode changes
         ) {
-          console.log('Resetting wizard - user change, stale session, or completed booking');
+          console.log('Resetting wizard - user/state change detected');
           set({
             bookingData: { ...initialBookingData },
             errors: {},
@@ -260,20 +260,31 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             lastResetTimestamp: Date.now()
           });
         } else {
+          // ✅ Always update both userId and guestMode together
+          console.log('Updating user state without reset');
           set({ 
             userId: userId,
-            isGuestMode: guestMode
+            isGuestMode: guestMode,
+            lastResetTimestamp: Date.now()
           });
         }
       },
       
+      // ✅ FIX: Calculate guest mode correctly based on userId
       resetWizard: () => {
         console.log('Resetting booking wizard completely');
         
         const state = get();
         
+        // ✅ FIX: Calculate guest mode from userId, don't preserve old value
         const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
-        const preservedGuestMode = state.isGuestMode;
+        const calculatedGuestMode = preservedUserId === 'guest';
+        
+        console.log('Reset wizard with:', {
+          preservedUserId,
+          calculatedGuestMode,
+          oldGuestMode: state.isGuestMode
+        });
         
         const newState = {
           currentStep: 0,
@@ -283,7 +294,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           isBookingComplete: false,
           completedBookingNumber: undefined,
           userId: preservedUserId,
-          isGuestMode: preservedGuestMode,
+          isGuestMode: calculatedGuestMode,  // ✅ Use calculated value
           lastResetTimestamp: Date.now()
         };
         
