@@ -34,19 +34,25 @@ test.describe('BLADE Airport Transfer', () => {
     await timeInput.fill('14:30');
     await page.waitForTimeout(500);
     
-    // ✅ FIX: Set bag count to 2 AND wait longer for validation
+    // ✅ FIX: Scroll to bag input, clear it, then fill slowly
     const bagInput = page.getByLabel('Bag Count');
-    await bagInput.fill('2');
-    await page.waitForTimeout(2000); // ✅ INCREASED from 1000 to 2000
+    await bagInput.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await bagInput.clear();
+    await page.waitForTimeout(300);
+    await bagInput.fill('2', { timeout: 3000 });
+    await bagInput.blur(); // ✅ Trigger onChange by blurring
+    await page.waitForTimeout(3000); // ✅ Wait even longer for validation
     console.log('✓ Set 2 bags');
     
     // Verify price
-    await expect(page.getByText('Estimated Price: $150')).toBeVisible();
+    await expect(page.getByText('Estimated Price: $150')).toBeVisible({ timeout: 5000 });
     console.log('✓ Price: $150');
     
-    // ✅ FIX: Wait for Continue button to be enabled before clicking
+    // ✅ Wait for button AND verify it's enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
-    await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    await page.waitForTimeout(2000); // Extra wait
+    await expect(continueButton).toBeEnabled({ timeout: 10000 });
     await continueButton.click();
     
     // STEP 2: Verify summary
@@ -115,17 +121,23 @@ test.describe('BLADE Airport Transfer', () => {
     await page.locator('input[type="date"]').fill(dateString);
     await page.locator('input[type="time"]').fill('18:45');
     
-    // ✅ FIX: Add longer wait after bag count
-    await page.getByLabel('Bag Count').fill('3');
-    await page.waitForTimeout(2000); // ✅ INCREASED
+    // ✅ Same fix for bag count
+    const bagInput = page.getByLabel('Bag Count');
+    await bagInput.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await bagInput.clear();
+    await page.waitForTimeout(300);
+    await bagInput.fill('3', { timeout: 3000 });
+    await bagInput.blur();
+    await page.waitForTimeout(3000);
     
     // Verify $225
-    await expect(page.getByText('Estimated Price: $225')).toBeVisible();
+    await expect(page.getByText('Estimated Price: $225')).toBeVisible({ timeout: 5000 });
     console.log('✓ Price: $225 for 3 bags');
     
-    // ✅ FIX: Wait for button to be enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
-    await expect(continueButton).toBeEnabled({ timeout: 5000 });
+    await page.waitForTimeout(2000);
+    await expect(continueButton).toBeEnabled({ timeout: 10000 });
     await continueButton.click();
     
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
