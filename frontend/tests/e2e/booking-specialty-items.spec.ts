@@ -12,7 +12,6 @@ test.describe('Specialty Items', () => {
     await page.locator('button:has-text("Standard Delivery")').click();
     await page.waitForTimeout(2000);
     
-    // Set 0 regular items
     const itemCountInput = page.getByLabel('Number of Items');
     await itemCountInput.fill('0');
     await page.waitForTimeout(1000);
@@ -21,17 +20,17 @@ test.describe('Specialty Items', () => {
     await pelotonCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     
-    const pelotonPlusButton = pelotonCard.locator('button').filter({ has: page.locator('svg') }).last(); // ✅ Find button with SVG icon
+    const pelotonPlusButton = pelotonCard.locator('button').filter({ has: page.locator('svg') }).last();
     await pelotonPlusButton.click();
     console.log('✓ Peloton selected');
-    await page.waitForTimeout(3000); // ✅ INCREASED - wait for store update
+    await page.waitForTimeout(3000);
     
-    // Verify quantity
-    await expect(pelotonCard.getByText('1', { exact: true })).toBeVisible();
+    // ✅ FIX: Target the span specifically, not just any "1"
+    await expect(pelotonCard.locator('span.text-lg.font-bold').filter({ hasText: /^1$/ })).toBeVisible();
     console.log('✓ Quantity: 1');
     
     const continueButton = page.getByRole('button', { name: /continue to date/i });
-    await expect(continueButton).toBeEnabled({ timeout: 15000 }); // ✅ INCREASED timeout
+    await expect(continueButton).toBeEnabled({ timeout: 15000 });
     console.log('✓ Continue button enabled');
     
     await continueButton.click();
@@ -70,17 +69,17 @@ test.describe('Specialty Items', () => {
     await bicycleCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     
-    // ✅ FIX: Find + button by SVG icon instead of text
     const bicyclePlusButton = bicycleCard.locator('button').filter({ has: page.locator('svg') }).last();
     await bicyclePlusButton.click();
     await page.waitForTimeout(500);
     await bicyclePlusButton.click();
     await page.waitForTimeout(500);
     await bicyclePlusButton.click();
-    await page.waitForTimeout(2000); // ✅ Wait for store update
+    await page.waitForTimeout(2000);
     console.log('✓ Added 3x Bicycle');
     
-    await expect(bicycleCard.getByText('3', { exact: true })).toBeVisible();
+    // ✅ FIX: Target the span, not the button
+    await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Bicycle quantity: 3');
     
     const surfboardCard = page.locator('div').filter({ hasText: 'Surfboard' }).filter({ hasText: 'Professional surfboard transport' }).first();
@@ -91,13 +90,13 @@ test.describe('Specialty Items', () => {
     await surfboardPlusButton.click();
     await page.waitForTimeout(500);
     await surfboardPlusButton.click();
-    await page.waitForTimeout(2000); // ✅ Wait for store
+    await page.waitForTimeout(2000);
     console.log('✓ Added 2x Surfboard');
     
-    await expect(surfboardCard.getByText('2', { exact: true })).toBeVisible();
+    // ✅ FIX: Same for surfboard
+    await expect(surfboardCard.locator('span.text-lg.font-bold').filter({ hasText: /^2$/ })).toBeVisible();
     console.log('✓ Surfboard quantity: 2');
     
-    // ✅ FIX: Wait for button to be enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
     await expect(continueButton).toBeEnabled({ timeout: 15000 });
     await continueButton.click();
@@ -157,10 +156,10 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(1000);
     console.log('✓ Added 5x Bicycle');
     
-    await expect(bicycleCard.getByText('5', { exact: true })).toBeVisible();
+    // ✅ FIX: Target the span
+    await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^5$/ })).toBeVisible();
     console.log('✓ Verified quantity: 5');
     
-    // ✅ FIX: Find minus button by its position (first button with SVG)
     const bicycleMinusButton = bicycleCard.locator('button').filter({ has: page.locator('svg') }).first();
     await bicycleMinusButton.click();
     await page.waitForTimeout(500);
@@ -168,7 +167,8 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(1000);
     console.log('✓ Decreased by 2');
     
-    await expect(bicycleCard.getByText('3', { exact: true })).toBeVisible();
+    // ✅ FIX: Target the span
+    await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Quantity now: 3');
     
     // Decrease to 0
@@ -180,7 +180,8 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(1000);
     console.log('✓ Decreased to 0');
     
-    await expect(bicycleCard.getByText('0', { exact: true })).toBeVisible();
+    // ✅ FIX: Target the span
+    await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^0$/ })).toBeVisible();
     console.log('✓ Quantity: 0 (item removed)');
     
     await expect(bicycleMinusButton).toBeDisabled();
@@ -210,7 +211,6 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(1000);
     console.log('✓ Surfboard selected');
     
-    // ✅ FIX: Use .first() to avoid strict mode
     await expect(surfboardCard.getByText('$350 each').first()).toBeVisible();
     console.log('✓ Price: $350 each');
     
