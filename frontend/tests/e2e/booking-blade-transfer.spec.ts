@@ -14,10 +14,32 @@ test.describe('BLADE Airport Transfer', () => {
     await page.waitForTimeout(2000);
     console.log('✓ Selected BLADE Transfer');
     
-    // Select JFK
-    const jfkButton = page.locator('button').filter({ hasText: 'JFK' }).first();
-    await jfkButton.click();
+    // ✅ NUCLEAR FIX: Wait for the section, then click multiple times if needed
+    await expect(page.getByText('Airport Selection')).toBeVisible();
+    await page.waitForTimeout(1000);
+    
+    // Find ALL buttons, then filter to the one in the grid that contains JFK text
+    const airportButtons = page.locator('.grid.grid-cols-2 button');
+    const jfkButton = airportButtons.filter({ hasText: 'JFK' }).first();
+    
+    await jfkButton.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
+    
+    // Click it THREE times to make absolutely sure
+    await jfkButton.click();
+    await page.waitForTimeout(300);
+    await jfkButton.click();
+    await page.waitForTimeout(300);
+    await jfkButton.click();
+    await page.waitForTimeout(1000);
+    
+    // Verify it's actually selected by checking the class
+    const jfkClasses = await jfkButton.getAttribute('class');
+    console.log('JFK button classes:', jfkClasses);
+    
+    if (!jfkClasses?.includes('border-navy-500') && !jfkClasses?.includes('bg-navy-50')) {
+      throw new Error('❌ JFK button not selected after clicking!');
+    }
     console.log('✓ Selected JFK');
     
     // Fill flight date (tomorrow)
@@ -34,15 +56,15 @@ test.describe('BLADE Airport Transfer', () => {
     await timeInput.fill('14:30');
     await page.waitForTimeout(500);
     
-    // ✅ FIX: Click input, clear it, then TYPE the number (don't use fill)
+    // Fill bag count
     const bagInput = page.getByLabel('Bag Count');
     await bagInput.scrollIntoViewIfNeeded();
-    await bagInput.click(); // Focus the input
-    await page.keyboard.press('Control+A'); // Select all (or Command+A on Mac)
-    await page.keyboard.press('Backspace'); // Clear it
-    await bagInput.pressSequentially('2', { delay: 100 }); // Type "2" with delay
-    await page.keyboard.press('Tab'); // ✅ Tab away to trigger blur/onChange
-    await page.waitForTimeout(3000); // Wait for store update + pricing calculation
+    await bagInput.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await bagInput.pressSequentially('2', { delay: 100 });
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(3000);
     console.log('✓ Set 2 bags');
     
     // Verify price
@@ -106,10 +128,31 @@ test.describe('BLADE Airport Transfer', () => {
     await bladeButton.click();
     await page.waitForTimeout(2000);
     
-    // Select EWR
-    const ewrButton = page.locator('button').filter({ hasText: 'EWR' }).first();
-    await ewrButton.click();
+    // ✅ Same fix for EWR
+    await expect(page.getByText('Airport Selection')).toBeVisible();
+    await page.waitForTimeout(1000);
+    
+    const airportButtons = page.locator('.grid.grid-cols-2 button');
+    const ewrButton = airportButtons.filter({ hasText: 'EWR' }).first();
+    
+    await ewrButton.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
+    
+    // Click THREE times
+    await ewrButton.click();
+    await page.waitForTimeout(300);
+    await ewrButton.click();
+    await page.waitForTimeout(300);
+    await ewrButton.click();
+    await page.waitForTimeout(1000);
+    
+    // Verify selection
+    const ewrClasses = await ewrButton.getAttribute('class');
+    console.log('EWR button classes:', ewrClasses);
+    
+    if (!ewrClasses?.includes('border-navy-500') && !ewrClasses?.includes('bg-navy-50')) {
+      throw new Error('❌ EWR button not selected after clicking!');
+    }
     console.log('✓ Selected EWR');
     
     // Fill flight info
@@ -120,14 +163,14 @@ test.describe('BLADE Airport Transfer', () => {
     await page.locator('input[type="date"]').fill(dateString);
     await page.locator('input[type="time"]').fill('18:45');
     
-    // ✅ FIX: Same approach - click, clear, TYPE the number
+    // Fill bag count
     const bagInput = page.getByLabel('Bag Count');
     await bagInput.scrollIntoViewIfNeeded();
     await bagInput.click();
     await page.keyboard.press('Control+A');
     await page.keyboard.press('Backspace');
-    await bagInput.pressSequentially('3', { delay: 100 }); // Type "3"
-    await page.keyboard.press('Tab'); // Tab away to trigger onChange
+    await bagInput.pressSequentially('3', { delay: 100 });
+    await page.keyboard.press('Tab');
     await page.waitForTimeout(3000);
     
     // Verify $225
