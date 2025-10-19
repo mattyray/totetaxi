@@ -195,20 +195,20 @@ class StandardDeliveryConfig(models.Model):
         
         return base_cost
 
+
 class SpecialtyItem(models.Model):
-    """Specialty items from homework: Peloton, Surfboard, Crib, Wardrobe Box"""
+    """Specialty items - NOW FULLY DYNAMIC (no hardcoded choices)"""
     
-    ITEM_TYPES = [
-        ('peloton', 'Peloton'),
-        ('surfboard', 'Surfboard'),
-        ('crib', 'Crib'),
-        ('wardrobe_box', 'Wardrobe Box'),
-    ]
+    # ✅ REMOVED: ITEM_TYPES constant - items are now fully configurable
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # Item details
-    item_type = models.CharField(max_length=30, choices=ITEM_TYPES, unique=True)
+    item_type = models.CharField(
+        max_length=30, 
+        unique=True,
+        help_text="Unique identifier for this specialty item (e.g., 'bicycle', 'kayak')"
+    )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     
@@ -336,3 +336,4 @@ class SurchargeRule(models.Model):
             return True
         
         return False
+    

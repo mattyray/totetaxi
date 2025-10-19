@@ -3,10 +3,15 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta, time as dt_time
-from apps.bookings.models import Booking, Address
-from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, SurchargeRule
-from .models import SavedAddress
+from apps.bookings.models import Booking, Address, BookingSpecialtyItem
+from apps.payments.models import Payment
+from apps.payments.services import StripePaymentService
+from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
+import logging
 from .serializers import SavedAddressSerializer
+from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, SurchargeRule
+
+logger = logging.getLogger(__name__)
 
 
 class OnfleetTaskSerializer(serializers.Serializer):
@@ -21,11 +26,10 @@ class OnfleetTaskSerializer(serializers.Serializer):
 
 class PaymentIntentCreateSerializer(serializers.Serializer):
     """
-    NEW: Serializer for creating payment intent BEFORE booking
-    Validates all booking data and calculates total price
+    Serializer for creating payment intent BEFORE booking
+    ✅ NOW SUPPORTS QUANTITIES
     """
     
-    # Service selection
     service_type = serializers.ChoiceField(choices=[
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
@@ -39,22 +43,21 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    specialty_item_ids = serializers.ListField(
-        child=serializers.UUIDField(),
+    
+    # ✅ NEW: Specialty items with quantities
+    specialty_items = serializers.ListField(
+        child=serializers.DictField(),
         required=False,
-        allow_empty=True
+        allow_empty=True,
+        help_text="List of {item_id: UUID, quantity: int}"
     )
     
     # BLADE fields
-    blade_airport = serializers.ChoiceField(
-        choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
-        required=False
-    )
+    blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
     
-    # Booking details
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -63,17 +66,29 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     ], required=False)
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
     
-    # Customer info (for guest bookings)
     customer_email = serializers.EmailField(required=False)
     
-    # Additional options
     coi_required = serializers.BooleanField(default=False)
     is_outside_core_area = serializers.BooleanField(default=False)
+    
+    def validate_specialty_items(self, value):
+        """Validate specialty items with quantities"""
+        if not value:
+            return []
+        
+        for item in value:
+            if 'item_id' not in item or 'quantity' not in item:
+                raise serializers.ValidationError(
+                    "Each specialty item must have 'item_id' and 'quantity'"
+                )
+            if item['quantity'] < 1:
+                raise serializers.ValidationError("Quantity must be at least 1")
+        
+        return value
     
     def validate(self, attrs):
         service_type = attrs['service_type']
         
-        # Service-specific validation
         if service_type == 'blade_transfer':
             if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
@@ -88,14 +103,14 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
-            specialty_ids = attrs.get('specialty_item_ids', [])
+            specialty_items = attrs.get('specialty_items', [])
             
-            if item_count == 0 and len(specialty_ids) == 0:
+            if item_count == 0 and len(specialty_items) == 0:
                 raise serializers.ValidationError("At least one item required")
         
         elif service_type == 'specialty_item':
-            if not attrs.get('specialty_item_ids'):
-                raise serializers.ValidationError("specialty_item_ids is required")
+            if not attrs.get('specialty_items'):
+                raise serializers.ValidationError("specialty_items is required")
         
         # Calculate pricing
         attrs['calculated_total_cents'] = self._calculate_total_price(attrs)
@@ -103,7 +118,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         return attrs
     
     def _calculate_total_price(self, data):
-        """Calculate total price in cents for payment intent"""
+        """Calculate total price in cents WITH QUANTITIES"""
         service_type = data['service_type']
         total_cents = 0
         
@@ -120,13 +135,13 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                 package = MiniMovePackage.objects.get(id=data['mini_move_package_id'])
                 total_cents = package.base_price_cents
                 
-                # COI fee
                 if data.get('coi_required') and not package.coi_included:
                     total_cents += package.coi_fee_cents
                 
                 # Organizing services
                 if data.get('include_packing') or data.get('include_unpacking'):
                     from apps.services.models import OrganizingService
+                    organizing_total = 0
                     
                     if data.get('include_packing'):
                         packing = OrganizingService.objects.filter(
@@ -135,7 +150,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                             is_active=True
                         ).first()
                         if packing:
-                            total_cents += packing.price_cents
+                            organizing_total += packing.price_cents
                     
                     if data.get('include_unpacking'):
                         unpacking = OrganizingService.objects.filter(
@@ -144,30 +159,21 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                             is_active=True
                         ).first()
                         if unpacking:
-                            total_cents += unpacking.price_cents
-                    
-                    # Tax on organizing
-                    organizing_total = 0
-                    if data.get('include_packing') and packing:
-                        organizing_total += packing.price_cents
-                    if data.get('include_unpacking') and unpacking:
-                        organizing_total += unpacking.price_cents
+                            organizing_total += unpacking.price_cents
                     
                     if organizing_total > 0:
-                        total_cents += int(organizing_total * 0.0825)
+                        total_cents += organizing_total + int(organizing_total * 0.0825)
                 
-                # Geographic surcharge
                 if data.get('is_outside_core_area'):
                     total_cents += 17500
                 
-                # Time window surcharge
                 if data.get('pickup_time') == 'morning_specific' and package.package_type == 'standard':
                     total_cents += 17500
                 
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid package")
         
-        # Standard Delivery pricing
+        # Standard Delivery pricing - ✅ WITH QUANTITIES
         elif service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -177,34 +183,40 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                         item_total = config.price_per_item_cents * item_count
                         total_cents = max(item_total, config.minimum_charge_cents)
                     
-                    # Specialty items
-                    specialty_ids = data.get('specialty_item_ids', [])
-                    if specialty_ids:
-                        specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
-                        total_cents += sum(item.price_cents for item in specialty_items)
+                    # ✅ Specialty items WITH QUANTITIES
+                    specialty_items_data = data.get('specialty_items', [])
+                    if specialty_items_data:
+                        for item_data in specialty_items_data:
+                            try:
+                                item = SpecialtyItem.objects.get(id=item_data['item_id'])
+                                quantity = item_data['quantity']
+                                total_cents += item.price_cents * quantity
+                            except SpecialtyItem.DoesNotExist:
+                                pass
                     
-                    # Same-day
                     if data.get('is_same_day_delivery'):
                         total_cents += config.same_day_flat_rate_cents
                     
-                    # COI
                     if data.get('coi_required'):
                         total_cents += 5000
                     
-                    # Geographic
                     if data.get('is_outside_core_area'):
                         total_cents += 17500
                         
             except StandardDeliveryConfig.DoesNotExist:
                 raise serializers.ValidationError("Standard delivery not configured")
         
-        # Specialty Item pricing
+        # Specialty Item pricing - ✅ WITH QUANTITIES
         elif service_type == 'specialty_item':
-            specialty_ids = data.get('specialty_item_ids', [])
-            specialty_items = SpecialtyItem.objects.filter(id__in=specialty_ids)
-            total_cents = sum(item.price_cents for item in specialty_items)
+            specialty_items_data = data.get('specialty_items', [])
+            for item_data in specialty_items_data:
+                try:
+                    item = SpecialtyItem.objects.get(id=item_data['item_id'])
+                    quantity = item_data['quantity']
+                    total_cents += item.price_cents * quantity
+                except SpecialtyItem.DoesNotExist:
+                    pass
             
-            # Same-day
             if data.get('is_same_day_delivery'):
                 try:
                     config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -213,11 +225,9 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                 except StandardDeliveryConfig.DoesNotExist:
                     pass
             
-            # COI
             if data.get('coi_required'):
                 total_cents += 5000
             
-            # Geographic
             if data.get('is_outside_core_area'):
                 total_cents += 17500
         
@@ -237,14 +247,12 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
 
 class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     """
-    REFACTORED: Create booking AFTER payment succeeds
-    Now requires payment_intent_id and does NOT create payment
+    Create booking AFTER payment succeeds
+    ✅ NOW SUPPORTS QUANTITIES
     """
     
-    # Payment verification
     payment_intent_id = serializers.CharField(required=True)
     
-    # Service selection
     service_type = serializers.ChoiceField(choices=[
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
@@ -252,28 +260,25 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         ('blade_transfer', 'BLADE Airport Transfer'),
     ])
     
-    # Service-specific fields
     mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    specialty_item_ids = serializers.ListField(
-        child=serializers.UUIDField(),
+    
+    # ✅ NEW: Specialty items with quantities
+    specialty_items = serializers.ListField(
+        child=serializers.DictField(),
         required=False,
         allow_empty=True
     )
     
     # BLADE fields
-    blade_airport = serializers.ChoiceField(
-        choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
-        required=False
-    )
+    blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
     
-    # Booking details
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -294,9 +299,22 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     pickup_address_nickname = serializers.CharField(required=False, max_length=50)
     delivery_address_nickname = serializers.CharField(required=False, max_length=50)
     
-    # Additional options
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
+    
+    def validate_specialty_items(self, value):
+        if not value:
+            return []
+        
+        for item in value:
+            if 'item_id' not in item or 'quantity' not in item:
+                raise serializers.ValidationError(
+                    "Each item needs 'item_id' and 'quantity'"
+                )
+            if item['quantity'] < 1:
+                raise serializers.ValidationError("Quantity must be >= 1")
+        
+        return value
     
     def validate(self, attrs):
         user = self.context['user']
@@ -304,41 +322,36 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         
         # BLADE validation
         if service_type == 'blade_transfer':
-            if not attrs.get('blade_airport'):
-                raise serializers.ValidationError("blade_airport is required")
-            if not attrs.get('blade_flight_date'):
-                raise serializers.ValidationError("blade_flight_date is required")
-            if not attrs.get('blade_flight_time'):
-                raise serializers.ValidationError("blade_flight_time is required")
-            if not attrs.get('blade_bag_count'):
-                raise serializers.ValidationError("blade_bag_count is required")
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+                       attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
+                raise serializers.ValidationError("All BLADE fields required")
             
             if attrs.get('blade_bag_count', 0) < 2:
-                raise serializers.ValidationError("BLADE requires minimum 2 bags")
+                raise serializers.ValidationError("Minimum 2 bags")
         
         # Mini Move validation
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
-                raise serializers.ValidationError("mini_move_package_id is required")
+                raise serializers.ValidationError("Package ID required")
         
         # Standard Delivery validation
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
-            specialty_ids = attrs.get('specialty_item_ids', [])
+            specialty_items = attrs.get('specialty_items', [])
             
-            if item_count == 0 and len(specialty_ids) == 0:
+            if item_count == 0 and len(specialty_items) == 0:
                 raise serializers.ValidationError("At least one item required")
         
         elif service_type == 'specialty_item':
-            if not attrs.get('specialty_item_ids'):
-                raise serializers.ValidationError("specialty_item_ids is required")
+            if not attrs.get('specialty_items'):
+                raise serializers.ValidationError("Specialty items required")
         
         # Address validation
         if not (attrs.get('pickup_address_id') or attrs.get('new_pickup_address')):
-            raise serializers.ValidationError("pickup address is required")
+            raise serializers.ValidationError("pickup address required")
         
         if not (attrs.get('delivery_address_id') or attrs.get('new_delivery_address')):
-            raise serializers.ValidationError("delivery address is required")
+            raise serializers.ValidationError("delivery address required")
         
         # Validate saved addresses belong to user
         if attrs.get('pickup_address_id'):
@@ -358,7 +371,6 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         user = self.context['user']
         
-        # Remove payment_intent_id from validated_data (not needed for booking)
         payment_intent_id = validated_data.pop('payment_intent_id')
         
         # Handle addresses
@@ -377,6 +389,9 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             validated_data.get('save_delivery_address', False),
             validated_data.get('delivery_address_nickname')
         )
+        
+        # Extract specialty items BEFORE creating booking
+        specialty_items_data = validated_data.pop('specialty_items', [])
         
         # Create booking
         booking = Booking.objects.create(
@@ -397,24 +412,30 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             blade_flight_date=validated_data.get('blade_flight_date'),
             blade_flight_time=validated_data.get('blade_flight_time'),
             blade_bag_count=validated_data.get('blade_bag_count'),
-            status='pending',  # Will be updated to 'paid' in view
+            status='pending',
         )
         
-        # Handle service-specific relationships
+        # Handle mini move package
         if validated_data['service_type'] == 'mini_move':
             try:
                 package = MiniMovePackage.objects.get(id=validated_data['mini_move_package_id'])
                 booking.mini_move_package = package
             except MiniMovePackage.DoesNotExist:
-                raise serializers.ValidationError("Invalid mini move package")
+                raise serializers.ValidationError("Invalid package")
         
-        # Handle specialty items
-        if validated_data.get('specialty_item_ids'):
-            specialty_items = SpecialtyItem.objects.filter(
-                id__in=validated_data.get('specialty_item_ids', [])
-            )
-            booking.save()
-            booking.specialty_items.set(specialty_items)
+        # ✅ Handle specialty items WITH QUANTITIES
+        if specialty_items_data:
+            booking.save()  # Save first to get ID
+            for item_data in specialty_items_data:
+                try:
+                    item = SpecialtyItem.objects.get(id=item_data['item_id'])
+                    BookingSpecialtyItem.objects.create(
+                        booking=booking,
+                        specialty_item=item,
+                        quantity=item_data['quantity']
+                    )
+                except SpecialtyItem.DoesNotExist:
+                    pass
         
         booking.save()
         return booking
@@ -443,7 +464,6 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             )
             
             if save_address:
-                # Use timestamp-based nickname to avoid collisions
                 import uuid
                 unique_nickname = nickname or f"Address {str(uuid.uuid4())[:8]}"
                 
@@ -474,7 +494,6 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     can_rebook = serializers.SerializerMethodField()
     onfleet_tasks = serializers.SerializerMethodField()
     
-    # ✅ FIX: Explicitly format date fields as date-only strings (no timezone)
     pickup_date = serializers.DateField(format='%Y-%m-%d')
     blade_flight_date = serializers.DateField(format='%Y-%m-%d', allow_null=True)
     

@@ -236,6 +236,7 @@ class PricingPreviewView(APIView):
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Standard Delivery pricing
+# Standard Delivery pricing
         elif service_type == 'standard_delivery':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -243,7 +244,9 @@ class PricingPreviewView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             item_count = serializer.validated_data.get('standard_delivery_item_count', 0)
-            specialty_item_ids = serializer.validated_data.get('specialty_item_ids', [])
+            
+            # ✅ FIXED: Handle specialty_items with quantity
+            specialty_items_data = serializer.validated_data.get('specialty_items', [])
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             
             try:
@@ -259,18 +262,32 @@ class PricingPreviewView(APIView):
                     else:
                         base_price_cents = 0
                     
-                    if specialty_item_ids:
-                        specialty_items = SpecialtyItem.objects.filter(
-                            id__in=specialty_item_ids, 
-                            is_active=True
-                        )
-                        specialty_total = sum(item.price_cents for item in specialty_items)
-                        base_price_cents += specialty_total
+                    # ✅ FIXED: Calculate specialty items with quantities
+                    if specialty_items_data:
+                        specialty_items_list = []
+                        specialty_total_cents = 0
                         
-                        details['specialty_items'] = [
-                            {'name': item.name, 'price_dollars': item.price_dollars}
-                            for item in specialty_items
-                        ]
+                        for item_data in specialty_items_data:
+                            item_id = item_data.get('item_id')
+                            quantity = item_data.get('quantity', 1)
+                            
+                            try:
+                                specialty_item = SpecialtyItem.objects.get(id=item_id, is_active=True)
+                                item_total = specialty_item.price_cents * quantity
+                                specialty_total_cents += item_total
+                                
+                                specialty_items_list.append({
+                                    'name': specialty_item.name,
+                                    'price_dollars': specialty_item.price_dollars,
+                                    'quantity': quantity,
+                                    'subtotal_dollars': item_total / 100
+                                })
+                            except SpecialtyItem.DoesNotExist:
+                                print(f"⚠️ Specialty item {item_id} not found")
+                                continue
+                        
+                        base_price_cents += specialty_total_cents
+                        details['specialty_items'] = specialty_items_list
                     
                     if is_same_day:
                         same_day_fee_cents = config.same_day_flat_rate_cents

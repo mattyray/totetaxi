@@ -59,6 +59,29 @@ class GuestCheckout(models.Model):
         return f"{self.first_name} {self.last_name} ({self.email})"
 
 
+class BookingSpecialtyItem(models.Model):
+    """Through model to track quantity of each specialty item per booking"""
+    booking = models.ForeignKey('Booking', on_delete=models.CASCADE)
+    specialty_item = models.ForeignKey('services.SpecialtyItem', on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
+    
+    class Meta:
+        db_table = 'bookings_booking_specialty_item'
+        unique_together = ('booking', 'specialty_item')
+        ordering = ['specialty_item__name']
+    
+    def __str__(self):
+        return f"{self.booking.booking_number} - {self.quantity}x {self.specialty_item.name}"
+    
+    @property
+    def subtotal_cents(self):
+        return self.specialty_item.price_cents * self.quantity
+    
+    @property
+    def subtotal_dollars(self):
+        return self.subtotal_cents / 100
+
+
 class Booking(models.Model):
     """Core booking - works with customer OR guest checkout - WITH SERVICES INTEGRATION + BLADE"""
     
@@ -137,8 +160,9 @@ class Booking(models.Model):
     )
     specialty_items = models.ManyToManyField(
         'services.SpecialtyItem',
+        through='BookingSpecialtyItem',
         blank=True,
-        help_text="Selected specialty items (Peloton, Surfboard, etc.)"
+        help_text="Selected specialty items with quantities"
     )
     
     # BLADE Airport Transfer fields
@@ -504,7 +528,9 @@ class Booking(models.Model):
                         self.base_price_cents = 0
                     
                     if self.specialty_items.exists():
-                        specialty_total = sum(item.price_cents for item in self.specialty_items.all())
+                        specialty_total = 0
+                        for booking_item in self.bookingspecialtyitem_set.all():
+                            specialty_total += booking_item.subtotal_cents
                         self.base_price_cents += specialty_total
                     
                     # Apply same-day delivery surcharge
@@ -532,8 +558,8 @@ class Booking(models.Model):
         # Specialty Item pricing
         elif self.service_type == 'specialty_item':
             specialty_total = 0
-            for item in self.specialty_items.all():
-                specialty_total += item.price_cents
+            for booking_item in self.bookingspecialtyitem_set.all():
+                specialty_total += booking_item.subtotal_cents
             self.base_price_cents = specialty_total
             
             # ✅ FIX: Apply same-day delivery surcharge for specialty items

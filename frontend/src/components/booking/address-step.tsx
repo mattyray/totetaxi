@@ -378,7 +378,6 @@ export function AddressStep() {
     }
 
     // ✅ ONLY recalculate for mini_move, standard_delivery, and specialty_item
-    // BLADE doesn't need pricing recalculation here
     if (bookingData.service_type !== 'blade_transfer') {
       setIsRecalculating(true);
       try {
@@ -398,9 +397,9 @@ export function AddressStep() {
         } else if (bookingData.service_type === 'standard_delivery') {
           payload.standard_delivery_item_count = bookingData.standard_delivery_item_count || 0;
           payload.is_same_day_delivery = bookingData.is_same_day_delivery || false;
-          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+          payload.specialty_items = bookingData.specialty_items || []; // ✅ FIXED
         } else if (bookingData.service_type === 'specialty_item') {
-          payload.specialty_item_ids = bookingData.specialty_item_ids || [];
+          payload.specialty_items = bookingData.specialty_items || []; // ✅ FIXED
         }
 
         console.log('📤 SENDING PRICING REQUEST:', JSON.stringify(payload, null, 2));

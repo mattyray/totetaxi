@@ -18,7 +18,11 @@ export interface BookingData {
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
   is_same_day_delivery?: boolean;
-  specialty_item_ids?: string[];
+  
+  specialty_items?: Array<{
+    item_id: string;
+    quantity: number;
+  }>;
   
   blade_airport?: 'JFK' | 'EWR';
   blade_flight_date?: string;
@@ -79,6 +83,8 @@ interface BookingWizardActions {
   canProceedToStep: (step: number) => boolean;
   setBookingComplete: (bookingNumber: string) => void;
   initializeForUser: (userId?: string, isGuest?: boolean) => void;
+  updateSpecialtyItemQuantity: (itemId: string, quantity: number) => void;
+  getSpecialtyItemQuantity: (itemId: string) => number;
 }
 
 const initialBookingData: BookingData = {
@@ -89,9 +95,10 @@ const initialBookingData: BookingData = {
   include_unpacking: false,
   is_same_day_delivery: false,
   is_outside_core_area: false,
+  specialty_items: [],
 };
 
-const STORE_VERSION = 4;
+const STORE_VERSION = 5;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -131,7 +138,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       previousStep: () => set((state) => {
         let prevStep = state.currentStep - 1;
         
-        // Skip customer info step (4) for authenticated users going backward
         if (!state.isGuestMode && prevStep === 4) {
           prevStep = 3;
         }
@@ -143,6 +149,46 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         set((state) => ({
           bookingData: { ...state.bookingData, ...data }
         }));
+      },
+      
+      updateSpecialtyItemQuantity: (itemId: string, quantity: number) => {
+        set((state) => {
+          const currentItems = state.bookingData.specialty_items || [];
+          const existing = currentItems.find(item => item.item_id === itemId);
+          
+          if (quantity === 0) {
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: currentItems.filter(item => item.item_id !== itemId)
+              }
+            };
+          }
+          
+          if (existing) {
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: currentItems.map(item =>
+                  item.item_id === itemId ? { ...item, quantity } : item
+                )
+              }
+            };
+          } else {
+            return {
+              bookingData: {
+                ...state.bookingData,
+                specialty_items: [...currentItems, { item_id: itemId, quantity }]
+              }
+            };
+          }
+        });
+      },
+      
+      getSpecialtyItemQuantity: (itemId: string) => {
+        const state = get();
+        const item = state.bookingData.specialty_items?.find(i => i.item_id === itemId);
+        return item?.quantity || 0;
       },
       
       setLoading: (loading) => set({ isLoading: !!loading }),
@@ -170,19 +216,26 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }
       },
       
+      // ✅ FIX: Properly handle guest mode updates
       initializeForUser: (providedUserId?, isGuest?) => {
         const userId = providedUserId || 'guest';
-        const guestMode = isGuest !== undefined ? isGuest : true;
+        const guestMode = isGuest !== undefined ? isGuest : (userId === 'guest');
         
         const state = get();
         
-        console.log('Initializing booking wizard', { userId, guestMode, currentUserId: state.userId });
+        console.log('Initializing booking wizard', { 
+          userId, 
+          guestMode, 
+          currentUserId: state.userId,
+          currentGuestMode: state.isGuestMode 
+        });
         
         const timeSinceLastReset = state.lastResetTimestamp ? 
           Date.now() - state.lastResetTimestamp : Infinity;
         
-        if (timeSinceLastReset < 1000) {
-          console.warn('Ignoring rapid user initialization');
+        // ✅ Allow update if guest mode changed
+        if (timeSinceLastReset < 1000 && state.isGuestMode === guestMode) {
+          console.warn('Ignoring rapid user initialization (same state)');
           return;
         }
         
@@ -192,9 +245,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         if (
           (state.userId && state.userId !== userId && state.userId !== 'guest') ||
           isStale ||
-          state.isBookingComplete
+          state.isBookingComplete ||
+          state.isGuestMode !== guestMode  // ✅ Also reset if guest mode changes
         ) {
-          console.log('Resetting wizard - user change, stale session, or completed booking');
+          console.log('Resetting wizard - user/state change detected');
           set({
             bookingData: { ...initialBookingData },
             errors: {},
@@ -206,21 +260,31 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             lastResetTimestamp: Date.now()
           });
         } else {
+          // ✅ Always update both userId and guestMode together
+          console.log('Updating user state without reset');
           set({ 
             userId: userId,
-            isGuestMode: guestMode
+            isGuestMode: guestMode,
+            lastResetTimestamp: Date.now()
           });
         }
       },
       
+      // ✅ FIX: Calculate guest mode correctly based on userId
       resetWizard: () => {
         console.log('Resetting booking wizard completely');
         
         const state = get();
         
-        // Preserve auth state during reset
+        // ✅ FIX: Calculate guest mode from userId, don't preserve old value
         const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
-        const preservedGuestMode = state.isGuestMode;
+        const calculatedGuestMode = preservedUserId === 'guest';
+        
+        console.log('Reset wizard with:', {
+          preservedUserId,
+          calculatedGuestMode,
+          oldGuestMode: state.isGuestMode
+        });
         
         const newState = {
           currentStep: 0,
@@ -229,8 +293,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           errors: {},
           isBookingComplete: false,
           completedBookingNumber: undefined,
-          userId: preservedUserId,  // Keep existing user ID
-          isGuestMode: preservedGuestMode,  // Keep existing guest mode
+          userId: preservedUserId,
+          isGuestMode: calculatedGuestMode,  // ✅ Use calculated value
           lastResetTimestamp: Date.now()
         };
         
@@ -295,7 +359,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             return !!bookingData.service_type && (
               (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
               (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
-              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_item_ids?.length)
+              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_items?.length)
             );
           case 3:
             if (bookingData.service_type === 'blade_transfer') {
