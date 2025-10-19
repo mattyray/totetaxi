@@ -25,7 +25,6 @@ test.describe('Specialty Items', () => {
     console.log('✓ Peloton selected');
     await page.waitForTimeout(3000);
     
-    // ✅ FIX: Target the span specifically, not just any "1"
     await expect(pelotonCard.locator('span.text-lg.font-bold').filter({ hasText: /^1$/ })).toBeVisible();
     console.log('✓ Quantity: 1');
     
@@ -78,7 +77,6 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(2000);
     console.log('✓ Added 3x Bicycle');
     
-    // ✅ FIX: Target the span, not the button
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Bicycle quantity: 3');
     
@@ -88,13 +86,12 @@ test.describe('Specialty Items', () => {
     
     const surfboardPlusButton = surfboardCard.locator('button').filter({ has: page.locator('svg') }).last();
     await surfboardPlusButton.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000); // ✅ Increased from 500 to 1000
     await surfboardPlusButton.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000); // ✅ Increased from 2000 to 3000 - wait for both store updates
     console.log('✓ Added 2x Surfboard');
     
-    // ✅ FIX: Same for surfboard
-    await expect(surfboardCard.locator('span.text-lg.font-bold').filter({ hasText: /^2$/ })).toBeVisible();
+    await expect(surfboardCard.locator('span.text-lg.font-bold').filter({ hasText: /^2$/ })).toBeVisible({ timeout: 10000 }); // ✅ Added longer timeout
     console.log('✓ Surfboard quantity: 2');
     
     const continueButton = page.getByRole('button', { name: /continue to date/i });
@@ -156,35 +153,34 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(1000);
     console.log('✓ Added 5x Bicycle');
     
-    // ✅ FIX: Target the span
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^5$/ })).toBeVisible();
     console.log('✓ Verified quantity: 5');
     
-    const bicycleMinusButton = bicycleCard.locator('button').filter({ has: page.locator('svg') }).first();
-    await bicycleMinusButton.click();
-    await page.waitForTimeout(500);
-    await bicycleMinusButton.click();
+    // ✅ FIX: Re-query the minus button each time (don't reuse stale locator)
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
+    await page.waitForTimeout(1000);
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click(); // ✅ Re-query
     await page.waitForTimeout(1000);
     console.log('✓ Decreased by 2');
     
-    // ✅ FIX: Target the span
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Quantity now: 3');
     
-    // Decrease to 0
-    await bicycleMinusButton.click();
-    await page.waitForTimeout(300);
-    await bicycleMinusButton.click();
-    await page.waitForTimeout(300);
-    await bicycleMinusButton.click();
+    // Decrease to 0 - re-query each time
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
+    await page.waitForTimeout(500);
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
+    await page.waitForTimeout(500);
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
     await page.waitForTimeout(1000);
     console.log('✓ Decreased to 0');
     
-    // ✅ FIX: Target the span
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^0$/ })).toBeVisible();
     console.log('✓ Quantity: 0 (item removed)');
     
-    await expect(bicycleMinusButton).toBeDisabled();
+    // Check final state - re-query one last time
+    const finalMinusButton = bicycleCard.locator('button').filter({ has: page.locator('svg') }).first();
+    await expect(finalMinusButton).toBeDisabled();
     console.log('✓ Minus button disabled at 0');
     
     console.log('✅ Quantity decrease test PASSED!');

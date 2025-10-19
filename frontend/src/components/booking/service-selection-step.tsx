@@ -573,6 +573,7 @@ export function ServiceSelectionStep() {
                   return (
                     <div 
                       key={item.id}
+                      data-specialty-item-id={item.id}  // ✅ ADD THIS LINE
                       className={`p-4 border rounded-lg transition-all ${
                         isSelected 
                           ? 'border-navy-500 bg-navy-50' 
