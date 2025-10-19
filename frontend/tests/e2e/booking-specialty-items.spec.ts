@@ -16,7 +16,8 @@ test.describe('Specialty Items', () => {
     await itemCountInput.fill('0');
     await page.waitForTimeout(1000);
     
-    const pelotonCard = page.locator('div').filter({ hasText: 'Peloton bikes and large equipment moving' }).first();
+    // ✅ FIX: Use stable data attribute
+    const pelotonCard = page.locator('[data-specialty-item-id]').filter({ hasText: 'Peloton' }).first();
     await pelotonCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     
@@ -64,7 +65,8 @@ test.describe('Specialty Items', () => {
     await page.waitForTimeout(500);
     console.log('✓ Set 0 regular items');
     
-    const bicycleCard = page.locator('div').filter({ hasText: 'Bicycle' }).filter({ hasText: '$250 each' }).first();
+    // ✅ FIX: Use stable data attribute selector
+    const bicycleCard = page.locator('[data-specialty-item-id]').filter({ hasText: 'Bicycle' }).first();
     await bicycleCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     
@@ -80,18 +82,19 @@ test.describe('Specialty Items', () => {
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Bicycle quantity: 3');
     
-    const surfboardCard = page.locator('div').filter({ hasText: 'Surfboard' }).filter({ hasText: 'Professional surfboard transport' }).first();
+    // ✅ FIX: Use stable data attribute selector
+    const surfboardCard = page.locator('[data-specialty-item-id]').filter({ hasText: 'Surfboard' }).first();
     await surfboardCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     
     const surfboardPlusButton = surfboardCard.locator('button').filter({ has: page.locator('svg') }).last();
     await surfboardPlusButton.click();
-    await page.waitForTimeout(1000); // ✅ Increased from 500 to 1000
+    await page.waitForTimeout(1000);
     await surfboardPlusButton.click();
-    await page.waitForTimeout(3000); // ✅ Increased from 2000 to 3000 - wait for both store updates
+    await page.waitForTimeout(3000);
     console.log('✓ Added 2x Surfboard');
     
-    await expect(surfboardCard.locator('span.text-lg.font-bold').filter({ hasText: /^2$/ })).toBeVisible({ timeout: 10000 }); // ✅ Added longer timeout
+    await expect(surfboardCard.locator('span.text-lg.font-bold').filter({ hasText: /^2$/ })).toBeVisible({ timeout: 10000 });
     console.log('✓ Surfboard quantity: 2');
     
     const continueButton = page.getByRole('button', { name: /continue to date/i });
@@ -139,7 +142,8 @@ test.describe('Specialty Items', () => {
     await page.getByLabel('Number of Items').fill('0');
     await page.waitForTimeout(500);
     
-    const bicycleCard = page.locator('div').filter({ hasText: 'Bicycle' }).filter({ hasText: '$250 each' }).first();
+    // ✅ FIX: Use stable data attribute selector
+    const bicycleCard = page.locator('[data-specialty-item-id]').filter({ hasText: 'Bicycle' }).first();
     await bicycleCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     
@@ -156,17 +160,17 @@ test.describe('Specialty Items', () => {
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^5$/ })).toBeVisible();
     console.log('✓ Verified quantity: 5');
     
-    // ✅ FIX: Re-query the minus button each time (don't reuse stale locator)
+    // ✅ FIX: Re-query button each time from stable card locator
     await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
     await page.waitForTimeout(1000);
-    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click(); // ✅ Re-query
+    await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
     await page.waitForTimeout(1000);
     console.log('✓ Decreased by 2');
     
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^3$/ })).toBeVisible();
     console.log('✓ Quantity now: 3');
     
-    // Decrease to 0 - re-query each time
+    // Decrease to 0
     await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
     await page.waitForTimeout(500);
     await bicycleCard.locator('button').filter({ has: page.locator('svg') }).first().click();
@@ -178,7 +182,6 @@ test.describe('Specialty Items', () => {
     await expect(bicycleCard.locator('span.text-lg.font-bold').filter({ hasText: /^0$/ })).toBeVisible();
     console.log('✓ Quantity: 0 (item removed)');
     
-    // Check final state - re-query one last time
     const finalMinusButton = bicycleCard.locator('button').filter({ has: page.locator('svg') }).first();
     await expect(finalMinusButton).toBeDisabled();
     console.log('✓ Minus button disabled at 0');
@@ -198,7 +201,8 @@ test.describe('Specialty Items', () => {
     await page.getByLabel('Number of Items').fill('0');
     await page.waitForTimeout(500);
     
-    const surfboardCard = page.locator('div').filter({ hasText: 'Surfboard' }).filter({ hasText: 'Professional surfboard transport' }).first();
+    // ✅ FIX: Use stable data attribute selector
+    const surfboardCard = page.locator('[data-specialty-item-id]').filter({ hasText: 'Surfboard' }).first();
     await surfboardCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     
