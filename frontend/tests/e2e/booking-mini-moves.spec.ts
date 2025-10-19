@@ -51,14 +51,12 @@ test.describe('Mini Moves', () => {
     await petiteHeading.click();
     await page.waitForTimeout(1500);
     
-    // ✅ FIX: Find packing checkbox by the card it's in
+    // Find packing checkbox by the card it's in
     await expect(page.getByText('Professional Organizing Services')).toBeVisible();
     
-    // Find the packing card by its heading
     const packingCard = page.locator('div').filter({ hasText: /Petite Packing/ }).first();
     await packingCard.scrollIntoViewIfNeeded();
     
-    // Find checkbox inside the packing card
     const packingCheckbox = packingCard.locator('input[type="checkbox"]').first();
     await packingCheckbox.check({ force: true });
     await page.waitForTimeout(1000);
@@ -69,8 +67,9 @@ test.describe('Mini Moves', () => {
     await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
     await selectDateAndTime(page);
     
-    // Verify packing fee in pricing
-    await expect(page.getByText(/organizing/i)).toBeVisible();
+    // ✅ FIX: Check within pricing card to avoid strict mode error
+    const pricingSection = page.locator('div:has-text("Pricing Summary")').first();
+    await expect(pricingSection.getByText(/organizing/i)).toBeVisible();
     console.log('✓ Organizing fees displayed');
     
     console.log('✅ Packing test PASSED!');
