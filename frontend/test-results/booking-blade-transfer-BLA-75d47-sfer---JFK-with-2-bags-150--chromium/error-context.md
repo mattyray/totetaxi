@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - generic [ref=e2]:
     - banner [ref=e3]:
       - generic [ref=e5]:
@@ -161,5 +161,5 @@
                         - listitem [ref=e272]: "• Overweight bags (over 50 lbs): $100 per bag upon pickup"
                         - listitem [ref=e273]: "• Wait time over 10 minutes: $50 per 30 minutes"
                   - button "Continue to Date & Time →" [disabled] [ref=e275]
-              - button "Start Over" [ref=e280] [cursor=pointer]
+              - button "Start Over" [active] [ref=e280] [cursor=pointer]
 ```

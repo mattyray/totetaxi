@@ -34,24 +34,23 @@ test.describe('BLADE Airport Transfer', () => {
     await timeInput.fill('14:30');
     await page.waitForTimeout(500);
     
-    // ✅ FIX: Scroll to bag input, clear it, then fill slowly
+    // ✅ FIX: Click input, clear it, then TYPE the number (don't use fill)
     const bagInput = page.getByLabel('Bag Count');
     await bagInput.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    await bagInput.clear();
-    await page.waitForTimeout(300);
-    await bagInput.fill('2', { timeout: 3000 });
-    await bagInput.blur(); // ✅ Trigger onChange by blurring
-    await page.waitForTimeout(3000); // ✅ Wait even longer for validation
+    await bagInput.click(); // Focus the input
+    await page.keyboard.press('Control+A'); // Select all (or Command+A on Mac)
+    await page.keyboard.press('Backspace'); // Clear it
+    await bagInput.pressSequentially('2', { delay: 100 }); // Type "2" with delay
+    await page.keyboard.press('Tab'); // ✅ Tab away to trigger blur/onChange
+    await page.waitForTimeout(3000); // Wait for store update + pricing calculation
     console.log('✓ Set 2 bags');
     
     // Verify price
     await expect(page.getByText('Estimated Price: $150')).toBeVisible({ timeout: 5000 });
     console.log('✓ Price: $150');
     
-    // ✅ Wait for button AND verify it's enabled
+    // Wait for button to be enabled
     const continueButton = page.getByRole('button', { name: /continue to date/i });
-    await page.waitForTimeout(2000); // Extra wait
     await expect(continueButton).toBeEnabled({ timeout: 10000 });
     await continueButton.click();
     
@@ -121,14 +120,14 @@ test.describe('BLADE Airport Transfer', () => {
     await page.locator('input[type="date"]').fill(dateString);
     await page.locator('input[type="time"]').fill('18:45');
     
-    // ✅ Same fix for bag count
+    // ✅ FIX: Same approach - click, clear, TYPE the number
     const bagInput = page.getByLabel('Bag Count');
     await bagInput.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    await bagInput.clear();
-    await page.waitForTimeout(300);
-    await bagInput.fill('3', { timeout: 3000 });
-    await bagInput.blur();
+    await bagInput.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Backspace');
+    await bagInput.pressSequentially('3', { delay: 100 }); // Type "3"
+    await page.keyboard.press('Tab'); // Tab away to trigger onChange
     await page.waitForTimeout(3000);
     
     // Verify $225
@@ -136,7 +135,6 @@ test.describe('BLADE Airport Transfer', () => {
     console.log('✓ Price: $225 for 3 bags');
     
     const continueButton = page.getByRole('button', { name: /continue to date/i });
-    await page.waitForTimeout(2000);
     await expect(continueButton).toBeEnabled({ timeout: 10000 });
     await continueButton.click();
     
