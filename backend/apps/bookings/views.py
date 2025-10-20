@@ -626,3 +626,4 @@ class ValidateZipCodeView(APIView):
             'error': error,
             'zip_code': zip_code.split('-')[0].strip()
         })
+    

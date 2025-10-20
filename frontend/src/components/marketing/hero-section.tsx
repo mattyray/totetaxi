@@ -11,11 +11,45 @@ interface HeroSectionProps {
 export function HeroSection({ onBookNowClick }: HeroSectionProps) {
   return (
     <section className="relative h-screen flex items-center justify-center overflow-hidden">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/assets/images/MontaukLighthouseScene.jpg)' }}
-      />
+      {/* Optimized Responsive Background Image */}
+      <picture className="absolute inset-0 w-full h-full">
+        {/* Mobile: Focused crop (800×600) */}
+        <source 
+          media="(max-width: 768px)"
+          srcSet="/assets/images/hero-mobile.webp"
+          type="image/webp"
+        />
+        <source 
+          media="(max-width: 768px)"
+          srcSet="/assets/images/hero-mobile.jpg"
+          type="image/jpeg"
+        />
+        
+        {/* Tablet: Medium crop (1200×600) */}
+        <source 
+          media="(max-width: 1200px)"
+          srcSet="/assets/images/hero-tablet.webp"
+          type="image/webp"
+        />
+        <source 
+          media="(max-width: 1200px)"
+          srcSet="/assets/images/hero-tablet.jpg"
+          type="image/jpeg"
+        />
+        
+        {/* Desktop: Full panorama (1920×800) */}
+        <source 
+          srcSet="/assets/images/hero-desktop.webp"
+          type="image/webp"
+        />
+        
+        {/* Fallback */}
+        <img 
+          src="/assets/images/hero-desktop.jpg"
+          alt="ToteTaxi delivery service - Montauk Lighthouse scene"
+          className="w-full h-full object-cover"
+        />
+      </picture>
       
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/20" />
