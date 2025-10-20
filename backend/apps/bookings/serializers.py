@@ -134,7 +134,6 @@ class PricingPreviewSerializer(serializers.Serializer):
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(required=False, default=False)
     
-    # ✅ NEW: Specialty items with quantities
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
@@ -222,7 +221,6 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     
-    # ✅ NEW: Specialty items with quantities
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
@@ -294,7 +292,10 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
         return attrs
     
     def _calculate_total_price(self, data):
-        """Calculate total price WITH QUANTITIES"""
+        """
+        Calculate total price WITH QUANTITIES
+        ✅ OPTIMIZED: Bulk fetch specialty items to avoid N+1 queries
+        """
         service_type = data['service_type']
         total_cents = 0
         
@@ -345,7 +346,7 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid package")
         
-        # Standard Delivery pricing - ✅ WITH QUANTITIES
+        # Standard Delivery pricing - ✅ OPTIMIZED WITH BULK FETCH
         elif service_type == 'standard_delivery':
             try:
                 config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -355,16 +356,25 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
                         item_total = config.price_per_item_cents * item_count
                         total_cents = max(item_total, config.minimum_charge_cents)
                     
-                    # ✅ Specialty items WITH QUANTITIES
+                    # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
                     specialty_items_data = data.get('specialty_items', [])
                     if specialty_items_data:
+                        # Extract all item IDs
+                        item_ids = [item_data['item_id'] for item_data in specialty_items_data]
+                        
+                        # Single query to fetch all items
+                        items_dict = {
+                            str(item.id): item 
+                            for item in SpecialtyItem.objects.filter(id__in=item_ids, is_active=True)
+                        }
+                        
+                        # Calculate totals
                         for item_data in specialty_items_data:
-                            try:
-                                item = SpecialtyItem.objects.get(id=item_data['item_id'])
+                            item_id = str(item_data['item_id'])
+                            if item_id in items_dict:
+                                item = items_dict[item_id]
                                 quantity = item_data['quantity']
                                 total_cents += item.price_cents * quantity
-                            except SpecialtyItem.DoesNotExist:
-                                pass
                     
                     if data.get('is_same_day_delivery'):
                         total_cents += config.same_day_flat_rate_cents
@@ -378,16 +388,27 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
             except StandardDeliveryConfig.DoesNotExist:
                 raise serializers.ValidationError("Standard delivery not configured")
         
-        # Specialty Item pricing - ✅ WITH QUANTITIES
+        # Specialty Item pricing - ✅ OPTIMIZED WITH BULK FETCH
         elif service_type == 'specialty_item':
             specialty_items_data = data.get('specialty_items', [])
-            for item_data in specialty_items_data:
-                try:
-                    item = SpecialtyItem.objects.get(id=item_data['item_id'])
-                    quantity = item_data['quantity']
-                    total_cents += item.price_cents * quantity
-                except SpecialtyItem.DoesNotExist:
-                    pass
+            
+            if specialty_items_data:
+                # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
+                item_ids = [item_data['item_id'] for item_data in specialty_items_data]
+                
+                # Single query to fetch all items
+                items_dict = {
+                    str(item.id): item 
+                    for item in SpecialtyItem.objects.filter(id__in=item_ids, is_active=True)
+                }
+                
+                # Calculate totals
+                for item_data in specialty_items_data:
+                    item_id = str(item_data['item_id'])
+                    if item_id in items_dict:
+                        item = items_dict[item_id]
+                        quantity = item_data['quantity']
+                        total_cents += item.price_cents * quantity
             
             if data.get('is_same_day_delivery'):
                 try:
@@ -442,7 +463,6 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
     is_same_day_delivery = serializers.BooleanField(default=False)
     
-    # ✅ NEW: Specialty items with quantities
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
@@ -610,19 +630,26 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid package")
         
-        # ✅ Handle specialty items WITH QUANTITIES
+        # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
         if specialty_items_data:
             booking.save()  # Save first to get ID
+            
+            # Bulk fetch all specialty items in one query
+            item_ids = [item_data['item_id'] for item_data in specialty_items_data]
+            items_dict = {
+                str(item.id): item 
+                for item in SpecialtyItem.objects.filter(id__in=item_ids)
+            }
+            
+            # Create BookingSpecialtyItem records
             for item_data in specialty_items_data:
-                try:
-                    item = SpecialtyItem.objects.get(id=item_data['item_id'])
+                item_id = str(item_data['item_id'])
+                if item_id in items_dict:
                     BookingSpecialtyItem.objects.create(
                         booking=booking,
-                        specialty_item=item,
+                        specialty_item=items_dict[item_id],
                         quantity=item_data['quantity']
                     )
-                except SpecialtyItem.DoesNotExist:
-                    pass
         
         booking.save()
         return booking
