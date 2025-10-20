@@ -397,10 +397,15 @@ class CalendarAvailabilityView(APIView):
         current_date = start_date
         
         while current_date <= end_date:
+            # ✅ OPTIMIZED: Added select_related to avoid N+1 queries
             bookings_today = Booking.objects.filter(
                 pickup_date=current_date,
                 deleted_at__isnull=True
-            ).select_related('customer', 'guest_checkout')
+            ).select_related(
+                'customer',
+                'guest_checkout',
+                'mini_move_package'
+            )
             
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
