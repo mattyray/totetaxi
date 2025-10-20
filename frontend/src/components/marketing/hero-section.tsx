@@ -11,43 +11,47 @@ interface HeroSectionProps {
 export function HeroSection({ onBookNowClick }: HeroSectionProps) {
   return (
     <section className="relative h-screen flex items-center justify-center overflow-hidden">
-      {/* Optimized Responsive Background Image */}
+      {/* Responsive Background Image */}
       <picture className="absolute inset-0 w-full h-full">
-        {/* Mobile: Focused crop (800×600) */}
+        {/* Desktop - Large screens (1024px+) */}
         <source 
-          media="(max-width: 768px)"
-          srcSet="/assets/images/hero-mobile.webp"
-          type="image/webp"
+          media="(min-width: 1024px)" 
+          srcSet="/assets/images/hero-large.webp" 
+          type="image/webp" 
         />
         <source 
-          media="(max-width: 768px)"
-          srcSet="/assets/images/hero-mobile.jpg"
-          type="image/jpeg"
-        />
-        
-        {/* Tablet: Medium crop (1200×600) */}
-        <source 
-          media="(max-width: 1200px)"
-          srcSet="/assets/images/hero-tablet.webp"
-          type="image/webp"
-        />
-        <source 
-          media="(max-width: 1200px)"
-          srcSet="/assets/images/hero-tablet.jpg"
-          type="image/jpeg"
+          media="(min-width: 1024px)" 
+          srcSet="/assets/images/hero-large.jpg" 
+          type="image/jpeg" 
         />
         
-        {/* Desktop: Full panorama (1920×800) */}
+        {/* Tablet - Medium screens (768px - 1023px) */}
         <source 
-          srcSet="/assets/images/hero-desktop.webp"
-          type="image/webp"
+          media="(min-width: 768px)" 
+          srcSet="/assets/images/hero-medium.webp" 
+          type="image/webp" 
+        />
+        <source 
+          media="(min-width: 768px)" 
+          srcSet="/assets/images/hero-medium.jpg" 
+          type="image/jpeg" 
         />
         
-        {/* Fallback */}
+        {/* Mobile - Small screens (< 768px) */}
+        <source 
+          srcSet="/assets/images/hero-small.webp" 
+          type="image/webp" 
+        />
+        <source 
+          srcSet="/assets/images/hero-small.jpg" 
+          type="image/jpeg" 
+        />
+        
+        {/* Fallback img tag */}
         <img 
-          src="/assets/images/hero-desktop.jpg"
-          alt="ToteTaxi delivery service - Montauk Lighthouse scene"
-          className="w-full h-full object-cover"
+          src="/assets/images/hero-large.jpg"
+          alt="Tote Taxi luxury delivery service"
+          className="w-full h-full object-cover object-center"
         />
       </picture>
       
