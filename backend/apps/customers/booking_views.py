@@ -219,7 +219,18 @@ class CustomerBookingDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return self.request.user.bookings.filter(deleted_at__isnull=True)
+        # ✅ OPTIMIZED: Added select_related and prefetch_related
+        return self.request.user.bookings.filter(
+            deleted_at__isnull=True
+        ).select_related(
+            'mini_move_package',
+            'pickup_address',
+            'delivery_address',
+            'guest_checkout'
+        ).prefetch_related(
+            'specialty_items',
+            'onfleet_tasks'
+        )
     
     def get_object(self):
         booking_id = self.kwargs.get('booking_id')
@@ -239,10 +250,18 @@ class CustomerDashboardView(APIView):
         
         customer_profile = request.user.customer_profile
         
-        # Only show completed and paid bookings (no pending clutter)
+        # ✅ OPTIMIZED: Added select_related and prefetch_related to avoid N+1 queries
         all_bookings = request.user.bookings.filter(
             deleted_at__isnull=True,
             status__in=['paid', 'confirmed', 'completed']
+        ).select_related(
+            'mini_move_package',
+            'pickup_address',
+            'delivery_address',
+            'guest_checkout'
+        ).prefetch_related(
+            'specialty_items',
+            'onfleet_tasks'
         ).order_by('-created_at')
         
         recent_bookings = all_bookings[:5]
