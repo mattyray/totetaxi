@@ -33,6 +33,10 @@ class Address(models.Model):
     
     class Meta:
         db_table = 'bookings_address'
+        indexes = [
+            models.Index(fields=['customer']),
+            models.Index(fields=['zip_code']),
+        ]
     
     def __str__(self):
         return f"{self.address_line_1}, {self.city}, {self.state} {self.zip_code}"
@@ -54,6 +58,9 @@ class GuestCheckout(models.Model):
     
     class Meta:
         db_table = 'bookings_guest_checkout'
+        indexes = [
+            models.Index(fields=['email']),
+        ]
     
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
@@ -277,6 +284,15 @@ class Booking(models.Model):
                 ),
                 name='booking_exactly_one_customer_type'
             )
+        ]
+        # ✅ OPTIMIZED: Added indexes for common queries
+        indexes = [
+            models.Index(fields=['booking_number'], name='bookings_booking_number_idx'),
+            models.Index(fields=['pickup_date', 'status'], name='bookings_pickup_status_idx'),
+            models.Index(fields=['customer', 'created_at'], name='bookings_customer_created_idx'),
+            models.Index(fields=['status', 'pickup_date'], name='bookings_status_pickup_idx'),
+            models.Index(fields=['created_at'], name='bookings_created_idx'),
+            models.Index(fields=['service_type'], name='bookings_service_type_idx'),
         ]
     
     def save(self, *args, **kwargs):
