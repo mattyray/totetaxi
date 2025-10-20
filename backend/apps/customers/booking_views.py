@@ -5,12 +5,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.conf import settings
+import logging
+import json
+import stripe
+
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 from apps.bookings.models import Booking, Address
 from apps.payments.models import Payment
 from apps.payments.services import StripePaymentService
 from .emails import send_booking_confirmation_email
-import logging
 from .serializers import SavedAddressSerializer
 from .booking_serializers import (
     AuthenticatedBookingCreateSerializer,
@@ -18,12 +22,8 @@ from .booking_serializers import (
     QuickBookingSerializer,
     PaymentIntentCreateSerializer
 )
-import json
-import stripe
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
-
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -31,16 +31,13 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class CreatePaymentIntentView(APIView):
     """
-    NEW ENDPOINT: Create payment intent BEFORE booking
+    Create payment intent BEFORE booking
     This separates payment from booking creation to avoid pending bookings
     """
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        print("=" * 80)
-        print("💳 PAYMENT INTENT REQUEST RECEIVED")
-        print("=" * 80)
-        print(f"Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        logger.info("Payment intent request received")
         
         serializer = PaymentIntentCreateSerializer(
             data=request.data,
@@ -48,7 +45,7 @@ class CreatePaymentIntentView(APIView):
         )
         
         if not serializer.is_valid():
-            print(f"❌ Validation failed: {serializer.errors}")
+            logger.warning(f"Payment intent validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         # Calculate total amount from validated data
@@ -68,9 +65,7 @@ class CreatePaymentIntentView(APIView):
                 }
             )
             
-            print(f"✅ Payment intent created: {payment_intent.id}")
-            print(f"   Amount: ${amount_cents / 100}")
-            print("=" * 80)
+            logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
             
             return Response({
                 'client_secret': payment_intent.client_secret,
@@ -79,7 +74,7 @@ class CreatePaymentIntentView(APIView):
             }, status=status.HTTP_200_OK)
             
         except stripe.error.StripeError as e:
-            print(f"❌ Stripe error: {str(e)}")
+            logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
                 {'error': f'Payment initialization failed: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -88,29 +83,23 @@ class CreatePaymentIntentView(APIView):
 
 class CustomerBookingCreateView(APIView):
     """
-    REFACTORED: Create booking AFTER payment succeeds
+    Create booking AFTER payment succeeds
     Requires payment_intent_id and verifies payment before creating booking
     """
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        print("=" * 80)
-        print("🔍 BOOKING CREATE REQUEST RECEIVED (PAYMENT-FIRST)")
-        print("=" * 80)
-        print(f"👤 User: {request.user}")
-        print(f"📧 Email: {request.user.email}")
-        print(f"📦 Request Data: {json.dumps(request.data, indent=2, default=str)}")
-        print("=" * 80)
+        logger.info(f"Booking create request from user: {request.user.email}")
         
         # Ensure user has customer profile
         if not hasattr(request.user, 'customer_profile'):
-            print("❌ ERROR: User has no customer profile")
+            logger.warning(f"User {request.user.email} has no customer profile")
             return Response(
                 {'error': 'This is not a customer account'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # CRITICAL: Verify payment_intent_id is provided
+        # Verify payment_intent_id is provided
         payment_intent_id = request.data.get('payment_intent_id')
         if not payment_intent_id:
             return Response(
@@ -123,45 +112,35 @@ class CustomerBookingCreateView(APIView):
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             
             if payment_intent.status != 'succeeded':
-                print(f"❌ Payment not succeeded: {payment_intent.status}")
+                logger.warning(f"Payment not succeeded for {request.user.email}: {payment_intent.status}")
                 return Response(
                     {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            print(f"✅ Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
             
         except stripe.error.StripeError as e:
-            print(f"❌ Stripe verification failed: {str(e)}")
+            logger.error(f"Stripe verification failed: {str(e)}")
             return Response(
                 {'error': f'Payment verification failed: {str(e)}'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        print(f"✅ Customer Profile Found: {request.user.customer_profile}")
         
         serializer = AuthenticatedBookingCreateSerializer(
             data=request.data,
             context={'user': request.user}
         )
         
-        print("🔄 Validating serializer...")
-        
         if not serializer.is_valid():
-            print("=" * 80)
-            print("❌ SERIALIZER VALIDATION FAILED")
-            print("=" * 80)
-            print(f"Errors: {json.dumps(serializer.errors, indent=2, default=str)}")
-            print("=" * 80)
+            logger.warning(f"Booking validation failed for {request.user.email}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        print("✅ Serializer valid, creating booking...")
         
         try:
             booking = serializer.save()
-            print(f"✅ Booking created: {booking.booking_number}")
+            logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
             
-            # ✅ CREATE PAYMENT RECORD IMMEDIATELY
+            # Create payment record immediately
             payment, created = Payment.objects.get_or_create(
                 stripe_payment_intent_id=payment_intent_id,
                 defaults={
@@ -174,32 +153,26 @@ class CustomerBookingCreateView(APIView):
             )
             
             if created:
-                print(f"✅ Payment record created: {payment.id}")
+                logger.info(f"Payment record created for booking {booking.booking_number}")
             else:
-                print(f"✅ Payment record already exists: {payment.id}")
+                logger.info(f"Payment record already exists for booking {booking.booking_number}")
             
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
 
             # Send booking confirmation email
-            logger.info(f"📧 Sending booking confirmation email to {booking.get_customer_email()}")
+            logger.info(f"Sending booking confirmation email to {booking.get_customer_email()}")
             send_booking_confirmation_email(booking)
             
         except Exception as e:
-            print(f"❌ ERROR creating booking: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         response_data = {
             'message': 'Booking created successfully',
             'booking': CustomerBookingDetailSerializer(booking).data
         }
-        
-        print("=" * 80)
-        print("✅ SUCCESS - Returning response")
-        print("=" * 80)
         
         return Response(response_data, status=status.HTTP_201_CREATED)
 

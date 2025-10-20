@@ -1,10 +1,14 @@
 # backend/apps/payments/services.py
 import stripe
+import logging
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
+
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
+
+logger = logging.getLogger(__name__)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -76,9 +80,9 @@ class StripePaymentService:
                         booking.customer.customer_profile.add_booking_stats(
                             booking.total_price_cents
                         )
-                        print(f"✅ Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
+                        logger.info(f"Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
                 except Exception as stats_error:
-                    print(f"⚠️ Failed to update customer stats: {stats_error}")
+                    logger.warning(f"Failed to update customer stats: {stats_error}")
                 
                 PaymentAudit.log(
                     action='payment_succeeded',

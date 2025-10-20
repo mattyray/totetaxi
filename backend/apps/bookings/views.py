@@ -6,6 +6,11 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import date, timedelta, time as dt_time
+import logging
+import json
+import stripe
+from django.conf import settings
+
 from .models import Booking, Address, GuestCheckout
 from .serializers import (
     BookingSerializer,
@@ -32,9 +37,8 @@ from apps.services.serializers import (
     OrganizingServicesByTierSerializer
 )
 from apps.payments.services import StripePaymentService
-import stripe
-from django.conf import settings
-import json
+
+logger = logging.getLogger(__name__)
 
 # Initialize Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -45,35 +49,23 @@ class ServiceCatalogView(APIView):
     permission_classes = [permissions.AllowAny]
     
     def get(self, request):
-        print("=" * 50)
-        print("DEBUG: ServiceCatalogView.get() called")
+        organizing_services = OrganizingService.objects.filter(
+            is_active=True
+        ).order_by('mini_move_tier', 'is_packing_service')
         
-        print(f"DEBUG: OrganizingService model: {OrganizingService}")
-        print(f"DEBUG: OrganizingService._meta.app_label: {OrganizingService._meta.app_label}")
-        print(f"DEBUG: OrganizingService._meta.db_table: {OrganizingService._meta.db_table}")
+        mini_move_packages = MiniMovePackage.objects.filter(
+            is_active=True
+        ).order_by('base_price_cents')
         
-        organizing_services = OrganizingService.objects.filter(is_active=True).order_by('mini_move_tier', 'is_packing_service')
-        print(f"DEBUG: Raw organizing services query count: {organizing_services.count()}")
-        print(f"DEBUG: Organizing services IDs: {list(organizing_services.values_list('id', 'name', 'mini_move_tier', 'is_active'))}")
-        
-        organizing_serializer = OrganizingServiceSerializer(organizing_services, many=True)
-        serialized_organizing = organizing_serializer.data
-        print(f"DEBUG: Serialized organizing services count: {len(serialized_organizing)}")
-        print(f"DEBUG: Serialized organizing services: {serialized_organizing}")
-        
-        mini_move_packages = MiniMovePackage.objects.filter(is_active=True).order_by('base_price_cents')
         specialty_items = SpecialtyItem.objects.filter(is_active=True)
         standard_config = StandardDeliveryConfig.objects.filter(is_active=True).first()
         
         response_data = {
             'mini_move_packages': MiniMovePackageSerializer(mini_move_packages, many=True).data,
-            'organizing_services': serialized_organizing,
+            'organizing_services': OrganizingServiceSerializer(organizing_services, many=True).data,
             'specialty_items': SpecialtyItemSerializer(specialty_items, many=True).data,
             'standard_delivery': StandardDeliveryConfigSerializer(standard_config).data if standard_config else None
         }
-        
-        print(f"DEBUG: Final response organizing_services count: {len(response_data['organizing_services'])}")
-        print("=" * 50)
         
         return Response(response_data)
 
@@ -119,7 +111,7 @@ class PricingPreviewView(APIView):
         same_day_fee_cents = 0
         details = {}
         
-        # BLADE pricing (NEW - Phase 3)
+        # BLADE pricing
         if service_type == 'blade_transfer':
             bag_count = serializer.validated_data.get('blade_bag_count', 0)
             
@@ -147,8 +139,6 @@ class PricingPreviewView(APIView):
             details['per_bag_price'] = 75
             details['flight_date'] = serializer.validated_data.get('blade_flight_date').isoformat() if serializer.validated_data.get('blade_flight_date') else None
             details['flight_time'] = serializer.validated_data.get('blade_flight_time').isoformat() if serializer.validated_data.get('blade_flight_time') else None
-            
-            # BLADE has NO surcharges - skip all surcharge calculations
         
         # Mini Move pricing
         elif service_type == 'mini_move':
@@ -188,9 +178,7 @@ class PricingPreviewView(APIView):
                                 'supplies_allowance_dollars': packing_service.supplies_allowance_dollars
                             })
                         else:
-                            print(f"DEBUG: No packing service found for tier {package.package_type}")
-                            available_services = OrganizingService.objects.filter(is_active=True).values_list('mini_move_tier', 'is_packing_service')
-                            print(f"DEBUG: Available services: {list(available_services)}")
+                            logger.warning(f"Packing service not found for tier {package.package_type}")
                             return Response({
                                 'error': f'Packing service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
@@ -213,7 +201,7 @@ class PricingPreviewView(APIView):
                                 'supplies_allowance_dollars': 0
                             })
                         else:
-                            print(f"DEBUG: No unpacking service found for tier {package.package_type}")
+                            logger.warning(f"Unpacking service not found for tier {package.package_type}")
                             return Response({
                                 'error': f'Unpacking service not available for {package.package_type} tier'
                             }, status=status.HTTP_400_BAD_REQUEST)
@@ -236,7 +224,6 @@ class PricingPreviewView(APIView):
                     return Response({'error': 'Invalid mini move package'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Standard Delivery pricing
-# Standard Delivery pricing
         elif service_type == 'standard_delivery':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
@@ -244,8 +231,6 @@ class PricingPreviewView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             item_count = serializer.validated_data.get('standard_delivery_item_count', 0)
-            
-            # ✅ FIXED: Handle specialty_items with quantity
             specialty_items_data = serializer.validated_data.get('specialty_items', [])
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             
@@ -262,7 +247,7 @@ class PricingPreviewView(APIView):
                     else:
                         base_price_cents = 0
                     
-                    # ✅ FIXED: Calculate specialty items with quantities
+                    # Calculate specialty items with quantities
                     if specialty_items_data:
                         specialty_items_list = []
                         specialty_total_cents = 0
@@ -283,7 +268,7 @@ class PricingPreviewView(APIView):
                                     'subtotal_dollars': item_total / 100
                                 })
                             except SpecialtyItem.DoesNotExist:
-                                print(f"⚠️ Specialty item {item_id} not found")
+                                logger.warning(f"Specialty item {item_id} not found")
                                 continue
                         
                         base_price_cents += specialty_total_cents
@@ -364,7 +349,16 @@ class PricingPreviewView(APIView):
             if surcharge_details:
                 details['surcharges'] = surcharge_details
         
-        total_price_cents = base_price_cents + same_day_fee_cents + surcharge_cents + coi_fee_cents + organizing_total_cents + organizing_tax_cents + geographic_surcharge_cents + time_window_surcharge_cents
+        total_price_cents = (
+            base_price_cents + 
+            same_day_fee_cents + 
+            surcharge_cents + 
+            coi_fee_cents + 
+            organizing_total_cents + 
+            organizing_tax_cents + 
+            geographic_surcharge_cents + 
+            time_window_surcharge_cents
+        )
         
         return Response({
             'service_type': service_type,
@@ -449,21 +443,18 @@ class CalendarAvailabilityView(APIView):
 
 class CreateGuestPaymentIntentView(APIView):
     """
-    NEW: Create payment intent BEFORE guest booking
+    Create payment intent BEFORE guest booking
     This separates payment from booking creation to avoid pending bookings
     """
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        print("=" * 80)
-        print("💳 GUEST PAYMENT INTENT REQUEST RECEIVED")
-        print("=" * 80)
-        print(f"Request Data: {json.dumps(request.data, indent=2, default=str)}")
+        logger.info("Guest payment intent request received")
         
         serializer = GuestPaymentIntentSerializer(data=request.data)
         
         if not serializer.is_valid():
-            print(f"❌ Validation failed: {serializer.errors}")
+            logger.warning(f"Guest payment intent validation failed: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         # Get calculated total from serializer
@@ -483,9 +474,7 @@ class CreateGuestPaymentIntentView(APIView):
                 }
             )
             
-            print(f"✅ Payment intent created: {payment_intent.id}")
-            print(f"   Amount: ${amount_cents / 100}")
-            print("=" * 80)
+            logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
             
             return Response({
                 'client_secret': payment_intent.client_secret,
@@ -494,7 +483,7 @@ class CreateGuestPaymentIntentView(APIView):
             }, status=status.HTTP_200_OK)
             
         except stripe.error.StripeError as e:
-            print(f"❌ Stripe error: {str(e)}")
+            logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
                 {'error': f'Payment initialization failed: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -503,22 +492,16 @@ class CreateGuestPaymentIntentView(APIView):
 
 class GuestBookingCreateView(generics.CreateAPIView):
     """
-    REFACTORED: Create booking for guest AFTER payment succeeds
-    Now requires payment_intent_id and verifies payment before creating booking
+    Create booking for guest AFTER payment succeeds
+    Requires payment_intent_id and verifies payment before creating booking
     """
     serializer_class = GuestBookingCreateSerializer
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
-        print("=" * 80)
-        print("🔍 GUEST BOOKING CREATE REQUEST RECEIVED (PAYMENT-FIRST)")
-        print("=" * 80)
-        print("Guest Email:", request.data.get('email'))
-        print("Service Type:", request.data.get('service_type'))
-        print("Payment Intent ID:", request.data.get('payment_intent_id'))
-        print("Request Data:", json.dumps(request.data, indent=2, default=str))
+        logger.info(f"Guest booking create request - Service: {request.data.get('service_type')}, Email: {request.data.get('email')}")
         
-        # CRITICAL: Verify payment_intent_id is provided
+        # Verify payment_intent_id is provided
         payment_intent_id = request.data.get('payment_intent_id')
         if not payment_intent_id:
             return Response(
@@ -531,16 +514,16 @@ class GuestBookingCreateView(generics.CreateAPIView):
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             
             if payment_intent.status != 'succeeded':
-                print(f"❌ Payment not succeeded: {payment_intent.status}")
+                logger.warning(f"Payment not succeeded: {payment_intent.status}")
                 return Response(
                     {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            print(f"✅ Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
             
         except stripe.error.StripeError as e:
-            print(f"❌ Stripe verification failed: {str(e)}")
+            logger.error(f"Stripe verification failed: {str(e)}")
             return Response(
                 {'error': f'Payment verification failed: {str(e)}'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -554,14 +537,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
         booking.status = 'paid'
         booking.save()
         
-        print(f"✅ Guest booking created: {booking.booking_number}")
-        print(f"Service type: {booking.service_type}")
-        print(f"Total price: ${booking.total_price_dollars}")
-        print(f"Status: {booking.status}")
-        
-        if booking.service_type == 'blade_transfer':
-            print(f"BLADE booking - Airport: {booking.blade_airport}, Bags: {booking.blade_bag_count}")
-            print(f"Ready time: {booking.blade_ready_time}")
+        logger.info(f"Guest booking created: {booking.booking_number} - {booking.service_type} - ${booking.total_price_dollars}")
         
         response_data = {
             'message': 'Booking created successfully',
@@ -582,10 +558,6 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'flight_date': booking.blade_flight_date.isoformat() if booking.blade_flight_date else None,
                 'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
             }
-        
-        print("=" * 80)
-        print("✅ SUCCESS - Returning guest booking response")
-        print("=" * 80)
         
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -620,7 +592,8 @@ class OrganizingServiceDetailView(APIView):
                 {'error': 'Organizing service not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+
 class ValidateZipCodeView(APIView):
     """
     Public endpoint to validate a single ZIP code.
@@ -647,35 +620,4 @@ class ValidateZipCodeView(APIView):
             'zone': zone,
             'error': error,
             'zip_code': zip_code.split('-')[0].strip()
-        })
-        
-
-class FixOrganizingServicesView(APIView):
-    """TEMPORARY: Create missing organizing services in production"""
-    permission_classes = [permissions.AllowAny]
-    
-    def post(self, request):
-        from apps.services.models import OrganizingService
-        
-        organizing_services = [
-            {'service_type': 'petite_packing', 'mini_move_tier': 'petite', 'name': 'Petite Packing', 'description': '1/2 day (up to 4 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).', 'price_cents': 140000, 'duration_hours': 4, 'organizer_count': 2, 'supplies_allowance_cents': 25000, 'is_packing_service': True, 'is_active': True},
-            {'service_type': 'petite_unpacking', 'mini_move_tier': 'petite', 'name': 'Petite Unpacking', 'description': '1/2 day (up to 4 hours) with 2 organizers. Organizing light (no supplies).', 'price_cents': 113000, 'duration_hours': 4, 'organizer_count': 2, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True},
-            {'service_type': 'standard_packing', 'mini_move_tier': 'standard', 'name': 'Standard Packing', 'description': '1 day (up to 8 hours) with 2 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $250).', 'price_cents': 253500, 'duration_hours': 8, 'organizer_count': 2, 'supplies_allowance_cents': 25000, 'is_packing_service': True, 'is_active': True},
-            {'service_type': 'standard_unpacking', 'mini_move_tier': 'standard', 'name': 'Standard Unpacking', 'description': '1 day (up to 8 hours) with 2 organizers. Organizing light (no supplies).', 'price_cents': 226500, 'duration_hours': 8, 'organizer_count': 2, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True},
-            {'service_type': 'full_packing', 'mini_move_tier': 'full', 'name': 'Full Packing', 'description': '1 day (up to 8 hours) with 4 organizers. Includes garment bags, moving bags + additional packing supplies upon request (up to $500).', 'price_cents': 507000, 'duration_hours': 8, 'organizer_count': 4, 'supplies_allowance_cents': 50000, 'is_packing_service': True, 'is_active': True},
-            {'service_type': 'full_unpacking', 'mini_move_tier': 'full', 'name': 'Full Unpacking', 'description': '1 day (up to 8 hours) with 4 organizers. Organizing light (no supplies).', 'price_cents': 452500, 'duration_hours': 8, 'organizer_count': 4, 'supplies_allowance_cents': 0, 'is_packing_service': False, 'is_active': True}
-        ]
-        
-        created = 0
-        for service_data in organizing_services:
-            service, was_created = OrganizingService.objects.get_or_create(
-                service_type=service_data['service_type'],
-                defaults=service_data
-            )
-            if was_created:
-                created += 1
-        
-        return Response({
-            'message': f'Created {created} organizing services',
-            'total_count': OrganizingService.objects.count()
         })
