@@ -394,8 +394,17 @@ class BookingManagementView(APIView):
         end_date = request.query_params.get('end_date', None)
         search = request.query_params.get('search', None)
         
-        # Build queryset
-        bookings = Booking.objects.filter(deleted_at__isnull=True).order_by('-created_at')
+        # ✅ OPTIMIZED: Added select_related to avoid N+1 queries
+        bookings = Booking.objects.filter(
+            deleted_at__isnull=True
+        ).select_related(
+            'customer',
+            'customer__customer_profile',
+            'guest_checkout',
+            'mini_move_package',
+            'pickup_address',
+            'delivery_address'
+        ).order_by('-created_at')
         
         if status_filter:
             bookings = bookings.filter(status=status_filter)
@@ -501,7 +510,7 @@ class BookingDetailView(APIView):
                 'failure_reason': payment.failure_reason
             }
         
-        # ✅ Get refund information
+        # Get refund information
         refunds_data = []
         if payment:
             refunds = Refund.objects.filter(payment=payment).order_by('-created_at')
@@ -576,7 +585,7 @@ class BookingDetailView(APIView):
                 'phone': booking.guest_checkout.phone if booking.guest_checkout else None
             } if booking.guest_checkout else None,
             'payment': payment_data,
-            'refunds': refunds_data  # ✅ ADD THIS
+            'refunds': refunds_data
         })
     
     def _get_service_details(self, booking):
