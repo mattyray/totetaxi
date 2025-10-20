@@ -15,6 +15,13 @@ class EmailVerificationToken(models.Model):
     expires_at = models.DateTimeField()
     verified = models.BooleanField(default=False)
     
+    class Meta:
+        # ✅ OPTIMIZED: Added indexes for token lookups
+        indexes = [
+            models.Index(fields=['token'], name='email_verify_token_idx'),
+            models.Index(fields=['verified', 'expires_at'], name='email_verify_status_idx'),
+        ]
+    
     @classmethod
     def create_token(cls, user):
         """Create verification token"""
@@ -41,6 +48,11 @@ class PasswordResetToken(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        # ✅ OPTIMIZED: Added indexes for password reset
+        indexes = [
+            models.Index(fields=['token'], name='password_reset_token_idx'),
+            models.Index(fields=['user', 'used'], name='password_reset_user_idx'),
+        ]
     
     def __str__(self):
         return f'Reset token for {self.user.email}'
@@ -100,6 +112,12 @@ class CustomerProfile(models.Model):
     
     class Meta:
         db_table = 'customers_profile'
+        # ✅ OPTIMIZED: Added indexes for customer queries
+        indexes = [
+            models.Index(fields=['user'], name='customer_profile_user_idx'),
+            models.Index(fields=['stripe_customer_id'], name='customer_stripe_idx'),
+            models.Index(fields=['is_vip'], name='customer_vip_idx'),
+        ]
     
     def clean(self):
         """Prevent hybrid accounts - users cannot have both staff and customer profiles"""
@@ -169,6 +187,12 @@ class SavedAddress(models.Model):
                 name='unique_customer_address_nickname'
             )
         ]
+        # ✅ OPTIMIZED: Added indexes for address queries
+        indexes = [
+            models.Index(fields=['user', 'is_active'], name='saved_addr_user_active_idx'),  # Booking flow
+            models.Index(fields=['times_used'], name='saved_addr_usage_idx'),  # Popular addresses
+            models.Index(fields=['user', 'last_used_at'], name='saved_addr_recent_idx'),  # Recent addresses
+        ]
     
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.nickname}"
@@ -205,6 +229,11 @@ class CustomerPaymentMethod(models.Model):
     
     class Meta:
         db_table = 'customers_payment_method'
+        # ✅ OPTIMIZED: Added indexes for payment method queries
+        indexes = [
+            models.Index(fields=['user', 'is_active'], name='payment_method_user_idx'),
+            models.Index(fields=['stripe_payment_method_id'], name='payment_method_stripe_idx'),
+        ]
     
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.card_brand} ****{self.card_last_four}"

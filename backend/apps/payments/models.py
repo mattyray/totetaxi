@@ -1,3 +1,4 @@
+# backend/apps/payments/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -50,6 +51,14 @@ class Payment(models.Model):
     
     class Meta:
         db_table = 'payments_payment'
+        # ✅ OPTIMIZED: Added indexes for critical queries
+        indexes = [
+            models.Index(fields=['stripe_payment_intent_id'], name='payments_stripe_intent_idx'),  # Webhook lookups
+            models.Index(fields=['booking'], name='payments_booking_idx'),  # Booking detail views
+            models.Index(fields=['customer', 'created_at'], name='payments_customer_created_idx'),  # Customer dashboard
+            models.Index(fields=['status'], name='payments_status_idx'),  # Admin filtering
+            models.Index(fields=['created_at'], name='payments_created_idx'),  # Ordering
+        ]
     
     def __str__(self):
         return f"{self.booking.booking_number} - ${self.amount_dollars} ({self.status})"
@@ -107,6 +116,12 @@ class Refund(models.Model):
     
     class Meta:
         db_table = 'payments_refund'
+        # ✅ OPTIMIZED: Added indexes for refund queries
+        indexes = [
+            models.Index(fields=['payment'], name='refunds_payment_idx'),
+            models.Index(fields=['status'], name='refunds_status_idx'),
+            models.Index(fields=['created_at'], name='refunds_created_idx'),
+        ]
     
     def __str__(self):
         return f"Refund ${self.amount_dollars} for {self.payment.booking.booking_number}"
@@ -158,6 +173,12 @@ class PaymentAudit(models.Model):
     class Meta:
         db_table = 'payments_audit'
         ordering = ['-created_at']
+        # ✅ OPTIMIZED: Added indexes for audit queries
+        indexes = [
+            models.Index(fields=['payment'], name='audit_payment_idx'),
+            models.Index(fields=['action'], name='audit_action_idx'),
+            models.Index(fields=['created_at'], name='audit_created_idx'),
+        ]
     
     def __str__(self):
         return f"{self.action} - {self.created_at}"
