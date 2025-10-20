@@ -1,4 +1,6 @@
+# backend/apps/payments/urls.py
 from django.urls import path
+from django.conf import settings
 from . import views
 
 urlpatterns = [
@@ -6,15 +8,17 @@ urlpatterns = [
     path('create-intent/', views.PaymentIntentCreateView.as_view(), name='payment-intent-create'),
     path('status/<str:booking_number>/', views.PaymentStatusView.as_view(), name='payment-status'),
     path('webhook/', views.StripeWebhookView.as_view(), name='stripe-webhook'),
-    path('confirm/', views.PaymentConfirmView.as_view(), name='payment-confirm'),  # NEW
-    
-    # Mock endpoints (testing only)
-    path('mock-confirm/', views.MockPaymentConfirmView.as_view(), name='mock-payment-confirm'),
+    path('confirm/', views.PaymentConfirmView.as_view(), name='payment-confirm'),
     
     # Staff endpoints
     path('payments/', views.PaymentListView.as_view(), name='payment-list'),
     path('refunds/', views.RefundListView.as_view(), name='refund-list'),
     path('refunds/create/', views.RefundCreateView.as_view(), name='refund-create'),
     path('refunds/process/', views.RefundProcessView.as_view(), name='refund-process'),
-
 ]
+
+# Mock endpoints (only available in DEBUG mode)
+if settings.DEBUG:
+    urlpatterns.append(
+        path('mock-confirm/', views.MockPaymentConfirmView.as_view(), name='mock-payment-confirm')
+    )
