@@ -292,22 +292,41 @@ class PricingPreviewView(APIView):
             if coi_required:
                 coi_fee_cents = 5000
         
-        # Specialty Item pricing
+        # ✅ FIXED: Specialty Item pricing with quantities
         elif service_type == 'specialty_item':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
                     'error': 'Organizing services are only available for Mini Move bookings'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            specialty_item_ids = serializer.validated_data.get('specialty_item_ids', [])
-            specialty_items = SpecialtyItem.objects.filter(id__in=specialty_item_ids, is_active=True)
+            # ✅ Handle specialty_items with quantities
+            specialty_items_data = serializer.validated_data.get('specialty_items', [])
             
-            specialty_total = sum(item.price_cents for item in specialty_items)
-            base_price_cents = specialty_total
-            details['specialty_items'] = [
-                {'name': item.name, 'price_dollars': item.price_dollars}
-                for item in specialty_items
-            ]
+            if specialty_items_data:
+                specialty_items_list = []
+                specialty_total_cents = 0
+                
+                for item_data in specialty_items_data:
+                    item_id = item_data.get('item_id')
+                    quantity = item_data.get('quantity', 1)
+                    
+                    try:
+                        specialty_item = SpecialtyItem.objects.get(id=item_id, is_active=True)
+                        item_total = specialty_item.price_cents * quantity
+                        specialty_total_cents += item_total
+                        
+                        specialty_items_list.append({
+                            'name': specialty_item.name,
+                            'price_dollars': specialty_item.price_dollars,
+                            'quantity': quantity,
+                            'subtotal_dollars': item_total / 100
+                        })
+                    except SpecialtyItem.DoesNotExist:
+                        logger.warning(f"Specialty item {item_id} not found")
+                        continue
+                
+                base_price_cents = specialty_total_cents
+                details['specialty_items'] = specialty_items_list
             
             # Apply same-day delivery for specialty items
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
@@ -626,4 +645,3 @@ class ValidateZipCodeView(APIView):
             'error': error,
             'zip_code': zip_code.split('-')[0].strip()
         })
-    
