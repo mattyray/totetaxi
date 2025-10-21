@@ -120,7 +120,7 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   }
 }
 
-// ✅ FIXED: Hook to recalculate pricing when Review & Pay loads
+// ✅ Hook to recalculate pricing when Review & Pay loads
 const useRecalculatePricing = () => {
   const { bookingData, updateBookingData } = useBookingWizard();
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -134,51 +134,34 @@ const useRecalculatePricing = () => {
       setIsRecalculating(true);
       
       try {
-        // ✅ FIX: Get fresh state instead of relying on closure
-        const currentState = useBookingWizard.getState();
-        const currentBookingData = currentState.bookingData;
-        
-        console.log('📦 Current bookingData:', currentBookingData);
-        console.log('📦 Specialty items:', currentBookingData.specialty_items);
-        
         let pricingRequest: any = {
-          service_type: currentBookingData.service_type,
-          pickup_date: currentBookingData.service_type === 'blade_transfer' 
-            ? currentBookingData.blade_flight_date 
-            : currentBookingData.pickup_date,
-          coi_required: currentBookingData.coi_required || false,
-          is_outside_core_area: currentBookingData.is_outside_core_area || false,
+          service_type: bookingData.service_type,
+          pickup_date: bookingData.service_type === 'blade_transfer' 
+            ? bookingData.blade_flight_date 
+            : bookingData.pickup_date,
+          coi_required: bookingData.coi_required || false,
+          is_outside_core_area: bookingData.is_outside_core_area || false,
         };
 
-        if (currentBookingData.service_type === 'mini_move') {
-          pricingRequest.mini_move_package_id = currentBookingData.mini_move_package_id;
-          pricingRequest.include_packing = currentBookingData.include_packing;
-          pricingRequest.include_unpacking = currentBookingData.include_unpacking;
-          pricingRequest.pickup_time = currentBookingData.pickup_time;
-          pricingRequest.specific_pickup_hour = currentBookingData.specific_pickup_hour;
-        } else if (currentBookingData.service_type === 'standard_delivery') {
-          pricingRequest.standard_delivery_item_count = currentBookingData.standard_delivery_item_count;
-          pricingRequest.is_same_day_delivery = currentBookingData.is_same_day_delivery;
-          pricingRequest.specialty_items = currentBookingData.specialty_items || [];
-        } else if (currentBookingData.service_type === 'specialty_item') {
-          pricingRequest.specialty_items = currentBookingData.specialty_items || [];
-          pricingRequest.is_same_day_delivery = currentBookingData.is_same_day_delivery;
-          
-          // ✅ FIX: Validate that we actually have specialty items
-          if (!pricingRequest.specialty_items || pricingRequest.specialty_items.length === 0) {
-            console.error('❌ No specialty items found for specialty_item service type!');
-            console.error('Current bookingData:', currentBookingData);
-            setIsRecalculating(false);
-            return;
-          }
-        } else if (currentBookingData.service_type === 'blade_transfer') {
-          pricingRequest.blade_airport = currentBookingData.blade_airport;
-          pricingRequest.blade_flight_date = currentBookingData.blade_flight_date;
-          pricingRequest.blade_flight_time = currentBookingData.blade_flight_time;
-          pricingRequest.blade_bag_count = currentBookingData.blade_bag_count;
+        if (bookingData.service_type === 'mini_move') {
+          pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
+          pricingRequest.include_packing = bookingData.include_packing;
+          pricingRequest.include_unpacking = bookingData.include_unpacking;
+          pricingRequest.pickup_time = bookingData.pickup_time;
+          pricingRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
+        } else if (bookingData.service_type === 'standard_delivery') {
+          pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+          pricingRequest.specialty_items = bookingData.specialty_items;
+        } else if (bookingData.service_type === 'specialty_item') {
+          pricingRequest.specialty_items = bookingData.specialty_items;
+          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
+        } else if (bookingData.service_type === 'blade_transfer') {
+          pricingRequest.blade_airport = bookingData.blade_airport;
+          pricingRequest.blade_flight_date = bookingData.blade_flight_date;
+          pricingRequest.blade_flight_time = bookingData.blade_flight_time;
+          pricingRequest.blade_bag_count = bookingData.blade_bag_count;
         }
-        
-        console.log('📤 Pricing request:', pricingRequest);
         
         const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
         
@@ -196,7 +179,7 @@ const useRecalculatePricing = () => {
     };
 
     recalculatePricing();
-  }, [bookingData.specialty_items, bookingData.service_type]); // ✅ FIX: Add dependencies
+  }, []);
 
   return isRecalculating;
 };
