@@ -221,23 +221,24 @@
                   - heading "Wednesday, October 22, 2025" [level=4] [ref=e331]
                   - generic [ref=e332]:
                     - heading "Select Pickup Time" [level=3] [ref=e333]
-                    - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [active] [ref=e335] [cursor=pointer]:
-                      - generic [ref=e336]: Morning (8 AM - 11 AM)
-                      - generic [ref=e337]: Standard 3-hour pickup window
-                  - generic [ref=e339]:
-                    - heading "Pricing Summary" [level=3] [ref=e340]
-                    - generic [ref=e341]:
-                      - generic [ref=e342]:
-                        - generic [ref=e343]: "Standard Delivery (5 items):"
-                        - generic [ref=e344]: $475
+                    - generic [ref=e334]:
+                      - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [ref=e335] [cursor=pointer]:
+                        - generic [ref=e336]: Morning (8 AM - 11 AM)
+                        - generic [ref=e337]: Standard 3-hour pickup window
+                      - button "Flexible Morning Timing 8-11 AM pickup window - we'll coordinate the exact time with you" [ref=e338] [cursor=pointer]:
+                        - generic [ref=e339]: Flexible Morning Timing
+                        - generic [ref=e340]: 8-11 AM pickup window - we'll coordinate the exact time with you
+                  - generic [ref=e342]:
+                    - heading "Pricing Summary" [level=3] [ref=e343]
+                    - generic [ref=e344]:
                       - generic [ref=e345]:
-                        - generic [ref=e346]: "1x Bicycle (Specialty):"
-                        - generic [ref=e347]: $250
+                        - generic [ref=e346]: "Mini Move Package:"
+                        - generic [ref=e347]: $995
                       - generic [ref=e349]:
                         - generic [ref=e350]: "Total:"
-                        - generic [ref=e351]: $725
+                        - generic [ref=e351]: $995
                   - generic [ref=e354]:
-                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e355]
+                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [checked] [active] [ref=e355]
                     - generic [ref=e356]:
                       - generic [ref=e357]: Certificate of Insurance (COI) Required(+$50)
                       - paragraph [ref=e358]: Required by some buildings. We'll handle the paperwork for you.
