@@ -1,0 +1,142 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "ToteTaxi" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - navigation [ref=e7]:
+          - link "Services" [ref=e8] [cursor=pointer]:
+            - /url: /services
+          - link "About" [ref=e9] [cursor=pointer]:
+            - /url: /about
+          - link "FAQ" [ref=e10] [cursor=pointer]:
+            - /url: /faq
+          - link "Contact" [ref=e11] [cursor=pointer]:
+            - /url: /contact
+          - generic [ref=e12]:
+            - link "Sign In" [ref=e13] [cursor=pointer]:
+              - /url: /login
+              - button "Sign In" [ref=e14]
+            - link "Book Now" [ref=e15] [cursor=pointer]:
+              - /url: /book
+              - button "Book Now" [ref=e16]
+    - main [ref=e17]:
+      - generic [ref=e19]:
+        - heading "Book Your Luxury Move" [level=1] [ref=e20]
+        - paragraph [ref=e21]: Loading booking wizard...
+    - contentinfo [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: ToteTaxi
+            - paragraph [ref=e27]: Luxury delivery service for Manhattan to Hamptons transport
+          - generic [ref=e28]:
+            - heading "Services" [level=4] [ref=e29]
+            - list [ref=e30]:
+              - listitem [ref=e31]:
+                - link "Mini Moves" [ref=e32] [cursor=pointer]:
+                  - /url: /services#mini-moves
+              - listitem [ref=e33]:
+                - link "Standard Delivery" [ref=e34] [cursor=pointer]:
+                  - /url: /services#standard-delivery
+              - listitem [ref=e35]:
+                - link "Specialty Items" [ref=e36] [cursor=pointer]:
+                  - /url: /services#specialty-items
+              - listitem [ref=e37]:
+                - link "Organizing Services" [ref=e38] [cursor=pointer]:
+                  - /url: /services#organizing
+          - generic [ref=e39]:
+            - heading "Company" [level=4] [ref=e40]
+            - list [ref=e41]:
+              - listitem [ref=e42]:
+                - link "About Us" [ref=e43] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e44]:
+                - link "FAQ" [ref=e45] [cursor=pointer]:
+                  - /url: /faq
+              - listitem [ref=e46]:
+                - link "Contact" [ref=e47] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e48]:
+            - heading "Contact" [level=4] [ref=e49]
+            - generic [ref=e50]:
+              - paragraph [ref=e51]: (555) TOTE-TAXI
+              - paragraph [ref=e52]: hello@totetaxi.com
+              - paragraph [ref=e53]: Manhattan to Hamptons
+        - paragraph [ref=e55]: © 2024 ToteTaxi. All rights reserved. | Premium delivery service for discerning clients.
+  - generic [ref=e56]:
+    - img [ref=e58]
+    - button "Open Tanstack query devtools" [ref=e106] [cursor=pointer]:
+      - img [ref=e107]
+  - button "Open Next.js Dev Tools" [ref=e160] [cursor=pointer]:
+    - img [ref=e161]
+  - alert [ref=e164]
+  - generic:
+    - generic:
+      - generic:
+        - dialog:
+          - generic [ref=e168]:
+            - button [ref=e170] [cursor=pointer]:
+              - img [ref=e171]
+            - generic [ref=e175]:
+              - generic [ref=e178]:
+                - heading "Book Your Luxury Move" [level=1] [ref=e179]
+                - paragraph [ref=e180]: From Manhattan to the Hamptons with premium care
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]: ✓
+                  - generic [ref=e186]: Select Service
+                - generic [ref=e188]:
+                  - generic [ref=e189]: ✓
+                  - generic [ref=e190]: Date & Time
+                - generic [ref=e192]:
+                  - generic [ref=e193]: ✓
+                  - generic [ref=e194]: Addresses
+                - generic [ref=e196]:
+                  - generic [ref=e197]: "4"
+                  - generic [ref=e198]: Your Info
+                - generic [ref=e200]:
+                  - generic [ref=e201]: "5"
+                  - generic [ref=e202]: Review & Pay
+              - generic [ref=e205]:
+                - 'heading "Step 4: Your Info" [level=2] [ref=e206]'
+                - generic [ref=e207]:
+                  - generic [ref=e208]:
+                    - heading "Contact Information" [level=3] [ref=e209]
+                    - paragraph [ref=e210]: We'll use this information to coordinate your pickup and delivery.
+                  - generic [ref=e213]:
+                    - generic [ref=e214]:
+                      - generic [ref=e215]:
+                        - generic [ref=e216]: First Name*
+                        - textbox "First Name*" [ref=e218]:
+                          - /placeholder: John
+                      - generic [ref=e219]:
+                        - generic [ref=e220]: Last Name*
+                        - textbox "Last Name*" [ref=e222]:
+                          - /placeholder: Smith
+                    - generic [ref=e223]:
+                      - generic [ref=e224]: Email Address*
+                      - textbox "Email Address*" [ref=e226]:
+                        - /placeholder: john.smith@email.com
+                      - paragraph [ref=e227]: We'll send confirmation and tracking updates to this email
+                    - generic [ref=e228]:
+                      - generic [ref=e229]: Phone Number*
+                      - textbox "Phone Number*" [ref=e231]:
+                        - /placeholder: (555) 123-4567
+                      - paragraph [ref=e232]: For pickup and delivery coordination
+                  - generic [ref=e235]:
+                    - generic [ref=e236]: 🔒
+                    - generic [ref=e237]:
+                      - heading "Privacy & Security" [level=4] [ref=e238]
+                      - paragraph [ref=e239]: Your information is encrypted and secure. We'll only use it to provide your ToteTaxi service and send important updates about your booking. We never sell or share your personal data.
+                  - paragraph [ref=e241]:
+                    - text: Already have an account?
+                    - button "Sign in for faster checkout" [ref=e242] [cursor=pointer]
+                  - button "Continue to Review & Payment →" [disabled] [ref=e244]
+              - generic [ref=e248]:
+                - button "← Previous" [ref=e249] [cursor=pointer]
+                - button "Start Over" [ref=e250] [cursor=pointer]
+```
