@@ -2,6 +2,9 @@
 """
 Test Onfleet webhook handling
 CRITICAL: Webhook bugs = missed status updates + incorrect booking states
+
+✅ UPDATED: Tests now use correct OnFleet webhook payload structure
+Reference: https://docs.onfleet.com/reference/webhook-payload-examples
 """
 import pytest
 from unittest.mock import patch
@@ -76,13 +79,17 @@ class TestWebhookTaskStarted:
         """Test task started webhook updates status to 'active'"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct OnFleet webhook structure
         webhook_data = {
             'triggerId': 0,  # Task Started
+            'taskId': pickup_task.onfleet_task_id,  # ✅ At root level
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'worker': {
-                    'id': 'worker_123',
-                    'name': 'John Driver'
+                'task': {  # ✅ Nested in 'task' object
+                    'id': pickup_task.onfleet_task_id,
+                    'worker': {
+                        'id': 'worker_123',
+                        'name': 'John Driver'
+                    }
                 }
             }
         }
@@ -104,11 +111,15 @@ class TestWebhookTaskStarted:
         
         assert pickup_task.started_at is None
         
+        # ✅ FIXED: Use correct OnFleet webhook structure
         webhook_data = {
             'triggerId': 0,
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'worker': {}
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'worker': {}
+                }
             }
         }
         
@@ -122,20 +133,24 @@ class TestWebhookTaskStarted:
 
 @pytest.mark.django_db
 class TestWebhookTaskCompleted:
-    """Test webhook for task completed (trigger ID 1)"""
+    """Test webhook for task completed (trigger ID 3)"""
     
     def test_pickup_completed_does_not_complete_booking(self, test_booking_with_tasks):
         """Test pickup completion doesn't mark booking as completed"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (3, not 1) and structure
         webhook_data = {
-            'triggerId': 1,  # Task Completed
+            'triggerId': 3,  # ✅ FIXED: Task Completed is trigger 3
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'completionDetails': {
-                    'signatureUploadId': 'sig_123',
-                    'photoUploadIds': [{'uploadId': 'photo_456'}],
-                    'notes': 'Picked up successfully'
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'completionDetails': {
+                        'signatureUploadId': 'sig_123',
+                        'photoUploadIds': [{'uploadId': 'photo_456'}],
+                        'notes': 'Picked up successfully'
+                    }
                 }
             }
         }
@@ -155,14 +170,18 @@ class TestWebhookTaskCompleted:
         """Test dropoff completion marks booking as completed"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (3, not 1) and structure
         webhook_data = {
-            'triggerId': 1,  # Task Completed
+            'triggerId': 3,  # ✅ FIXED: Task Completed is trigger 3
+            'taskId': dropoff_task.onfleet_task_id,
             'data': {
-                'id': dropoff_task.onfleet_task_id,
-                'completionDetails': {
-                    'signatureUploadId': 'sig_789',
-                    'photoUploadIds': [{'uploadId': 'photo_abc'}],
-                    'notes': 'Delivered successfully'
+                'task': {
+                    'id': dropoff_task.onfleet_task_id,
+                    'completionDetails': {
+                        'signatureUploadId': 'sig_789',
+                        'photoUploadIds': [{'uploadId': 'photo_abc'}],
+                        'notes': 'Delivered successfully'
+                    }
                 }
             }
         }
@@ -182,17 +201,21 @@ class TestWebhookTaskCompleted:
         """Test completion saves signature and photos"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (3, not 1) and structure
         webhook_data = {
-            'triggerId': 1,
+            'triggerId': 3,  # ✅ FIXED: Task Completed is trigger 3
+            'taskId': dropoff_task.onfleet_task_id,
             'data': {
-                'id': dropoff_task.onfleet_task_id,
-                'completionDetails': {
-                    'signatureUploadId': 'sig_xyz',
-                    'photoUploadIds': [
-                        {'uploadId': 'photo_1'},
-                        {'uploadId': 'photo_2'}
-                    ],
-                    'notes': 'Left at door'
+                'task': {
+                    'id': dropoff_task.onfleet_task_id,
+                    'completionDetails': {
+                        'signatureUploadId': 'sig_xyz',
+                        'photoUploadIds': [
+                            {'uploadId': 'photo_1'},
+                            {'uploadId': 'photo_2'}
+                        ],
+                        'notes': 'Left at door'
+                    }
                 }
             }
         }
@@ -208,19 +231,23 @@ class TestWebhookTaskCompleted:
 
 @pytest.mark.django_db
 class TestWebhookTaskFailed:
-    """Test webhook for task failed (trigger ID 2)"""
+    """Test webhook for task failed (trigger ID 4)"""
     
     def test_task_failed_updates_status(self, test_booking_with_tasks):
         """Test failed webhook updates status and saves reason"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (4, not 2) and structure
         webhook_data = {
-            'triggerId': 2,  # Task Failed
+            'triggerId': 4,  # ✅ FIXED: Task Failed is trigger 4
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'completionDetails': {
-                    'failureReason': 'CUSTOMER_UNAVAILABLE',
-                    'failureNotes': 'Customer not home, rescheduling'
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'completionDetails': {
+                        'failureReason': 'CUSTOMER_UNAVAILABLE',
+                        'failureNotes': 'Customer not home, rescheduling'
+                    }
                 }
             }
         }
@@ -238,16 +265,20 @@ class TestWebhookTaskFailed:
 
 @pytest.mark.django_db
 class TestWebhookTaskDeleted:
-    """Test webhook for task deleted (trigger ID 3)"""
+    """Test webhook for task deleted (trigger ID 8)"""
     
     def test_task_deleted_updates_status(self, test_booking_with_tasks):
         """Test deleted webhook updates status to 'deleted'"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (8, not 3) and structure
         webhook_data = {
-            'triggerId': 3,  # Task Deleted
+            'triggerId': 8,  # ✅ FIXED: Task Deleted is trigger 8
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id
+                'task': {
+                    'id': pickup_task.onfleet_task_id
+                }
             }
         }
         
@@ -262,7 +293,7 @@ class TestWebhookTaskDeleted:
 
 @pytest.mark.django_db
 class TestWebhookTaskETAChanged:
-    """Test webhook for ETA changed (trigger ID 6)"""
+    """Test webhook for ETA changed (trigger ID 1)"""
     
     def test_eta_changed_updates_estimated_arrival(self, test_booking_with_tasks):
         """Test ETA webhook updates estimated_arrival field"""
@@ -272,11 +303,15 @@ class TestWebhookTaskETAChanged:
         future_time = timezone.now() + timedelta(hours=2)
         eta_timestamp = int(future_time.timestamp() * 1000)
         
+        # ✅ FIXED: Use correct trigger ID (1, not 6) and structure
         webhook_data = {
-            'triggerId': 6,  # Task ETA Changed
+            'triggerId': 1,  # ✅ FIXED: Task ETA is trigger 1
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'estimatedCompletionTime': eta_timestamp
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'estimatedCompletionTime': eta_timestamp
+                }
             }
         }
         
@@ -293,17 +328,21 @@ class TestWebhookTaskETAChanged:
 
 @pytest.mark.django_db
 class TestWebhookTaskAssigned:
-    """Test webhook for task assigned (trigger ID 8)"""
+    """Test webhook for task assigned (trigger ID 9)"""
     
     def test_task_assigned_updates_worker(self, test_booking_with_tasks):
         """Test assigned webhook updates worker info"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (9, not 8) and structure
         webhook_data = {
-            'triggerId': 8,  # Task Assigned
+            'triggerId': 9,  # ✅ FIXED: Task Assigned is trigger 9
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id,
-                'worker': 'worker_456'  # Can be string or dict
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'worker': 'worker_456'  # Can be string or dict
+                }
             }
         }
         
@@ -320,13 +359,17 @@ class TestWebhookTaskAssigned:
         """Test assigned webhook with worker as dictionary"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct trigger ID (9, not 8) and structure
         webhook_data = {
-            'triggerId': 8,
+            'triggerId': 9,  # ✅ FIXED: Task Assigned is trigger 9
+            'taskId': dropoff_task.onfleet_task_id,
             'data': {
-                'id': dropoff_task.onfleet_task_id,
-                'worker': {
-                    'id': 'worker_789',
-                    'name': 'Jane Driver'
+                'task': {
+                    'id': dropoff_task.onfleet_task_id,
+                    'worker': {
+                        'id': 'worker_789',
+                        'name': 'Jane Driver'
+                    }
                 }
             }
         }
@@ -340,15 +383,55 @@ class TestWebhookTaskAssigned:
 
 
 @pytest.mark.django_db
+class TestWebhookTaskUnassigned:
+    """Test webhook for task unassigned (trigger ID 10)"""
+    
+    def test_task_unassigned_clears_worker(self, test_booking_with_tasks):
+        """Test unassigned webhook clears worker info"""
+        booking, pickup_task, dropoff_task = test_booking_with_tasks
+        
+        # First assign the task
+        pickup_task.status = 'assigned'
+        pickup_task.worker_id = 'worker_123'
+        pickup_task.worker_name = 'John Driver'
+        pickup_task.save()
+        
+        # ✅ NEW: Test task unassigned (trigger 10)
+        webhook_data = {
+            'triggerId': 10,  # Task Unassigned
+            'taskId': pickup_task.onfleet_task_id,
+            'data': {
+                'task': {
+                    'id': pickup_task.onfleet_task_id
+                }
+            }
+        }
+        
+        integration = ToteTaxiOnfleetIntegration()
+        success = integration.handle_webhook(webhook_data)
+        
+        assert success is True
+        
+        pickup_task.refresh_from_db()
+        assert pickup_task.status == 'created'
+        assert pickup_task.worker_id == ''
+        assert pickup_task.worker_name == ''
+
+
+@pytest.mark.django_db
 class TestWebhookErrorHandling:
     """Test webhook error handling"""
     
     def test_webhook_with_nonexistent_task_returns_false(self, test_booking_with_tasks):
         """Test webhook for non-existent task ID returns False"""
+        # ✅ FIXED: Use correct OnFleet webhook structure
         webhook_data = {
-            'triggerId': 1,
+            'triggerId': 3,
+            'taskId': 'nonexistent_task_id',
             'data': {
-                'id': 'nonexistent_task_id'
+                'task': {
+                    'id': 'nonexistent_task_id'
+                }
             }
         }
         
@@ -359,9 +442,10 @@ class TestWebhookErrorHandling:
     
     def test_webhook_without_task_id_returns_false(self, test_booking_with_tasks):
         """Test webhook without task ID returns False"""
+        # ✅ FIXED: Test the actual failure case (no taskId at all)
         webhook_data = {
-            'triggerId': 1,
-            'data': {}  # No task ID
+            'triggerId': 3,
+            'data': {}  # No taskId anywhere
         }
         
         integration = ToteTaxiOnfleetIntegration()
@@ -373,10 +457,14 @@ class TestWebhookErrorHandling:
         """Test webhook with unknown trigger ID doesn't crash"""
         booking, pickup_task, dropoff_task = test_booking_with_tasks
         
+        # ✅ FIXED: Use correct OnFleet webhook structure
         webhook_data = {
             'triggerId': 999,  # Unknown trigger
+            'taskId': pickup_task.onfleet_task_id,
             'data': {
-                'id': pickup_task.onfleet_task_id
+                'task': {
+                    'id': pickup_task.onfleet_task_id
+                }
             }
         }
         
@@ -385,7 +473,61 @@ class TestWebhookErrorHandling:
         # Should not raise exception
         try:
             success = integration.handle_webhook(webhook_data)
-            # May return True or False, but shouldn't crash
+            # Should return True even for unknown triggers
             assert isinstance(success, bool)
-        except Exception:
-            pytest.fail("Webhook handling raised exception for unknown trigger")
+        except Exception as e:
+            pytest.fail(f"Webhook handling raised unexpected exception: {e}")
+    
+    def test_webhook_with_old_structure_still_works(self, test_booking_with_tasks):
+        """Test backward compatibility with old webhook structure (fallback)"""
+        booking, pickup_task, dropoff_task = test_booking_with_tasks
+        
+        # Old structure (without root-level taskId)
+        # This tests the fallback logic
+        webhook_data = {
+            'triggerId': 0,
+            'data': {
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'worker': {
+                        'id': 'worker_123',
+                        'name': 'John Driver'
+                    }
+                }
+            }
+        }
+        
+        integration = ToteTaxiOnfleetIntegration()
+        success = integration.handle_webhook(webhook_data)
+        
+        # Should work via fallback logic
+        assert success is True
+        
+        pickup_task.refresh_from_db()
+        assert pickup_task.status == 'active'
+
+
+@pytest.mark.django_db
+class TestWebhookTaskCreated:
+    """Test webhook for task created (trigger ID 6)"""
+    
+    def test_task_created_webhook(self, test_booking_with_tasks):
+        """Test task created webhook (informational only)"""
+        booking, pickup_task, dropoff_task = test_booking_with_tasks
+        
+        webhook_data = {
+            'triggerId': 6,  # Task Created
+            'taskId': pickup_task.onfleet_task_id,
+            'data': {
+                'task': {
+                    'id': pickup_task.onfleet_task_id,
+                    'state': 0  # Unassigned
+                }
+            }
+        }
+        
+        integration = ToteTaxiOnfleetIntegration()
+        success = integration.handle_webhook(webhook_data)
+        
+        # Should return True even though we don't handle this event
+        assert success is True
