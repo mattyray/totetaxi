@@ -3,6 +3,7 @@
 
 import { cn } from '@/utils/cn';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/auth/user-menu';
 import { useAuthStore } from '@/stores/auth-store';
@@ -29,8 +30,15 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="text-2xl font-serif font-bold text-navy-900 hover:text-navy-700 transition-colors">
-              ToteTaxi
+            <Link href="/" className="hover:opacity-80 transition-opacity">
+              <Image
+                src="/assets/images/totetaxilogo.png"
+                alt="Tote Taxi"
+                width={180}
+                height={86}
+                priority
+                className="h-auto w-[120px] md:w-[180px]"
+              />
             </Link>
             
             {/* Desktop Navigation */}
@@ -181,12 +189,12 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
         {children}
       </main>
 
-      {/* Footer remains the same */}
+      {/* Footer */}
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className="text-xl font-serif mb-4">ToteTaxi</div>
+              <div className="text-xl font-serif mb-4">Tote Taxi</div>
               <p className="text-navy-300 text-sm">
                 Luxury delivery service for Manhattan to Hamptons transport
               </p>
@@ -211,14 +219,22 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
             <div>
               <h4 className="font-medium mb-4">Contact</h4>
               <div className="text-navy-300 text-sm space-y-1">
-                <p>(555) TOTE-TAXI</p>
-                <p>hello@totetaxi.com</p>
+                <p>
+                  <a href="tel:+16315955100" className="hover:text-white transition-colors">
+                    (631) 595-5100
+                  </a>
+                </p>
+                <p>
+                  <a href="mailto:info@totetaxi.com" className="hover:text-white transition-colors">
+                    info@totetaxi.com
+                  </a>
+                </p>
                 <p>Manhattan to Hamptons</p>
               </div>
             </div>
           </div>
           <div className="border-t border-navy-800 mt-8 pt-8 text-center text-navy-400 text-sm">
-            <p>&copy; 2024 ToteTaxi. All rights reserved. | Premium delivery service for discerning clients.</p>
+            <p>&copy; 2024 Tote Taxi. All rights reserved. | Premium delivery service for discerning clients.</p>
           </div>
         </div>
       </footer>

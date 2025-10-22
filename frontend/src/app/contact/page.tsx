@@ -1,4 +1,4 @@
-// frontend/src/app/contact/page.tsx - Real Tote Taxi contact info
+// frontend/src/app/contact/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -6,6 +6,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 
 export default function ContactPage() {
@@ -13,22 +14,27 @@ export default function ContactPage() {
     name: '',
     email: '',
     phone: '',
-    service: '',
+    subject: '',
     message: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
     
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setSubmitted(true);
-    setIsSubmitting(false);
+    try {
+      await apiClient.post('/api/customer/contact/', formData);
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to send message. Please try again or email us directly.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -50,7 +56,7 @@ export default function ContactPage() {
             <Card variant="luxury">
               <CardContent>
                 <p className="text-navy-700 mb-6">
-                  Your message has been received. Our team will respond as quickly as possible 
+                  Your message has been received. Our team will respond within 24 hours 
                   to help with your delivery needs.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -79,13 +85,13 @@ export default function ContactPage() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
-            Contact Us Now
+            Contact Us
           </h1>
           <p className="text-xl text-navy-700 max-w-3xl mx-auto mb-4">
-            Can't find what you are looking for? Our Customer Service Team is available to help with any questions.
+            Have questions about our services? Our team is here to help.
           </p>
           <p className="text-lg text-navy-600">
-            Be sure to check out our <Link href="/faq" className="text-navy-900 hover:underline">FAQ here</Link>.
+            Be sure to check out our <Link href="/faq" className="text-navy-900 hover:underline font-medium">FAQ</Link> for quick answers.
           </p>
         </div>
 
@@ -95,13 +101,19 @@ export default function ContactPage() {
             <Card variant="elevated">
               <CardHeader>
                 <h2 className="text-2xl font-serif font-bold text-navy-900">
-                  Get Started Here
+                  Send Us a Message
                 </h2>
                 <p className="text-navy-700">
-                  Please fill out our <strong>brief survey</strong> and we'll get back to you ASAP.
+                  Fill out the form below and we'll respond within 24 hours.
                 </p>
               </CardHeader>
               <CardContent>
+                {error && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+                
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
@@ -124,39 +136,38 @@ export default function ContactPage() {
                   </div>
 
                   <Input
-                    label="Phone Number"
+                    label="Phone Number (Optional)"
                     name="phone"
                     type="tel"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="(555) 123-4567"
+                    placeholder="(631) 555-1234"
                   />
 
                   <div>
                     <label className="block text-sm font-medium text-navy-900 mb-1">
-                      Service Needed <span className="text-red-500">*</span>
+                      Subject <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="service"
-                      value={formData.service}
+                      name="subject"
+                      value={formData.subject}
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                     >
-                      <option value="">Select a service</option>
-                      <option value="mini-move">Mini Move</option>
-                      <option value="standard-delivery">Standard Delivery</option>
-                      <option value="blade-luggage">BLADE Luggage</option>
-                      <option value="storage">Storage</option>
-                      <option value="south-florida">South Florida Delivery</option>
-                      <option value="custom">Custom Service</option>
-                      <option value="other">Other</option>
+                      <option value="">Select a subject</option>
+                      <option value="General">General Inquiry</option>
+                      <option value="Booking Question">Booking Question</option>
+                      <option value="BLADE">BLADE Airport Transfer</option>
+                      <option value="Custom Quote">Custom Quote</option>
+                      <option value="Issue">Issue with Service</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-navy-900 mb-1">
-                      Tell Us About Your Needs <span className="text-red-500">*</span>
+                      Message <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       name="message"
@@ -164,7 +175,7 @@ export default function ContactPage() {
                       onChange={handleChange}
                       required
                       rows={5}
-                      placeholder="Describe what you need delivered, pickup/delivery locations, dates, etc."
+                      placeholder="Tell us about your needs..."
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white resize-vertical"
                     />
                   </div>
@@ -206,12 +217,20 @@ export default function ContactPage() {
                   <div>
                     <h4 className="font-medium text-navy-900 mb-2">Phone</h4>
                     <p className="text-navy-700">
-                      <a href="tel:631-595-5100" className="hover:underline text-lg">
-                        631-595-5100
+                      <a href="tel:+16315955100" className="hover:underline text-lg">
+                        (631) 595-5100
                       </a>
                     </p>
                     <p className="text-sm text-navy-600 mt-1">
-                      <em>For Courier Service – Priority Delivery, please call us.</em>
+                      Available for immediate assistance
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-navy-900 mb-2">Business Hours</h4>
+                    <p className="text-navy-700 text-sm">
+                      Monday - Friday: 8 AM - 6 PM EST<br />
+                      Saturday - Sunday: 9 AM - 5 PM EST
                     </p>
                   </div>
                 </div>
@@ -227,37 +246,17 @@ export default function ContactPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-navy-700 mb-4">
-                  <strong>Tote Taxi is a same-day door-to-door delivery service</strong> covering:
+                  <strong>Tote Taxi provides premium delivery service</strong> covering:
                 </p>
                 <ul className="space-y-2 text-navy-700">
-                  <li>• <strong>The Hamptons</strong> (all areas)</li>
-                  <li>• <strong>NYC</strong> (Manhattan, Brooklyn, and more)</li>
-                  <li>• <strong>All Major NY Airports</strong> (JFK, LGA, EWR)</li>
-                  <li>• <strong>Connecticut</strong></li>
-                  <li>• <strong>South Florida</strong> (Palm Beach, Miami, Boca Raton, Jupiter, Fort Lauderdale)</li>
+                  <li>• <strong>Manhattan</strong> ↔ <strong>The Hamptons</strong></li>
+                  <li>• <strong>Manhattan</strong> ↔ <strong>North Fork</strong></li>
+                  <li>• <strong>Manhattan</strong> ↔ <strong>Connecticut</strong></li>
+                  <li>• <strong>NYC Airports</strong> (JFK, LGA, EWR)</li>
                 </ul>
                 <p className="text-sm text-navy-600 mt-4">
-                  <strong>Custom deliveries and services are available upon request.</strong>
+                  <strong>Extended service available</strong> within 30 miles of Manhattan for an additional fee.
                 </p>
-              </CardContent>
-            </Card>
-
-            {/* Special Inquiries */}
-            <Card variant="default" className="border-gold-200 bg-gold-50">
-              <CardContent>
-                <div className="text-center">
-                  <h3 className="text-lg font-medium text-navy-900 mb-3">
-                    Marketing & PR Inquiries
-                  </h3>
-                  <p className="text-navy-700 text-sm mb-4">
-                    For partnership opportunities and media inquiries, please contact us directly.
-                  </p>
-                  <Link href="mailto:info@totetaxi.com?subject=Marketing%20Inquiry">
-                    <Button variant="outline" size="sm">
-                      Contact for Partnerships
-                    </Button>
-                  </Link>
-                </div>
               </CardContent>
             </Card>
 
