@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 
@@ -115,40 +114,63 @@ export default function ContactPage() {
                 )}
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Full Name"
+                  {/* Full Name */}
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-navy-900 mb-1">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
                       required
                       placeholder="Your Name"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                     />
-                    <Input
-                      label="Email Address"
-                      name="email"
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-navy-900 mb-1">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
                       type="email"
+                      id="email"
+                      name="email"
                       value={formData.email}
                       onChange={handleChange}
                       required
                       placeholder="you@email.com"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
                     />
                   </div>
 
-                  <Input
-                    label="Phone Number (Optional)"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="(631) 555-1234"
-                  />
-
+                  {/* Phone */}
                   <div>
-                    <label className="block text-sm font-medium text-navy-900 mb-1">
+                    <label htmlFor="phone" className="block text-sm font-medium text-navy-900 mb-1">
+                      Phone Number (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="(631) 555-1234"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
+                    />
+                  </div>
+
+                  {/* Subject */}
+                  <div>
+                    <label htmlFor="subject" className="block text-sm font-medium text-navy-900 mb-1">
                       Subject <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="subject"
                       name="subject"
                       value={formData.subject}
                       onChange={handleChange}
@@ -165,11 +187,13 @@ export default function ContactPage() {
                     </select>
                   </div>
 
+                  {/* Message */}
                   <div>
-                    <label className="block text-sm font-medium text-navy-900 mb-1">
+                    <label htmlFor="message" className="block text-sm font-medium text-navy-900 mb-1">
                       Message <span className="text-red-500">*</span>
                     </label>
                     <textarea
+                      id="message"
                       name="message"
                       value={formData.message}
                       onChange={handleChange}
