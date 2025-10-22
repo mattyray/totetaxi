@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e1]:
+- generic [active] [ref=e1]:
   - generic [ref=e2]:
     - banner [ref=e3]:
       - generic [ref=e5]:
@@ -221,27 +221,18 @@
                   - heading "Wednesday, October 22, 2025" [level=4] [ref=e331]
                   - generic [ref=e332]:
                     - heading "Select Pickup Time" [level=3] [ref=e333]
-                    - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [active] [ref=e335] [cursor=pointer]:
+                    - button "Morning (8 AM - 11 AM) Standard 3-hour pickup window" [ref=e335] [cursor=pointer]:
                       - generic [ref=e336]: Morning (8 AM - 11 AM)
                       - generic [ref=e337]: Standard 3-hour pickup window
-                  - generic [ref=e339]:
-                    - heading "Pricing Summary" [level=3] [ref=e340]
-                    - generic [ref=e341]:
-                      - generic [ref=e342]:
-                        - generic [ref=e343]: "1x Bicycle (Specialty):"
-                        - generic [ref=e344]: $250
-                      - generic [ref=e346]:
-                        - generic [ref=e347]: "Total:"
-                        - generic [ref=e348]: $250
-                  - generic [ref=e351]:
-                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e352]
-                    - generic [ref=e353]:
-                      - generic [ref=e354]: Certificate of Insurance (COI) Required(+$50)
-                      - paragraph [ref=e355]: Required by some buildings. We'll handle the paperwork for you.
-                  - button "Continue to Addresses →" [ref=e357] [cursor=pointer]
-              - generic [ref=e360]:
-                - generic [ref=e361]:
-                  - button "← Previous" [ref=e362] [cursor=pointer]
-                  - button "Start Over" [ref=e363] [cursor=pointer]
-                - button "Continue →" [ref=e365] [cursor=pointer]
+                  - generic [ref=e340]:
+                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e341]
+                    - generic [ref=e342]:
+                      - generic [ref=e343]: Certificate of Insurance (COI) Required(+$50)
+                      - paragraph [ref=e344]: Required by some buildings. We'll handle the paperwork for you.
+                  - button "Continue to Addresses →" [ref=e346] [cursor=pointer]
+              - generic [ref=e349]:
+                - generic [ref=e350]:
+                  - button "← Previous" [ref=e351] [cursor=pointer]
+                  - button "Start Over" [ref=e352] [cursor=pointer]
+                - button "Continue →" [ref=e354] [cursor=pointer]
 ```
