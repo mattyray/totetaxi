@@ -1,8 +1,8 @@
-Verify Your ToteTaxi Account
+Verify Your Tote Taxi Account
 
 Hi {{ user_name }},
 
-Thank you for registering with ToteTaxi! 
+Thank you for registering with Tote Taxi! 
 
 To complete your registration, please verify your email address by clicking the link below:
 
@@ -10,11 +10,10 @@ To complete your registration, please verify your email address by clicking the 
 
 This link will expire in 48 hours.
 
-If you didn't create a ToteTaxi account, please ignore this email.
+If you didn't create a Tote Taxi account, please ignore this email.
 
 Best regards,
-The ToteTaxi Team
+The Tote Taxi Team
 
 ---
 This is an automated message. Please do not reply to this email.
-

@@ -13,17 +13,17 @@ Pickup Date: {{ booking.pickup_date }}
 {% if new_status == 'confirmed' %}
 Your booking has been confirmed by our team. We're all set for your scheduled pickup!
 {% elif new_status == 'completed' %}
-Your booking has been completed. Thank you for choosing ToteTaxi!
+Your booking has been completed. Thank you for choosing Tote Taxi!
 {% elif new_status == 'cancelled' %}
 Your booking has been cancelled. If you have questions, please contact us.
 {% endif %}
 
 View your booking details: https://totetaxi.netlify.app/dashboard
 
-Questions? Contact us at support@totetaxi.com
+Questions? Contact us at info@totetaxi.com or call (631) 595-5100
 
 Best regards,
-The ToteTaxi Team
+The Tote Taxi Team
 
 ---
 This is an automated message. Please do not reply to this email.

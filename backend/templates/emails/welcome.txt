@@ -1,21 +1,19 @@
-Welcome to ToteTaxi!
+Verify Your Tote Taxi Account
 
 Hi {{ user_name }},
 
-Thank you for creating an account with ToteTaxi. We're excited to help you with your moving and delivery needs.
+Thank you for registering with Tote Taxi! 
 
-Your account email: {{ email }}
+To complete your registration, please verify your email address by clicking the link below:
 
-You can now:
-- Book mini moves, specialty item deliveries, and BLADE transfers
-- Save your favorite addresses for quick booking
-- Track your booking history
-- Manage your account preferences
+{{ verify_url }}
 
-Need help? Contact us at support@totetaxi.com
+This link will expire in 48 hours.
+
+If you didn't create a Tote Taxi account, please ignore this email.
 
 Best regards,
-The ToteTaxi Team
+The Tote Taxi Team
 
 ---
 This is an automated message. Please do not reply to this email.

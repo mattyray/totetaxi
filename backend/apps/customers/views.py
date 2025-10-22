@@ -10,6 +10,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.exceptions import ValidationError
 from django_ratelimit.decorators import ratelimit
+from django.core.mail import send_mail
+
 from .emails import send_welcome_email, send_password_reset_email, send_email_verification
 from .models import CustomerProfile, SavedAddress, PasswordResetToken, EmailVerificationToken
 from .serializers import (
@@ -561,4 +563,74 @@ class PasswordResetConfirmView(APIView):
             return Response(
                 {'error': 'Invalid reset link. Please request a new one.'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        
+
+
+@method_decorator(ratelimit(key='ip', rate='5/h', method='POST', block=True), name='post')
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class ContactFormView(APIView):
+    """
+    Contact form endpoint - sends email to info@totetaxi.com
+    Rate limited to 5 submissions per hour per IP to prevent spam
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        # Get form data
+        name = request.data.get('name', '').strip()
+        email = request.data.get('email', '').strip()
+        phone = request.data.get('phone', '').strip()
+        subject_type = request.data.get('subject', 'General')
+        message = request.data.get('message', '').strip()
+        
+        # Validate required fields
+        errors = {}
+        if not name:
+            errors['name'] = 'Name is required'
+        if not email:
+            errors['email'] = 'Email is required'
+        if not message:
+            errors['message'] = 'Message is required'
+        
+        if errors:
+            return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Build email content
+        email_subject = f'Contact Form: {subject_type} - {name}'
+        email_body = f"""
+New contact form submission from Tote Taxi website:
+
+Name: {name}
+Email: {email}
+Phone: {phone or 'Not provided'}
+Subject: {subject_type}
+
+Message:
+{message}
+
+---
+This message was sent from the Tote Taxi contact form.
+Reply directly to: {email}
+"""
+        
+        try:
+            # Send email to info@totetaxi.com
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=['info@totetaxi.com'],
+                fail_silently=False,
+            )
+            
+            return Response({
+                'message': 'Thank you for contacting us! We will respond within 24 hours.'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f'Failed to send contact form email: {str(e)}')
+            return Response(
+                {'error': 'Failed to send message. Please try again or email us directly at info@totetaxi.com'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

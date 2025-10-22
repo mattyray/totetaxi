@@ -2,7 +2,7 @@ Booking Confirmation - {{ booking.booking_number }}
 
 Hi {{ customer_name }},
 
-Your ToteTaxi booking has been confirmed!
+Your Tote Taxi booking has been confirmed!
 
 Booking Details:
 - Booking Number: {{ booking.booking_number }}
@@ -28,10 +28,10 @@ Special Instructions:
 
 We'll send you an update when your booking status changes.
 
-Questions? Contact us at support@totetaxi.com
+Questions? Contact us at info@totetaxi.com or call (631) 595-5100
 
 Best regards,
-The ToteTaxi Team
+The Tote Taxi Team
 
 ---
 This is an automated message. Please do not reply to this email.

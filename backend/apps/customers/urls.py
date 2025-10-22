@@ -41,4 +41,6 @@ urlpatterns = [
     path('<int:customer_id>/notes/', views.CustomerNotesUpdateView.as_view(), name='customer-notes-update'),
     path('auth/verify-email/', views.EmailVerificationView.as_view(), name='email-verification'),
     path('auth/resend-verification/', views.ResendVerificationView.as_view(), name='resend-verification'),
+    path('contact/', views.ContactFormView.as_view(), name='contact-form'),
+
 ]

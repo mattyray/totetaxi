@@ -2,7 +2,7 @@
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from django.utils import timezone  # ← ADD THIS LINE
+from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def send_welcome_email(user):
     """Send welcome email to newly registered customer"""
     try:
-        subject = 'Welcome to ToteTaxi!'
+        subject = 'Welcome to Tote Taxi!'
         context = {
             'user_name': user.get_full_name() or user.email,
             'email': user.email,
@@ -34,7 +34,7 @@ def send_welcome_email(user):
 def send_password_reset_email(user, reset_token, reset_url):
     """Send password reset email"""
     try:
-        subject = 'Reset Your ToteTaxi Password'
+        subject = 'Reset Your Tote Taxi Password'
         context = {
             'user_name': user.get_full_name() or user.email,
             'reset_url': reset_url,
@@ -109,7 +109,7 @@ def send_booking_status_update_email(booking, old_status, new_status):
 def send_email_verification(user, token, verify_url):
     """Send email verification link"""
     try:
-        subject = 'Verify Your ToteTaxi Account'
+        subject = 'Verify Your Tote Taxi Account'
         context = {
             'user_name': user.get_full_name() or user.email,
             'verify_url': verify_url,
@@ -146,7 +146,7 @@ def send_booking_reminder_email(booking):
                 has_tracking = True
                 tracking_url = pickup_task.tracking_url
         
-        subject = f'Reminder: Your ToteTaxi Pickup is Tomorrow! - {booking.booking_number}'
+        subject = f'Reminder: Your Tote Taxi Pickup is Tomorrow! - {booking.booking_number}'
         context = {
             'booking': booking,
             'customer_name': booking.get_customer_name(),
