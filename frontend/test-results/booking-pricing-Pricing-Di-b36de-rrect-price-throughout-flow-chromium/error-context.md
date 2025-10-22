@@ -90,10 +90,10 @@
                   - generic [ref=e185]: ✓
                   - generic [ref=e186]: Select Service
                 - generic [ref=e188]:
-                  - generic [ref=e189]: "2"
+                  - generic [ref=e189]: ✓
                   - generic [ref=e190]: Date & Time
                 - generic [ref=e192]:
-                  - generic [ref=e193]: "3"
+                  - generic [ref=e193]: ✓
                   - generic [ref=e194]: Addresses
                 - generic [ref=e196]:
                   - generic [ref=e197]: "4"
@@ -102,124 +102,41 @@
                   - generic [ref=e201]: "5"
                   - generic [ref=e202]: Review & Pay
               - generic [ref=e205]:
-                - 'heading "Step 2: Date & Time" [level=2] [ref=e206]'
+                - 'heading "Step 4: Your Info" [level=2] [ref=e206]'
                 - generic [ref=e207]:
                   - generic [ref=e208]:
-                    - generic [ref=e209]:
-                      - button "← Previous" [disabled] [ref=e210]
-                      - heading "October 2025" [level=3] [ref=e211]
-                      - button "Next →" [ref=e212] [cursor=pointer]
-                    - heading "Select Date" [level=3] [ref=e213]
+                    - heading "Contact Information" [level=3] [ref=e209]
+                    - paragraph [ref=e210]: We'll use this information to coordinate your pickup and delivery.
+                  - generic [ref=e213]:
                     - generic [ref=e214]:
-                      - generic [ref=e215]: Sun
-                      - generic [ref=e216]: Mon
-                      - generic [ref=e217]: Tue
-                      - generic [ref=e218]: Wed
-                      - generic [ref=e219]: Thu
-                      - generic [ref=e220]: Fri
-                      - generic [ref=e221]: Sat
-                    - generic [ref=e222]:
-                      - button "1 Wed" [disabled] [ref=e226]:
-                        - generic [ref=e227]: "1"
-                        - generic [ref=e228]: Wed
-                      - button "2 Thu" [disabled] [ref=e229]:
-                        - generic [ref=e230]: "2"
-                        - generic [ref=e231]: Thu
-                      - button "3 Fri" [disabled] [ref=e232]:
-                        - generic [ref=e233]: "3"
-                        - generic [ref=e234]: Fri
-                      - button "4 Sat" [disabled] [ref=e235]:
-                        - generic [ref=e236]: "4"
-                        - generic [ref=e237]: Sat
-                      - button "5 Sun" [disabled] [ref=e238]:
-                        - generic [ref=e239]: "5"
-                        - generic [ref=e240]: Sun
-                      - button "6 Mon" [disabled] [ref=e241]:
-                        - generic [ref=e242]: "6"
-                        - generic [ref=e243]: Mon
-                      - button "7 Tue" [disabled] [ref=e244]:
-                        - generic [ref=e245]: "7"
-                        - generic [ref=e246]: Tue
-                      - button "8 Wed" [disabled] [ref=e247]:
-                        - generic [ref=e248]: "8"
-                        - generic [ref=e249]: Wed
-                      - button "9 Thu" [disabled] [ref=e250]:
-                        - generic [ref=e251]: "9"
-                        - generic [ref=e252]: Thu
-                      - button "10 Fri" [disabled] [ref=e253]:
-                        - generic [ref=e254]: "10"
-                        - generic [ref=e255]: Fri
-                      - button "11 Sat" [disabled] [ref=e256]:
-                        - generic [ref=e257]: "11"
-                        - generic [ref=e258]: Sat
-                      - button "12 Sun" [disabled] [ref=e259]:
-                        - generic [ref=e260]: "12"
-                        - generic [ref=e261]: Sun
-                      - button "13 Mon" [disabled] [ref=e262]:
-                        - generic [ref=e263]: "13"
-                        - generic [ref=e264]: Mon
-                      - button "14 Tue" [disabled] [ref=e265]:
-                        - generic [ref=e266]: "14"
-                        - generic [ref=e267]: Tue
-                      - button "15 Wed" [disabled] [ref=e268]:
-                        - generic [ref=e269]: "15"
-                        - generic [ref=e270]: Wed
-                      - button "16 Thu" [disabled] [ref=e271]:
-                        - generic [ref=e272]: "16"
-                        - generic [ref=e273]: Thu
-                      - button "17 Fri" [disabled] [ref=e274]:
-                        - generic [ref=e275]: "17"
-                        - generic [ref=e276]: Fri
-                      - button "18 Sat" [disabled] [ref=e277]:
-                        - generic [ref=e278]: "18"
-                        - generic [ref=e279]: Sat
-                      - button "19 Sun" [disabled] [ref=e280]:
-                        - generic [ref=e281]: "19"
-                        - generic [ref=e282]: Sun
-                      - button "20 Mon" [disabled] [ref=e283]:
-                        - generic [ref=e284]: "20"
-                        - generic [ref=e285]: Mon
-                      - button "21 Tue" [disabled] [ref=e286]:
-                        - generic [ref=e287]: "21"
-                        - generic [ref=e288]: Tue
-                      - button "22 Wed" [ref=e289] [cursor=pointer]:
-                        - generic [ref=e290]: "22"
-                        - generic [ref=e291]: Wed
-                      - button "23 Thu" [ref=e292] [cursor=pointer]:
-                        - generic [ref=e293]: "23"
-                        - generic [ref=e294]: Thu
-                      - button "24 Fri" [ref=e295] [cursor=pointer]:
-                        - generic [ref=e296]: "24"
-                        - generic [ref=e297]: Fri
-                      - button "25 Sat •" [ref=e298] [cursor=pointer]:
-                        - generic [ref=e299]: "25"
-                        - generic [ref=e300]: Sat
-                        - generic [ref=e301]: •
-                      - button "26 Sun •" [ref=e302] [cursor=pointer]:
-                        - generic [ref=e303]: "26"
-                        - generic [ref=e304]: Sun
-                        - generic [ref=e305]: •
-                      - button "27 Mon" [ref=e306] [cursor=pointer]:
-                        - generic [ref=e307]: "27"
-                        - generic [ref=e308]: Mon
-                      - button "28 Tue" [ref=e309] [cursor=pointer]:
-                        - generic [ref=e310]: "28"
-                        - generic [ref=e311]: Tue
-                      - button "29 Wed" [ref=e312] [cursor=pointer]:
-                        - generic [ref=e313]: "29"
-                        - generic [ref=e314]: Wed
-                      - button "30 Thu" [ref=e315] [cursor=pointer]:
-                        - generic [ref=e316]: "30"
-                        - generic [ref=e317]: Thu
-                      - button "31 Fri" [ref=e318] [cursor=pointer]:
-                        - generic [ref=e319]: "31"
-                        - generic [ref=e320]: Fri
-                      - button "1 Sat" [disabled] [ref=e321]:
-                        - generic [ref=e322]: "1"
-                        - generic [ref=e323]: Sat
-                    - generic [ref=e327]: Weekend surcharge applies
-                  - button "Continue to Addresses →" [disabled] [ref=e329]
-              - generic [ref=e333]:
-                - button "← Previous" [ref=e334] [cursor=pointer]
-                - button "Start Over" [ref=e335] [cursor=pointer]
+                      - generic [ref=e215]:
+                        - generic [ref=e216]: First Name*
+                        - textbox "First Name*" [ref=e218]:
+                          - /placeholder: John
+                      - generic [ref=e219]:
+                        - generic [ref=e220]: Last Name*
+                        - textbox "Last Name*" [ref=e222]:
+                          - /placeholder: Smith
+                    - generic [ref=e223]:
+                      - generic [ref=e224]: Email Address*
+                      - textbox "Email Address*" [ref=e226]:
+                        - /placeholder: john.smith@email.com
+                      - paragraph [ref=e227]: We'll send confirmation and tracking updates to this email
+                    - generic [ref=e228]:
+                      - generic [ref=e229]: Phone Number*
+                      - textbox "Phone Number*" [ref=e231]:
+                        - /placeholder: (555) 123-4567
+                      - paragraph [ref=e232]: For pickup and delivery coordination
+                  - generic [ref=e235]:
+                    - generic [ref=e236]: 🔒
+                    - generic [ref=e237]:
+                      - heading "Privacy & Security" [level=4] [ref=e238]
+                      - paragraph [ref=e239]: Your information is encrypted and secure. We'll only use it to provide your ToteTaxi service and send important updates about your booking. We never sell or share your personal data.
+                  - paragraph [ref=e241]:
+                    - text: Already have an account?
+                    - button "Sign in for faster checkout" [ref=e242] [cursor=pointer]
+                  - button "Continue to Review & Payment →" [disabled] [ref=e244]
+              - generic [ref=e248]:
+                - button "← Previous" [ref=e249] [cursor=pointer]
+                - button "Start Over" [ref=e250] [cursor=pointer]
 ```

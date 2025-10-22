@@ -228,23 +228,20 @@
                     - heading "Pricing Summary" [level=3] [ref=e340]
                     - generic [ref=e341]:
                       - generic [ref=e342]:
-                        - generic [ref=e343]: "Standard Delivery (5 items):"
-                        - generic [ref=e344]: $475
-                      - generic [ref=e345]:
-                        - generic [ref=e346]: "1x Bicycle (Specialty):"
-                        - generic [ref=e347]: $250
-                      - generic [ref=e349]:
-                        - generic [ref=e350]: "Total:"
-                        - generic [ref=e351]: $725
-                  - generic [ref=e354]:
-                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e355]
-                    - generic [ref=e356]:
-                      - generic [ref=e357]: Certificate of Insurance (COI) Required(+$50)
-                      - paragraph [ref=e358]: Required by some buildings. We'll handle the paperwork for you.
-                  - button "Continue to Addresses →" [ref=e360] [cursor=pointer]
-              - generic [ref=e363]:
-                - generic [ref=e364]:
-                  - button "← Previous" [ref=e365] [cursor=pointer]
-                  - button "Start Over" [ref=e366] [cursor=pointer]
-                - button "Continue →" [ref=e368] [cursor=pointer]
+                        - generic [ref=e343]: "Standard Delivery (2 items):"
+                        - generic [ref=e344]: $285
+                      - generic [ref=e346]:
+                        - generic [ref=e347]: "Total:"
+                        - generic [ref=e348]: $285
+                  - generic [ref=e351]:
+                    - checkbox "Certificate of Insurance (COI) Required(+$50) Required by some buildings. We'll handle the paperwork for you." [ref=e352]
+                    - generic [ref=e353]:
+                      - generic [ref=e354]: Certificate of Insurance (COI) Required(+$50)
+                      - paragraph [ref=e355]: Required by some buildings. We'll handle the paperwork for you.
+                  - button "Continue to Addresses →" [ref=e357] [cursor=pointer]
+              - generic [ref=e360]:
+                - generic [ref=e361]:
+                  - button "← Previous" [ref=e362] [cursor=pointer]
+                  - button "Start Over" [ref=e363] [cursor=pointer]
+                - button "Continue →" [ref=e365] [cursor=pointer]
 ```
