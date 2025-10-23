@@ -334,9 +334,6 @@ ONFLEET_WEBHOOK_SECRET = env('ONFLEET_WEBHOOK_SECRET', default='')
 # Phone number where BLADE team receives delivery notifications
 BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
 
-# BLADE Airport Transfer Integration
-# Phone number where BLADE team receives delivery notifications
-
 
 # ============================================================================
 # CELERY BEAT SCHEDULE
@@ -354,9 +351,6 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
-# ============================================================================
-# TEST CONFIGURATION
-# ============================================================================
 # ============================================================================
 # TEST CONFIGURATION
 # ============================================================================
@@ -394,8 +388,11 @@ if TESTING:
         }
     }
     
+    # ✅ CRITICAL FIX: Force Onfleet mock mode during ALL tests
+    # This prevents accidental real API calls to Onfleet during test runs
+    ONFLEET_MOCK_MODE = True
+    ONFLEET_ENVIRONMENT = 'sandbox'
+    
     # Disable CSRF for tests
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
-
-    
