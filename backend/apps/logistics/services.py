@@ -301,17 +301,40 @@ class ToteTaxiOnfleetIntegration:
         return self.onfleet.create_task(task_data)
     
     def _get_pickup_datetime(self, booking) -> datetime:
-        """Get pickup datetime"""
-        if booking.pickup_time:
-            return datetime.combine(booking.pickup_date, booking.pickup_time, tzinfo=timezone.get_current_timezone())
-        return datetime.combine(booking.pickup_date, dt_time(9, 0), tzinfo=timezone.get_current_timezone())
+        """
+        Get pickup datetime - converts string time choices to actual time objects.
+
+        Time mappings:
+        - 'morning_specific' + specific_pickup_hour → exact hour (8, 9, or 10 AM)
+        - 'morning' → 9:30 AM (middle of 8-11 AM window)
+        - 'no_time_preference' → 9:30 AM (default)
+        - BLADE transfers → use blade_ready_time
+        """
+        # BLADE transfers: use calculated ready time
+        if booking.service_type == 'blade_transfer' and booking.blade_ready_time:
+            pickup_time_obj = booking.blade_ready_time
+
+        # Specific 1-hour window (Standard/Full packages only)
+        elif booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
+            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)  # 8, 9, or 10 AM
+
+        # General 8-11 AM window (Petite or default) - use middle (9:30 AM)
+        elif booking.pickup_time == 'morning':
+            pickup_time_obj = dt_time(9, 30)  # Middle of 8-11 AM window
+
+        # No time preference or any other case: default to 9:30 AM
+        else:
+            pickup_time_obj = dt_time(9, 30)
+
+        return datetime.combine(booking.pickup_date, pickup_time_obj, tzinfo=timezone.get_current_timezone())
     
     def _get_dropoff_datetime(self, booking) -> datetime:
-        """Get dropoff datetime"""
-        if booking.dropoff_time:
-            return datetime.combine(booking.dropoff_date, booking.dropoff_time, tzinfo=timezone.get_current_timezone())
-        
-        # Default: 2 hours after pickup
+        """
+        Get dropoff datetime - calculated from pickup time.
+
+        Note: Booking model doesn't have dropoff_date/dropoff_time fields,
+        so we calculate dropoff as pickup + 2 hours.
+        """
         pickup_dt = self._get_pickup_datetime(booking)
         return pickup_dt + timedelta(hours=2)
     
