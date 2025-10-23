@@ -371,15 +371,21 @@ class ToteTaxiOnfleetIntegration:
         return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
     
     def _get_customer_phone(self, booking) -> str:
-        """Get customer phone number"""
+        """Get customer phone number from either customer profile or guest checkout"""
         try:
+            # Try authenticated customer first
             if hasattr(booking, 'customer') and booking.customer:
                 if hasattr(booking.customer, 'profile'):
                     return booking.customer.profile.phone or ''
-            return booking.customer_phone or ''
+
+            # Try guest checkout
+            if hasattr(booking, 'guest_checkout') and booking.guest_checkout:
+                return booking.guest_checkout.phone or ''
+
+            return ''
         except Exception as e:
             logger.warning(f"Could not get customer phone: {e}")
-        return ''
+            return ''
     
     def _format_phone(self, phone_str: str) -> str:
         """Format phone number to E.164 format (+12125550100)"""
