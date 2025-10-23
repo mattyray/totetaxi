@@ -1,4 +1,4 @@
-# backend/apps/customers/emails.py
+# apps/customers/emails.py
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -57,7 +57,7 @@ def send_password_reset_email(user, reset_token, reset_url):
 
 
 def send_booking_confirmation_email(booking):
-    """Send booking confirmation email"""
+    """Send booking confirmation email (customer To:, internal recipients BCC)"""
     try:
         subject = f'Booking Confirmation - {booking.booking_number}'
         context = {
@@ -66,15 +66,22 @@ def send_booking_confirmation_email(booking):
             'customer_email': booking.get_customer_email(),
         }
         message = render_to_string('emails/booking_confirmation.txt', context)
-        
+
+        # BCC internal recipients without affecting the visible "To:" header
+        internal_bcc = getattr(settings, 'BOOKING_NOTIFY_EMAILS', ['info@totetaxi.com'])
+
         send_mail(
             subject=subject,
             message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[booking.get_customer_email()],
+            bcc=internal_bcc,
             fail_silently=False,
         )
-        logger.info(f'Booking confirmation sent for {booking.booking_number}')
+        logger.info(
+            f'Booking confirmation sent for {booking.booking_number} '
+            f'(bcc={",".join(internal_bcc) if internal_bcc else "none"})'
+        )
         return True
     except Exception as e:
         logger.error(f'Failed to send booking confirmation for {booking.booking_number}: {str(e)}')
@@ -106,6 +113,7 @@ def send_booking_status_update_email(booking, old_status, new_status):
         logger.error(f'Failed to send status update for {booking.booking_number}: {str(e)}')
         return False
     
+
 def send_email_verification(user, token, verify_url):
     """Send email verification link"""
     try:
@@ -129,6 +137,7 @@ def send_email_verification(user, token, verify_url):
         logger.error(f'Failed to send verification email to {user.email}: {str(e)}')
         return False
     
+
 def send_booking_reminder_email(booking):
     """Send 24-hour reminder email before pickup"""
     try:

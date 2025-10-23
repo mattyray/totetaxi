@@ -1,347 +1,388 @@
-    .
-    ├── .github
-    │   └── workflows
-    ├── backend
-    │   ├── apps
-    │   │   ├── accounts
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── 0001_initial.py
-    │   │   │   │   └── 0002_alter_staffaction_action_type.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── models.py
-    │   │   │   ├── serializers.py
-    │   │   │   ├── tests.py
-    │   │   │   ├── urls.py
-    │   │   │   └── views.py
-    │   │   ├── bookings
-    │   │   │   ├── management
-    │   │   │   │   ├── commands
-    │   │   │   │   │   ├── __init__.py
-    │   │   │   │   │   └── wipe_all_bookings.py
-    │   │   │   │   └── __init__.py
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── 0001_initial.py
-    │   │   │   │   ├── 0002_booking_include_packing_booking_include_unpacking_and_more.py
-    │   │   │   │   ├── 0003_booking_geographic_surcharge_cents_and_more.py
-    │   │   │   │   ├── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
-    │   │   │   │   └── 0005_booking_same_day_surcharge_cents.py
-    │   │   │   ├── tests
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   └── test_pricing.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── models.py
-    │   │   │   ├── serializers.py
-    │   │   │   ├── signals.py
-    │   │   │   ├── urls.py
-    │   │   │   ├── views.py
-    │   │   │   └── zip_codes.py
-    │   │   ├── customers
-    │   │   │   ├── management
-    │   │   │   │   ├── commands
-    │   │   │   │   │   ├── __init__.py
-    │   │   │   │   │   └── clean_delete_user.py
-    │   │   │   │   └── __init__.py
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── 0001_initial.py
-    │   │   │   │   ├── 0002_alter_customerprofile_preferred_pickup_time.py
-    │   │   │   │   ├── 0003_passwordresettoken.py
-    │   │   │   │   └── 0004_emailverificationtoken.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── authentication.py
-    │   │   │   ├── booking_serializers.py
-    │   │   │   ├── booking_views.py
-    │   │   │   ├── emails.py
-    │   │   │   ├── models.py
-    │   │   │   ├── serializers.py
-    │   │   │   ├── tests.py
-    │   │   │   ├── urls.py
-    │   │   │   └── views.py
-    │   │   ├── logistics
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── 0001_initial.py
-    │   │   │   │   └── 0002_alter_onfleettask_options_and_more.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── models.py
-    │   │   │   ├── services.py
-    │   │   │   ├── tests.py
-    │   │   │   ├── urls.py
-    │   │   │   └── views.py
-    │   │   ├── payments
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   └── 0001_initial.py
-    │   │   │   ├── tests
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── test_refunds.py
-    │   │   │   │   └── test_stripe_integration.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── models.py
-    │   │   │   ├── serializers.py
-    │   │   │   ├── services.py
-    │   │   │   ├── tests.py
-    │   │   │   ├── urls.py
-    │   │   │   └── views.py
-    │   │   ├── services
-    │   │   │   ├── management
-    │   │   │   │   ├── commands
-    │   │   │   │   │   └── __init__.py
-    │   │   │   │   └── __init__.py
-    │   │   │   ├── migrations
-    │   │   │   │   ├── __init__.py
-    │   │   │   │   ├── 0001_initial.py
-    │   │   │   │   ├── 0002_organizingservice.py
-    │   │   │   │   ├── 0003_populate_organizing_services.py
-    │   │   │   │   ├── 0004_surchargerule_applies_to_service_type.py
-    │   │   │   │   ├── 0005_remove_van_schedule.py
-    │   │   │   │   └── 0006_remove_specialtyitem_requires_van_schedule.py
-    │   │   │   ├── __init__.py
-    │   │   │   ├── admin.py
-    │   │   │   ├── apps.py
-    │   │   │   ├── models.py
-    │   │   │   ├── serializers.py
-    │   │   │   ├── tests.py
-    │   │   │   └── views.py
-    │   │   └── __init__.py
-    │   ├── config
-    │   │   ├── __init__.py
-    │   │   ├── asgi.py
-    │   │   ├── celery.py
-    │   │   ├── settings.py
-    │   │   ├── urls.py
-    │   │   └── wsgi.py
-    │   ├── logs
-    │   ├── scripts
-    │   │   ├── back_export.py
-    │   │   ├── back_export.txt
-    │   │   └── entrypoint.sh
-    │   ├── static
-    │   ├── templates
-    │   │   └── emails
-    │   │       ├── booking_confirmation.txt
-    │   │       ├── booking_status_update.txt
-    │   │       ├── email_verification.txt
-    │   │       ├── password_reset.txt
-    │   │       └── welcome.txt
-    │   ├── .dockerignore
-    │   ├── .env.example
-    │   ├── .gitignore
-    │   ├── conftest.py
-    │   ├── cookies.txt
-    │   ├── docker-compose.prod.yml
-    │   ├── docker-compose.yml
-    │   ├── Dockerfile
-    │   ├── Dockerfile.prod
-    │   ├── fly.toml
-    │   ├── gunicorn.conf.py
-    │   ├── manage.py
-    │   ├── pyproject.toml
-    │   ├── pytest.ini
-    │   ├── README.md
-    │   ├── recreate_services.py
-    │   ├── requirements.txt
-    │   └── staff_cookies.txt
-    ├── frontend
-    │   ├── playwright-report
-    │   │   └── index.html
-    │   ├── public
-    │   │   ├── assets
-    │   │   │   ├── images
-    │   │   │   │   ├── AirportControlTower.png
-    │   │   │   │   ├── BabyStrollerBlue.jpg
-    │   │   │   │   ├── BeachBallPink.jpg
-    │   │   │   │   ├── BeachUmbrellaChair.jpg
-    │   │   │   │   ├── CharterBusGray.jpg
-    │   │   │   │   ├── HamptonsBeachHouse.jpg
-    │   │   │   │   ├── HeroFallback.png
-    │   │   │   │   ├── LuxuryLuggageCollection.png
-    │   │   │   │   ├── ModernLuggageSet.jpg
-    │   │   │   │   ├── MontaukLighthouseScene.jpg
-    │   │   │   │   ├── NycSkylineView.jpg
-    │   │   │   │   ├── PelotonExerciseBike.jpg
-    │   │   │   │   ├── PinkBicycleBasket.jpg
-    │   │   │   │   ├── PrivateJetPlane.jpg
-    │   │   │   │   ├── ShippingBoxBrown.jpg
-    │   │   │   │   ├── SouthFlorida.jpg
-    │   │   │   │   ├── SportEquipmentGroup.png
-    │   │   │   │   ├── StorageGarageWhite.jpg
-    │   │   │   │   ├── StylishWomanLifestyle.jpg
-    │   │   │   │   ├── StylishWomanToteBag.jpg
-    │   │   │   │   ├── SummerDressesHangers.jpg
-    │   │   │   │   ├── SurfboardStripes.jpg
-    │   │   │   │   └── ToteTaxiVanBlue.jpg
-    │   │   │   └── videos
-    │   │   ├── file.svg
-    │   │   ├── globe.svg
-    │   │   ├── next.svg
-    │   │   ├── vercel.svg
-    │   │   └── window.svg
-    │   ├── scripts
-    │   │   ├── front_export.py
-    │   │   └── frontend_snapshot.txt
-    │   ├── src
-    │   │   ├── app
-    │   │   │   ├── about
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── book
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── contact
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── dashboard
-    │   │   │   │   ├── bookings
-    │   │   │   │   │   ├── [id]
-    │   │   │   │   │   │   └── page.tsx
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── settings
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── faq
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── forgot-password
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── login
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── register
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── reset-password
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── services
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── staff
-    │   │   │   │   ├── bookings
-    │   │   │   │   │   ├── [id]
-    │   │   │   │   │   │   └── page.tsx
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── calendar
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── customers
-    │   │   │   │   │   ├── [id]
-    │   │   │   │   │   │   └── page.tsx
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── dashboard
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── login
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   ├── logistics
-    │   │   │   │   │   └── page.tsx
-    │   │   │   │   └── reports
-    │   │   │   │       └── page.tsx
-    │   │   │   ├── terms
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── verify-email
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── android-chrome-192x192.png
-    │   │   │   ├── android-chrome-512x512.png
-    │   │   │   ├── apple-touch-icon.png
-    │   │   │   ├── favicon-16x16.png
-    │   │   │   ├── favicon-32x32.png
-    │   │   │   ├── favicon.ico
-    │   │   │   ├── globals.css
-    │   │   │   ├── layout.tsx
-    │   │   │   ├── page.tsx
-    │   │   │   └── site.webmanifest
-    │   │   ├── assets
-    │   │   │   └── images
-    │   │   ├── components
-    │   │   │   ├── auth
-    │   │   │   │   ├── index.ts
-    │   │   │   │   ├── login-form.tsx
-    │   │   │   │   ├── register-form.tsx
-    │   │   │   │   └── user-menu.tsx
-    │   │   │   ├── booking
-    │   │   │   │   ├── address-step.tsx
-    │   │   │   │   ├── auth-choice-step.tsx
-    │   │   │   │   ├── booking-wizard.tsx
-    │   │   │   │   ├── customer-info-step.tsx
-    │   │   │   │   ├── date-time-step.tsx
-    │   │   │   │   ├── google-address-input.tsx
-    │   │   │   │   ├── index.ts
-    │   │   │   │   ├── review-payment-step.tsx
-    │   │   │   │   └── service-selection-step.tsx
-    │   │   │   ├── dashboard
-    │   │   │   │   ├── booking-history.tsx
-    │   │   │   │   ├── dashboard-overview.tsx
-    │   │   │   │   ├── delivery-tracking.tsx
-    │   │   │   │   └── index.ts
-    │   │   │   ├── layout
-    │   │   │   │   └── main-layout.tsx
-    │   │   │   ├── marketing
-    │   │   │   │   ├── hero-section.tsx
-    │   │   │   │   ├── how-it-works-section.tsx
-    │   │   │   │   ├── index.ts
-    │   │   │   │   ├── service-areas-section.tsx
-    │   │   │   │   ├── service-showcase.tsx
-    │   │   │   │   ├── testimonials-section.tsx
-    │   │   │   │   └── what-we-transport-section.tsx
-    │   │   │   ├── providers
-    │   │   │   │   └── query-provider.tsx
-    │   │   │   ├── staff
-    │   │   │   │   ├── booking-calendar.tsx
-    │   │   │   │   ├── booking-detail-modal.tsx
-    │   │   │   │   ├── booking-management.tsx
-    │   │   │   │   ├── customer-management.tsx
-    │   │   │   │   ├── index.ts
-    │   │   │   │   ├── refund-modal.tsx
-    │   │   │   │   ├── staff-dashboard-overview.tsx
-    │   │   │   │   ├── staff-layout.tsx
-    │   │   │   │   └── staff-login-form.tsx
-    │   │   │   └── ui
-    │   │   │       ├── button.tsx
-    │   │   │       ├── card.tsx
-    │   │   │       ├── index.ts
-    │   │   │       ├── input.tsx
-    │   │   │       ├── modal.tsx
-    │   │   │       └── select.tsx
-    │   │   ├── hooks
-    │   │   │   └── use-click-away.ts
-    │   │   ├── lib
-    │   │   │   ├── api-client.ts
-    │   │   │   ├── google-places-utils.ts
-    │   │   │   ├── query-client.ts
-    │   │   │   └── stripe.ts
-    │   │   ├── stores
-    │   │   │   ├── auth-store.ts
-    │   │   │   ├── booking-store.ts
-    │   │   │   ├── staff-auth-store.ts
-    │   │   │   └── ui-store.ts
-    │   │   ├── types
-    │   │   │   └── index.ts
-    │   │   └── utils
-    │   │       └── cn.ts
-    │   ├── test-results
-    │   │   └── .last-run.json
-    │   ├── tests
-    │   │   ├── e2e
-    │   │   │   ├── booking-wizard-all-services.spec.ts
-    │   │   │   └── booking-wizard.spec.ts
-    │   │   └── fixtures
-    │   ├── .gitignore
-    │   ├── eslint.config.mjs
-    │   ├── netlify.toml
-    │   ├── next.config.ts
-    │   ├── package.json
-    │   ├── playwright.config.ts
-    │   ├── postcss.config.js
-    │   ├── postcss.config.mjs
-    │   ├── README.md
-    │   ├── tailwind.config.js
-    │   └── tsconfig.json
-    ├── .gitignore
-    ├── package.json
-    ├── project_structure.txt
-    └── README.md
+.
+├── .github
+│   └── workflows
+├── backend
+│   ├── apps
+│   │   ├── accounts
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_alter_staffaction_action_type.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   ├── urls.py
+│   │   │   └── views.py
+│   │   ├── bookings
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── wipe_all_bookings.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   ├── 0002_booking_include_packing_booking_include_unpacking_and_more.py
+│   │   │   │   ├── 0003_booking_geographic_surcharge_cents_and_more.py
+│   │   │   │   ├── 0004_booking_blade_airport_booking_blade_bag_count_and_more.py
+│   │   │   │   ├── 0005_booking_same_day_surcharge_cents.py
+│   │   │   │   ├── 0006_booking_reminder_sent_at.py
+│   │   │   │   ├── 0007_add_specialty_item_quantities.py
+│   │   │   │   └── 0008_address_bookings_ad_custome_ebf57e_idx_and_more.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_booking_api.py
+│   │   │   │   ├── test_booking_flow.py
+│   │   │   │   ├── test_models.py
+│   │   │   │   ├── test_pricing.py
+│   │   │   │   └── test_tasks.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   ├── signals.py
+│   │   │   ├── tasks.py
+│   │   │   ├── urls.py
+│   │   │   ├── views.py
+│   │   │   └── zip_codes.py
+│   │   ├── customers
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── clean_delete_user.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   ├── 0002_alter_customerprofile_preferred_pickup_time.py
+│   │   │   │   ├── 0003_passwordresettoken.py
+│   │   │   │   ├── 0004_emailverificationtoken.py
+│   │   │   │   └── 0005_customerpaymentmethod_payment_method_user_idx_and_more.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_api.py
+│   │   │   │   ├── test_emails.py
+│   │   │   │   ├── test_security.py
+│   │   │   │   └── test_ses_integration.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── authentication.py
+│   │   │   ├── booking_serializers.py
+│   │   │   ├── booking_views.py
+│   │   │   ├── emails.py
+│   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   ├── urls.py
+│   │   │   └── views.py
+│   │   ├── logistics
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_alter_onfleettask_options_and_more.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── conftest.py
+│   │   │   │   ├── test_task_creation.py
+│   │   │   │   ├── test_views.py
+│   │   │   │   └── test_webhooks.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── conftest.py
+│   │   │   ├── models.py
+│   │   │   ├── services.py
+│   │   │   ├── urls.py
+│   │   │   └── views.py
+│   │   ├── payments
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   └── 0002_payment_payments_stripe_intent_idx_and_more.py
+│   │   │   ├── tests
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── test_refunds.py
+│   │   │   │   ├── test_stripe_integration.py
+│   │   │   │   └── test_stripe.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   ├── services.py
+│   │   │   ├── urls.py
+│   │   │   └── views.py
+│   │   ├── services
+│   │   │   ├── management
+│   │   │   │   ├── commands
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── migrations
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── 0001_initial.py
+│   │   │   │   ├── 0002_organizingservice.py
+│   │   │   │   ├── 0003_populate_organizing_services.py
+│   │   │   │   ├── 0004_surchargerule_applies_to_service_type.py
+│   │   │   │   ├── 0005_remove_van_schedule.py
+│   │   │   │   ├── 0006_remove_specialtyitem_requires_van_schedule.py
+│   │   │   │   └── 0007_remove_specialty_item_choices.py
+│   │   │   ├── __init__.py
+│   │   │   ├── admin.py
+│   │   │   ├── apps.py
+│   │   │   ├── models.py
+│   │   │   ├── serializers.py
+│   │   │   └── views.py
+│   │   └── __init__.py
+│   ├── config
+│   │   ├── __init__.py
+│   │   ├── asgi.py
+│   │   ├── celery.py
+│   │   ├── settings.py
+│   │   ├── urls.py
+│   │   └── wsgi.py
+│   ├── customers
+│   │   └── tests
+│   ├── logs
+│   ├── scripts
+│   │   ├── back_export.py
+│   │   ├── back_export.txt
+│   │   ├── entrypoint.sh
+│   │   └── validate_ses_setup.py
+│   ├── static
+│   ├── templates
+│   │   └── emails
+│   │       ├── booking_confirmation.txt
+│   │       ├── booking_reminder.txt
+│   │       ├── booking_status_update.txt
+│   │       ├── email_verification.txt
+│   │       ├── password_reset.txt
+│   │       └── welcome.txt
+│   ├── .dockerignore
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── conftest.py
+│   ├── cookies.txt
+│   ├── docker-compose.prod.yml
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   ├── Dockerfile.prod
+│   ├── fly.toml
+│   ├── gunicorn.conf.py
+│   ├── manage.py
+│   ├── pyproject.toml
+│   ├── pytest.ini
+│   ├── README.md
+│   ├── recreate_services.py
+│   ├── requirements.txt
+│   └── staff_cookies.txt
+├── frontend
+│   ├── playwright-report
+│   │   ├── data
+│   │   │   ├── a69182b42c8d672b98264f5a86bfecad1c573112.md
+│   │   │   └── f2c32acd8bc7a97f45d54c87d49593fd1671d141.png
+│   │   └── index.html
+│   ├── public
+│   │   ├── assets
+│   │   │   └── images
+│   │   │       ├── AirportControlTower.png
+│   │   │       ├── BabyStrollerBlue.jpg
+│   │   │       ├── BeachBallPink.jpg
+│   │   │       ├── BeachUmbrellaChair.jpg
+│   │   │       ├── CharterBusGray.jpg
+│   │   │       ├── HamptonsBeachHouse.jpg
+│   │   │       ├── hero-large.jpg
+│   │   │       ├── hero-large.webp
+│   │   │       ├── hero-medium.jpg
+│   │   │       ├── hero-medium.webp
+│   │   │       ├── hero-small.jpg
+│   │   │       ├── hero-small.webp
+│   │   │       ├── HeroFallback.png
+│   │   │       ├── LuxuryLuggageCollection.png
+│   │   │       ├── ModernLuggageSet.jpg
+│   │   │       ├── NycSkylineView.jpg
+│   │   │       ├── PelotonExerciseBike.jpg
+│   │   │       ├── PinkBicycleBasket.jpg
+│   │   │       ├── PrivateJetPlane.jpg
+│   │   │       ├── ShippingBoxBrown.jpg
+│   │   │       ├── SouthFlorida.jpg
+│   │   │       ├── SportEquipmentGroup.png
+│   │   │       ├── StorageGarageWhite.jpg
+│   │   │       ├── StylishWomanLifestyle.jpg
+│   │   │       ├── StylishWomanToteBag.jpg
+│   │   │       ├── SummerDressesHangers.jpg
+│   │   │       ├── SurfboardStripes.jpg
+│   │   │       ├── totetaxilogo.png
+│   │   │       └── ToteTaxiVanBlue.jpg
+│   │   ├── file.svg
+│   │   ├── globe.svg
+│   │   ├── next.svg
+│   │   ├── vercel.svg
+│   │   └── window.svg
+│   ├── scripts
+│   │   ├── front_export.py
+│   │   └── frontend_snapshot.txt
+│   ├── src
+│   │   ├── app
+│   │   │   ├── about
+│   │   │   │   └── page.tsx
+│   │   │   ├── book
+│   │   │   │   └── page.tsx
+│   │   │   ├── contact
+│   │   │   │   └── page.tsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── bookings
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── settings
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── faq
+│   │   │   │   └── page.tsx
+│   │   │   ├── forgot-password
+│   │   │   │   └── page.tsx
+│   │   │   ├── login
+│   │   │   │   └── page.tsx
+│   │   │   ├── register
+│   │   │   │   └── page.tsx
+│   │   │   ├── reset-password
+│   │   │   │   └── page.tsx
+│   │   │   ├── services
+│   │   │   │   └── page.tsx
+│   │   │   ├── staff
+│   │   │   │   ├── bookings
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── calendar
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── customers
+│   │   │   │   │   ├── [id]
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── dashboard
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── login
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── logistics
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── reports
+│   │   │   │       └── page.tsx
+│   │   │   ├── terms
+│   │   │   │   └── page.tsx
+│   │   │   ├── verify-email
+│   │   │   │   └── page.tsx
+│   │   │   ├── android-chrome-192x192.png
+│   │   │   ├── android-chrome-512x512.png
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-16x16.png
+│   │   │   ├── favicon-32x32.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── globals.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │   └── site.webmanifest
+│   │   ├── assets
+│   │   │   └── images
+│   │   ├── components
+│   │   │   ├── auth
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── login-form.tsx
+│   │   │   │   ├── register-form.tsx
+│   │   │   │   └── user-menu.tsx
+│   │   │   ├── booking
+│   │   │   │   ├── address-step.tsx
+│   │   │   │   ├── auth-choice-step.tsx
+│   │   │   │   ├── booking-wizard.tsx
+│   │   │   │   ├── customer-info-step.tsx
+│   │   │   │   ├── date-time-step.tsx
+│   │   │   │   ├── google-address-input.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── review-payment-step.tsx
+│   │   │   │   └── service-selection-step.tsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── booking-history.tsx
+│   │   │   │   ├── dashboard-overview.tsx
+│   │   │   │   ├── delivery-tracking.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── layout
+│   │   │   │   └── main-layout.tsx
+│   │   │   ├── marketing
+│   │   │   │   ├── hero-section.tsx
+│   │   │   │   ├── how-it-works-section.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── service-areas-section.tsx
+│   │   │   │   ├── service-showcase.tsx
+│   │   │   │   ├── testimonials-section.tsx
+│   │   │   │   └── what-we-transport-section.tsx
+│   │   │   ├── providers
+│   │   │   │   └── query-provider.tsx
+│   │   │   ├── staff
+│   │   │   │   ├── booking-calendar.tsx
+│   │   │   │   ├── booking-detail-modal.tsx
+│   │   │   │   ├── booking-management.tsx
+│   │   │   │   ├── customer-management.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── logistics-management.tsx
+│   │   │   │   ├── refund-modal.tsx
+│   │   │   │   ├── staff-dashboard-overview.tsx
+│   │   │   │   ├── staff-layout.tsx
+│   │   │   │   └── staff-login-form.tsx
+│   │   │   └── ui
+│   │   │       ├── button.tsx
+│   │   │       ├── card.tsx
+│   │   │       ├── index.ts
+│   │   │       ├── input.tsx
+│   │   │       ├── modal.tsx
+│   │   │       └── select.tsx
+│   │   ├── hooks
+│   │   │   └── use-click-away.ts
+│   │   ├── lib
+│   │   │   ├── api-client.ts
+│   │   │   ├── google-places-utils.ts
+│   │   │   ├── query-client.ts
+│   │   │   └── stripe.ts
+│   │   ├── stores
+│   │   │   ├── auth-store.ts
+│   │   │   ├── booking-store.ts
+│   │   │   ├── staff-auth-store.ts
+│   │   │   └── ui-store.ts
+│   │   ├── types
+│   │   │   └── index.ts
+│   │   └── utils
+│   │       └── cn.ts
+│   ├── test-results
+│   │   ├── booking-pricing-Pricing-Di-61018-dates-when-quantity-changes-chromium
+│   │   │   ├── error-context.md
+│   │   │   └── test-failed-1.png
+│   │   └── .last-run.json
+│   ├── tests
+│   │   ├── e2e
+│   │   │   ├── booking-blade-transfer.spec.ts
+│   │   │   ├── booking-mini-moves.spec.ts
+│   │   │   ├── booking-pricing.spec.ts
+│   │   │   ├── booking-specialty-items.spec.ts
+│   │   │   ├── booking-standard-delivery.spec.ts
+│   │   │   ├── booking-validation.spec.ts
+│   │   │   └── helpers.ts
+│   │   └── fixtures
+│   ├── .gitignore
+│   ├── eslint.config.mjs
+│   ├── netlify.toml
+│   ├── next.config.ts
+│   ├── package.json
+│   ├── playwright.config.ts
+│   ├── postcss.config.js
+│   ├── postcss.config.mjs
+│   ├── README.md
+│   ├── tailwind.config.js
+│   └── tsconfig.json
+├── .gitignore
+├── package.json
+├── project_structure.txt
+└── README.md
 
-    85 directories, 260 files
+90 directories, 296 files
