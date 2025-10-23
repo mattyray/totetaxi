@@ -233,11 +233,12 @@ class ToteTaxiOnfleetIntegration:
         task_data = {
             'destination': {
                 'address': {
-                    'number': booking.pickup_address.split(',')[0] if ',' in booking.pickup_address else '',
-                    'street': booking.pickup_address.split(',')[1].strip() if ',' in booking.pickup_address else booking.pickup_address,
-                    'city': booking.pickup_city or 'New York',
-                    'state': booking.pickup_state or 'NY',
-                    'postalCode': booking.pickup_zip or '',
+                    'number': '',  # Street number not separately stored
+                    'street': booking.pickup_address.address_line_1,
+                    'apartment': booking.pickup_address.address_line_2 or '',
+                    'city': booking.pickup_address.city,
+                    'state': booking.pickup_address.state,
+                    'postalCode': booking.pickup_address.zip_code,
                     'country': 'USA'
                 }
             },
@@ -272,11 +273,12 @@ class ToteTaxiOnfleetIntegration:
         task_data = {
             'destination': {
                 'address': {
-                    'number': booking.dropoff_address.split(',')[0] if ',' in booking.dropoff_address else '',
-                    'street': booking.dropoff_address.split(',')[1].strip() if ',' in booking.dropoff_address else booking.dropoff_address,
-                    'city': booking.dropoff_city or 'New York',
-                    'state': booking.dropoff_state or 'NY',
-                    'postalCode': booking.dropoff_zip or '',
+                    'number': '',  # Street number not separately stored
+                    'street': booking.delivery_address.address_line_1,
+                    'apartment': booking.delivery_address.address_line_2 or '',
+                    'city': booking.delivery_address.city,
+                    'state': booking.delivery_address.state,
+                    'postalCode': booking.delivery_address.zip_code,
                     'country': 'USA'
                 }
             },
