@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.http import HttpResponse
 import hmac
 import hashlib
 import logging
@@ -125,8 +126,15 @@ def create_task_manually(request):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class OnfleetWebhookView(APIView):
-    """Handle Onfleet webhook notifications"""
+    """
+    Handle Onfleet webhook notifications
+    
+    Onfleet webhook flow:
+    1. Verification: GET /webhook?check=value → respond with value (plain text)
+    2. Events: POST /webhook with JSON payload → process and return 200 OK
+    """
     permission_classes = []  # Webhooks don't use session auth
+    authentication_classes = []  # No authentication required
     
     def get(self, request):
         """
@@ -136,68 +144,58 @@ class OnfleetWebhookView(APIView):
         """
         check_value = request.query_params.get('check') or request.GET.get('check')
         
-        if check_value:
-            logger.info(f"✓ Onfleet webhook verification received: {check_value}")
-            from django.http import HttpResponse
-            return HttpResponse(check_value, content_type='text/plain', status=200)
+        if not check_value:
+            logger.warning("Webhook verification failed: no check parameter")
+            return Response({'error': 'Missing check parameter'}, status=400)
         
-        return Response({'error': 'No check parameter provided'}, status=400)
+        logger.info(f"✅ Onfleet webhook verification successful: {check_value}")
+        return HttpResponse(check_value, content_type='text/plain', status=200)
     
     def post(self, request):
-        """Handle actual webhook events from Onfleet"""
+        """
+        Handle actual webhook events from Onfleet
+        
+        ✅ CRITICAL: Always return 200 OK for webhook processing
+        Even if processing fails, return 200 to prevent Onfleet retries
+        """
         try:
             webhook_data = request.data
+            trigger_id = webhook_data.get('triggerId')
+            task_id = webhook_data.get('taskId')
             
-            logger.info(f"Onfleet webhook received: {webhook_data.get('triggerId')}")
+            logger.info(f"📨 Onfleet webhook received - Trigger: {trigger_id}, Task: {task_id}")
             
+            # Process the webhook
             integration = ToteTaxiOnfleetIntegration()
             success = integration.handle_webhook(webhook_data)
             
+            # ✅ FIX: Always return 200 OK, regardless of processing result
+            # This prevents Onfleet from retrying failed webhooks
+            response_data = {
+                'success': success,
+                'trigger_id': trigger_id,
+                'task_id': task_id,
+                'timestamp': timezone.now(),
+                'message': 'Webhook processed successfully' if success else 'Webhook processing failed but acknowledged'
+            }
+            
             if success:
-                return Response({
-                    'success': True,
-                    'message': 'Webhook processed successfully',
-                    'timestamp': timezone.now()
-                })
+                logger.info(f"✅ Webhook processed successfully - Trigger: {trigger_id}")
             else:
-                return Response({
-                    'success': False,
-                    'message': 'Webhook processing failed'
-                }, status=400)
+                logger.warning(f"⚠️  Webhook processing failed but acknowledged - Trigger: {trigger_id}")
+            
+            return Response(response_data, status=200)  # ✅ Always 200
                 
         except Exception as e:
-            logger.error(f"Webhook error: {e}", exc_info=True)
+            logger.error(f"❌ Webhook error: {e}", exc_info=True)
+            
+            # ✅ Even on exception, return 200 to prevent retries
             return Response({
+                'success': False,
                 'error': 'Webhook processing failed',
-                'details': str(e)
-            }, status=500)
-    
-    def _is_verification_request(self, request):
-        """Check if this is Onfleet's webhook verification request"""
-        # Onfleet sends a verification check with a specific format
-        # It includes a 'check' parameter in the request
-        check_value = request.data.get('check')
-        return check_value is not None
-    
-    def _handle_verification(self, request):
-        """
-        Handle Onfleet's webhook verification challenge.
-        
-        During webhook creation, Onfleet sends:
-        POST /webhook-url
-        { "check": "some-random-value" }
-        
-        We must respond with:
-        200 OK
-        some-random-value (plain text, same value they sent)
-        """
-        check_value = request.data.get('check')
-        
-        logger.info(f"Onfleet webhook verification received: {check_value}")
-        
-        # Return the check value as plain text
-        from django.http import HttpResponse
-        return HttpResponse(check_value, content_type='text/plain', status=200)
+                'details': str(e),
+                'timestamp': timezone.now()
+            }, status=200)  # ✅ Still 200, not 500
 
 
 class TaskStatusView(APIView):

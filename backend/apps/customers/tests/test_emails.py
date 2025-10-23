@@ -93,7 +93,7 @@ class TestEmailFunctions:
         assert len(mail.outbox) == 1
         
         email = mail.outbox[0]
-        assert email.subject == 'Welcome to ToteTaxi!'
+        assert email.subject == 'Welcome to Tote Taxi!'
         assert email.to == ['test@example.com']
         assert 'Test User' in email.body or 'test@example.com' in email.body
         assert 'ToteTaxi' in email.body
@@ -123,7 +123,7 @@ class TestEmailFunctions:
         assert len(mail.outbox) == 1
         
         email = mail.outbox[0]
-        assert email.subject == 'Verify Your ToteTaxi Account'
+        assert email.subject == 'Verify Your Tote Taxi Account'
         assert email.to == ['test@example.com']
         assert verify_url in email.body
         assert token.token in email.body
@@ -140,7 +140,7 @@ class TestEmailFunctions:
         assert len(mail.outbox) == 1
         
         email = mail.outbox[0]
-        assert email.subject == 'Reset Your ToteTaxi Password'
+        assert email.subject == 'Reset Your Tote Taxi Password'
         assert email.to == ['test@example.com']
         assert reset_url in email.body
         assert '24 hours' in email.body

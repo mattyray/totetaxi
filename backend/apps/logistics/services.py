@@ -361,11 +361,12 @@ class ToteTaxiOnfleetIntegration:
         
         return '\n'.join(notes)
     
+
     def _get_blade_contact(self, airport_code: str) -> Tuple[str, str]:
-        """Get BLADE contact info by airport"""
+        """Get BLADE contact info by airport - Updated with correct contacts"""
         blade_contacts = {
-            'JFK': ('BLADE JFK Terminal', '+12125551234'),
-            'EWR': ('BLADE Newark Terminal', '+19735551234'),
+            'JFK': ('Bowie Tam', '+17185410177'),  # ✅ Fixed: Specific JFK contact
+            'EWR': ('Nathan', '+19083992284'),     # ✅ Fixed: Specific EWR contact  
             'LGA': ('BLADE LaGuardia Terminal', '+17185551234'),
         }
         return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
