@@ -1,32 +1,32 @@
-# apps/logistics/services.py
+import logging
+from datetime import datetime, timedelta, time as dt_time
+from typing import Dict, Optional, Tuple
+
 import requests
 from django.conf import settings
 from django.utils import timezone
-from datetime import datetime, timedelta, time as dt_time
-from typing import Dict, Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class OnfleetService:
     """Low-level Onfleet API wrapper"""
-    
+
     def __init__(self):
         self.api_key = getattr(settings, 'ONFLEET_API_KEY', '')
         self.base_url = 'https://onfleet.com/api/v2'
         self.mock_mode = getattr(settings, 'ONFLEET_MOCK_MODE', True)
         self.environment = getattr(settings, 'ONFLEET_ENVIRONMENT', 'sandbox')
-    
+
     def _make_request(self, method: str, endpoint: str, data: dict = None) -> dict:
         """Make authenticated request to Onfleet API"""
         if self.mock_mode:
             return self._mock_response(method, endpoint, data)
-        
+
         url = f"{self.base_url}/{endpoint}"
         auth = (self.api_key, '')
         headers = {'Content-Type': 'application/json'}
-        
+
         try:
             if method == 'GET':
                 response = requests.get(url, auth=auth, headers=headers)
@@ -36,52 +36,44 @@ class OnfleetService:
                 response = requests.put(url, auth=auth, headers=headers, json=data)
             elif method == 'DELETE':
                 response = requests.delete(url, auth=auth, headers=headers)
-            
+
             response.raise_for_status()
             return response.json()
-        
+
         except requests.RequestException as e:
-            # ✅ IMPROVED: Better error logging
             error_detail = ''
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_detail = e.response.json()
-                except:
+                except Exception:
                     error_detail = e.response.text
-            
+
             logger.error(f"Onfleet API error ({method} {endpoint}): {e}")
             logger.error(f"Error details: {error_detail}")
             logger.error(f"Request data: {data}")
             raise
-    
+
     def _mock_response(self, method: str, endpoint: str, data: dict = None) -> dict:
         """Mock responses for development"""
         if endpoint == 'tasks' and method == 'POST':
-            # Extract metadata for better mock IDs
             task_metadata = data.get('metadata', [])
-            booking_number = next(
-                (m['value'] for m in task_metadata if m.get('name') == 'booking_number'),
-                'unknown'
-            )
-            task_type = next(
-                (m['value'] for m in task_metadata if m.get('name') == 'task_type'),
-                'unknown'
-            )
-            
+            booking_number = next((m['value'] for m in task_metadata if m.get('name') == 'booking_number'), 'unknown')
+            task_type = next((m['value'] for m in task_metadata if m.get('name') == 'task_type'), 'unknown')
+
             mock_id = f'mock_{task_type}_{hash(booking_number) % 10000:04d}'
-            
+
             return {
                 'id': mock_id,
                 'shortId': f'mt{hash(booking_number) % 1000:03d}',
                 'trackingURL': f'https://onf.lt/mock{hash(f"{booking_number}{task_type}") % 10000:04d}',
                 'state': 0,  # 0 = unassigned
-                'worker': None,  # No worker in mock mode
+                'worker': None,
                 'merchant': 'mock_org_id',
                 'creator': 'mock_admin_id',
                 'pickupTask': data.get('pickupTask', False),
                 'dependencies': data.get('dependencies', [])
             }
-        
+
         elif endpoint == 'organization':
             return {
                 'id': 'mock_org_id',
@@ -92,63 +84,49 @@ class OnfleetService:
                     {'id': 'mock_worker_2', 'name': 'Test Driver 2', 'onDuty': False}
                 ]
             }
-        
+
         elif endpoint.startswith('workers/'):
-            # Mock worker lookup
             return {
                 'id': endpoint.split('/')[-1],
                 'name': 'Test Driver',
                 'onDuty': True
             }
-        
+
         return {'success': True, 'mock': True}
-    
+
     def create_task(self, task_data: dict) -> dict:
-        """Create task in Onfleet"""
         return self._make_request('POST', 'tasks', task_data)
-    
+
     def get_organization_info(self) -> dict:
-        """Get organization info"""
         return self._make_request('GET', 'organization')
-    
+
     def get_worker(self, worker_id: str) -> dict:
-        """Get worker details"""
         return self._make_request('GET', f'workers/{worker_id}')
 
 
 class ToteTaxiOnfleetIntegration:
     """High-level integration manager for ToteTaxi + Onfleet"""
-    
+
     def __init__(self):
         self.onfleet = OnfleetService()
-    
+
     def create_tasks_for_booking(self, booking) -> Tuple[Optional['OnfleetTask'], Optional['OnfleetTask']]:
-        """
-        Create 2 linked Onfleet tasks (pickup + dropoff) for a booking
-        Returns: (pickup_task, dropoff_task) or (None, None) on failure
-        """
         from .models import OnfleetTask
-        
+
         try:
-            # Check if tasks already exist
-            existing_tasks = OnfleetTask.objects.filter(booking=booking)
-            if existing_tasks.exists():
+            existing = OnfleetTask.objects.filter(booking=booking)
+            if existing.exists():
                 logger.warning(f"Booking {booking.booking_number} already has Onfleet tasks")
-                pickup = existing_tasks.filter(task_type='pickup').first()
-                dropoff = existing_tasks.filter(task_type='dropoff').first()
-                return pickup, dropoff
-            
+                return existing.filter(task_type='pickup').first(), existing.filter(task_type='dropoff').first()
+
             logger.info(f"Creating Onfleet tasks for booking {booking.booking_number}")
-            
-            # 1. Create pickup task
+
             pickup_response = self._create_pickup_task(booking)
             logger.info(f"✓ Pickup task created: {pickup_response['id']}")
-            
-            # 2. Create dropoff task (depends on pickup)
+
             dropoff_response = self._create_dropoff_task(booking, depends_on=pickup_response['id'])
             logger.info(f"✓ Dropoff task created: {dropoff_response['id']}")
-            
-            # 3. Save to database with correct status
+
             db_pickup = OnfleetTask.objects.create(
                 booking=booking,
                 task_type='pickup',
@@ -158,13 +136,11 @@ class ToteTaxiOnfleetIntegration:
                 tracking_url=pickup_response.get('trackingURL', ''),
                 recipient_name=booking.get_customer_name(),
                 recipient_phone=self._get_customer_phone(booking),
-                # ✅ FIX: Map Onfleet state to our status
                 status=self._map_onfleet_state(pickup_response.get('state', 0)),
-                # ✅ FIX: Save worker info if auto-assigned
                 worker_id=pickup_response.get('worker', '') or '',
                 worker_name=self._get_worker_name(pickup_response.get('worker'))
             )
-            
+
             db_dropoff = OnfleetTask.objects.create(
                 booking=booking,
                 task_type='dropoff',
@@ -175,67 +151,49 @@ class ToteTaxiOnfleetIntegration:
                 recipient_name=self._get_dropoff_recipient_name(booking),
                 recipient_phone=self._get_dropoff_recipient_phone(booking),
                 linked_task=db_pickup,
-                # ✅ FIX: Map Onfleet state to our status
                 status=self._map_onfleet_state(dropoff_response.get('state', 0)),
-                # ✅ FIX: Save worker info if auto-assigned
                 worker_id=dropoff_response.get('worker', '') or '',
                 worker_name=self._get_worker_name(dropoff_response.get('worker'))
             )
-            
+
             logger.info(f"✓ Onfleet tasks saved to database: {db_pickup.id}, {db_dropoff.id}")
-            
             return db_pickup, db_dropoff
-            
+
         except Exception as e:
             logger.error(f"Failed to create Onfleet tasks: {e}", exc_info=True)
             return None, None
-    
+
     def _map_onfleet_state(self, state: int) -> str:
-        """
-        Map Onfleet state codes to our status values
-        Onfleet states: 0=unassigned, 1=assigned, 2=active, 3=completed
-        """
-        mapping = {
-            0: 'created',      # Unassigned
-            1: 'assigned',     # Assigned to worker
-            2: 'active',       # In progress
-            3: 'completed'     # Completed
-        }
-        return mapping.get(state, 'created')
-    
+        return {
+            0: 'created',
+            1: 'assigned',
+            2: 'active',
+            3: 'completed',
+        }.get(state, 'created')
+
     def _get_worker_name(self, worker_id_or_obj) -> str:
-        """Get worker name from ID or object"""
         if not worker_id_or_obj:
             return ''
-        
-        # If it's already a dict/object with name
         if isinstance(worker_id_or_obj, dict):
             return worker_id_or_obj.get('name', '')
-        
-        # If it's just an ID string, fetch from API
         try:
             worker = self.onfleet.get_worker(worker_id_or_obj)
             return worker.get('name', '')
         except Exception as e:
             logger.warning(f"Could not fetch worker name for {worker_id_or_obj}: {e}")
             return ''
-    
+
     def _create_pickup_task(self, booking) -> dict:
-        """Create pickup task"""
-        # Get timing
         pickup_datetime = self._get_pickup_datetime(booking)
-        complete_after = int(pickup_datetime.timestamp() * 1000)
-        
-        # Calculate pickup window (30 min before to 30 min after)
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
-        
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',  # Street number not separately stored
+                    'number': '',
                     'street': booking.pickup_address.address_line_1,
-                    'apartment': booking.pickup_address.address_line_2 or '',
+                    'apartment': getattr(booking.pickup_address, 'address_line_2', '') or '',
                     'city': booking.pickup_address.city,
                     'state': booking.pickup_address.state,
                     'postalCode': booking.pickup_address.zip_code,
@@ -258,24 +216,19 @@ class ToteTaxiOnfleetIntegration:
                 {'name': 'service_type', 'type': 'string', 'value': booking.service_type}
             ]
         }
-        
         return self.onfleet.create_task(task_data)
-    
+
     def _create_dropoff_task(self, booking, depends_on: str) -> dict:
-        """Create dropoff task"""
-        # Get timing
         dropoff_datetime = self._get_dropoff_datetime(booking)
-        
-        # Calculate dropoff window (30 min before to 1 hour after)
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
-        
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',  # Street number not separately stored
+                    'number': '',
                     'street': booking.delivery_address.address_line_1,
-                    'apartment': booking.delivery_address.address_line_2 or '',
+                    'apartment': getattr(booking.delivery_address, 'address_line_2', '') or '',
                     'city': booking.delivery_address.city,
                     'state': booking.delivery_address.state,
                     'postalCode': booking.delivery_address.zip_code,
@@ -290,7 +243,7 @@ class ToteTaxiOnfleetIntegration:
             'completeAfter': int(window_start.timestamp() * 1000),
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': False,
-            'dependencies': [depends_on],  # Must complete pickup first
+            'dependencies': [depends_on],
             'autoAssign': {'mode': 'distance'},
             'notes': self._format_task_notes(booking, 'dropoff'),
             'metadata': [
@@ -299,165 +252,106 @@ class ToteTaxiOnfleetIntegration:
                 {'name': 'service_type', 'type': 'string', 'value': booking.service_type}
             ]
         }
-        
         return self.onfleet.create_task(task_data)
-    
+
     def _get_pickup_datetime(self, booking) -> datetime:
-        """
-        Get pickup datetime - converts string time choices to actual time objects.
-
-        Time mappings:
-        - 'morning_specific' + specific_pickup_hour → exact hour (8, 9, or 10 AM)
-        - 'morning' → 9:30 AM (middle of 8-11 AM window)
-        - 'no_time_preference' → 9:30 AM (default)
-        - BLADE transfers → use blade_ready_time
-        """
-        # BLADE transfers: use calculated ready time
-        if booking.service_type == 'blade_transfer' and booking.blade_ready_time:
+        # Blade transfers use ready time
+        if booking.service_type == 'blade_transfer' and getattr(booking, 'blade_ready_time', None):
             pickup_time_obj = booking.blade_ready_time
-
-        # Specific 1-hour window (Standard/Full packages only)
-        elif booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
-            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)  # 8, 9, or 10 AM
-
-        # General 8-11 AM window (Petite or default) - use middle (9:30 AM)
+        elif booking.pickup_time == 'morning_specific' and getattr(booking, 'specific_pickup_hour', None):
+            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)
         elif booking.pickup_time == 'morning':
-            pickup_time_obj = dt_time(9, 30)  # Middle of 8-11 AM window
-
-        # No time preference or any other case: default to 9:30 AM
+            pickup_time_obj = dt_time(9, 30)
         else:
             pickup_time_obj = dt_time(9, 30)
 
         return datetime.combine(booking.pickup_date, pickup_time_obj, tzinfo=timezone.get_current_timezone())
-    
-    def _get_dropoff_datetime(self, booking) -> datetime:
-        """
-        Get dropoff datetime - calculated from pickup time.
 
-        Note: Booking model doesn't have dropoff_date/dropoff_time fields,
-        so we calculate dropoff as pickup + 2 hours.
-        """
-        pickup_dt = self._get_pickup_datetime(booking)
-        return pickup_dt + timedelta(hours=2)
-    
+    def _get_dropoff_datetime(self, booking) -> datetime:
+        return self._get_pickup_datetime(booking) + timedelta(hours=2)
+
     def _format_task_notes(self, booking, task_type: str) -> str:
-        """Format task notes for driver"""
         notes = [
             f"ToteTaxi Booking: {booking.booking_number}",
             f"Service: {booking.get_service_type_display()}",
             f"Task: {task_type.upper()}"
         ]
-        
+
         if booking.service_type == 'luggage_transfer':
-            notes.append(f"Items: {booking.luggage_count} pieces")
+            notes.append(f"Items: {getattr(booking, 'luggage_count', 'N/A')} pieces")
         elif booking.service_type == 'specialty_item':
-            notes.append(f"Item: {booking.specialty_item_description or 'See details'}")
+            desc = getattr(booking, 'specialty_item_description', None) or getattr(booking, 'special_instructions', '') or 'See details'
+            notes.append(f"Item: {desc}")
         elif booking.service_type == 'blade_transfer':
             notes.append(f"Airport: {booking.get_blade_airport_display()}")
-            notes.append(f"Bags: {booking.blade_bag_count}")
-        
-        if booking.special_instructions:
+            notes.append(f"Bags: {getattr(booking, 'blade_bag_count', 'N/A')}")
+
+        if getattr(booking, 'special_instructions', None):
             notes.append(f"Special: {booking.special_instructions}")
-        
+
         return '\n'.join(notes)
-    
 
     def _get_blade_contact(self, airport_code: str) -> Tuple[str, str]:
-        """Get BLADE contact info by airport - Updated with correct contacts"""
         blade_contacts = {
-            'JFK': ('Bowie Tam', '+17185410177'),  # ✅ Fixed: Specific JFK contact
-            'EWR': ('Nathan', '+19083992284'),     # ✅ Fixed: Specific EWR contact  
+            'JFK': ('Bowie Tam', '+17185410177'),
+            'EWR': ('Nathan', '+19083992284'),
             'LGA': ('BLADE LaGuardia Terminal', '+17185551234'),
         }
         return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
-    
+
     def _get_customer_phone(self, booking) -> str:
-        """Get customer phone number from either customer profile or guest checkout"""
         try:
-            # Try authenticated customer first
-            if hasattr(booking, 'customer') and booking.customer:
-                if hasattr(booking.customer, 'profile'):
-                    return booking.customer.profile.phone or ''
-
-            # Try guest checkout
-            if hasattr(booking, 'guest_checkout') and booking.guest_checkout:
+            if getattr(booking, 'customer', None) and getattr(booking.customer, 'profile', None):
+                return booking.customer.profile.phone or ''
+            if getattr(booking, 'guest_checkout', None):
                 return booking.guest_checkout.phone or ''
-
             return ''
         except Exception as e:
             logger.warning(f"Could not get customer phone: {e}")
             return ''
-    
+
     def _format_phone(self, phone_str: str) -> str:
-        """Format phone number to E.164 format (+12125550100)"""
         if not phone_str:
-            return '+1234567890'  # Fallback for testing
-        
-        # Remove all non-digits
+            return '+1234567890'
         digits = ''.join(c for c in phone_str if c.isdigit())
-        
-        # Add +1 for US numbers
         if len(digits) == 10:
             return f'+1{digits}'
-        elif len(digits) == 11 and digits[0] == '1':
+        if len(digits) == 11 and digits[0] == '1':
             return f'+{digits}'
-        else:
-            return f'+{digits}' if not phone_str.startswith('+') else phone_str
-    
+        return f'+{digits}' if not phone_str.startswith('+') else phone_str
+
     def _get_dropoff_recipient_phone(self, booking) -> str:
-        """Get recipient phone for dropoff task"""
         if booking.service_type == 'blade_transfer':
             _, blade_phone = self._get_blade_contact(booking.blade_airport)
             return blade_phone
         return self._get_customer_phone(booking)
-    
+
     def _get_dropoff_recipient_name(self, booking) -> str:
-        """Get recipient name for dropoff task"""
         if booking.service_type == 'blade_transfer':
             blade_name, _ = self._get_blade_contact(booking.blade_airport)
             return f"BLADE Team - {blade_name}"
         return booking.get_customer_name()
-    
+
     def handle_webhook(self, webhook_data: dict) -> bool:
-        """
-        Process Onfleet webhook updates
-        
-        ✅ FIXED: OnFleet sends taskId at root level, not in data.id
-        Reference: https://docs.onfleet.com/reference/webhook-payload-examples
-        """
         from .models import OnfleetTask
-        
+
         try:
-            # ✅ FIX: OnFleet always sends taskId at root level for task-related webhooks
-            task_id = webhook_data.get('taskId')
-            
-            # Fallback: check nested location (defensive programming)
-            if not task_id:
-                task_data = webhook_data.get('data', {})
-                task_obj = task_data.get('task', {})
-                task_id = task_obj.get('id')
-            
+            task_id = webhook_data.get('taskId') or webhook_data.get('data', {}).get('task', {}).get('id')
             if not task_id:
                 logger.warning("Webhook received without task ID")
                 logger.debug(f"Webhook payload: {webhook_data}")
                 return False
-            
-            # Find task in database
+
             try:
                 onfleet_task = OnfleetTask.objects.get(onfleet_task_id=task_id)
             except OnfleetTask.DoesNotExist:
                 logger.warning(f"Task not found in database: {task_id}")
                 return False
-            
-            # Get event type
+
             trigger_id = webhook_data.get('triggerId')
-            
-            # ✅ FIX: Access task data from the correct nested location
-            task_data = webhook_data.get('data', {})
-            task_obj = task_data.get('task', {})
-            
-            # Handle different events
-            if trigger_id == 0:  # Task Started
+            task_obj = webhook_data.get('data', {}).get('task', {})
+
+            if trigger_id == 0:  # started
                 onfleet_task.status = 'active'
                 onfleet_task.started_at = timezone.now()
                 worker = task_obj.get('worker')
@@ -470,52 +364,46 @@ class ToteTaxiOnfleetIntegration:
                         onfleet_task.worker_name = self._get_worker_name(worker)
                 onfleet_task.save()
                 logger.info(f"Task started: {task_id} ({onfleet_task.task_type})")
-            
-            elif trigger_id == 3:  # Task Completed (triggerId 3, not 1!)
+
+            elif trigger_id == 3:  # completed
                 onfleet_task.status = 'completed'
                 onfleet_task.completed_at = timezone.now()
-                
-                # Save proof of delivery
                 completion = task_obj.get('completionDetails', {})
                 onfleet_task.signature_url = completion.get('signatureUploadId', '')
                 onfleet_task.photo_urls = [p.get('uploadId', '') for p in completion.get('photoUploadIds', [])]
                 onfleet_task.delivery_notes = completion.get('notes', '')
                 onfleet_task.save()
-                
-                # If this is the DROPOFF task, mark booking as completed
+
                 if onfleet_task.task_type == 'dropoff':
                     booking = onfleet_task.booking
                     booking.status = 'completed'
                     booking.save()
                     logger.info(f"✓ Booking {booking.booking_number} completed")
-                
+
                 logger.info(f"Task completed: {task_id} ({onfleet_task.task_type})")
-            
-            elif trigger_id == 4:  # Task Failed
+
+            elif trigger_id == 4:  # failed
                 onfleet_task.status = 'failed'
                 completion = task_obj.get('completionDetails', {})
                 onfleet_task.failure_reason = completion.get('failureReason', '')
                 onfleet_task.failure_notes = completion.get('failureNotes', '')
                 onfleet_task.save()
                 logger.error(f"Task failed: {task_id} - {onfleet_task.failure_reason}")
-            
-            elif trigger_id == 8:  # Task Deleted
+
+            elif trigger_id == 8:  # deleted
                 onfleet_task.status = 'deleted'
                 onfleet_task.save()
                 logger.warning(f"Task deleted: {task_id}")
-            
-            elif trigger_id == 1:  # Task ETA Changed
-                # ✅ FIX: ETA data may be at different levels depending on trigger
-                eta_timestamp = task_obj.get('estimatedCompletionTime')
-                if eta_timestamp:
-                    onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_timestamp / 1000, tz=timezone.get_current_timezone())
+
+            elif trigger_id == 1:  # ETA changed
+                eta_ts = task_obj.get('estimatedCompletionTime')
+                if eta_ts:
+                    onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_ts / 1000, tz=timezone.get_current_timezone())
                     onfleet_task.save()
                     logger.info(f"Task ETA updated: {task_id}")
-            
-            elif trigger_id == 9:  # Task Assigned
+
+            elif trigger_id == 9:  # assigned
                 onfleet_task.status = 'assigned'
-                
-                # Worker can be in multiple places depending on webhook
                 worker = task_obj.get('worker') or webhook_data.get('data', {}).get('worker')
                 if worker:
                     if isinstance(worker, dict):
@@ -526,45 +414,35 @@ class ToteTaxiOnfleetIntegration:
                         onfleet_task.worker_name = self._get_worker_name(worker)
                 onfleet_task.save()
                 logger.info(f"Task assigned: {task_id} to {onfleet_task.worker_name}")
-            
-            elif trigger_id == 10:  # Task Unassigned
+
+            elif trigger_id == 10:  # unassigned
                 onfleet_task.status = 'created'
                 onfleet_task.worker_id = ''
                 onfleet_task.worker_name = ''
                 onfleet_task.save()
                 logger.info(f"Task unassigned: {task_id}")
-            
+
             else:
                 logger.info(f"Unhandled webhook trigger: {trigger_id} for task {task_id}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Webhook processing error: {e}", exc_info=True)
             logger.error(f"Webhook data: {webhook_data}")
             return False
-    
+
     def get_dashboard_summary(self) -> dict:
-        """Get logistics summary for staff dashboard"""
         from .models import OnfleetTask
         from apps.bookings.models import Booking
         from datetime import date
-        
+
         try:
             today = date.today()
-            
-            todays_bookings = Booking.objects.filter(
-                pickup_date=today,
-                deleted_at__isnull=True
-            )
-            
-            onfleet_tasks = OnfleetTask.objects.filter(
-                created_at__date=today,
-                environment=self.onfleet.environment
-            )
-            
+            todays_bookings = Booking.objects.filter(pickup_date=today, deleted_at__isnull=True)
+            onfleet_tasks = OnfleetTask.objects.filter(created_at__date=today, environment=self.onfleet.environment)
             onfleet_org = self.onfleet.get_organization_info()
-            
+
             return {
                 'totetaxi_stats': {
                     'total_bookings': todays_bookings.count(),
@@ -586,7 +464,7 @@ class ToteTaxiOnfleetIntegration:
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting dashboard summary: {e}")
             return {
@@ -594,12 +472,8 @@ class ToteTaxiOnfleetIntegration:
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
             }
-    
-    # LEGACY METHOD: Keep for backward compatibility
+
+    # Legacy compatibility
     def create_delivery_task(self, booking):
-        """
-        Legacy method - now creates 2 tasks instead of 1
-        Returns the pickup task for backward compatibility
-        """
         pickup, dropoff = self.create_tasks_for_booking(booking)
         return pickup

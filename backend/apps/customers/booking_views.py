@@ -161,9 +161,7 @@ class CustomerBookingCreateView(APIView):
             booking.status = 'paid'
             booking.save()
 
-            # Send booking confirmation email
-            logger.info(f"Sending booking confirmation email to {booking.get_customer_email()}")
-            send_booking_confirmation_email(booking)
+            # REMOVED THESE 2 LINES:
             
         except Exception as e:
             logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)

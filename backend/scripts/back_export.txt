@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-23 11:09:30
+# Created: 2025-10-23 14:15:24
 # Total files: 141
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -1052,37 +1052,27 @@ def debug_task(self):
 # ==== config/settings.py ====
 
 ```python
-# config/settings.py
 import os
 import sys
 import environ
 from pathlib import Path
+from celery.schedules import crontab
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Environment variables
 env = environ.Env(
     DEBUG=(bool, False),
 )
 
-# FIXED: Only read .env file locally, not on Fly.io
-# Fly.io provides environment variables directly, .env would override them
+# Only load .env locally; Fly.io uses real env vars
 if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
     environ.Env.read_env(BASE_DIR / '.env')
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=False)
-
-# Fly.io support
 FLY_APP_NAME = env('FLY_APP_NAME', default='')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
-
-# Add Fly.io hostnames
 if FLY_APP_NAME:
     ALLOWED_HOSTS.extend([
         f'{FLY_APP_NAME}.fly.dev',
@@ -1090,7 +1080,6 @@ if FLY_APP_NAME:
         '.fly.dev',
     ])
 
-# Application definition
 DJANGO_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -1108,11 +1097,10 @@ THIRD_PARTY_APPS = [
     'django_ratelimit',
 ]
 
-# LOCAL_APPS - All ToteTaxi apps
 LOCAL_APPS = [
     'apps.accounts',
     'apps.bookings',
-    'apps.services', 
+    'apps.services',
     'apps.payments',
     'apps.logistics',
     'apps.customers',
@@ -1134,25 +1122,22 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
+TEMPLATES = [{
+    'BACKEND': 'django.template.backends.django.DjangoTemplates',
+    'DIRS': [BASE_DIR / 'templates'],
+    'APP_DIRS': True,
+    'OPTIONS': {
+        'context_processors': [
+            'django.template.context_processors.debug',
+            'django.template.context_processors.request',
+            'django.contrib.auth.context_processors.auth',
+            'django.contrib.messages.context_processors.messages',
+        ],
     },
-]
+}]
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -1163,8 +1148,6 @@ DATABASES = {
         'PORT': env('DB_PORT', default='5432'),
     }
 }
-
-# Alternative: use DATABASE_URL if provided (Fly.io provides this)
 database_url = env('DATABASE_URL', default=None)
 if database_url:
     import dj_database_url
@@ -1174,7 +1157,6 @@ if database_url:
         conn_health_checks=True,
     )
 
-# CACHES - Redis configuration for rate limiting
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
@@ -1186,52 +1168,33 @@ CACHES = {
     }
 }
 
-# Rate limiting configuration
 RATELIMIT_USE_CACHE = 'default'
 RATELIMIT_ENABLE = True
 
-# Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/New_York'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Create static directory if it doesn't exist
 STATICFILES_DIRS = []
 if (BASE_DIR / 'static').exists():
     STATICFILES_DIRS.append(BASE_DIR / 'static')
-
-# WhiteNoise configuration for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django REST Framework - UPDATED FOR HYBRID AUTH
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'apps.customers.authentication.HybridAuthentication',
@@ -1247,32 +1210,20 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# CORS settings - FIXED FOR MOBILE CROSS-DOMAIN
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'https://totetaxi.netlify.app',
 ])
-
-# Add Fly.io to CORS allowed origins if needed
 if FLY_APP_NAME:
     CORS_ALLOWED_ORIGINS.append(f'https://{FLY_APP_NAME}.fly.dev')
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-    'x-session-id',
+    'accept', 'accept-encoding', 'authorization', 'content-type', 'dnt',
+    'origin', 'user-agent', 'x-csrftoken', 'x-requested-with', 'x-session-id',
 ]
 
-# CSRF Settings - Conditional for dev/prod (FIXED)
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
@@ -1281,36 +1232,31 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://127.0.0.1:3000',
     'https://totetaxi.netlify.app',
 ])
-
-# Add Fly.io to CSRF trusted origins
 if FLY_APP_NAME:
-    CSRF_TRUSTED_ORIGINS.extend([
-        f'https://{FLY_APP_NAME}.fly.dev',
-    ])
+    CSRF_TRUSTED_ORIGINS.extend([f'https://{FLY_APP_NAME}.fly.dev'])
 
-# Session Settings - Conditional for dev/prod (FIXED)
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_NAME = 'totetaxi_sessionid'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-# FIXED: Email Configuration - Check OS environment variables FIRST, then fall back to env() defaults
-# This ensures Fly.io secrets are used in production
+# EMAIL — use OS env first (Fly secrets), then .env
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST') or env('EMAIL_HOST', default='localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', env.int('EMAIL_PORT', default=587)))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '').lower() in ('true', '1', 'yes') if os.environ.get('EMAIL_USE_TLS') else env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_USE_TLS = (os.environ.get('EMAIL_USE_TLS', '') or '').lower() in ('true', '1', 'yes') if os.environ.get('EMAIL_USE_TLS') else env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER') or env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD') or env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
 
-# Frontend URL for email links
+# ⬇️ NEW: BCC list for booking confirmations (comma-separated env)
+BOOKING_EMAIL_BCC = env.list('BOOKING_EMAIL_BCC', default=[])
+
 FRONTEND_URL = env('FRONTEND_URL', default='https://totetaxi.netlify.app')
 
-# Celery Configuration
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -1318,7 +1264,6 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Security Settings for Production - FIXED FOR CROSS-DOMAIN
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
@@ -1330,124 +1275,85 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# Logging with rate limiting
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
+        'verbose': {'format': '{levelname} {asctime} {module} {message}', 'style': '{'},
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'verbose'}},
+    'root': {'handlers': ['console'], 'level': 'INFO'},
     'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': env('DJANGO_LOG_LEVEL', default='INFO'),
-            'propagate': False,
-        },
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django_ratelimit': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
+        'django': {'handlers': ['console'], 'level': env('DJANGO_LOG_LEVEL', default='INFO'), 'propagate': False},
+        'django.request': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+        'django_ratelimit': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
     },
 }
 
-# Stripe Configuration
+# Stripe
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 
-
-# ============================================================================
-# ONFLEET CONFIGURATION
-# ============================================================================
-# Onfleet API Integration for logistics/delivery tracking
+# Onfleet
 ONFLEET_API_KEY = env('ONFLEET_API_KEY', default='')
 ONFLEET_MOCK_MODE = env.bool('ONFLEET_MOCK_MODE', default=True)
-ONFLEET_ENVIRONMENT = env('ONFLEET_ENVIRONMENT', default='sandbox')  # 'sandbox' or 'production'
+ONFLEET_ENVIRONMENT = env('ONFLEET_ENVIRONMENT', default='sandbox')
 ONFLEET_WEBHOOK_SECRET = env('ONFLEET_WEBHOOK_SECRET', default='')
 
-# BLADE Airport Transfer Integration
-# Phone number where BLADE team receives delivery notifications
 BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
-
-
-# ============================================================================
-# CELERY BEAT SCHEDULE
-# ============================================================================
-from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
     'send-booking-reminders-hourly': {
         'task': 'apps.bookings.tasks.send_booking_reminders',
-        'schedule': crontab(minute=0),  # Run every hour at :00
-        'options': {
-            'expires': 3600,  # Task expires after 1 hour
-        }
+        'schedule': crontab(minute=0),
+        'options': {'expires': 3600}
     },
 }
-
 
 # ============================================================================
 # TEST CONFIGURATION
 # ============================================================================
 # Detect if we're running tests
-TESTING = 'test' in sys.argv or 'pytest' in sys.argv[0]
+TESTING = 'test' in sys.argv or ('pytest' in sys.argv[0] if sys.argv else False)
 
 if TESTING:
-    # Use faster in-memory database for tests
+    # Use faster in-memory SQLite for tests
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': ':memory:',
         }
     }
-    
+
     # Disable password hashing for faster tests
     PASSWORD_HASHERS = [
         'django.contrib.auth.hashers.MD5PasswordHasher',
     ]
-    
+
     # Use console email backend for tests
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    
+
     # Make Celery tasks run synchronously during tests
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
-    
-    # Disable rate limiting during tests
+
+    # Disable ratelimit logic, but keep a supported cache backend
     RATELIMIT_ENABLE = False
-    
-    # Use dummy cache for tests (faster)
+
+    # IMPORTANT: django-ratelimit rejects DummyCache; use LocMemCache for tests
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'totetaxi-test-cache',
         }
     }
-    
-    # ✅ CRITICAL FIX: Force Onfleet mock mode during ALL tests
-    # This prevents accidental real API calls to Onfleet during test runs
+
+    # ✅ Force Onfleet mock mode during tests
     ONFLEET_MOCK_MODE = True
     ONFLEET_ENVIRONMENT = 'sandbox'
-    
-    # Disable CSRF for tests
+
+    # Relax cookie security for test client
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
 ```
@@ -1455,21 +1361,23 @@ if TESTING:
 # ==== config/urls.py ====
 
 ```python
-# backend/config/urls.py
 from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Public + customer
     path('api/customer/', include('apps.customers.urls')),
     path('api/public/', include('apps.bookings.urls')),
-    
+
+    # Payments (includes Stripe webhook)
     path('api/payments/', include('apps.payments.urls')),
-    path('api/staff/', include('apps.accounts.urls')),  # Add this line
-    # In config/urls.py, add this to urlpatterns:
+
+    # Staff
+    path('api/staff/', include('apps.accounts.urls')),
     path('api/staff/logistics/', include('apps.logistics.urls')),
 ]
-
 ```
 
 # ==== config/wsgi.py ====
@@ -2906,19 +2814,16 @@ class GuestCheckoutAdmin(admin.ModelAdmin):
 # ==== apps/bookings/apps.py ====
 
 ```python
-# backend/apps/bookings/apps.py
 from django.apps import AppConfig
+
 
 class BookingsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.bookings'
 
     def ready(self):
-        """
-        Import signals when Django starts
-        This makes sure signals are registered
-        """
-        import apps.bookings.signals
+        # Ensure signal handlers are registered
+        import apps.bookings.signals  # noqa: F401
 ```
 
 # ==== apps/bookings/management/__init__.py ====
@@ -4925,37 +4830,54 @@ class GuestBookingCreateSerializer(serializers.Serializer):
 # ==== apps/bookings/signals.py ====
 
 ```python
-# backend/apps/bookings/signals.py
+import logging
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from apps.bookings.models import Booking
-from apps.customers.emails import send_booking_status_update_email
-import logging
+from apps.customers.emails import (
+    send_booking_status_update_email,
+    send_booking_confirmation_email,
+)
 
 logger = logging.getLogger(__name__)
+
 
 @receiver(pre_save, sender=Booking)
 def booking_status_changed(sender, instance, **kwargs):
     """
-    Automatically send email when booking status changes
-    
-    This runs BEFORE booking is saved to database
+    Send emails when a booking's status changes.
+    - Always send status-update email on change.
+    - Additionally send confirmation when becoming 'paid' or 'confirmed'.
     """
-    if instance.pk:  # Only for existing bookings (not new ones)
+    if not instance.pk:
+        # New booking being created; no "old" status to compare here.
+        return
+
+    try:
+        old = Booking.objects.get(pk=instance.pk)
+    except Booking.DoesNotExist:
+        # Shouldn't happen for existing pk, but guard anyway.
+        return
+
+    old_status = old.status
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    logger.info(f"📧 Booking {old.booking_number} status changed: {old_status} → {new_status}")
+    # Status update notification to customer
+    try:
+        send_booking_status_update_email(instance, old_status, new_status)
+    except Exception as e:
+        logger.error(f"Failed to send status update email for {instance.booking_number}: {e}", exc_info=True)
+
+    # Confirmation on transition to paid/confirmed
+    if new_status in ('paid', 'confirmed'):
         try:
-            # Get the old booking from database
-            old_booking = Booking.objects.get(pk=instance.pk)
-            old_status = old_booking.status
-            new_status = instance.status
-            
-            # Only send email if status actually changed
-            if old_status != new_status:
-                logger.info(f"📧 Booking {instance.booking_number} status changed: {old_status} → {new_status}")
-                send_booking_status_update_email(instance, old_status, new_status)
-                
-        except Booking.DoesNotExist:
-            # Booking doesn't exist yet (shouldn't happen, but safety check)
-            pass
+            send_booking_confirmation_email(instance)
+        except Exception as e:
+            logger.error(f"Failed to send confirmation for {instance.booking_number}: {e}", exc_info=True)
 ```
 
 # ==== apps/bookings/tasks.py ====
@@ -8132,14 +8054,14 @@ class BookingPreferencesView(APIView):
 # ==== apps/customers/emails.py ====
 
 ```python
-# backend/apps/customers/emails.py
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.conf import settings
-from django.utils import timezone
 import logging
+from django.conf import settings
+from django.core.mail import send_mail, EmailMessage
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
 
 def send_welcome_email(user):
     """Send welcome email to newly registered customer"""
@@ -8150,7 +8072,7 @@ def send_welcome_email(user):
             'email': user.email,
         }
         message = render_to_string('emails/welcome.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -8161,7 +8083,7 @@ def send_welcome_email(user):
         logger.info(f'Welcome email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send welcome email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send welcome email to {user.email}: {str(e)}', exc_info=True)
         return False
 
 
@@ -8175,7 +8097,7 @@ def send_password_reset_email(user, reset_token, reset_url):
             'reset_token': reset_token,
         }
         message = render_to_string('emails/password_reset.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -8186,12 +8108,16 @@ def send_password_reset_email(user, reset_token, reset_url):
         logger.info(f'Password reset email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send password reset email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send password reset email to {user.email}: {str(e)}', exc_info=True)
         return False
 
 
 def send_booking_confirmation_email(booking):
-    """Send booking confirmation email"""
+    """
+    Send booking confirmation email:
+    - To: customer
+    - BCC: internal list (BOOKING_EMAIL_BCC)
+    """
     try:
         subject = f'Booking Confirmation - {booking.booking_number}'
         context = {
@@ -8200,18 +8126,30 @@ def send_booking_confirmation_email(booking):
             'customer_email': booking.get_customer_email(),
         }
         message = render_to_string('emails/booking_confirmation.txt', context)
-        
-        send_mail(
+
+        to_addr = [booking.get_customer_email()]
+        bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', [])
+
+        email = EmailMessage(
             subject=subject,
-            message=message,
+            body=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[booking.get_customer_email()],
-            fail_silently=False,
+            to=to_addr,
+            bcc=bcc_list,
         )
-        logger.info(f'Booking confirmation sent for {booking.booking_number}')
+        email.content_subtype = 'plain'
+        email.send(fail_silently=False)
+
+        logger.info(
+            f'Booking confirmation sent for {booking.booking_number} '
+            f"(bcc={','.join(bcc_list) if bcc_list else 'none'})"
+        )
         return True
     except Exception as e:
-        logger.error(f'Failed to send booking confirmation for {booking.booking_number}: {str(e)}')
+        logger.error(
+            f'Failed to send booking confirmation for {booking.booking_number}: {str(e)}',
+            exc_info=True
+        )
         return False
 
 
@@ -8226,7 +8164,7 @@ def send_booking_status_update_email(booking, old_status, new_status):
             'new_status': new_status,
         }
         message = render_to_string('emails/booking_status_update.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -8237,9 +8175,10 @@ def send_booking_status_update_email(booking, old_status, new_status):
         logger.info(f'Status update email sent for {booking.booking_number}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send status update for {booking.booking_number}: {str(e)}')
+        logger.error(f'Failed to send status update for {booking.booking_number}: {str(e)}', exc_info=True)
         return False
-    
+
+
 def send_email_verification(user, token, verify_url):
     """Send email verification link"""
     try:
@@ -8249,7 +8188,7 @@ def send_email_verification(user, token, verify_url):
             'verify_url': verify_url,
         }
         message = render_to_string('emails/email_verification.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -8260,18 +8199,19 @@ def send_email_verification(user, token, verify_url):
         logger.info(f'Verification email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send verification email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send verification email to {user.email}: {str(e)}', exc_info=True)
         return False
-    
+
+
 def send_booking_reminder_email(booking):
     """Send 24-hour reminder email before pickup"""
     try:
-        # Check if reminder already sent
+        # Already sent?
         if booking.reminder_sent_at:
             logger.info(f'Reminder already sent for {booking.booking_number} at {booking.reminder_sent_at}')
             return False
-        
-        # Get tracking info if available
+
+        # Tracking if available
         has_tracking = False
         tracking_url = ''
         if hasattr(booking, 'onfleet_tasks'):
@@ -8279,7 +8219,7 @@ def send_booking_reminder_email(booking):
             if pickup_task and pickup_task.tracking_url:
                 has_tracking = True
                 tracking_url = pickup_task.tracking_url
-        
+
         subject = f'Reminder: Your Tote Taxi Pickup is Tomorrow! - {booking.booking_number}'
         context = {
             'booking': booking,
@@ -8288,7 +8228,7 @@ def send_booking_reminder_email(booking):
             'tracking_url': tracking_url,
         }
         message = render_to_string('emails/booking_reminder.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -8296,16 +8236,15 @@ def send_booking_reminder_email(booking):
             recipient_list=[booking.get_customer_email()],
             fail_silently=False,
         )
-        
-        # Mark reminder as sent
+
         booking.reminder_sent_at = timezone.now()
         booking.save(update_fields=['reminder_sent_at'])
-        
+
         logger.info(f'✓ Reminder email sent for {booking.booking_number}')
         return True
-        
+
     except Exception as e:
-        logger.error(f'Failed to send reminder for {booking.booking_number}: {str(e)}')
+        logger.error(f'Failed to send reminder for {booking.booking_number}: {str(e)}', exc_info=True)
         return False
 ```
 
@@ -9418,7 +9357,7 @@ class TestEmailFunctions:
         assert email.subject == 'Welcome to Tote Taxi!'
         assert email.to == ['test@example.com']
         assert 'Test User' in email.body or 'test@example.com' in email.body
-        assert 'ToteTaxi' in email.body
+        assert 'Tote Taxi' in email.body
     
     def test_welcome_email_handles_no_name(self, db):
         """Test welcome email works when user has no full name"""
@@ -10958,35 +10897,35 @@ def create_onfleet_tasks_on_payment(sender, instance, created, **kwargs):
 # ==== apps/logistics/services.py ====
 
 ```python
-# apps/logistics/services.py
+import logging
+from datetime import datetime, timedelta, time as dt_time
+from typing import Dict, Optional, Tuple
+
 import requests
 from django.conf import settings
 from django.utils import timezone
-from datetime import datetime, timedelta, time as dt_time
-from typing import Dict, Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class OnfleetService:
     """Low-level Onfleet API wrapper"""
-    
+
     def __init__(self):
         self.api_key = getattr(settings, 'ONFLEET_API_KEY', '')
         self.base_url = 'https://onfleet.com/api/v2'
         self.mock_mode = getattr(settings, 'ONFLEET_MOCK_MODE', True)
         self.environment = getattr(settings, 'ONFLEET_ENVIRONMENT', 'sandbox')
-    
+
     def _make_request(self, method: str, endpoint: str, data: dict = None) -> dict:
         """Make authenticated request to Onfleet API"""
         if self.mock_mode:
             return self._mock_response(method, endpoint, data)
-        
+
         url = f"{self.base_url}/{endpoint}"
         auth = (self.api_key, '')
         headers = {'Content-Type': 'application/json'}
-        
+
         try:
             if method == 'GET':
                 response = requests.get(url, auth=auth, headers=headers)
@@ -10996,52 +10935,44 @@ class OnfleetService:
                 response = requests.put(url, auth=auth, headers=headers, json=data)
             elif method == 'DELETE':
                 response = requests.delete(url, auth=auth, headers=headers)
-            
+
             response.raise_for_status()
             return response.json()
-        
+
         except requests.RequestException as e:
-            # ✅ IMPROVED: Better error logging
             error_detail = ''
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_detail = e.response.json()
-                except:
+                except Exception:
                     error_detail = e.response.text
-            
+
             logger.error(f"Onfleet API error ({method} {endpoint}): {e}")
             logger.error(f"Error details: {error_detail}")
             logger.error(f"Request data: {data}")
             raise
-    
+
     def _mock_response(self, method: str, endpoint: str, data: dict = None) -> dict:
         """Mock responses for development"""
         if endpoint == 'tasks' and method == 'POST':
-            # Extract metadata for better mock IDs
             task_metadata = data.get('metadata', [])
-            booking_number = next(
-                (m['value'] for m in task_metadata if m.get('name') == 'booking_number'),
-                'unknown'
-            )
-            task_type = next(
-                (m['value'] for m in task_metadata if m.get('name') == 'task_type'),
-                'unknown'
-            )
-            
+            booking_number = next((m['value'] for m in task_metadata if m.get('name') == 'booking_number'), 'unknown')
+            task_type = next((m['value'] for m in task_metadata if m.get('name') == 'task_type'), 'unknown')
+
             mock_id = f'mock_{task_type}_{hash(booking_number) % 10000:04d}'
-            
+
             return {
                 'id': mock_id,
                 'shortId': f'mt{hash(booking_number) % 1000:03d}',
                 'trackingURL': f'https://onf.lt/mock{hash(f"{booking_number}{task_type}") % 10000:04d}',
                 'state': 0,  # 0 = unassigned
-                'worker': None,  # No worker in mock mode
+                'worker': None,
                 'merchant': 'mock_org_id',
                 'creator': 'mock_admin_id',
                 'pickupTask': data.get('pickupTask', False),
                 'dependencies': data.get('dependencies', [])
             }
-        
+
         elif endpoint == 'organization':
             return {
                 'id': 'mock_org_id',
@@ -11052,63 +10983,49 @@ class OnfleetService:
                     {'id': 'mock_worker_2', 'name': 'Test Driver 2', 'onDuty': False}
                 ]
             }
-        
+
         elif endpoint.startswith('workers/'):
-            # Mock worker lookup
             return {
                 'id': endpoint.split('/')[-1],
                 'name': 'Test Driver',
                 'onDuty': True
             }
-        
+
         return {'success': True, 'mock': True}
-    
+
     def create_task(self, task_data: dict) -> dict:
-        """Create task in Onfleet"""
         return self._make_request('POST', 'tasks', task_data)
-    
+
     def get_organization_info(self) -> dict:
-        """Get organization info"""
         return self._make_request('GET', 'organization')
-    
+
     def get_worker(self, worker_id: str) -> dict:
-        """Get worker details"""
         return self._make_request('GET', f'workers/{worker_id}')
 
 
 class ToteTaxiOnfleetIntegration:
     """High-level integration manager for ToteTaxi + Onfleet"""
-    
+
     def __init__(self):
         self.onfleet = OnfleetService()
-    
+
     def create_tasks_for_booking(self, booking) -> Tuple[Optional['OnfleetTask'], Optional['OnfleetTask']]:
-        """
-        Create 2 linked Onfleet tasks (pickup + dropoff) for a booking
-        Returns: (pickup_task, dropoff_task) or (None, None) on failure
-        """
         from .models import OnfleetTask
-        
+
         try:
-            # Check if tasks already exist
-            existing_tasks = OnfleetTask.objects.filter(booking=booking)
-            if existing_tasks.exists():
+            existing = OnfleetTask.objects.filter(booking=booking)
+            if existing.exists():
                 logger.warning(f"Booking {booking.booking_number} already has Onfleet tasks")
-                pickup = existing_tasks.filter(task_type='pickup').first()
-                dropoff = existing_tasks.filter(task_type='dropoff').first()
-                return pickup, dropoff
-            
+                return existing.filter(task_type='pickup').first(), existing.filter(task_type='dropoff').first()
+
             logger.info(f"Creating Onfleet tasks for booking {booking.booking_number}")
-            
-            # 1. Create pickup task
+
             pickup_response = self._create_pickup_task(booking)
             logger.info(f"✓ Pickup task created: {pickup_response['id']}")
-            
-            # 2. Create dropoff task (depends on pickup)
+
             dropoff_response = self._create_dropoff_task(booking, depends_on=pickup_response['id'])
             logger.info(f"✓ Dropoff task created: {dropoff_response['id']}")
-            
-            # 3. Save to database with correct status
+
             db_pickup = OnfleetTask.objects.create(
                 booking=booking,
                 task_type='pickup',
@@ -11118,13 +11035,11 @@ class ToteTaxiOnfleetIntegration:
                 tracking_url=pickup_response.get('trackingURL', ''),
                 recipient_name=booking.get_customer_name(),
                 recipient_phone=self._get_customer_phone(booking),
-                # ✅ FIX: Map Onfleet state to our status
                 status=self._map_onfleet_state(pickup_response.get('state', 0)),
-                # ✅ FIX: Save worker info if auto-assigned
                 worker_id=pickup_response.get('worker', '') or '',
                 worker_name=self._get_worker_name(pickup_response.get('worker'))
             )
-            
+
             db_dropoff = OnfleetTask.objects.create(
                 booking=booking,
                 task_type='dropoff',
@@ -11135,67 +11050,49 @@ class ToteTaxiOnfleetIntegration:
                 recipient_name=self._get_dropoff_recipient_name(booking),
                 recipient_phone=self._get_dropoff_recipient_phone(booking),
                 linked_task=db_pickup,
-                # ✅ FIX: Map Onfleet state to our status
                 status=self._map_onfleet_state(dropoff_response.get('state', 0)),
-                # ✅ FIX: Save worker info if auto-assigned
                 worker_id=dropoff_response.get('worker', '') or '',
                 worker_name=self._get_worker_name(dropoff_response.get('worker'))
             )
-            
+
             logger.info(f"✓ Onfleet tasks saved to database: {db_pickup.id}, {db_dropoff.id}")
-            
             return db_pickup, db_dropoff
-            
+
         except Exception as e:
             logger.error(f"Failed to create Onfleet tasks: {e}", exc_info=True)
             return None, None
-    
+
     def _map_onfleet_state(self, state: int) -> str:
-        """
-        Map Onfleet state codes to our status values
-        Onfleet states: 0=unassigned, 1=assigned, 2=active, 3=completed
-        """
-        mapping = {
-            0: 'created',      # Unassigned
-            1: 'assigned',     # Assigned to worker
-            2: 'active',       # In progress
-            3: 'completed'     # Completed
-        }
-        return mapping.get(state, 'created')
-    
+        return {
+            0: 'created',
+            1: 'assigned',
+            2: 'active',
+            3: 'completed',
+        }.get(state, 'created')
+
     def _get_worker_name(self, worker_id_or_obj) -> str:
-        """Get worker name from ID or object"""
         if not worker_id_or_obj:
             return ''
-        
-        # If it's already a dict/object with name
         if isinstance(worker_id_or_obj, dict):
             return worker_id_or_obj.get('name', '')
-        
-        # If it's just an ID string, fetch from API
         try:
             worker = self.onfleet.get_worker(worker_id_or_obj)
             return worker.get('name', '')
         except Exception as e:
             logger.warning(f"Could not fetch worker name for {worker_id_or_obj}: {e}")
             return ''
-    
+
     def _create_pickup_task(self, booking) -> dict:
-        """Create pickup task"""
-        # Get timing
         pickup_datetime = self._get_pickup_datetime(booking)
-        complete_after = int(pickup_datetime.timestamp() * 1000)
-        
-        # Calculate pickup window (30 min before to 30 min after)
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
-        
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',  # Street number not separately stored
+                    'number': '',
                     'street': booking.pickup_address.address_line_1,
-                    'apartment': booking.pickup_address.address_line_2 or '',
+                    'apartment': getattr(booking.pickup_address, 'address_line_2', '') or '',
                     'city': booking.pickup_address.city,
                     'state': booking.pickup_address.state,
                     'postalCode': booking.pickup_address.zip_code,
@@ -11218,24 +11115,19 @@ class ToteTaxiOnfleetIntegration:
                 {'name': 'service_type', 'type': 'string', 'value': booking.service_type}
             ]
         }
-        
         return self.onfleet.create_task(task_data)
-    
+
     def _create_dropoff_task(self, booking, depends_on: str) -> dict:
-        """Create dropoff task"""
-        # Get timing
         dropoff_datetime = self._get_dropoff_datetime(booking)
-        
-        # Calculate dropoff window (30 min before to 1 hour after)
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
-        
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',  # Street number not separately stored
+                    'number': '',
                     'street': booking.delivery_address.address_line_1,
-                    'apartment': booking.delivery_address.address_line_2 or '',
+                    'apartment': getattr(booking.delivery_address, 'address_line_2', '') or '',
                     'city': booking.delivery_address.city,
                     'state': booking.delivery_address.state,
                     'postalCode': booking.delivery_address.zip_code,
@@ -11250,7 +11142,7 @@ class ToteTaxiOnfleetIntegration:
             'completeAfter': int(window_start.timestamp() * 1000),
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': False,
-            'dependencies': [depends_on],  # Must complete pickup first
+            'dependencies': [depends_on],
             'autoAssign': {'mode': 'distance'},
             'notes': self._format_task_notes(booking, 'dropoff'),
             'metadata': [
@@ -11259,165 +11151,106 @@ class ToteTaxiOnfleetIntegration:
                 {'name': 'service_type', 'type': 'string', 'value': booking.service_type}
             ]
         }
-        
         return self.onfleet.create_task(task_data)
-    
+
     def _get_pickup_datetime(self, booking) -> datetime:
-        """
-        Get pickup datetime - converts string time choices to actual time objects.
-
-        Time mappings:
-        - 'morning_specific' + specific_pickup_hour → exact hour (8, 9, or 10 AM)
-        - 'morning' → 9:30 AM (middle of 8-11 AM window)
-        - 'no_time_preference' → 9:30 AM (default)
-        - BLADE transfers → use blade_ready_time
-        """
-        # BLADE transfers: use calculated ready time
-        if booking.service_type == 'blade_transfer' and booking.blade_ready_time:
+        # Blade transfers use ready time
+        if booking.service_type == 'blade_transfer' and getattr(booking, 'blade_ready_time', None):
             pickup_time_obj = booking.blade_ready_time
-
-        # Specific 1-hour window (Standard/Full packages only)
-        elif booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
-            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)  # 8, 9, or 10 AM
-
-        # General 8-11 AM window (Petite or default) - use middle (9:30 AM)
+        elif booking.pickup_time == 'morning_specific' and getattr(booking, 'specific_pickup_hour', None):
+            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)
         elif booking.pickup_time == 'morning':
-            pickup_time_obj = dt_time(9, 30)  # Middle of 8-11 AM window
-
-        # No time preference or any other case: default to 9:30 AM
+            pickup_time_obj = dt_time(9, 30)
         else:
             pickup_time_obj = dt_time(9, 30)
 
         return datetime.combine(booking.pickup_date, pickup_time_obj, tzinfo=timezone.get_current_timezone())
-    
-    def _get_dropoff_datetime(self, booking) -> datetime:
-        """
-        Get dropoff datetime - calculated from pickup time.
 
-        Note: Booking model doesn't have dropoff_date/dropoff_time fields,
-        so we calculate dropoff as pickup + 2 hours.
-        """
-        pickup_dt = self._get_pickup_datetime(booking)
-        return pickup_dt + timedelta(hours=2)
-    
+    def _get_dropoff_datetime(self, booking) -> datetime:
+        return self._get_pickup_datetime(booking) + timedelta(hours=2)
+
     def _format_task_notes(self, booking, task_type: str) -> str:
-        """Format task notes for driver"""
         notes = [
             f"ToteTaxi Booking: {booking.booking_number}",
             f"Service: {booking.get_service_type_display()}",
             f"Task: {task_type.upper()}"
         ]
-        
+
         if booking.service_type == 'luggage_transfer':
-            notes.append(f"Items: {booking.luggage_count} pieces")
+            notes.append(f"Items: {getattr(booking, 'luggage_count', 'N/A')} pieces")
         elif booking.service_type == 'specialty_item':
-            notes.append(f"Item: {booking.specialty_item_description or 'See details'}")
+            desc = getattr(booking, 'specialty_item_description', None) or getattr(booking, 'special_instructions', '') or 'See details'
+            notes.append(f"Item: {desc}")
         elif booking.service_type == 'blade_transfer':
             notes.append(f"Airport: {booking.get_blade_airport_display()}")
-            notes.append(f"Bags: {booking.blade_bag_count}")
-        
-        if booking.special_instructions:
+            notes.append(f"Bags: {getattr(booking, 'blade_bag_count', 'N/A')}")
+
+        if getattr(booking, 'special_instructions', None):
             notes.append(f"Special: {booking.special_instructions}")
-        
+
         return '\n'.join(notes)
-    
 
     def _get_blade_contact(self, airport_code: str) -> Tuple[str, str]:
-        """Get BLADE contact info by airport - Updated with correct contacts"""
         blade_contacts = {
-            'JFK': ('Bowie Tam', '+17185410177'),  # ✅ Fixed: Specific JFK contact
-            'EWR': ('Nathan', '+19083992284'),     # ✅ Fixed: Specific EWR contact  
+            'JFK': ('Bowie Tam', '+17185410177'),
+            'EWR': ('Nathan', '+19083992284'),
             'LGA': ('BLADE LaGuardia Terminal', '+17185551234'),
         }
         return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
-    
+
     def _get_customer_phone(self, booking) -> str:
-        """Get customer phone number from either customer profile or guest checkout"""
         try:
-            # Try authenticated customer first
-            if hasattr(booking, 'customer') and booking.customer:
-                if hasattr(booking.customer, 'profile'):
-                    return booking.customer.profile.phone or ''
-
-            # Try guest checkout
-            if hasattr(booking, 'guest_checkout') and booking.guest_checkout:
+            if getattr(booking, 'customer', None) and getattr(booking.customer, 'profile', None):
+                return booking.customer.profile.phone or ''
+            if getattr(booking, 'guest_checkout', None):
                 return booking.guest_checkout.phone or ''
-
             return ''
         except Exception as e:
             logger.warning(f"Could not get customer phone: {e}")
             return ''
-    
+
     def _format_phone(self, phone_str: str) -> str:
-        """Format phone number to E.164 format (+12125550100)"""
         if not phone_str:
-            return '+1234567890'  # Fallback for testing
-        
-        # Remove all non-digits
+            return '+1234567890'
         digits = ''.join(c for c in phone_str if c.isdigit())
-        
-        # Add +1 for US numbers
         if len(digits) == 10:
             return f'+1{digits}'
-        elif len(digits) == 11 and digits[0] == '1':
+        if len(digits) == 11 and digits[0] == '1':
             return f'+{digits}'
-        else:
-            return f'+{digits}' if not phone_str.startswith('+') else phone_str
-    
+        return f'+{digits}' if not phone_str.startswith('+') else phone_str
+
     def _get_dropoff_recipient_phone(self, booking) -> str:
-        """Get recipient phone for dropoff task"""
         if booking.service_type == 'blade_transfer':
             _, blade_phone = self._get_blade_contact(booking.blade_airport)
             return blade_phone
         return self._get_customer_phone(booking)
-    
+
     def _get_dropoff_recipient_name(self, booking) -> str:
-        """Get recipient name for dropoff task"""
         if booking.service_type == 'blade_transfer':
             blade_name, _ = self._get_blade_contact(booking.blade_airport)
             return f"BLADE Team - {blade_name}"
         return booking.get_customer_name()
-    
+
     def handle_webhook(self, webhook_data: dict) -> bool:
-        """
-        Process Onfleet webhook updates
-        
-        ✅ FIXED: OnFleet sends taskId at root level, not in data.id
-        Reference: https://docs.onfleet.com/reference/webhook-payload-examples
-        """
         from .models import OnfleetTask
-        
+
         try:
-            # ✅ FIX: OnFleet always sends taskId at root level for task-related webhooks
-            task_id = webhook_data.get('taskId')
-            
-            # Fallback: check nested location (defensive programming)
-            if not task_id:
-                task_data = webhook_data.get('data', {})
-                task_obj = task_data.get('task', {})
-                task_id = task_obj.get('id')
-            
+            task_id = webhook_data.get('taskId') or webhook_data.get('data', {}).get('task', {}).get('id')
             if not task_id:
                 logger.warning("Webhook received without task ID")
                 logger.debug(f"Webhook payload: {webhook_data}")
                 return False
-            
-            # Find task in database
+
             try:
                 onfleet_task = OnfleetTask.objects.get(onfleet_task_id=task_id)
             except OnfleetTask.DoesNotExist:
                 logger.warning(f"Task not found in database: {task_id}")
                 return False
-            
-            # Get event type
+
             trigger_id = webhook_data.get('triggerId')
-            
-            # ✅ FIX: Access task data from the correct nested location
-            task_data = webhook_data.get('data', {})
-            task_obj = task_data.get('task', {})
-            
-            # Handle different events
-            if trigger_id == 0:  # Task Started
+            task_obj = webhook_data.get('data', {}).get('task', {})
+
+            if trigger_id == 0:  # started
                 onfleet_task.status = 'active'
                 onfleet_task.started_at = timezone.now()
                 worker = task_obj.get('worker')
@@ -11430,52 +11263,46 @@ class ToteTaxiOnfleetIntegration:
                         onfleet_task.worker_name = self._get_worker_name(worker)
                 onfleet_task.save()
                 logger.info(f"Task started: {task_id} ({onfleet_task.task_type})")
-            
-            elif trigger_id == 3:  # Task Completed (triggerId 3, not 1!)
+
+            elif trigger_id == 3:  # completed
                 onfleet_task.status = 'completed'
                 onfleet_task.completed_at = timezone.now()
-                
-                # Save proof of delivery
                 completion = task_obj.get('completionDetails', {})
                 onfleet_task.signature_url = completion.get('signatureUploadId', '')
                 onfleet_task.photo_urls = [p.get('uploadId', '') for p in completion.get('photoUploadIds', [])]
                 onfleet_task.delivery_notes = completion.get('notes', '')
                 onfleet_task.save()
-                
-                # If this is the DROPOFF task, mark booking as completed
+
                 if onfleet_task.task_type == 'dropoff':
                     booking = onfleet_task.booking
                     booking.status = 'completed'
                     booking.save()
                     logger.info(f"✓ Booking {booking.booking_number} completed")
-                
+
                 logger.info(f"Task completed: {task_id} ({onfleet_task.task_type})")
-            
-            elif trigger_id == 4:  # Task Failed
+
+            elif trigger_id == 4:  # failed
                 onfleet_task.status = 'failed'
                 completion = task_obj.get('completionDetails', {})
                 onfleet_task.failure_reason = completion.get('failureReason', '')
                 onfleet_task.failure_notes = completion.get('failureNotes', '')
                 onfleet_task.save()
                 logger.error(f"Task failed: {task_id} - {onfleet_task.failure_reason}")
-            
-            elif trigger_id == 8:  # Task Deleted
+
+            elif trigger_id == 8:  # deleted
                 onfleet_task.status = 'deleted'
                 onfleet_task.save()
                 logger.warning(f"Task deleted: {task_id}")
-            
-            elif trigger_id == 1:  # Task ETA Changed
-                # ✅ FIX: ETA data may be at different levels depending on trigger
-                eta_timestamp = task_obj.get('estimatedCompletionTime')
-                if eta_timestamp:
-                    onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_timestamp / 1000, tz=timezone.get_current_timezone())
+
+            elif trigger_id == 1:  # ETA changed
+                eta_ts = task_obj.get('estimatedCompletionTime')
+                if eta_ts:
+                    onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_ts / 1000, tz=timezone.get_current_timezone())
                     onfleet_task.save()
                     logger.info(f"Task ETA updated: {task_id}")
-            
-            elif trigger_id == 9:  # Task Assigned
+
+            elif trigger_id == 9:  # assigned
                 onfleet_task.status = 'assigned'
-                
-                # Worker can be in multiple places depending on webhook
                 worker = task_obj.get('worker') or webhook_data.get('data', {}).get('worker')
                 if worker:
                     if isinstance(worker, dict):
@@ -11486,45 +11313,35 @@ class ToteTaxiOnfleetIntegration:
                         onfleet_task.worker_name = self._get_worker_name(worker)
                 onfleet_task.save()
                 logger.info(f"Task assigned: {task_id} to {onfleet_task.worker_name}")
-            
-            elif trigger_id == 10:  # Task Unassigned
+
+            elif trigger_id == 10:  # unassigned
                 onfleet_task.status = 'created'
                 onfleet_task.worker_id = ''
                 onfleet_task.worker_name = ''
                 onfleet_task.save()
                 logger.info(f"Task unassigned: {task_id}")
-            
+
             else:
                 logger.info(f"Unhandled webhook trigger: {trigger_id} for task {task_id}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Webhook processing error: {e}", exc_info=True)
             logger.error(f"Webhook data: {webhook_data}")
             return False
-    
+
     def get_dashboard_summary(self) -> dict:
-        """Get logistics summary for staff dashboard"""
         from .models import OnfleetTask
         from apps.bookings.models import Booking
         from datetime import date
-        
+
         try:
             today = date.today()
-            
-            todays_bookings = Booking.objects.filter(
-                pickup_date=today,
-                deleted_at__isnull=True
-            )
-            
-            onfleet_tasks = OnfleetTask.objects.filter(
-                created_at__date=today,
-                environment=self.onfleet.environment
-            )
-            
+            todays_bookings = Booking.objects.filter(pickup_date=today, deleted_at__isnull=True)
+            onfleet_tasks = OnfleetTask.objects.filter(created_at__date=today, environment=self.onfleet.environment)
             onfleet_org = self.onfleet.get_organization_info()
-            
+
             return {
                 'totetaxi_stats': {
                     'total_bookings': todays_bookings.count(),
@@ -11546,7 +11363,7 @@ class ToteTaxiOnfleetIntegration:
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting dashboard summary: {e}")
             return {
@@ -11554,13 +11371,9 @@ class ToteTaxiOnfleetIntegration:
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
             }
-    
-    # LEGACY METHOD: Keep for backward compatibility
+
+    # Legacy compatibility
     def create_delivery_task(self, booking):
-        """
-        Legacy method - now creates 2 tasks instead of 1
-        Returns the pickup task for backward compatibility
-        """
         pickup, dropoff = self.create_tasks_for_booking(booking)
         return pickup
 ```
@@ -12490,10 +12303,12 @@ class TestWebhookView:
         integration = ToteTaxiOnfleetIntegration()
         pickup, dropoff = integration.create_tasks_for_booking(test_booking)
         
+        # Assigned = triggerId 9
         webhook_data = {
-            'triggerId': 8,  # Task Assigned
+            'triggerId': 9,
+            'taskId': pickup.onfleet_task_id,
             'data': {
-                'id': pickup.onfleet_task_id,
+                'task': {'id': pickup.onfleet_task_id},
                 'worker': 'worker_123'
             }
         }
@@ -12522,8 +12337,9 @@ class TestWebhookView:
         
         webhook_data = {
             'triggerId': 0,
+            'taskId': pickup.onfleet_task_id,
             'data': {
-                'id': pickup.onfleet_task_id
+                'task': {'id': pickup.onfleet_task_id}
             }
         }
         
@@ -14886,7 +14702,7 @@ if settings.DEBUG:
 # ==== apps/payments/views.py ====
 
 ```python
-# payments/views.py
+# backend/apps/payments/views.py
 import stripe
 import logging
 from rest_framework import generics, status, permissions
@@ -14901,6 +14717,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.db import transaction, models  # ADDED models HERE
+from django.contrib.auth import get_user_model  # NEW
 
 from .models import Payment, Refund, PaymentAudit
 from .serializers import (
@@ -14912,8 +14729,26 @@ from .serializers import (
 )
 from .services import StripePaymentService
 from apps.bookings.models import Booking
+from apps.accounts.models import StaffProfile, StaffAction  # NEW
 
 logger = logging.getLogger(__name__)
+
+
+def _get_system_staff_user():
+    """
+    Ensure we have a system staff user for webhook-originated actions.
+    Prevents IntegrityError when StaffAction.staff_user is NOT NULL.
+    """
+    User = get_user_model()
+    user, _ = User.objects.get_or_create(
+        username='system_webhook',
+        defaults={'email': 'system@totetaxi.com', 'is_active': True}
+    )
+    StaffProfile.objects.get_or_create(
+        user=user,
+        defaults={'role': 'staff', 'phone': '0000000000'}
+    )
+    return user
 
 
 class PaymentIntentCreateView(APIView):
@@ -14982,11 +14817,11 @@ class PaymentStatusView(APIView):
                 })
             
             return Response({
-                'booking_number': booking_number,
-                'payment_status': payment.status,
-                'booking_status': booking.status,
-                'amount_dollars': payment.amount_dollars,
-                'processed_at': payment.processed_at
+                    'booking_number': booking_number,
+                    'payment_status': payment.status,
+                    'booking_status': booking.status,
+                    'amount_dollars': payment.amount_dollars,
+                    'processed_at': payment.processed_at
             })
             
         except Booking.DoesNotExist:
@@ -15090,9 +14925,8 @@ class StripeWebhookView(APIView):
                 )
                 
                 # Create audit log (system action, no user)
-                from apps.accounts.models import StaffAction
                 StaffAction.objects.create(
-                    staff_user=None,
+                    staff_user=_get_system_staff_user(),  # ← use system staff user
                     action_type='modify_booking',
                     description=(
                         f"Booking {booking.booking_number} automatically confirmed via Stripe webhook. "

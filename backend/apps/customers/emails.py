@@ -1,11 +1,11 @@
-# apps/customers/emails.py
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.conf import settings
-from django.utils import timezone
 import logging
+from django.conf import settings
+from django.core.mail import send_mail, EmailMessage
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
 
 def send_welcome_email(user):
     """Send welcome email to newly registered customer"""
@@ -16,7 +16,7 @@ def send_welcome_email(user):
             'email': user.email,
         }
         message = render_to_string('emails/welcome.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -27,7 +27,7 @@ def send_welcome_email(user):
         logger.info(f'Welcome email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send welcome email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send welcome email to {user.email}: {str(e)}', exc_info=True)
         return False
 
 
@@ -41,7 +41,7 @@ def send_password_reset_email(user, reset_token, reset_url):
             'reset_token': reset_token,
         }
         message = render_to_string('emails/password_reset.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -52,12 +52,16 @@ def send_password_reset_email(user, reset_token, reset_url):
         logger.info(f'Password reset email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send password reset email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send password reset email to {user.email}: {str(e)}', exc_info=True)
         return False
 
 
 def send_booking_confirmation_email(booking):
-    """Send booking confirmation email (customer To:, internal recipients BCC)"""
+    """
+    Send booking confirmation email:
+    - To: customer
+    - BCC: internal list (BOOKING_EMAIL_BCC)
+    """
     try:
         subject = f'Booking Confirmation - {booking.booking_number}'
         context = {
@@ -67,24 +71,29 @@ def send_booking_confirmation_email(booking):
         }
         message = render_to_string('emails/booking_confirmation.txt', context)
 
-        # BCC internal recipients without affecting the visible "To:" header
-        internal_bcc = getattr(settings, 'BOOKING_NOTIFY_EMAILS', ['info@totetaxi.com'])
+        to_addr = [booking.get_customer_email()]
+        bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', [])
 
-        send_mail(
+        email = EmailMessage(
             subject=subject,
-            message=message,
+            body=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[booking.get_customer_email()],
-            bcc=internal_bcc,
-            fail_silently=False,
+            to=to_addr,
+            bcc=bcc_list,
         )
+        email.content_subtype = 'plain'
+        email.send(fail_silently=False)
+
         logger.info(
             f'Booking confirmation sent for {booking.booking_number} '
-            f'(bcc={",".join(internal_bcc) if internal_bcc else "none"})'
+            f"(bcc={','.join(bcc_list) if bcc_list else 'none'})"
         )
         return True
     except Exception as e:
-        logger.error(f'Failed to send booking confirmation for {booking.booking_number}: {str(e)}')
+        logger.error(
+            f'Failed to send booking confirmation for {booking.booking_number}: {str(e)}',
+            exc_info=True
+        )
         return False
 
 
@@ -99,7 +108,7 @@ def send_booking_status_update_email(booking, old_status, new_status):
             'new_status': new_status,
         }
         message = render_to_string('emails/booking_status_update.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -110,9 +119,9 @@ def send_booking_status_update_email(booking, old_status, new_status):
         logger.info(f'Status update email sent for {booking.booking_number}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send status update for {booking.booking_number}: {str(e)}')
+        logger.error(f'Failed to send status update for {booking.booking_number}: {str(e)}', exc_info=True)
         return False
-    
+
 
 def send_email_verification(user, token, verify_url):
     """Send email verification link"""
@@ -123,7 +132,7 @@ def send_email_verification(user, token, verify_url):
             'verify_url': verify_url,
         }
         message = render_to_string('emails/email_verification.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -134,19 +143,19 @@ def send_email_verification(user, token, verify_url):
         logger.info(f'Verification email sent to {user.email}')
         return True
     except Exception as e:
-        logger.error(f'Failed to send verification email to {user.email}: {str(e)}')
+        logger.error(f'Failed to send verification email to {user.email}: {str(e)}', exc_info=True)
         return False
-    
+
 
 def send_booking_reminder_email(booking):
     """Send 24-hour reminder email before pickup"""
     try:
-        # Check if reminder already sent
+        # Already sent?
         if booking.reminder_sent_at:
             logger.info(f'Reminder already sent for {booking.booking_number} at {booking.reminder_sent_at}')
             return False
-        
-        # Get tracking info if available
+
+        # Tracking if available
         has_tracking = False
         tracking_url = ''
         if hasattr(booking, 'onfleet_tasks'):
@@ -154,7 +163,7 @@ def send_booking_reminder_email(booking):
             if pickup_task and pickup_task.tracking_url:
                 has_tracking = True
                 tracking_url = pickup_task.tracking_url
-        
+
         subject = f'Reminder: Your Tote Taxi Pickup is Tomorrow! - {booking.booking_number}'
         context = {
             'booking': booking,
@@ -163,7 +172,7 @@ def send_booking_reminder_email(booking):
             'tracking_url': tracking_url,
         }
         message = render_to_string('emails/booking_reminder.txt', context)
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -171,14 +180,13 @@ def send_booking_reminder_email(booking):
             recipient_list=[booking.get_customer_email()],
             fail_silently=False,
         )
-        
-        # Mark reminder as sent
+
         booking.reminder_sent_at = timezone.now()
         booking.save(update_fields=['reminder_sent_at'])
-        
+
         logger.info(f'✓ Reminder email sent for {booking.booking_number}')
         return True
-        
+
     except Exception as e:
-        logger.error(f'Failed to send reminder for {booking.booking_number}: {str(e)}')
+        logger.error(f'Failed to send reminder for {booking.booking_number}: {str(e)}', exc_info=True)
         return False

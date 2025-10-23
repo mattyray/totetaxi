@@ -570,6 +570,8 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'booking_number': booking.booking_number,
                 'total_price_dollars': booking.total_price_dollars,
                 'service_type': booking.service_type,
+
+                
                 'status': booking.status,
             }
         }

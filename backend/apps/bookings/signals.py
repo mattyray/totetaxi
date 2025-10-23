@@ -1,31 +1,48 @@
-# backend/apps/bookings/signals.py
+import logging
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from apps.bookings.models import Booking
-from apps.customers.emails import send_booking_status_update_email
-import logging
+from apps.customers.emails import (
+    send_booking_status_update_email,
+    send_booking_confirmation_email,
+)
 
 logger = logging.getLogger(__name__)
+
 
 @receiver(pre_save, sender=Booking)
 def booking_status_changed(sender, instance, **kwargs):
     """
-    Automatically send email when booking status changes
-    
-    This runs BEFORE booking is saved to database
+    Send emails when a booking's status changes.
+    - Always send status-update email on change.
+    - Additionally send confirmation when becoming 'paid' or 'confirmed'.
     """
-    if instance.pk:  # Only for existing bookings (not new ones)
+    if not instance.pk:
+        # New booking being created; no "old" status to compare here.
+        return
+
+    try:
+        old = Booking.objects.get(pk=instance.pk)
+    except Booking.DoesNotExist:
+        # Shouldn't happen for existing pk, but guard anyway.
+        return
+
+    old_status = old.status
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    logger.info(f"📧 Booking {old.booking_number} status changed: {old_status} → {new_status}")
+    # Status update notification to customer
+    try:
+        send_booking_status_update_email(instance, old_status, new_status)
+    except Exception as e:
+        logger.error(f"Failed to send status update email for {instance.booking_number}: {e}", exc_info=True)
+
+    # Confirmation on transition to paid/confirmed
+    if new_status in ('paid', 'confirmed'):
         try:
-            # Get the old booking from database
-            old_booking = Booking.objects.get(pk=instance.pk)
-            old_status = old_booking.status
-            new_status = instance.status
-            
-            # Only send email if status actually changed
-            if old_status != new_status:
-                logger.info(f"📧 Booking {instance.booking_number} status changed: {old_status} → {new_status}")
-                send_booking_status_update_email(instance, old_status, new_status)
-                
-        except Booking.DoesNotExist:
-            # Booking doesn't exist yet (shouldn't happen, but safety check)
-            pass
+            send_booking_confirmation_email(instance)
+        except Exception as e:
+            logger.error(f"Failed to send confirmation for {instance.booking_number}: {e}", exc_info=True)
