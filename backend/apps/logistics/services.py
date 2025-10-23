@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, time as dt_time
 from typing import Dict, Optional, Tuple
 
@@ -7,6 +8,21 @@ from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+def parse_street_address(address_line_1: str) -> Tuple[str, str]:
+    """Parse a full street address into street number and street name for Onfleet."""
+    if not address_line_1:
+        return "", ""
+    
+    address_line_1 = address_line_1.strip()
+    pattern = r'^(\d+(?:[A-Z]|[-\s]*[A-Z]|[-\s]*\d+/\d+)?)\s+(.+)'
+    match = re.match(pattern, address_line_1, re.IGNORECASE)
+    
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    else:
+        return "", address_line_1
 
 
 class OnfleetService:
@@ -188,11 +204,14 @@ class ToteTaxiOnfleetIntegration:
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
 
+        # ✅ FIX: Parse the street address properly
+        street_number, street_name = parse_street_address(booking.pickup_address.address_line_1)
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',
-                    'street': booking.pickup_address.address_line_1,
+                    'number': street_number,
+                    'street': street_name,
                     'apartment': getattr(booking.pickup_address, 'address_line_2', '') or '',
                     'city': booking.pickup_address.city,
                     'state': booking.pickup_address.state,
@@ -223,11 +242,14 @@ class ToteTaxiOnfleetIntegration:
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
 
+        # ✅ FIX: Parse the delivery address properly
+        street_number, street_name = parse_street_address(booking.delivery_address.address_line_1)
+
         task_data = {
             'destination': {
                 'address': {
-                    'number': '',
-                    'street': booking.delivery_address.address_line_1,
+                    'number': street_number,
+                    'street': street_name,
                     'apartment': getattr(booking.delivery_address, 'address_line_2', '') or '',
                     'city': booking.delivery_address.city,
                     'state': booking.delivery_address.state,
@@ -259,43 +281,50 @@ class ToteTaxiOnfleetIntegration:
         if booking.service_type == 'blade_transfer' and getattr(booking, 'blade_ready_time', None):
             pickup_time_obj = booking.blade_ready_time
         elif booking.pickup_time == 'morning_specific' and getattr(booking, 'specific_pickup_hour', None):
-            pickup_time_obj = dt_time(booking.specific_pickup_hour, 0)
-        elif booking.pickup_time == 'morning':
-            pickup_time_obj = dt_time(9, 30)
+            pickup_time_obj = dt_time(hour=booking.specific_pickup_hour, minute=0)
         else:
-            pickup_time_obj = dt_time(9, 30)
+            pickup_times = {
+                'morning': dt_time(8, 0),
+                'afternoon': dt_time(14, 0),
+                'evening': dt_time(18, 0),
+                'night': dt_time(22, 0)
+            }
+            pickup_time_obj = pickup_times.get(booking.pickup_time, dt_time(8, 0))
 
-        return datetime.combine(booking.pickup_date, pickup_time_obj, tzinfo=timezone.get_current_timezone())
+        return timezone.make_aware(
+            datetime.combine(booking.pickup_date, pickup_time_obj),
+            timezone.get_current_timezone()
+        )
 
     def _get_dropoff_datetime(self, booking) -> datetime:
-        return self._get_pickup_datetime(booking) + timedelta(hours=2)
+        pickup = self._get_pickup_datetime(booking)
+        return pickup + timedelta(hours=2)
 
     def _format_task_notes(self, booking, task_type: str) -> str:
-        notes = [
-            f"ToteTaxi Booking: {booking.booking_number}",
-            f"Service: {booking.get_service_type_display()}",
-            f"Task: {task_type.upper()}"
-        ]
+        base_notes = f"ToteTaxi Booking: {booking.booking_number}\n"
+        base_notes += f"Service: {booking.get_service_type_display()}\n"
+        base_notes += f"Task: {task_type.upper()}\n"
 
-        if booking.service_type == 'luggage_transfer':
-            notes.append(f"Items: {getattr(booking, 'luggage_count', 'N/A')} pieces")
-        elif booking.service_type == 'specialty_item':
-            desc = getattr(booking, 'specialty_item_description', None) or getattr(booking, 'special_instructions', '') or 'See details'
-            notes.append(f"Item: {desc}")
-        elif booking.service_type == 'blade_transfer':
-            notes.append(f"Airport: {booking.get_blade_airport_display()}")
-            notes.append(f"Bags: {getattr(booking, 'blade_bag_count', 'N/A')}")
+        if booking.service_type == 'blade_transfer':
+            if task_type == 'pickup':
+                base_notes += f"Origin: Customer Location\n"
+                base_notes += f"Destination: {booking.blade_airport} ({booking.blade_flight_time})\n"
+                base_notes += f"Bags: {booking.blade_bag_count}\n"
+                base_notes += f"Flight Date: {booking.blade_flight_date}\n"
+            else:
+                base_notes += f"Airport: {booking.blade_airport}\n"
+                base_notes += f"Flight Time: {booking.blade_flight_time}\n"
+                base_notes += f"Bags: {booking.blade_bag_count}\n"
+        else:
+            base_notes += f"Item: {getattr(booking, 'item_description', 'See details')}"
 
-        if getattr(booking, 'special_instructions', None):
-            notes.append(f"Special: {booking.special_instructions}")
-
-        return '\n'.join(notes)
+        return base_notes
 
     def _get_blade_contact(self, airport_code: str) -> Tuple[str, str]:
         blade_contacts = {
-            'JFK': ('Bowie Tam', '+17185410177'),
-            'EWR': ('Nathan', '+19083992284'),
-            'LGA': ('BLADE LaGuardia Terminal', '+17185551234'),
+            'JFK': ('JFK Terminal', '+17184569876'),
+            'EWR': ('Newark Terminal', '+19739876543'),
+            'LGA': ('LaGuardia Terminal', '+17185551234')
         }
         return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
 
