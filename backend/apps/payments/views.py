@@ -1,4 +1,4 @@
-# payments/views.py
+# backend/apps/payments/views.py
 import stripe
 import logging
 from rest_framework import generics, status, permissions
@@ -13,6 +13,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.db import transaction, models  # ADDED models HERE
+from django.contrib.auth import get_user_model  # NEW
 
 from .models import Payment, Refund, PaymentAudit
 from .serializers import (
@@ -24,8 +25,26 @@ from .serializers import (
 )
 from .services import StripePaymentService
 from apps.bookings.models import Booking
+from apps.accounts.models import StaffProfile, StaffAction  # NEW
 
 logger = logging.getLogger(__name__)
+
+
+def _get_system_staff_user():
+    """
+    Ensure we have a system staff user for webhook-originated actions.
+    Prevents IntegrityError when StaffAction.staff_user is NOT NULL.
+    """
+    User = get_user_model()
+    user, _ = User.objects.get_or_create(
+        username='system_webhook',
+        defaults={'email': 'system@totetaxi.com', 'is_active': True}
+    )
+    StaffProfile.objects.get_or_create(
+        user=user,
+        defaults={'role': 'staff', 'phone': '0000000000'}
+    )
+    return user
 
 
 class PaymentIntentCreateView(APIView):
@@ -94,11 +113,11 @@ class PaymentStatusView(APIView):
                 })
             
             return Response({
-                'booking_number': booking_number,
-                'payment_status': payment.status,
-                'booking_status': booking.status,
-                'amount_dollars': payment.amount_dollars,
-                'processed_at': payment.processed_at
+                    'booking_number': booking_number,
+                    'payment_status': payment.status,
+                    'booking_status': booking.status,
+                    'amount_dollars': payment.amount_dollars,
+                    'processed_at': payment.processed_at
             })
             
         except Booking.DoesNotExist:
@@ -202,9 +221,8 @@ class StripeWebhookView(APIView):
                 )
                 
                 # Create audit log (system action, no user)
-                from apps.accounts.models import StaffAction
                 StaffAction.objects.create(
-                    staff_user=None,
+                    staff_user=_get_system_staff_user(),  # ← use system staff user
                     action_type='modify_booking',
                     description=(
                         f"Booking {booking.booking_number} automatically confirmed via Stripe webhook. "

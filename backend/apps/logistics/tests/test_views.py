@@ -414,10 +414,12 @@ class TestWebhookView:
         integration = ToteTaxiOnfleetIntegration()
         pickup, dropoff = integration.create_tasks_for_booking(test_booking)
         
+        # Assigned = triggerId 9
         webhook_data = {
-            'triggerId': 8,  # Task Assigned
+            'triggerId': 9,
+            'taskId': pickup.onfleet_task_id,
             'data': {
-                'id': pickup.onfleet_task_id,
+                'task': {'id': pickup.onfleet_task_id},
                 'worker': 'worker_123'
             }
         }
@@ -446,8 +448,9 @@ class TestWebhookView:
         
         webhook_data = {
             'triggerId': 0,
+            'taskId': pickup.onfleet_task_id,
             'data': {
-                'id': pickup.onfleet_task_id
+                'task': {'id': pickup.onfleet_task_id}
             }
         }
         

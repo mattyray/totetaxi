@@ -96,7 +96,7 @@ class TestEmailFunctions:
         assert email.subject == 'Welcome to Tote Taxi!'
         assert email.to == ['test@example.com']
         assert 'Test User' in email.body or 'test@example.com' in email.body
-        assert 'ToteTaxi' in email.body
+        assert 'Tote Taxi' in email.body
     
     def test_welcome_email_handles_no_name(self, db):
         """Test welcome email works when user has no full name"""
