@@ -5,7 +5,6 @@ from django.utils import timezone
 from django.contrib import messages
 
 
-
 class BookingSpecialtyItemInline(admin.TabularInline):
     """Inline admin for specialty items with quantities"""
     model = BookingSpecialtyItem
@@ -30,9 +29,18 @@ class BookingAdmin(admin.ModelAdmin):
         'get_organizing_services',
         'status', 
         'pickup_date', 
-        'total_price_dollars'
+        'total_price_dollars',
+        'visibility_status'
     )
-    list_filter = ('service_type', 'status', 'pickup_date', 'coi_required', 'include_packing', 'include_unpacking')
+    list_filter = (
+        'service_type', 
+        'status', 
+        'pickup_date', 
+        'coi_required', 
+        'include_packing', 
+        'include_unpacking',
+        ('deleted_at', admin.EmptyFieldListFilter),
+    )
     search_fields = ('booking_number', 'customer__email', 'guest_checkout__email')
     readonly_fields = (
         'booking_number', 'base_price_cents', 'surcharge_cents', 
@@ -40,7 +48,6 @@ class BookingAdmin(admin.ModelAdmin):
         'created_at', 'updated_at'
     )
     
-    # ✅ ADD INLINE for specialty items
     inlines = [BookingSpecialtyItemInline]
     
     fieldsets = (
@@ -53,7 +60,6 @@ class BookingAdmin(admin.ModelAdmin):
                 'mini_move_package', 
                 'standard_delivery_item_count',
                 'is_same_day_delivery',
-                # ✅ REMOVED: 'specialty_items' - now handled by inline
             )
         }),
         ('Organizing Services', {
@@ -80,7 +86,16 @@ class BookingAdmin(admin.ModelAdmin):
         })
     )
     
-    # ✅ REMOVED: filter_horizontal for specialty_items
+    actions = ['soft_delete_selected', 'restore_selected']
+    
+    def get_queryset(self, request):
+        """Hide soft-deleted bookings by default, unless specifically filtering for them"""
+        qs = super().get_queryset(request)
+        # Show all bookings if specifically filtering by deleted_at
+        if request.GET.get('deleted_at__isnull') == '0':  # Showing deleted ones
+            return qs
+        # Otherwise only show active bookings
+        return qs.filter(deleted_at__isnull=True)
     
     def get_customer_name(self, obj):
         return obj.get_customer_name()
@@ -92,7 +107,6 @@ class BookingAdmin(admin.ModelAdmin):
         elif obj.service_type == 'standard_delivery' and obj.standard_delivery_item_count:
             return f"{obj.standard_delivery_item_count} items"
         elif obj.service_type == 'specialty_item':
-            # ✅ UPDATED: Show quantities
             booking_items = obj.bookingspecialtyitem_set.all()
             items_list = [f"{bi.quantity}x {bi.specialty_item.name}" for bi in booking_items[:2]]
             return ", ".join(items_list) + ("..." if len(booking_items) > 2 else "")
@@ -120,9 +134,13 @@ class BookingAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #9ca3af;">None</span>')
     get_organizing_services.short_description = 'Organizing Services'
-
-
-    actions = ['soft_delete_selected', 'restore_selected']
+    
+    def visibility_status(self, obj):
+        """Show if booking is visible in staff dashboard"""
+        if obj.deleted_at:
+            return format_html('<span style="color: red;">🙈 Hidden</span>')
+        return format_html('<span style="color: green;">👁️ Visible</span>')
+    visibility_status.short_description = 'Dashboard Status'
     
     def soft_delete_selected(self, request, queryset):
         count = queryset.filter(deleted_at__isnull=True).update(deleted_at=timezone.now())
