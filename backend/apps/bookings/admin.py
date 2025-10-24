@@ -89,12 +89,12 @@ class BookingAdmin(admin.ModelAdmin):
     actions = ['soft_delete_selected', 'restore_selected']
     
     def get_queryset(self, request):
-        """Hide soft-deleted bookings by default, unless specifically filtering for them"""
+        """Show all bookings when filter is used, otherwise show only active ones"""
         qs = super().get_queryset(request)
-        # Show all bookings if specifically filtering by deleted_at
-        if request.GET.get('deleted_at__isnull') == '0':  # Showing deleted ones
-            return qs
-        # Otherwise only show active bookings
+        # If user is specifically filtering by deleted_at, show all results
+        if 'deleted_at__isnull' in request.GET:
+            return qs  # Let the filter handle it
+        # Otherwise only show active bookings by default
         return qs.filter(deleted_at__isnull=True)
     
     def get_customer_name(self, obj):
