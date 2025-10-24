@@ -79,7 +79,6 @@ SURCHARGE_AREA_ZIPS = {
     
     'hamptons_east': [
         '11930',  # Amagansett
-        '11937',  # East Hampton/Springs
         '11954',  # Montauk
         '11964',  # Shelter Island
     ]

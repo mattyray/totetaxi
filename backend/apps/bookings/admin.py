@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Booking, Address, GuestCheckout, BookingSpecialtyItem
+from django.utils import timezone
+from django.contrib import messages
+
 
 
 class BookingSpecialtyItemInline(admin.TabularInline):
@@ -117,6 +120,19 @@ class BookingAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #9ca3af;">None</span>')
     get_organizing_services.short_description = 'Organizing Services'
+
+
+    actions = ['soft_delete_selected', 'restore_selected']
+    
+    def soft_delete_selected(self, request, queryset):
+        count = queryset.filter(deleted_at__isnull=True).update(deleted_at=timezone.now())
+        self.message_user(request, f'Hidden {count} bookings from staff dashboard')
+    soft_delete_selected.short_description = "Hide selected bookings from dashboard"
+    
+    def restore_selected(self, request, queryset):
+        count = queryset.filter(deleted_at__isnull=False).update(deleted_at=None)
+        self.message_user(request, f'Restored {count} bookings to dashboard')
+    restore_selected.short_description = "Restore hidden bookings"
 
 
 @admin.register(Address)
