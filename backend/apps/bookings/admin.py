@@ -92,10 +92,10 @@ class BookingAdmin(admin.ModelAdmin):
         """Show all bookings when filter is used, otherwise show only active ones"""
         qs = super().get_queryset(request)
         # If user is specifically filtering by deleted_at, show all results
-        if 'deleted_at__isnull' in request.GET:
-            return qs  # Let the filter handle it
+     #   if 'deleted_at__isnull' in request.GET:
+      #      return qs  # Let the filter handle it
         # Otherwise only show active bookings by default
-        return qs.filter(deleted_at__isnull=True)
+       # return qs.filter(deleted_at__isnull=True)
     
     def get_customer_name(self, obj):
         return obj.get_customer_name()
