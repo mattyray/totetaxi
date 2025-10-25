@@ -4,29 +4,88 @@ Hi {{ customer_name }},
 
 Your Tote Taxi booking has been confirmed!
 
-Booking Details:
+=== BOOKING DETAILS ===
 - Booking Number: {{ booking.booking_number }}
 - Service: {{ booking.get_service_type_display }}
-- Pickup Date: {{ booking.pickup_date }}
+{% if booking.service_type == 'blade_transfer' %}
+- Airport: {% if booking.blade_airport == 'JFK' %}JFK International Airport{% elif booking.blade_airport == 'EWR' %}Newark Liberty International Airport{% else %}{{ booking.blade_airport }}{% endif %}
+- Flight Date: {% if booking.blade_flight_date %}{{ booking.blade_flight_date|date:"l, F j, Y" }}{% endif %}
+- Flight Departure: {% if booking.blade_flight_time %}{{ booking.blade_flight_time|time:"g:i A" }}{% endif %}
+- Number of Bags: {{ booking.blade_bag_count }}
+- Bags Ready By: {% if booking.blade_ready_time %}{{ booking.blade_ready_time|time:"g:i A" }}{% endif %}
+{% else %}
+- Pickup Date: {{ booking.pickup_date|date:"l, F j, Y" }}
 - Pickup Time: {{ booking.get_pickup_time_display }}
+{% endif %}
 - Total: ${{ booking.total_price_dollars }}
 
+{% if booking.service_type == 'blade_transfer' %}
+=== BLADE TRANSFER DETAILS ===
+• Rate: $75 per bag (minimum 2 bags = $150)
+• Weight limit: 50 lbs per bag
+• Overweight bags: $100 additional per bag
+• NYC to airport service
+
+{% elif booking.service_type == 'mini_move' %}
+=== MINI MOVE DETAILS ===
+{% if booking.mini_move_package %}
+• Package: {{ booking.mini_move_package.name }}
+• Description: {{ booking.mini_move_package.description }}
+{% if booking.mini_move_package.max_items %}• Item limit: {{ booking.mini_move_package.max_items }} pieces{% endif %}
+• Weight limit: {{ booking.mini_move_package.max_weight_per_item_lbs }} lbs per item
+{% endif %}
+
+{% if booking.include_packing %}
+• Packing service included
+{% endif %}
+{% if booking.include_unpacking %}
+• Unpacking service included
+{% endif %}
+
+{% elif booking.service_type == 'standard_delivery' %}
+=== STANDARD DELIVERY DETAILS ===
+{% if booking.standard_delivery_item_count %}• Items: {{ booking.standard_delivery_item_count }} pieces{% endif %}
+• Rate: $9.50 per item (minimum $28.50)
+• Weight limit: 50 lbs per item
+{% if booking.is_same_day_delivery %}• Same-day delivery: $360{% endif %}
+
+{% if booking.bookingspecialtyitem_set.exists %}
+Specialty items:
+{% for booking_item in booking.bookingspecialtyitem_set.all %}• {{ booking_item.specialty_item.name }}: {{ booking_item.quantity }} items
+{% endfor %}
+{% endif %}
+
+{% elif booking.service_type == 'specialty_item' %}
+=== SPECIALTY ITEM DELIVERY ===
+{% for booking_item in booking.bookingspecialtyitem_set.all %}• {{ booking_item.specialty_item.name }}: {{ booking_item.quantity }} items
+{% endfor %}
+{% if booking.is_same_day_delivery %}• Same-day delivery: $360{% endif %}
+
+{% endif %}
+
+=== ADDRESSES ===
 Pickup Address:
 {{ booking.pickup_address.address_line_1 }}
 {% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}
 {{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
 
+{% if booking.service_type != 'blade_transfer' %}
 Delivery Address:
 {{ booking.delivery_address.address_line_1 }}
 {% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
 {{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+{% endif %}
 
 {% if booking.special_instructions %}
 Special Instructions:
 {{ booking.special_instructions }}
 {% endif %}
 
-We'll send you an update when your booking status changes.
+{% if booking.coi_required %}
+Certificate of Insurance: Included
+{% endif %}
+
+We'll send you updates as your booking progresses.
 
 Questions? Contact us at info@totetaxi.com or call (631) 595-5100
 
