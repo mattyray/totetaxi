@@ -3,6 +3,14 @@ import sys
 import environ
 from pathlib import Path
 from celery.schedules import crontab
+import logging
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -17,6 +25,54 @@ if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
 DEBUG = env('DEBUG', default=False)
 FLY_APP_NAME = env('FLY_APP_NAME', default='')
+
+SENTRY_DSN = env('SENTRY_DSN', default='')
+SENTRY_ENVIRONMENT = env('SENTRY_ENVIRONMENT', default='development')
+TESTING = 'test' in sys.argv or ('pytest' in sys.argv[0] if sys.argv else False)
+
+def filter_sentry_events(event, hint):
+    """Filter out certain events from being sent to Sentry"""
+    if 'exc_info' in hint:
+        exc_type, exc_value, tb = hint['exc_info']
+        if exc_type.__name__ == 'DisallowedHost':
+            return None
+    
+    if 'log_record' in hint:
+        record = hint['log_record']
+        if 'Not Found:' in record.getMessage():
+            return None
+    
+    return event
+
+if SENTRY_DSN and not TESTING:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(
+                transaction_style='url',
+                middleware_spans=True,
+                signals_spans=True,
+                cache_spans=True,
+            ),
+            CeleryIntegration(
+                monitor_beat_tasks=True,
+                propagate_traces=True,
+            ),
+            RedisIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR
+            ),
+        ],
+        traces_sample_rate=1.0 if DEBUG else 0.1,
+        release=env('SENTRY_RELEASE', default=None),
+        before_send=filter_sentry_events,
+        attach_stacktrace=True,
+        send_default_pii=False,
+        max_breadcrumbs=50,
+        debug=DEBUG,
+    )
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
 if FLY_APP_NAME:
