@@ -1,52 +1,68 @@
 // frontend/src/app/layout.tsx
-'use client';
-
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "@/components/providers/query-provider";
-import { useEffect } from 'react';
-import { useAuthStore } from '@/stores/auth-store';
-import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { ClientProviders } from "@/components/providers/client-providers";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-playfair' });
 
-// Component to handle session validation
-function SessionValidator() {
-  const { isAuthenticated: customerAuth, validateSession: validateCustomer } = useAuthStore();
-  const { isAuthenticated: staffAuth, validateSession: validateStaff } = useStaffAuthStore();
-
-  useEffect(() => {
-    const validateSessions = async () => {
-      console.log('Validating stored sessions on app startup');
-      
-      try {
-        if (customerAuth) {
-          const isValid = await validateCustomer();
-          if (!isValid) {
-            console.log('Customer session invalid - cleared automatically');
-          }
-        }
-        
-        if (staffAuth) {
-          const isValid = await validateStaff();
-          if (!isValid) {
-            console.log('Staff session invalid - cleared automatically');
-          }
-        }
-      } catch (error) {
-        console.warn('Session validation error:', error);
+// This is what controls your social media previews
+export const metadata: Metadata = {
+  title: {
+    default: "Tote Taxi - Premium Door-to-Door Delivery Service",
+    template: "%s | Tote Taxi"
+  },
+  description: "Tote Taxi delivers your luggage and belongings stress-free between NYC, the Hamptons, South Florida, and all major airports. From suitcases to surfboards, Pelotons to pop-up props.",
+  keywords: ["luggage delivery", "door-to-door service", "NYC", "Hamptons", "Florida", "airport delivery", "luxury transport"],
+  
+  // Open Graph (Facebook, LinkedIn, etc.)
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://totetaxi.com",
+    siteName: "Tote Taxi",
+    title: "Tote Taxi - Premium Door-to-Door Delivery Service",
+    description: "Stress-free delivery between NYC, the Hamptons, and South Florida. We handle everything from suitcases to surfboards.",
+    images: [
+      {
+        url: "https://totetaxi.com/assets/images/totetaxilogo.png",
+        width: 1200,
+        height: 630,
+        alt: "Tote Taxi - Premium Delivery Service",
+      },
+      {
+        url: "https://totetaxi.com/assets/images/hero-large.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Tote Taxi luxury delivery service",
       }
-    };
-
-    // Run validation after a brief delay to ensure stores are initialized
-    const timer = setTimeout(validateSessions, 1000);
-    return () => clearTimeout(timer);
-  }, [customerAuth, staffAuth, validateCustomer, validateStaff]);
-
-  return null; // This component doesn't render anything
-}
+    ],
+  },
+  
+  // Twitter Card
+  twitter: {
+    card: "summary_large_image",
+    title: "Tote Taxi - Premium Door-to-Door Delivery",
+    description: "Stress-free delivery between NYC, the Hamptons, and South Florida.",
+    images: ["https://totetaxi.com/assets/images/totetaxilogo.png"],
+  },
+  
+  // Additional SEO
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  
+  category: "business",
+};
 
 export default function RootLayout({
   children,
@@ -56,10 +72,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body className={inter.className}>
-        <QueryProvider>
-          <SessionValidator />
+        <ClientProviders>
           {children}
-        </QueryProvider>
+        </ClientProviders>
       </body>
     </html>
   );
