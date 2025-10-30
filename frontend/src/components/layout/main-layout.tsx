@@ -49,6 +49,12 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
               <Link href="/about" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 About
               </Link>
+              <Link href="/press" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                Press
+              </Link>
+              <Link href="/partnerships" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
+                Partnerships
+              </Link>
               <Link href="/faq" className="text-navy-700 hover:text-navy-900 transition-colors font-medium">
                 FAQ
               </Link>
@@ -118,6 +124,20 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   About
+                </Link>
+                <Link 
+                  href="/press" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Press
+                </Link>
+                <Link 
+                  href="/partnerships" 
+                  className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Partnerships
                 </Link>
                 <Link 
                   href="/faq" 
@@ -212,6 +232,8 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
               <h4 className="font-medium mb-4">Company</h4>
               <ul className="space-y-2 text-navy-300 text-sm">
                 <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                <li><Link href="/press" className="hover:text-white transition-colors">Press</Link></li>
+                <li><Link href="/partnerships" className="hover:text-white transition-colors">Partnerships</Link></li>
                 <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>

@@ -1,6 +1,6 @@
 # TOTETAXI - BACKEND CODE SNAPSHOT
 # AUTO-GENERATED - CODE FILES ONLY
-# Created: 2025-10-24 13:47:24
+# Created: 2025-10-25 20:16:40
 # Total files: 141
 # 🔒 SECURITY: .env files excluded (contain secrets)
 # 📋 INCLUDES: All Django apps, migrations, configuration
@@ -1057,6 +1057,14 @@ import sys
 import environ
 from pathlib import Path
 from celery.schedules import crontab
+import logging
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -1071,6 +1079,54 @@ if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
 DEBUG = env('DEBUG', default=False)
 FLY_APP_NAME = env('FLY_APP_NAME', default='')
+
+SENTRY_DSN = env('SENTRY_DSN', default='')
+SENTRY_ENVIRONMENT = env('SENTRY_ENVIRONMENT', default='development')
+TESTING = 'test' in sys.argv or ('pytest' in sys.argv[0] if sys.argv else False)
+
+def filter_sentry_events(event, hint):
+    """Filter out certain events from being sent to Sentry"""
+    if 'exc_info' in hint:
+        exc_type, exc_value, tb = hint['exc_info']
+        if exc_type.__name__ == 'DisallowedHost':
+            return None
+    
+    if 'log_record' in hint:
+        record = hint['log_record']
+        if 'Not Found:' in record.getMessage():
+            return None
+    
+    return event
+
+if SENTRY_DSN and not TESTING:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(
+                transaction_style='url',
+                middleware_spans=True,
+                signals_spans=True,
+                cache_spans=True,
+            ),
+            CeleryIntegration(
+                monitor_beat_tasks=True,
+                propagate_traces=True,
+            ),
+            RedisIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR
+            ),
+        ],
+        traces_sample_rate=1.0 if DEBUG else 0.1,
+        release=env('SENTRY_RELEASE', default=None),
+        before_send=filter_sentry_events,
+        attach_stacktrace=True,
+        send_default_pii=False,
+        max_breadcrumbs=50,
+        debug=DEBUG,
+    )
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '0.0.0.0'])
 if FLY_APP_NAME:
@@ -2684,6 +2740,8 @@ class StaffCSRFTokenView(APIView):
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Booking, Address, GuestCheckout, BookingSpecialtyItem
+from django.utils import timezone
+from django.contrib import messages
 
 
 class BookingSpecialtyItemInline(admin.TabularInline):
@@ -2710,9 +2768,18 @@ class BookingAdmin(admin.ModelAdmin):
         'get_organizing_services',
         'status', 
         'pickup_date', 
-        'total_price_dollars'
+        'total_price_dollars',
+        'visibility_status'
     )
-    list_filter = ('service_type', 'status', 'pickup_date', 'coi_required', 'include_packing', 'include_unpacking')
+    list_filter = (
+        'service_type', 
+        'status', 
+        'pickup_date', 
+        'coi_required', 
+        'include_packing', 
+        'include_unpacking',
+        ('deleted_at', admin.EmptyFieldListFilter),
+    )
     search_fields = ('booking_number', 'customer__email', 'guest_checkout__email')
     readonly_fields = (
         'booking_number', 'base_price_cents', 'surcharge_cents', 
@@ -2720,7 +2787,6 @@ class BookingAdmin(admin.ModelAdmin):
         'created_at', 'updated_at'
     )
     
-    # ✅ ADD INLINE for specialty items
     inlines = [BookingSpecialtyItemInline]
     
     fieldsets = (
@@ -2733,7 +2799,6 @@ class BookingAdmin(admin.ModelAdmin):
                 'mini_move_package', 
                 'standard_delivery_item_count',
                 'is_same_day_delivery',
-                # ✅ REMOVED: 'specialty_items' - now handled by inline
             )
         }),
         ('Organizing Services', {
@@ -2760,7 +2825,17 @@ class BookingAdmin(admin.ModelAdmin):
         })
     )
     
-    # ✅ REMOVED: filter_horizontal for specialty_items
+    actions = ['soft_delete_selected', 'restore_selected']
+    
+    def get_queryset(self, request):
+        """Show all bookings when filter is used, otherwise show only active ones"""
+        qs = super().get_queryset(request)
+        return qs
+        # If user is specifically filtering by deleted_at, show all results
+     #   if 'deleted_at__isnull' in request.GET:
+      #      return qs  # Let the filter handle it
+        # Otherwise only show active bookings by default
+       # return qs.filter(deleted_at__isnull=True)
     
     def get_customer_name(self, obj):
         return obj.get_customer_name()
@@ -2772,7 +2847,6 @@ class BookingAdmin(admin.ModelAdmin):
         elif obj.service_type == 'standard_delivery' and obj.standard_delivery_item_count:
             return f"{obj.standard_delivery_item_count} items"
         elif obj.service_type == 'specialty_item':
-            # ✅ UPDATED: Show quantities
             booking_items = obj.bookingspecialtyitem_set.all()
             items_list = [f"{bi.quantity}x {bi.specialty_item.name}" for bi in booking_items[:2]]
             return ", ".join(items_list) + ("..." if len(booking_items) > 2 else "")
@@ -2800,6 +2874,23 @@ class BookingAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #9ca3af;">None</span>')
     get_organizing_services.short_description = 'Organizing Services'
+    
+    def visibility_status(self, obj):
+        """Show if booking is visible in staff dashboard"""
+        if obj.deleted_at:
+            return format_html('<span style="color: red;">🙈 Hidden</span>')
+        return format_html('<span style="color: green;">👁️ Visible</span>')
+    visibility_status.short_description = 'Dashboard Status'
+    
+    def soft_delete_selected(self, request, queryset):
+        count = queryset.filter(deleted_at__isnull=True).update(deleted_at=timezone.now())
+        self.message_user(request, f'Hidden {count} bookings from staff dashboard')
+    soft_delete_selected.short_description = "Hide selected bookings from dashboard"
+    
+    def restore_selected(self, request, queryset):
+        count = queryset.filter(deleted_at__isnull=False).update(deleted_at=None)
+        self.message_user(request, f'Restored {count} bookings to dashboard')
+    restore_selected.short_description = "Restore hidden bookings"
 
 
 @admin.register(Address)
@@ -6927,7 +7018,6 @@ SURCHARGE_AREA_ZIPS = {
     
     'hamptons_east': [
         '11930',  # Amagansett
-        '11937',  # East Hampton/Springs
         '11954',  # Montauk
         '11964',  # Shelter Island
     ]
@@ -16760,29 +16850,88 @@ Hi {{ customer_name }},
 
 Your Tote Taxi booking has been confirmed!
 
-Booking Details:
+=== BOOKING DETAILS ===
 - Booking Number: {{ booking.booking_number }}
 - Service: {{ booking.get_service_type_display }}
-- Pickup Date: {{ booking.pickup_date }}
+{% if booking.service_type == 'blade_transfer' %}
+- Airport: {% if booking.blade_airport == 'JFK' %}JFK International Airport{% elif booking.blade_airport == 'EWR' %}Newark Liberty International Airport{% else %}{{ booking.blade_airport }}{% endif %}
+- Flight Date: {% if booking.blade_flight_date %}{{ booking.blade_flight_date|date:"l, F j, Y" }}{% endif %}
+- Flight Departure: {% if booking.blade_flight_time %}{{ booking.blade_flight_time|time:"g:i A" }}{% endif %}
+- Number of Bags: {{ booking.blade_bag_count }}
+- Bags Ready By: {% if booking.blade_ready_time %}{{ booking.blade_ready_time|time:"g:i A" }}{% endif %}
+{% else %}
+- Pickup Date: {{ booking.pickup_date|date:"l, F j, Y" }}
 - Pickup Time: {{ booking.get_pickup_time_display }}
+{% endif %}
 - Total: ${{ booking.total_price_dollars }}
 
+{% if booking.service_type == 'blade_transfer' %}
+=== BLADE TRANSFER DETAILS ===
+• Rate: $75 per bag (minimum 2 bags = $150)
+• Weight limit: 50 lbs per bag
+• Overweight bags: $100 additional per bag
+• NYC to airport service
+
+{% elif booking.service_type == 'mini_move' %}
+=== MINI MOVE DETAILS ===
+{% if booking.mini_move_package %}
+• Package: {{ booking.mini_move_package.name }}
+• Description: {{ booking.mini_move_package.description }}
+{% if booking.mini_move_package.max_items %}• Item limit: {{ booking.mini_move_package.max_items }} pieces{% endif %}
+• Weight limit: {{ booking.mini_move_package.max_weight_per_item_lbs }} lbs per item
+{% endif %}
+
+{% if booking.include_packing %}
+• Packing service included
+{% endif %}
+{% if booking.include_unpacking %}
+• Unpacking service included
+{% endif %}
+
+{% elif booking.service_type == 'standard_delivery' %}
+=== STANDARD DELIVERY DETAILS ===
+{% if booking.standard_delivery_item_count %}• Items: {{ booking.standard_delivery_item_count }} pieces{% endif %}
+• Rate: $9.50 per item (minimum $28.50)
+• Weight limit: 50 lbs per item
+{% if booking.is_same_day_delivery %}• Same-day delivery: $360{% endif %}
+
+{% if booking.bookingspecialtyitem_set.exists %}
+Specialty items:
+{% for booking_item in booking.bookingspecialtyitem_set.all %}• {{ booking_item.specialty_item.name }}: {{ booking_item.quantity }} items
+{% endfor %}
+{% endif %}
+
+{% elif booking.service_type == 'specialty_item' %}
+=== SPECIALTY ITEM DELIVERY ===
+{% for booking_item in booking.bookingspecialtyitem_set.all %}• {{ booking_item.specialty_item.name }}: {{ booking_item.quantity }} items
+{% endfor %}
+{% if booking.is_same_day_delivery %}• Same-day delivery: $360{% endif %}
+
+{% endif %}
+
+=== ADDRESSES ===
 Pickup Address:
 {{ booking.pickup_address.address_line_1 }}
 {% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}
 {{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
 
+{% if booking.service_type != 'blade_transfer' %}
 Delivery Address:
 {{ booking.delivery_address.address_line_1 }}
 {% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
 {{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+{% endif %}
 
 {% if booking.special_instructions %}
 Special Instructions:
 {{ booking.special_instructions }}
 {% endif %}
 
-We'll send you an update when your booking status changes.
+{% if booking.coi_required %}
+Certificate of Insurance: Included
+{% endif %}
+
+We'll send you updates as your booking progresses.
 
 Questions? Contact us at info@totetaxi.com or call (631) 595-5100
 
