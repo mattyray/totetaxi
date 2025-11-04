@@ -727,7 +727,7 @@ export function ServiceSelectionStep() {
 
           <Card variant="elevated">
             <CardHeader>
-              <h4 className="font-medium text-navy-900">Flight Information</h4>
+              <h4 className="font-medium text-navy-900">BLADE Flight Information</h4>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

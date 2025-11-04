@@ -82,7 +82,7 @@ class OnfleetService:
                 'id': mock_id,
                 'shortId': f'mt{hash(booking_number) % 1000:03d}',
                 'trackingURL': f'https://onf.lt/mock{hash(f"{booking_number}{task_type}") % 10000:04d}',
-                'state': 0,  # 0 = unassigned
+                'state': 0,
                 'worker': None,
                 'merchant': 'mock_org_id',
                 'creator': 'mock_admin_id',
@@ -151,7 +151,7 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_short_id=pickup_response.get('shortId', ''),
                 tracking_url=pickup_response.get('trackingURL', ''),
                 recipient_name=booking.get_customer_name(),
-                recipient_phone=self._get_customer_phone(booking),
+                recipient_phone=self._format_phone(self._get_customer_phone(booking)),
                 status=self._map_onfleet_state(pickup_response.get('state', 0)),
                 worker_id=pickup_response.get('worker', '') or '',
                 worker_name=self._get_worker_name(pickup_response.get('worker'))
@@ -165,7 +165,7 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_short_id=dropoff_response.get('shortId', ''),
                 tracking_url=dropoff_response.get('trackingURL', ''),
                 recipient_name=self._get_dropoff_recipient_name(booking),
-                recipient_phone=self._get_dropoff_recipient_phone(booking),
+                recipient_phone=self._format_phone(self._get_dropoff_recipient_phone(booking)),
                 linked_task=db_pickup,
                 status=self._map_onfleet_state(dropoff_response.get('state', 0)),
                 worker_id=dropoff_response.get('worker', '') or '',
@@ -204,7 +204,6 @@ class ToteTaxiOnfleetIntegration:
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
 
-        # ✅ FIX: Parse the street address properly
         street_number, street_name = parse_street_address(booking.pickup_address.address_line_1)
 
         task_data = {
@@ -227,7 +226,7 @@ class ToteTaxiOnfleetIntegration:
             'completeAfter': int(window_start.timestamp() * 1000),
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': True,
-            'autoAssign': {'mode': 'distance'},
+            'autoAssign': {'mode': 'off'},
             'notes': self._format_task_notes(booking, 'pickup'),
             'metadata': [
                 {'name': 'booking_number', 'type': 'string', 'value': booking.booking_number},
@@ -242,7 +241,6 @@ class ToteTaxiOnfleetIntegration:
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
 
-        # ✅ FIX: Parse the delivery address properly
         street_number, street_name = parse_street_address(booking.delivery_address.address_line_1)
 
         task_data = {
@@ -266,7 +264,7 @@ class ToteTaxiOnfleetIntegration:
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': False,
             'dependencies': [depends_on],
-            'autoAssign': {'mode': 'distance'},
+            'autoAssign': {'mode': 'off'},
             'notes': self._format_task_notes(booking, 'dropoff'),
             'metadata': [
                 {'name': 'booking_number', 'type': 'string', 'value': booking.booking_number},
@@ -277,7 +275,6 @@ class ToteTaxiOnfleetIntegration:
         return self.onfleet.create_task(task_data)
 
     def _get_pickup_datetime(self, booking) -> datetime:
-        # Blade transfers use ready time
         if booking.service_type == 'blade_transfer' and getattr(booking, 'blade_ready_time', None):
             pickup_time_obj = booking.blade_ready_time
         elif booking.pickup_time == 'morning_specific' and getattr(booking, 'specific_pickup_hour', None):
@@ -380,7 +377,7 @@ class ToteTaxiOnfleetIntegration:
             trigger_id = webhook_data.get('triggerId')
             task_obj = webhook_data.get('data', {}).get('task', {})
 
-            if trigger_id == 0:  # started
+            if trigger_id == 0:
                 onfleet_task.status = 'active'
                 onfleet_task.started_at = timezone.now()
                 worker = task_obj.get('worker')
@@ -394,7 +391,7 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_task.save()
                 logger.info(f"Task started: {task_id} ({onfleet_task.task_type})")
 
-            elif trigger_id == 3:  # completed
+            elif trigger_id == 3:
                 onfleet_task.status = 'completed'
                 onfleet_task.completed_at = timezone.now()
                 completion = task_obj.get('completionDetails', {})
@@ -411,7 +408,7 @@ class ToteTaxiOnfleetIntegration:
 
                 logger.info(f"Task completed: {task_id} ({onfleet_task.task_type})")
 
-            elif trigger_id == 4:  # failed
+            elif trigger_id == 4:
                 onfleet_task.status = 'failed'
                 completion = task_obj.get('completionDetails', {})
                 onfleet_task.failure_reason = completion.get('failureReason', '')
@@ -419,19 +416,19 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_task.save()
                 logger.error(f"Task failed: {task_id} - {onfleet_task.failure_reason}")
 
-            elif trigger_id == 8:  # deleted
+            elif trigger_id == 8:
                 onfleet_task.status = 'deleted'
                 onfleet_task.save()
                 logger.warning(f"Task deleted: {task_id}")
 
-            elif trigger_id == 1:  # ETA changed
+            elif trigger_id == 1:
                 eta_ts = task_obj.get('estimatedCompletionTime')
                 if eta_ts:
                     onfleet_task.estimated_arrival = datetime.fromtimestamp(eta_ts / 1000, tz=timezone.get_current_timezone())
                     onfleet_task.save()
                     logger.info(f"Task ETA updated: {task_id}")
 
-            elif trigger_id == 9:  # assigned
+            elif trigger_id == 9:
                 onfleet_task.status = 'assigned'
                 worker = task_obj.get('worker') or webhook_data.get('data', {}).get('worker')
                 if worker:
@@ -444,7 +441,7 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_task.save()
                 logger.info(f"Task assigned: {task_id} to {onfleet_task.worker_name}")
 
-            elif trigger_id == 10:  # unassigned
+            elif trigger_id == 10:
                 onfleet_task.status = 'created'
                 onfleet_task.worker_id = ''
                 onfleet_task.worker_name = ''
@@ -502,7 +499,6 @@ class ToteTaxiOnfleetIntegration:
                 'mock_mode': self.onfleet.mock_mode
             }
 
-    # Legacy compatibility
     def create_delivery_task(self, booking):
         pickup, dropoff = self.create_tasks_for_booking(booking)
         return pickup

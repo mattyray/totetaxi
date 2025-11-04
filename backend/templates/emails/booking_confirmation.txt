@@ -45,7 +45,7 @@ Your Tote Taxi booking has been confirmed!
 {% elif booking.service_type == 'standard_delivery' %}
 === STANDARD DELIVERY DETAILS ===
 {% if booking.standard_delivery_item_count %}• Items: {{ booking.standard_delivery_item_count }} pieces{% endif %}
-• Rate: $9.50 per item (minimum $28.50)
+• Rate: $95.00 per item (minimum $285.00)
 • Weight limit: 50 lbs per item
 {% if booking.is_same_day_delivery %}• Same-day delivery: $360{% endif %}
 
