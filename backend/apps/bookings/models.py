@@ -20,7 +20,7 @@ def check_same_day_restriction(pickup_date):
     if not pickup_date:
         return False, None
     
-    now = timezone.now()
+    now = timezone.localtime(timezone.now())  # ✅ This gets EST time (13:54 = 1:54 PM)
     booking_date = now.date()
     booking_time = now.time()
     cutoff_time = time(18, 0)  # 6:00 PM
