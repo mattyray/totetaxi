@@ -11,7 +11,7 @@ import json
 import stripe
 
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
-from apps.bookings.models import Booking, Address
+from apps.bookings.models import Booking, Address, check_same_day_restriction  # ← ADDED IMPORT
 from apps.payments.models import Payment
 from apps.payments.services import StripePaymentService
 from .emails import send_booking_confirmation_email
@@ -136,6 +136,18 @@ class CustomerBookingCreateView(APIView):
             logger.warning(f"Booking validation failed for {request.user.email}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        # ========== SAME-DAY RESTRICTION CHECK ==========
+        pickup_date = serializer.validated_data.get('pickup_date')
+        if pickup_date:
+            is_blocked, error_message = check_same_day_restriction(pickup_date)
+            if is_blocked:
+                return Response({
+                    'error': 'same_day_restriction',
+                    'message': error_message,
+                    'contact_phone': '(631) 595-5100'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        # ========== END RESTRICTION CHECK ==========
+        
         try:
             booking = serializer.save()
             logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
@@ -160,8 +172,6 @@ class CustomerBookingCreateView(APIView):
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
-
-            # REMOVED THESE 2 LINES:
             
         except Exception as e:
             logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)
@@ -217,7 +227,6 @@ class CustomerBookingDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # ✅ OPTIMIZED: Added select_related and prefetch_related
         return self.request.user.bookings.filter(
             deleted_at__isnull=True
         ).select_related(
@@ -248,7 +257,6 @@ class CustomerDashboardView(APIView):
         
         customer_profile = request.user.customer_profile
         
-        # ✅ OPTIMIZED: Added select_related and prefetch_related to avoid N+1 queries
         all_bookings = request.user.bookings.filter(
             deleted_at__isnull=True,
             status__in=['paid', 'confirmed', 'completed']

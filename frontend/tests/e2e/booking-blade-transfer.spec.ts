@@ -38,9 +38,10 @@ test.describe('BLADE Airport Transfer', () => {
     }
     console.log('✓ Selected JFK');
     
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateString = tomorrow.toISOString().split('T')[0];
+    // ✅ FIXED: Changed from +1 to +3 days to avoid same-day restriction
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 3);
+    const dateString = futureDate.toISOString().split('T')[0];
     
     const dateInput = page.locator('input[type="date"]');
     await dateInput.fill(dateString);
@@ -87,7 +88,6 @@ test.describe('BLADE Airport Transfer', () => {
     await page.locator('select').first().selectOption('NY');
     await page.getByPlaceholder('10001').first().fill('10019');
     
-    // ✅ FIX: Check for the readonly message instead
     await expect(page.getByText('Airport address is automatically set')).toBeVisible();
     console.log('✓ Delivery auto-filled to JFK');
     
@@ -138,9 +138,10 @@ test.describe('BLADE Airport Transfer', () => {
     }
     console.log('✓ Selected EWR');
     
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 2);
-    const dateString = tomorrow.toISOString().split('T')[0];
+    // ✅ FIXED: Changed from +2 to +4 days to avoid same-day restriction
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 4);
+    const dateString = futureDate.toISOString().split('T')[0];
     
     await page.locator('input[type="date"]').fill(dateString);
     await page.locator('input[type="time"]').fill('18:45');

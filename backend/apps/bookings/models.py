@@ -4,7 +4,37 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
-from datetime import timedelta
+from datetime import timedelta, time
+
+
+def check_same_day_restriction(pickup_date):
+    """
+    Check if booking falls into restricted same-day window
+    
+    Rules:
+    1. If pickup_date is today → BLOCKED
+    2. If booking time is after 6 PM and pickup_date is tomorrow → BLOCKED
+    
+    Returns: (is_blocked: bool, error_message: str or None)
+    """
+    if not pickup_date:
+        return False, None
+    
+    now = timezone.now()
+    booking_date = now.date()
+    booking_time = now.time()
+    cutoff_time = time(18, 0)  # 6:00 PM
+    next_day = booking_date + timedelta(days=1)
+    
+    # Rule 1: Same day pickup
+    if pickup_date == booking_date:
+        return True, "Same-day bookings must be arranged through Tote Taxi Customer Service. Please call (631) 595-5100."
+    
+    # Rule 2: After 6 PM for next day
+    if booking_time >= cutoff_time and pickup_date == next_day:
+        return True, "Bookings made after 6 PM for next-day service must be arranged through Tote Taxi Customer Service. Please call (631) 595-5100."
+    
+    return False, None
 
 
 class Address(models.Model):
@@ -285,7 +315,6 @@ class Booking(models.Model):
                 name='booking_exactly_one_customer_type'
             )
         ]
-        # ✅ OPTIMIZED: Added indexes for common queries
         indexes = [
             models.Index(fields=['booking_number'], name='bookings_booking_number_idx'),
             models.Index(fields=['pickup_date', 'status'], name='bookings_pickup_status_idx'),
@@ -306,7 +335,7 @@ class Booking(models.Model):
                 next_num = 1
             self.booking_number = f"TT-{next_num:06d}"
         
-        # ========== AUTO-SET GEOGRAPHIC SURCHARGE (NEW) ==========
+        # ========== AUTO-SET GEOGRAPHIC SURCHARGE ==========
         if self.pickup_address and self.delivery_address:
             from .zip_codes import validate_service_area
             
@@ -454,7 +483,7 @@ class Booking(models.Model):
         if not self.coi_required:
             return 0
         
-        # ✅ FIX: $50 COI fee for Standard Delivery and Specialty Items
+        # $50 COI fee for Standard Delivery and Specialty Items
         if self.service_type in ['standard_delivery', 'specialty_item']:
             return 5000
         
@@ -567,7 +596,6 @@ class Booking(models.Model):
                     )
                     self.surcharge_cents += surcharge_amount
             
-            # ✅ FIX: Apply geographic surcharge and COI fee
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
             self.coi_fee_cents = self.calculate_coi_fee()
         
@@ -578,7 +606,7 @@ class Booking(models.Model):
                 specialty_total += booking_item.subtotal_cents
             self.base_price_cents = specialty_total
             
-            # ✅ FIX: Apply same-day delivery surcharge for specialty items
+            # Apply same-day delivery surcharge for specialty items
             if self.is_same_day_delivery:
                 try:
                     config = StandardDeliveryConfig.objects.filter(is_active=True).first()
@@ -587,7 +615,7 @@ class Booking(models.Model):
                 except StandardDeliveryConfig.DoesNotExist:
                     pass
             
-            # ✅ FIX: Apply weekend surcharges
+            # Apply weekend surcharges
             if self.pickup_date:
                 active_surcharges = SurchargeRule.objects.filter(is_active=True)
                 for surcharge in active_surcharges:
@@ -598,7 +626,6 @@ class Booking(models.Model):
                     )
                     self.surcharge_cents += surcharge_amount
             
-            # ✅ FIX: Apply geographic surcharge and COI fee
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
             self.coi_fee_cents = self.calculate_coi_fee()
         

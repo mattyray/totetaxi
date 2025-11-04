@@ -11,7 +11,7 @@ import json
 import stripe
 from django.conf import settings
 
-from .models import Booking, Address, GuestCheckout
+from .models import Booking, Address, GuestCheckout, check_same_day_restriction  # ← ADDED IMPORT
 from .serializers import (
     BookingSerializer,
     GuestBookingCreateSerializer,
@@ -100,6 +100,18 @@ class PricingPreviewView(APIView):
         
         service_type = serializer.validated_data['service_type']
         pickup_date = serializer.validated_data['pickup_date']
+        
+        # ========== SAME-DAY RESTRICTION CHECK ==========
+        if pickup_date:
+            is_blocked, error_message = check_same_day_restriction(pickup_date)
+            if is_blocked:
+                return Response({
+                    'error': 'same_day_restriction',
+                    'message': error_message,
+                    'contact_phone': '(631) 595-5100',
+                    'pickup_date': str(pickup_date)
+                }, status=status.HTTP_400_BAD_REQUEST)
+        # ========== END RESTRICTION CHECK ==========
         
         base_price_cents = 0
         surcharge_cents = 0
@@ -292,14 +304,13 @@ class PricingPreviewView(APIView):
             if coi_required:
                 coi_fee_cents = 5000
         
-        # ✅ FIXED: Specialty Item pricing with quantities
+        # Specialty Item pricing with quantities
         elif service_type == 'specialty_item':
             if serializer.validated_data.get('include_packing') or serializer.validated_data.get('include_unpacking'):
                 return Response({
                     'error': 'Organizing services are only available for Mini Move bookings'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # ✅ Handle specialty_items with quantities
             specialty_items_data = serializer.validated_data.get('specialty_items', [])
             
             if specialty_items_data:
@@ -416,7 +427,6 @@ class CalendarAvailabilityView(APIView):
         current_date = start_date
         
         while current_date <= end_date:
-            # ✅ OPTIMIZED: Added select_related to avoid N+1 queries
             bookings_today = Booking.objects.filter(
                 pickup_date=current_date,
                 deleted_at__isnull=True
@@ -555,6 +565,19 @@ class GuestBookingCreateView(generics.CreateAPIView):
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
+        # ========== SAME-DAY RESTRICTION CHECK ==========
+        pickup_date = serializer.validated_data.get('pickup_date')
+        if pickup_date:
+            is_blocked, error_message = check_same_day_restriction(pickup_date)
+            if is_blocked:
+                return Response({
+                    'error': 'same_day_restriction',
+                    'message': error_message,
+                    'contact_phone': '(631) 595-5100'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        # ========== END RESTRICTION CHECK ==========
+        
         booking = serializer.save()
         
         # Update booking status to paid since payment already succeeded
@@ -570,8 +593,6 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'booking_number': booking.booking_number,
                 'total_price_dollars': booking.total_price_dollars,
                 'service_type': booking.service_type,
-
-                
                 'status': booking.status,
             }
         }

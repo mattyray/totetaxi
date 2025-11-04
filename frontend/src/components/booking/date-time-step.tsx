@@ -52,6 +52,11 @@ export function DateTimeStep() {
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  // ========== NEW: Same-Day Restriction State ==========
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false);
+  const [restrictionMessage, setRestrictionMessage] = useState('');
+  // ========== END NEW STATE ==========
 
   const { data: availability } = useQuery({
     queryKey: ['availability', 'calendar'],
@@ -99,8 +104,44 @@ export function DateTimeStep() {
 
       const response = await apiClient.post('/api/public/pricing-preview/', payload);
       return response.data;
+    },
+    // ========== NEW: Handle Same-Day Restriction Error ==========
+    onError: (error: any) => {
+      if (error.response?.data?.error === 'same_day_restriction') {
+        setRestrictionMessage(error.response.data.message);
+        setShowRestrictionModal(true);
+        // Clear the selected date
+        setSelectedDate('');
+        updateBookingData({ pickup_date: '' });
+      }
     }
+    // ========== END NEW ERROR HANDLING ==========
   });
+
+  // ========== NEW: Same-Day Restriction Check Function ==========
+  const checkSameDayRestriction = (selectedDate: Date): boolean => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const selectedDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    
+    // Rule 1: Selected date is today
+    if (selectedDay.getTime() === today.getTime()) {
+      setRestrictionMessage("Same-day bookings must be arranged through Tote Taxi Customer Service. Please call (631) 595-5100.");
+      return true;
+    }
+    
+    // Rule 2: Current time is after 6 PM and selected date is tomorrow
+    const currentHour = now.getHours();
+    if (currentHour >= 18 && selectedDay.getTime() === tomorrow.getTime()) {
+      setRestrictionMessage("Bookings made after 6 PM for next-day service must be arranged through Tote Taxi Customer Service. Please call (631) 595-5100.");
+      return true;
+    }
+    
+    return false;
+  };
+  // ========== END NEW FUNCTION ==========
 
   useEffect(() => {
     if (bookingData.service_type === 'blade_transfer') {
@@ -136,7 +177,17 @@ export function DateTimeStep() {
     }
   }, [pricingMutation.data, updateBookingData]);
 
+  // ========== UPDATED: handleDateSelect with Restriction Check ==========
   const handleDateSelect = (date: string) => {
+    const selectedDateObj = new Date(date + 'T00:00:00');
+    
+    // Check restriction BEFORE setting the date
+    if (checkSameDayRestriction(selectedDateObj)) {
+      setShowRestrictionModal(true);
+      return; // Don't set the date
+    }
+    
+    // Normal flow - set the date
     setSelectedDate(date);
     updateBookingData({ pickup_date: date });
     
@@ -144,6 +195,7 @@ export function DateTimeStep() {
       setTimeout(() => pricingMutation.mutate(), 100);
     }
   };
+  // ========== END UPDATED FUNCTION ==========
 
   const handleTimeSelect = (time: PickupTime) => {
     setSelectedTime(time);
@@ -592,7 +644,6 @@ export function DateTimeStep() {
                     </div>
                   )}
                   
-                  {/* ✅ FIX: Show specialty items with quantities and subtotals */}
                   {pricingMutation.data?.details?.specialty_items?.map((item, index) => (
                     <div key={`specialty-${index}`} className="flex justify-between items-center">
                       <span className="text-navy-900 font-medium">
@@ -612,7 +663,7 @@ export function DateTimeStep() {
                 </div>
               )}
 
-              {/* ✅ FIX: Specialty Item Only - show with quantities */}
+              {/* Specialty Item Only */}
               {bookingData.service_type === 'specialty_item' && pricingMutation.data?.details?.specialty_items && (
                 <>
                   {pricingMutation.data.details.specialty_items.map((item, index) => (
@@ -722,6 +773,44 @@ export function DateTimeStep() {
           </CardContent>
         </Card>
       )}
+
+      {/* ========== NEW: Same-Day Restriction Modal ========== */}
+      {showRestrictionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-navy-900 mb-4">
+              Same-Day Service Required
+            </h3>
+            
+            <p className="text-navy-700 mb-4">
+              {restrictionMessage}
+            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="font-semibold text-navy-900 mb-1">
+                Contact Tote Taxi Customer Service:
+              </p>
+              <a 
+                href="tel:+16315955100" 
+                className="text-2xl font-bold text-blue-600 hover:text-blue-800"
+              >
+                (631) 595-5100
+              </a>
+              <p className="text-sm text-navy-600 mt-2">
+                Monday - Sunday, 9 AM - 6 PM
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowRestrictionModal(false)}
+              className="w-full bg-navy-900 text-white py-3 rounded-lg hover:bg-navy-800 transition-colors font-medium"
+            >
+              Choose Different Date
+            </button>
+          </div>
+        </div>
+      )}
+      {/* ========== END NEW MODAL ========== */}
 
       <div className="flex justify-end pt-4">
         <Button
