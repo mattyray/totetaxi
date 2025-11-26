@@ -34,7 +34,6 @@ test.describe('BLADE Stale Closure Bug Reproduction', () => {
     await page.getByRole('button', { name: /continue to addresses/i }).click();
     await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
     
-    // Check localStorage for delivery_address
     const deliveryAddress = await page.evaluate(() => {
       const storeJson = localStorage.getItem('totetaxi-booking-wizard');
       if (!storeJson) return null;
@@ -181,5 +180,64 @@ test.describe('BLADE Stale Closure Bug Reproduction', () => {
     expect(deliveryAddress.zip_code).toBe('07114');
     
     console.log('✅ Nov 21 scenario PASSED');
+  });
+  
+  
+  /**
+   * TEST 4: STRESS TEST - Extreme rapid changes to trigger race condition
+   */
+  test('STRESS TEST: Extreme rapid changes (100 cycles)', async ({ page }) => {
+    await page.goto('/book');
+    await skipAuthStep(page);
+    
+    await expect(page.getByText('Step 1:')).toBeVisible();
+    await page.locator('button', { hasText: 'BLADE Airport Transfer' }).click();
+    await page.waitForTimeout(500);
+    
+    const jfkButton = page.locator('.grid.grid-cols-2 button').filter({ hasText: 'JFK' }).first();
+    const ewrButton = page.locator('.grid.grid-cols-2 button').filter({ hasText: 'EWR' }).first();
+    
+    console.log('⚡ STRESS TEST: 100 rapid cycles with NO delays...');
+    
+    // Even more extreme - no delays at all between clicks
+    for (let i = 0; i < 100; i++) {
+      await jfkButton.click();
+      await ewrButton.click();
+    }
+    
+    // Final: JFK
+    await jfkButton.click();
+    await page.waitForTimeout(1000);
+    console.log('✓ 100 cycles complete, final: JFK');
+    
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 3);
+    await page.locator('input[type="date"]').fill(futureDate.toISOString().split('T')[0]);
+    await page.locator('input[type="time"]').fill('14:30');
+    await page.getByLabel('Bag Count').fill('2');
+    await page.waitForTimeout(1000);
+    
+    await page.getByRole('button', { name: /continue to date/i }).click();
+    await expect(page.getByText('Step 2:')).toBeVisible({ timeout: 10000 });
+    
+    await page.getByRole('button', { name: /continue to addresses/i }).click();
+    await expect(page.getByText('Step 3:')).toBeVisible({ timeout: 10000 });
+    
+    const deliveryAddress = await page.evaluate(() => {
+      const storeJson = localStorage.getItem('totetaxi-booking-wizard');
+      if (!storeJson) return null;
+      const store = JSON.parse(storeJson);
+      return store.state?.bookingData?.delivery_address;
+    });
+    
+    console.log('📦 After 100 cycles:', JSON.stringify(deliveryAddress, null, 2));
+    
+    expect(deliveryAddress).toBeDefined();
+    expect(deliveryAddress.address_line_1).toContain('JFK');
+    expect(deliveryAddress.city).toBe('Jamaica');
+    expect(deliveryAddress.state).toBe('NY');
+    expect(deliveryAddress.zip_code).toBe('11430');
+    
+    console.log('✅ Stress test survived 100 cycles!');
   });
 });
