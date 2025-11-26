@@ -213,8 +213,8 @@ export function AddressStep() {
       const airportAddress = AIRPORT_ADDRESSES[bookingData.blade_airport];
       updateBookingData({ delivery_address: airportAddress });
     }
-  }, [isBlade, bookingData.blade_airport]);
-
+  }, [isBlade, bookingData.blade_airport, updateBookingData]); // ✅ Complete
+  
   const validateZipCode = async (
     zipCode: string, 
     addressType: 'pickup' | 'delivery'
