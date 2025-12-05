@@ -257,6 +257,9 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_E
 # ⬇️ NEW: BCC list for booking confirmations (comma-separated env)
 BOOKING_EMAIL_BCC = env.list('BOOKING_EMAIL_BCC', default=[])
 
+# reCAPTCHA v3 settings for spam prevention
+RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY') or env('RECAPTCHA_SECRET_KEY', default='')
+
 FRONTEND_URL = env('FRONTEND_URL', default='https://totetaxi.netlify.app')
 
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')

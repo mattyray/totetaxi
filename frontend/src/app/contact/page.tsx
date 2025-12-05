@@ -1,12 +1,19 @@
 // frontend/src/app/contact/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
+import Script from 'next/script';
+
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
+}
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -15,19 +22,46 @@ export default function ContactPage() {
     phone: '',
     subject: '',
     message: '',
+    website: '', // Honeypot field
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
-      await apiClient.post('/api/customer/contact/', formData);
+      // Check if honeypot field is filled (bot detection)
+      if (formData.website) {
+        // Silently reject - don't let bots know they failed
+        setSubmitted(true);
+        return;
+      }
+
+      // Get reCAPTCHA token
+      let recaptchaToken = '';
+      if (recaptchaLoaded && window.grecaptcha) {
+        try {
+          recaptchaToken = await window.grecaptcha.execute(
+            process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+            { action: 'contact_form' }
+          );
+        } catch (recaptchaError) {
+          console.error('reCAPTCHA error:', recaptchaError);
+          // Continue without token - backend will handle it
+        }
+      }
+
+      // Submit form with reCAPTCHA token
+      await apiClient.post('/api/customer/contact/', {
+        ...formData,
+        recaptcha_token: recaptchaToken,
+      });
       setSubmitted(true);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to send message. Please try again or email us directly.');
@@ -79,8 +113,14 @@ export default function ContactPage() {
   }
 
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-16">
+    <>
+      <Script
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+        onLoad={() => setRecaptchaLoaded(true)}
+        strategy="lazyOnload"
+      />
+      <MainLayout>
+        <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
@@ -204,6 +244,22 @@ export default function ContactPage() {
                     />
                   </div>
 
+                  {/* Honeypot field - hidden from humans, visible to bots */}
+                  <div className="absolute left-[-9999px]" aria-hidden="true">
+                    <label htmlFor="website">
+                      Website (leave blank)
+                    </label>
+                    <input
+                      type="text"
+                      id="website"
+                      name="website"
+                      value={formData.website}
+                      onChange={handleChange}
+                      tabIndex={-1}
+                      autoComplete="off"
+                    />
+                  </div>
+
                   <Button
                     type="submit"
                     variant="primary"
@@ -305,6 +361,7 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+      </MainLayout>
+    </>
   );
 }

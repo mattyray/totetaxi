@@ -11,6 +11,9 @@ from django.utils.decorators import method_decorator
 from django.core.exceptions import ValidationError
 from django_ratelimit.decorators import ratelimit
 from django.core.mail import send_mail
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .emails import send_welcome_email, send_password_reset_email, send_email_verification
 from .models import CustomerProfile, SavedAddress, PasswordResetToken, EmailVerificationToken
@@ -583,7 +586,54 @@ class ContactFormView(APIView):
         phone = request.data.get('phone', '').strip()
         subject_type = request.data.get('subject', 'General')
         message = request.data.get('message', '').strip()
-        
+        website = request.data.get('website', '').strip()  # Honeypot field
+        recaptcha_token = request.data.get('recaptcha_token', '').strip()
+
+        # Honeypot check - if filled, it's likely a bot
+        if website:
+            # Silently reject - don't let bots know they failed
+            logger.warning(f'Honeypot triggered for contact form from IP: {request.META.get("REMOTE_ADDR")}')
+            return Response({
+                'message': 'Thank you for contacting us! We will respond within 24 hours.'
+            }, status=status.HTTP_200_OK)
+
+        # Verify reCAPTCHA token
+        if recaptcha_token:
+            recaptcha_secret = settings.RECAPTCHA_SECRET_KEY
+            if recaptcha_secret:
+                try:
+                    import requests
+                    recaptcha_response = requests.post(
+                        'https://www.google.com/recaptcha/api/siteverify',
+                        data={
+                            'secret': recaptcha_secret,
+                            'response': recaptcha_token,
+                        },
+                        timeout=5
+                    )
+                    recaptcha_result = recaptcha_response.json()
+
+                    # Check if verification was successful and score is acceptable
+                    if not recaptcha_result.get('success'):
+                        logger.warning(f'reCAPTCHA verification failed: {recaptcha_result}')
+                        return Response(
+                            {'error': 'reCAPTCHA verification failed. Please try again.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                    # Check score (v3 returns score 0.0-1.0, lower = more bot-like)
+                    score = recaptcha_result.get('score', 0.0)
+                    if score < 0.5:
+                        logger.warning(f'Low reCAPTCHA score ({score}) for contact form from IP: {request.META.get("REMOTE_ADDR")}')
+                        return Response(
+                            {'error': 'Suspicious activity detected. Please try again.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                except Exception as e:
+                    logger.error(f'reCAPTCHA verification error: {str(e)}')
+                    # Continue without reCAPTCHA if verification fails
+
         # Validate required fields
         errors = {}
         if not name:
@@ -592,7 +642,7 @@ class ContactFormView(APIView):
             errors['email'] = 'Email is required'
         if not message:
             errors['message'] = 'Message is required'
-        
+
         if errors:
             return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
         
