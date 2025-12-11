@@ -28,6 +28,7 @@ CORE_AREA_ZIPS = {
         '11962',  # Sagaponack
         '11963',  # Sag Harbor
         '11975',  # Wainscott
+        '11937',  # East Hampton
     ],
     
     'brooklyn': [
