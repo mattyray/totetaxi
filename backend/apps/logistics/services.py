@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from datetime import datetime, timedelta, time as dt_time
 from typing import Dict, Optional, Tuple
 
@@ -368,10 +369,29 @@ class ToteTaxiOnfleetIntegration:
                 logger.debug(f"Webhook payload: {webhook_data}")
                 return False
 
-            try:
-                onfleet_task = OnfleetTask.objects.get(onfleet_task_id=task_id)
-            except OnfleetTask.DoesNotExist:
-                logger.warning(f"Task not found in database: {task_id}")
+            # Retry logic to handle race condition where webhook arrives
+            # before DB transaction commits the OnfleetTask record
+            onfleet_task = None
+            max_retries = 5
+            retry_delays = [0.1, 0.3, 0.5, 1.0, 2.0]  # exponential backoff
+
+            for attempt in range(max_retries):
+                try:
+                    onfleet_task = OnfleetTask.objects.get(onfleet_task_id=task_id)
+                    break  # Found it, exit retry loop
+                except OnfleetTask.DoesNotExist:
+                    if attempt < max_retries - 1:
+                        delay = retry_delays[attempt]
+                        logger.info(
+                            f"Task {task_id} not found in database, "
+                            f"retry {attempt + 1}/{max_retries} in {delay}s"
+                        )
+                        time.sleep(delay)
+                    else:
+                        logger.warning(f"Task not found in database after {max_retries} retries: {task_id}")
+                        return False
+
+            if not onfleet_task:
                 return False
 
             trigger_id = webhook_data.get('triggerId')
@@ -447,6 +467,33 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_task.worker_name = ''
                 onfleet_task.save()
                 logger.info(f"Task unassigned: {task_id}")
+
+            elif trigger_id == 7:
+                # taskUpdated - fires when task is updated (assignment, feedback, attachments)
+                # Update worker info if present
+                worker = task_obj.get('worker') or webhook_data.get('data', {}).get('worker')
+                if worker:
+                    if isinstance(worker, dict):
+                        onfleet_task.worker_id = worker.get('id', '')
+                        onfleet_task.worker_name = worker.get('name', '')
+                    else:
+                        onfleet_task.worker_id = worker
+                        onfleet_task.worker_name = self._get_worker_name(worker)
+
+                # Update ETA if present
+                eta_ts = task_obj.get('estimatedCompletionTime')
+                if eta_ts:
+                    onfleet_task.estimated_arrival = datetime.fromtimestamp(
+                        eta_ts / 1000, tz=timezone.get_current_timezone()
+                    )
+
+                # Update state if present
+                state = task_obj.get('state')
+                if state is not None:
+                    onfleet_task.status = self._map_onfleet_state(state)
+
+                onfleet_task.save()
+                logger.info(f"Task updated: {task_id} ({onfleet_task.task_type})")
 
             else:
                 logger.info(f"Unhandled webhook trigger: {trigger_id} for task {task_id}")

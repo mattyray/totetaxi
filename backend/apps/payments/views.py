@@ -1,6 +1,7 @@
 # backend/apps/payments/views.py
 import stripe
 import logging
+import time
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -190,12 +191,33 @@ class StripeWebhookView(APIView):
         """Handle successful payment - update Payment and Booking status"""
         payment_intent = event['data']['object']
         payment_intent_id = payment_intent['id']
-        
+
         try:
-            # Find payment record
-            payment = Payment.objects.select_related('booking').get(
-                stripe_payment_intent_id=payment_intent_id
-            )
+            # Find payment record with retry logic to handle race condition
+            # where webhook arrives before DB transaction commits
+            payment = None
+            max_retries = 5
+            retry_delays = [0.1, 0.3, 0.5, 1.0, 2.0]  # exponential backoff in seconds
+
+            for attempt in range(max_retries):
+                try:
+                    payment = Payment.objects.select_related('booking').get(
+                        stripe_payment_intent_id=payment_intent_id
+                    )
+                    break  # Found it, exit retry loop
+                except Payment.DoesNotExist:
+                    if attempt < max_retries - 1:
+                        delay = retry_delays[attempt]
+                        logger.info(
+                            f"Webhook: Payment not found for {payment_intent_id}, "
+                            f"retry {attempt + 1}/{max_retries} in {delay}s"
+                        )
+                        time.sleep(delay)
+                    else:
+                        raise  # Re-raise on final attempt
+
+            if not payment:
+                raise Payment.DoesNotExist()
             
             # Skip if already processed
             if payment.status == 'succeeded':
@@ -277,11 +299,32 @@ class StripeWebhookView(APIView):
         """Handle failed payment - mark as failed, keep booking pending"""
         payment_intent = event['data']['object']
         payment_intent_id = payment_intent['id']
-        
+
         try:
-            payment = Payment.objects.select_related('booking').get(
-                stripe_payment_intent_id=payment_intent_id
-            )
+            # Find payment record with retry logic to handle race condition
+            payment = None
+            max_retries = 5
+            retry_delays = [0.1, 0.3, 0.5, 1.0, 2.0]
+
+            for attempt in range(max_retries):
+                try:
+                    payment = Payment.objects.select_related('booking').get(
+                        stripe_payment_intent_id=payment_intent_id
+                    )
+                    break
+                except Payment.DoesNotExist:
+                    if attempt < max_retries - 1:
+                        delay = retry_delays[attempt]
+                        logger.info(
+                            f"Webhook: Payment not found for failed intent {payment_intent_id}, "
+                            f"retry {attempt + 1}/{max_retries} in {delay}s"
+                        )
+                        time.sleep(delay)
+                    else:
+                        raise
+
+            if not payment:
+                raise Payment.DoesNotExist()
             
             # Update payment to failed
             payment.status = 'failed'
