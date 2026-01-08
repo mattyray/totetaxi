@@ -497,10 +497,33 @@ class Booking(models.Model):
         return 0
     
     def calculate_geographic_surcharge(self):
-        """Calculate $175 surcharge for 30+ miles from Manhattan"""
-        if self.is_outside_core_area:
-            return 17500
-        return 0
+        """
+        Calculate $175 surcharge for EACH address 30+ miles from Manhattan.
+        If both pickup AND delivery are outside core area, charges $350 total.
+        """
+        if not self.pickup_address or not self.delivery_address:
+            return 0
+
+        from .zip_codes import validate_service_area
+
+        surcharge_count = 0
+
+        # Check pickup address
+        _, pickup_surcharge, _, _ = validate_service_area(
+            self.pickup_address.zip_code
+        )
+        if pickup_surcharge:
+            surcharge_count += 1
+
+        # Check delivery address
+        _, delivery_surcharge, _, _ = validate_service_area(
+            self.delivery_address.zip_code
+        )
+        if delivery_surcharge:
+            surcharge_count += 1
+
+        # $175 per out-of-zone address
+        return 17500 * surcharge_count
     
     def calculate_time_window_surcharge(self):
         """Calculate $175 surcharge for 1-hour window selection"""

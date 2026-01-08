@@ -516,23 +516,34 @@ class ToteTaxiOnfleetIntegration:
             onfleet_tasks = OnfleetTask.objects.filter(created_at__date=today, environment=self.onfleet.environment)
             onfleet_org = self.onfleet.get_organization_info()
 
+            # Task counts for summary
+            active_count = onfleet_tasks.filter(status__in=['assigned', 'active']).count()
+            tasks_today = onfleet_tasks.count()
+            completed_today = onfleet_tasks.filter(status='completed').count()
+            pending_count = onfleet_tasks.filter(status='created').count()
+
+            # Calculate completion rate
+            completion_rate = 0
+            if tasks_today > 0:
+                completion_rate = round((completed_today / tasks_today) * 100, 1)
+
             return {
-                'totetaxi_stats': {
-                    'total_bookings': todays_bookings.count(),
-                    'confirmed_bookings': todays_bookings.filter(status='confirmed').count(),
-                    'completed_bookings': todays_bookings.filter(status='completed').count(),
-                },
+                # Top-level stats for frontend dashboard cards
+                'active_tasks': active_count,
+                'tasks_today': tasks_today,
+                'completed_today': completed_today,
+                'pending_tasks': pending_count,
+                'completion_rate': completion_rate,
+                # Detailed breakdowns
                 'onfleet_stats': {
                     'active_tasks': onfleet_org.get('activeTasks', 0),
                     'available_workers': len([w for w in onfleet_org.get('workers', []) if w.get('onDuty')]),
                     'organization_name': onfleet_org.get('name', 'Unknown')
                 },
                 'integration_stats': {
-                    'tasks_created_today': onfleet_tasks.count(),
+                    'tasks_created_today': tasks_today,
                     'pickup_tasks': onfleet_tasks.filter(task_type='pickup').count(),
                     'dropoff_tasks': onfleet_tasks.filter(task_type='dropoff').count(),
-                    'tasks_completed_today': onfleet_tasks.filter(status='completed').count(),
-                    'tasks_active': onfleet_tasks.filter(status__in=['assigned', 'active']).count(),
                 },
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
@@ -542,6 +553,11 @@ class ToteTaxiOnfleetIntegration:
             logger.error(f"Error getting dashboard summary: {e}")
             return {
                 'error': 'Failed to fetch logistics data',
+                'active_tasks': 0,
+                'tasks_today': 0,
+                'completed_today': 0,
+                'pending_tasks': 0,
+                'completion_rate': 0,
                 'environment': self.onfleet.environment,
                 'mock_mode': self.onfleet.mock_mode
             }

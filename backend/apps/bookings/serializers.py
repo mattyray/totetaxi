@@ -129,6 +129,9 @@ class PricingPreviewSerializer(serializers.Serializer):
     )
     specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
     is_outside_core_area = serializers.BooleanField(required=False, default=False)
+    # ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
+    pickup_zip_code = serializers.CharField(required=False, max_length=10)
+    delivery_zip_code = serializers.CharField(required=False, max_length=10)
     
     # Standard Delivery fields
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)

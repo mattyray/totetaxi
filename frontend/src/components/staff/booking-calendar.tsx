@@ -74,7 +74,7 @@ export function BookingCalendar() {
   const { data: calendarData, isLoading } = useQuery({
     queryKey: ['calendar', 'availability', viewMode, startDate.toISOString().split('T')[0]],
     queryFn: async (): Promise<CalendarData> => {
-      const response = await apiClient.get('/api/public/calendar/availability/', {
+      const response = await apiClient.get('/api/public/availability/', {
         params: {
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0]

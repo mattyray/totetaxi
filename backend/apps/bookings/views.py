@@ -44,6 +44,35 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+def calculate_geographic_surcharge_from_zips(pickup_zip, delivery_zip, fallback_is_outside=False):
+    """
+    Calculate $175 surcharge for EACH address outside core service area.
+    Returns surcharge in cents: 0, 17500, or 35000.
+
+    If ZIP codes not provided, falls back to is_outside_core_area boolean (legacy).
+    """
+    from .zip_codes import validate_service_area
+
+    surcharge_count = 0
+
+    if pickup_zip or delivery_zip:
+        # New behavior: check each ZIP independently
+        if pickup_zip:
+            _, pickup_surcharge, _, _ = validate_service_area(pickup_zip)
+            if pickup_surcharge:
+                surcharge_count += 1
+
+        if delivery_zip:
+            _, delivery_surcharge, _, _ = validate_service_area(delivery_zip)
+            if delivery_surcharge:
+                surcharge_count += 1
+    elif fallback_is_outside:
+        # Legacy fallback: boolean flag (charges only once)
+        surcharge_count = 1
+
+    return 17500 * surcharge_count
+
+
 class ServiceCatalogView(APIView):
     """Get all available services including organizing services - no authentication required"""
     permission_classes = [permissions.AllowAny]
@@ -225,9 +254,12 @@ class PricingPreviewView(APIView):
                     if pickup_time == 'morning_specific' and package.package_type == 'standard':
                         time_window_surcharge_cents = 17500
                     
-                    is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
-                    if is_outside_core_area:
-                        geographic_surcharge_cents = 17500
+                    # Calculate geographic surcharge ($175 per out-of-zone address)
+                    geographic_surcharge_cents = calculate_geographic_surcharge_from_zips(
+                        serializer.validated_data.get('pickup_zip_code'),
+                        serializer.validated_data.get('delivery_zip_code'),
+                        fallback_is_outside=serializer.validated_data.get('is_outside_core_area', False)
+                    )
                     
                     if organizing_services_breakdown:
                         details['organizing_services'] = organizing_services_breakdown
@@ -294,10 +326,12 @@ class PricingPreviewView(APIView):
             except StandardDeliveryConfig.DoesNotExist:
                 return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Apply geographic surcharge for Standard Delivery
-            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
-            if is_outside_core_area:
-                geographic_surcharge_cents = 17500
+            # Apply geographic surcharge for Standard Delivery ($175 per out-of-zone address)
+            geographic_surcharge_cents = calculate_geographic_surcharge_from_zips(
+                serializer.validated_data.get('pickup_zip_code'),
+                serializer.validated_data.get('delivery_zip_code'),
+                fallback_is_outside=serializer.validated_data.get('is_outside_core_area', False)
+            )
             
             # Apply COI fee for Standard Delivery
             coi_required = serializer.validated_data.get('coi_required', False)
@@ -351,10 +385,12 @@ class PricingPreviewView(APIView):
                 except StandardDeliveryConfig.DoesNotExist:
                     pass
             
-            # Apply geographic surcharge for Specialty Items
-            is_outside_core_area = serializer.validated_data.get('is_outside_core_area', False)
-            if is_outside_core_area:
-                geographic_surcharge_cents = 17500
+            # Apply geographic surcharge for Specialty Items ($175 per out-of-zone address)
+            geographic_surcharge_cents = calculate_geographic_surcharge_from_zips(
+                serializer.validated_data.get('pickup_zip_code'),
+                serializer.validated_data.get('delivery_zip_code'),
+                fallback_is_outside=serializer.validated_data.get('is_outside_core_area', False)
+            )
             
             # Apply COI fee for Specialty Items
             coi_required = serializer.validated_data.get('coi_required', False)

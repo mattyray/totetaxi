@@ -305,13 +305,18 @@ class CustomerProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
+        # Check if user has a customer profile
+        if not hasattr(self.request.user, 'customer_profile'):
+            from rest_framework.exceptions import NotFound
+            raise NotFound("User does not have a customer profile")
+
         # Ensure profile integrity
         try:
             CustomerProfile.ensure_single_profile_type(self.request.user)
         except ValidationError as e:
-            from django.http import Http404
-            raise Http404(str(e))
-        
+            from rest_framework.exceptions import NotFound
+            raise NotFound(str(e))
+
         return self.request.user.customer_profile
 
 
