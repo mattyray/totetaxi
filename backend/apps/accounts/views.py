@@ -736,13 +736,10 @@ class BookingDetailView(APIView):
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class StaffCSRFTokenView(APIView):
-    """Get CSRF token for staff - ensures cookie is set"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    """Get CSRF token for staff portal - public to allow login to work"""
+    permission_classes = [permissions.AllowAny]
+
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-        
         return Response({
             'csrf_token': get_token(request)
         })
