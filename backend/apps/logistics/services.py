@@ -507,12 +507,10 @@ class ToteTaxiOnfleetIntegration:
 
     def get_dashboard_summary(self) -> dict:
         from .models import OnfleetTask
-        from apps.bookings.models import Booking
         from datetime import date
 
         try:
             today = date.today()
-            todays_bookings = Booking.objects.filter(pickup_date=today, deleted_at__isnull=True)
             onfleet_tasks = OnfleetTask.objects.filter(created_at__date=today, environment=self.onfleet.environment)
             onfleet_org = self.onfleet.get_organization_info()
 
