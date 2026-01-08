@@ -51,7 +51,7 @@ export function StaffDashboardOverview() {
   const { staffProfile } = useStaffAuthStore();
   const router = useRouter();
 
-  const { data: dashboardData, isLoading, error, refetch } = useQuery({
+  const { data: dashboardData, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['staff', 'dashboard'],
     queryFn: async (): Promise<StaffDashboardData> => {
       const response = await apiClient.get('/api/staff/dashboard/');
@@ -125,11 +125,12 @@ export function StaffDashboardOverview() {
           >
             All Bookings
           </Button>
-          <Button 
+          <Button
             variant="primary"
             onClick={() => refetch()}
+            disabled={isFetching}
           >
-            Refresh Data
+            {isFetching ? 'Refreshing...' : 'Refresh Data'}
           </Button>
         </div>
       </div>
