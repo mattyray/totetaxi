@@ -301,7 +301,7 @@ export function DateTimeStep() {
       <div className="space-y-8">
         <Card variant="luxury" className="p-6">
           <CardContent className="p-0">
-            <h3 className="text-lg font-medium text-navy-900 mb-6">BLADE Flight Summary</h3>
+            <h3 className="text-lg font-medium text-navy-900 mb-6">Flight Summary</h3>
             
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -383,7 +383,7 @@ export function DateTimeStep() {
                 
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
                   <p className="text-sm text-green-800">
-                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                    <strong>No surcharges!</strong> Airport transfer pricing is straightforward with no weekend, geographic, or time window fees.
                   </p>
                 </div>
               </div>

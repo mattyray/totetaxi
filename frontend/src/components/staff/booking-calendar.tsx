@@ -525,12 +525,6 @@ export function BookingCalendar() {
             </Button>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button variant="primary" size="sm">
-            + New Booking
-          </Button>
-        </div>
       </div>
 
       {/* Calendar Legend */}

@@ -447,8 +447,8 @@ export function ReviewPaymentStep() {
               </div>
               
               <p className="text-navy-700">
-                {bookingData.service_type === 'blade_transfer' 
-                  ? 'Your BLADE airport transfer is confirmed and paid.' 
+                {bookingData.service_type === 'blade_transfer'
+                  ? 'Your airport transfer is confirmed and paid.'
                   : 'Your luxury move is confirmed and paid.'}
                 {isAuthenticated ? (
                   ' Check your dashboard for booking details.'
@@ -578,7 +578,7 @@ export function ReviewPaymentStep() {
                 {bookingData.service_type === 'mini_move' && 'Mini Move'}
                 {bookingData.service_type === 'standard_delivery' && 'Standard Delivery'}
                 {bookingData.service_type === 'specialty_item' && 'Specialty Items'}
-                {bookingData.service_type === 'blade_transfer' && 'BLADE Airport Transfer'}
+                {bookingData.service_type === 'blade_transfer' && 'Airport Transfer'}
               </p>
               
               {/* ✅ Display specialty items with quantities */}
@@ -786,7 +786,7 @@ export function ReviewPaymentStep() {
               {bookingData.service_type === 'blade_transfer' && (
                 <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800">
-                    <strong>No surcharges!</strong> BLADE pricing is straightforward with no weekend, geographic, or time window fees.
+                    <strong>No surcharges!</strong> Airport transfer pricing is straightforward with no weekend, geographic, or time window fees.
                   </p>
                 </div>
               )}

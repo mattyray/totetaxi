@@ -13,40 +13,60 @@ GOOGLE_REVIEW_URL = 'https://search.google.com/local/writereview?placeid=ChIJK7U
 
 def generate_ics_calendar_invite(booking):
     """Generate an .ics calendar file for the booking pickup"""
-    # Get pickup datetime
-    pickup_dt = booking.pickup_datetime
-    if not pickup_dt:
+    from datetime import datetime, time
+
+    # Need pickup_date at minimum
+    if not booking.pickup_date:
         return None
+
+    # Determine the pickup hour based on pickup_time field
+    if booking.pickup_time == 'morning_specific' and booking.specific_pickup_hour:
+        # Use the specific hour selected
+        pickup_hour = booking.specific_pickup_hour
+    else:
+        # Default to start of morning window (8 AM)
+        pickup_hour = 8
+
+    # Combine date and time
+    pickup_dt = timezone.make_aware(
+        datetime.combine(booking.pickup_date, time(pickup_hour, 0)),
+        timezone.get_current_timezone()
+    )
 
     # Event duration: 30 minutes
     end_dt = pickup_dt + timedelta(minutes=30)
 
     # Format dates for ICS (UTC format)
     def format_ics_date(dt):
+        import datetime as dt_module
         # Convert to UTC if timezone-aware
         if timezone.is_aware(dt):
-            dt = dt.astimezone(timezone.utc)
+            dt = dt.astimezone(dt_module.timezone.utc)
         return dt.strftime('%Y%m%dT%H%M%SZ')
 
     start_str = format_ics_date(pickup_dt)
     end_str = format_ics_date(end_dt)
     now_str = format_ics_date(timezone.now())
 
-    # Build location string
-    pickup_address = booking.pickup_address_line1 or ''
-    if booking.pickup_city:
-        pickup_address += f', {booking.pickup_city}'
-    if booking.pickup_state:
-        pickup_address += f', {booking.pickup_state}'
-    if booking.pickup_zip:
-        pickup_address += f' {booking.pickup_zip}'
+    # Build location string from pickup_address ForeignKey
+    pickup_addr = booking.pickup_address
+    location_str = ''
+    if pickup_addr:
+        location_str = pickup_addr.address_line_1 or ''
+        if pickup_addr.city:
+            location_str += f', {pickup_addr.city}'
+        if pickup_addr.state:
+            location_str += f', {pickup_addr.state}'
+        if pickup_addr.zip_code:
+            location_str += f' {pickup_addr.zip_code}'
 
     # Build description
     description = f'Tote Taxi Pickup\\n\\nBooking: {booking.booking_number}\\n'
-    if booking.delivery_address_line1:
-        description += f'Delivery to: {booking.delivery_address_line1}'
-        if booking.delivery_city:
-            description += f', {booking.delivery_city}'
+    delivery_addr = booking.delivery_address
+    if delivery_addr and delivery_addr.address_line_1:
+        description += f'Delivery to: {delivery_addr.address_line_1}'
+        if delivery_addr.city:
+            description += f', {delivery_addr.city}'
         description += '\\n'
     description += '\\nQuestions? Call (631) 595-5100 or email info@totetaxi.com'
 
@@ -65,7 +85,7 @@ DTSTART:{start_str}
 DTEND:{end_str}
 SUMMARY:Tote Taxi Pickup - {booking.booking_number}
 DESCRIPTION:{description}
-LOCATION:{pickup_address}
+LOCATION:{location_str}
 STATUS:CONFIRMED
 SEQUENCE:0
 END:VEVENT

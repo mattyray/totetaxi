@@ -80,7 +80,7 @@ function AddressForm({
         <h3 className="text-lg font-medium text-navy-900">{title}</h3>
         {readOnly && (
           <p className="text-sm text-navy-600 mt-1">
-            Airport address is automatically set based on your BLADE flight selection.
+            Airport address is automatically set based on your flight selection.
           </p>
         )}
       </CardHeader>

@@ -299,9 +299,9 @@ export function ServiceSelectionStep() {
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-2">BLADE Airport Transfer</h4>
+            <h4 className="font-medium text-navy-900 mb-2">Airport Transfer</h4>
             <p className="text-sm text-navy-600">NYC → Airport luggage delivery</p>
-            <p className="text-xs text-navy-500 mt-2">JFK/EWR only</p>
+            <p className="text-xs text-navy-500 mt-2">JFK/EWR</p>
           </button>
         </div>
       </div>
@@ -690,7 +690,7 @@ export function ServiceSelectionStep() {
 
       {bookingData.service_type === 'blade_transfer' && (
         <div className="space-y-6">
-          <h3 className="text-lg font-medium text-navy-900 mb-4">BLADE Flight Details</h3>
+          <h3 className="text-lg font-medium text-navy-900 mb-4">Flight Details</h3>
           
           <Card variant="elevated">
             <CardHeader>
@@ -727,7 +727,7 @@ export function ServiceSelectionStep() {
 
           <Card variant="elevated">
             <CardHeader>
-              <h4 className="font-medium text-navy-900">BLADE Flight Information</h4>
+              <h4 className="font-medium text-navy-900">Flight Information</h4>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -797,7 +797,7 @@ export function ServiceSelectionStep() {
               {bookingData.blade_bag_count && bookingData.blade_bag_count < 2 && (
                 <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
                   <p className="text-sm text-red-800 font-medium">
-                    BLADE service requires a minimum of 2 bags
+                    Airport transfer service requires a minimum of 2 bags
                   </p>
                 </div>
               )}

@@ -11,7 +11,8 @@ import {
   HowItWorksSection,
   WhatWeTransportSection,
   ServiceAreasSection,
-  TestimonialsSection
+  TestimonialsSection,
+  JFKAnnouncementPopup
 } from '@/components/marketing';
 import { ServiceShowcase } from '@/components/marketing/service-showcase';
 
@@ -94,6 +95,9 @@ export default function Home() {
       >
         <BookingWizard />
       </Modal>
+
+      {/* JFK Route Announcement Popup */}
+      <JFKAnnouncementPopup onBookAirportTransfer={openBookingWizard} />
     </>
   );
 }

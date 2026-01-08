@@ -276,17 +276,17 @@ See [Completed Work](#completed-work) section for details.
 | Refresh button feedback | Bug | ✅ Fixed |
 | Password field not registering | Bug | ✅ Fixed |
 | Reports page | Feature | ✅ Complete |
+| Calendar invite in emails | Feature | ✅ Complete |
+| Post-delivery review email | Feature | ✅ Complete |
+| Hampton Jitney partner | Content | ✅ Complete |
+| Tote Camps footer link | Content | ✅ Complete |
 
 ### Easy Wins (Quick Value) - Remaining
 | Item | Type | Effort |
 |------|------|--------|
-| Calendar invite in emails | Feature | Easy |
 | Description box required | Feature | Easy |
 | Box size dimensions | Feature | Easy |
-| Post-delivery review email | Feature | Easy |
-| Hampton Jitney partner | Content | Easy |
-| Tote Camps footer link | Content | Easy |
-| JFK promo banner | Feature | Easy |
+| JFK promo banner | Feature | Easy (on hold) |
 
 ### Medium Priority - Remaining
 | Item | Type | Effort |

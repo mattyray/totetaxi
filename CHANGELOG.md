@@ -63,6 +63,9 @@ This document tracks all completed development work for client presentation and 
 | Tote Camps footer link | Added link to totecamps.com in website footer | `frontend/src/components/layout/main-layout.tsx` |
 | Hampton Jitney partner | Added as partner on partnerships page with description and link | `frontend/src/app/partnerships/page.tsx` |
 | Hampton Jitney homepage | Added to "Trusted Partners" section on homepage (now 4-column grid) | `frontend/src/app/page.tsx` |
+| Remove "New Booking" button | Removed non-functional "+ New Booking" button from staff calendar page | `frontend/src/components/staff/booking-calendar.tsx` |
+| Remove "BLADE" branding | Removed all "BLADE" text from booking wizard - now shows "Airport Transfer" | `frontend/src/components/booking/*.tsx` (4 files) |
+| JFK Route Announcement Popup | Added popup for new visitors announcing JFK route with "Book Now" CTA linking to Airport Transfer booking | `frontend/src/components/marketing/jfk-announcement-popup.tsx`, `frontend/src/app/page.tsx` |
 
 ### Infrastructure
 
@@ -124,8 +127,8 @@ This document tracks all completed development work for client presentation and 
 See [UPDATES.md](UPDATES.md) for remaining tasks and priorities.
 
 ### Easy Wins (Ready to Build)
-- Description box required field
-- Box size dimensions info
+- Description box required field (complex - multiple pages affected)
+- Box size dimensions info (complex - multiple pages affected)
 
 ### Needs Client Input
 - Service type filters - need specific example of failure
