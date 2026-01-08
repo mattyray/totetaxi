@@ -2,14 +2,19 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useBookingWizard } from '@/stores/booking-store';
 import type { ServiceCatalog } from '@/types';
 
 export default function ServicesPage() {
+  const router = useRouter();
+  const { updateBookingData, resetWizard } = useBookingWizard();
+
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -17,6 +22,26 @@ export default function ServicesPage() {
       return response.data;
     }
   });
+
+  // Handler for selecting a mini move package
+  const handleSelectPackage = (pkg: { id: string; package_type: string }) => {
+    resetWizard();
+    updateBookingData({
+      service_type: 'mini_move',
+      mini_move_package_id: pkg.id,
+      package_type: pkg.package_type as 'petite' | 'standard' | 'full',
+    });
+    router.push('/book');
+  };
+
+  // Handler for standard delivery
+  const handleSelectStandardDelivery = () => {
+    resetWizard();
+    updateBookingData({
+      service_type: 'standard_delivery',
+    });
+    router.push('/book');
+  };
 
   if (isLoading) {
     return (
@@ -123,14 +148,13 @@ export default function ServicesPage() {
                     </ul>
                   </div>
                   
-                  <Link href="/book">
-                    <Button 
-                      variant={pkg.is_most_popular ? "primary" : "outline"} 
-                      className="w-full"
-                    >
-                      Select {pkg.name}
-                    </Button>
-                  </Link>
+                  <Button
+                    variant={pkg.is_most_popular ? "primary" : "outline"}
+                    className="w-full"
+                    onClick={() => handleSelectPackage(pkg)}
+                  >
+                    Select {pkg.name}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
