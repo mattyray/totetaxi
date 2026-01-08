@@ -236,6 +236,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                 <li><Link href="/partnerships" className="hover:text-white transition-colors">Partnerships</Link></li>
                 <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+                <li><a href="https://totecamps.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Tote Camps</a></li>
               </ul>
             </div>
             <div>

@@ -1,0 +1,20 @@
+Thank You for Choosing Tote Taxi!
+
+Hi {{ customer_name }},
+
+We hope your delivery went smoothly! Your items from booking {{ booking.booking_number }} have been delivered.
+
+We'd love to hear about your experience. If you have a moment, please leave us a review on Google - it helps other families discover our service and means the world to our team.
+
+Leave a Review:
+{{ review_url }}
+
+Your feedback helps us continue to provide the luxury delivery service you deserve.
+
+Thank you for trusting Tote Taxi with your belongings!
+
+Best regards,
+The Tote Taxi Team
+
+---
+Questions or concerns about your delivery? Contact us at info@totetaxi.com or call (631) 595-5100

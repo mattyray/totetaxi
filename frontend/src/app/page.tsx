@@ -44,10 +44,14 @@ export default function Home() {
                 Trusted Partners
               </h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div className="text-center">
                 <h3 className="font-medium text-navy-900 mb-2">BLADE</h3>
                 <p className="text-navy-600 text-sm">Official luggage delivery partner for helicopter transfers</p>
+              </div>
+              <div className="text-center">
+                <h3 className="font-medium text-navy-900 mb-2">Hampton Jitney</h3>
+                <p className="text-navy-600 text-sm">Travel light on the Jitney, we handle your luggage</p>
               </div>
               <div className="text-center">
                 <h3 className="font-medium text-navy-900 mb-2">Cultured Magazine</h3>

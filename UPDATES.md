@@ -1,12 +1,12 @@
 # ToteTaxi Platform Updates
 
 **Last Updated:** January 8, 2026
-**Status:** Planning & Investigation Complete
+**Status:** Bug Fixes Complete, Features In Progress
 
 ---
 
 ## Table of Contents
-1. [Critical Bugs](#critical-bugs)
+1. [Completed Work](#completed-work)
 2. [Pricing & Booking Flow](#1-pricing--booking-flow)
 3. [Notifications & Customer Experience](#2-notifications--customer-experience)
 4. [CRM & Reporting](#3-crm--reporting)
@@ -16,126 +16,49 @@
 
 ---
 
-## Critical Bugs
+## Completed Work
 
-These are blocking issues that need to be fixed first.
+### Bug Fixes (All Critical Bugs Resolved)
 
-### BUG-1: Double-Click Required to Login (Staff Portal)
-**Priority:** 🔴 Critical
-**Effort:** Medium
-**Status:** Investigated
+| Bug | Status | Files Changed |
+|-----|--------|---------------|
+| BUG-1: Double-click login (CSRF) | ✅ Fixed | `backend/apps/accounts/views.py` - CSRF endpoint needed AllowAny permission |
+| BUG-2: Calendar not loading | ✅ Fixed | `frontend/src/components/staff/booking-calendar.tsx` - Wrong API URL |
+| BUG-3: Logistics stats empty | ✅ Fixed | `backend/apps/logistics/services.py` - Response structure mismatch |
+| BUG-4: Refresh button no feedback | ✅ Fixed | `frontend/src/components/staff/staff-dashboard-overview.tsx` - Added isFetching state |
+| BUG-5: Service buttons not working | ✅ Fixed | `frontend/src/components/marketing/service-showcase.tsx` - Added onClick handlers |
+| BUG-6: Surge pricing only charges once | ✅ Fixed | `backend/apps/bookings/models.py`, `views.py`, `serializers.py` - Now charges $175 per out-of-zone location |
+| Password field not registering | ✅ Fixed | `frontend/src/components/ui/input.tsx` - Input component conflicting with react-hook-form |
 
-**Problem:** Staff users must click the login button twice. First click shows "invalid username/password", second click works.
+### Features Completed
 
-**Root Cause:** CSRF token race condition in the API interceptor. On first login attempt, no CSRF token is cached. The interceptor tries to fetch it asynchronously, but the login request is sent before the token is retrieved, causing it to fail.
+#### Reports & Analytics Page (3.1)
+**Status:** ✅ Complete
 
-**Files to Fix:**
-- `frontend/src/lib/api-client.ts` (lines 27-57) - Need to properly await CSRF token fetch before sending request
+**Backend API** (`backend/apps/accounts/views.py`):
+- `StaffReportsView` at `/api/staff/reports/`
+- Returns comprehensive analytics data including:
+  - Total revenue, booking count, customer count, completion rate
+  - Daily revenue and bookings for the past 30 days
+  - Bookings breakdown by status
+  - Revenue breakdown by service type
+  - Top 10 customers by revenue
+  - Monthly revenue for the past 12 months
 
-**Solution:** Ensure CSRF token fetch completes before the login POST request is sent. Consider pre-fetching CSRF token on page load.
+**Frontend Page** (`frontend/src/app/staff/reports/page.tsx`):
+- Key metrics cards: Total Revenue, Total Bookings, Total Customers, Completion Rate
+- Simple bar charts for daily revenue and daily bookings
+- Bookings by Status breakdown with color-coded indicators
+- Revenue by Service Type table
+- Top Customers table with details
+- Monthly Revenue summary table
 
----
-
-### BUG-2: Staff Calendar Not Loading
-**Priority:** 🔴 Critical
-**Effort:** Easy (1 line fix)
-**Status:** Investigated
-
-**Problem:** Booking Calendar page shows header but no calendar grid or data.
-
-**Root Cause:** Frontend calling wrong API endpoint.
-- Frontend calls: `/api/public/calendar/availability/`
-- Backend endpoint: `/api/public/availability/`
-
-**Files to Fix:**
-- `frontend/src/components/staff/booking-calendar.tsx` (line 77)
-
-**Solution:** Change API URL from `/api/public/calendar/availability/` to `/api/public/availability/`
-
----
-
-### BUG-3: Logistics Stats Not Loading
-**Priority:** 🔴 Critical
-**Effort:** Medium
-**Status:** Investigated
-
-**Problem:** Logistics Management page shows empty stats:
-- Active Tasks (blank)
-- Today's Deliveries (blank)
-- Completed Today (blank)
-- Completion Rate (just shows %)
-
-**Root Cause:** API response structure mismatch.
-- Frontend expects: `summary.active_tasks`, `summary.tasks_today`, `summary.completed_today`
-- Backend returns: `totetaxi_stats.total_bookings`, `integration_stats.tasks_active`, etc.
-
-**Files to Fix:**
-- Option A: `backend/apps/logistics/services.py` (lines 508-547) - Reshape response
-- Option B: `frontend/src/components/staff/logistics-management.tsx` - Update to read nested data
-
-**Solution:** Either flatten the backend response or update frontend to extract from nested structure.
-
----
-
-### BUG-4: Refresh Button Appears Non-Functional
-**Priority:** 🟡 Medium
-**Effort:** Easy
-**Status:** Investigated
-
-**Problem:** "Refresh Data" button on Operations Dashboard doesn't appear to do anything.
-
-**Root Cause:** Button works but has no visual feedback (no loading spinner, no success message).
-
-**Files to Fix:**
-- `frontend/src/components/staff/staff-dashboard-overview.tsx` (lines 122-133)
-
-**Solution:** Add loading state, disable button during fetch, show success/error toast.
-
----
-
-### BUG-5: Service Selection Buttons Don't Work
-**Priority:** 🔴 Critical
-**Effort:** Easy
-**Status:** Investigated
-
-**Problem:** "Select Petite", "Select Standard", "Select Full Move", "Calculate Your Delivery" buttons on Services page don't work when clicked.
-
-**Root Cause:** Missing onClick handlers. Buttons navigate to `/book` but don't save which package was selected to the booking wizard state.
-
-**Files to Fix:**
-- `frontend/src/app/services/page.tsx` (line 126 and similar)
-
-**Solution:** Add onClick handler that calls `updateBookingData()` with selected package before navigation.
-
----
-
-### BUG-6: Surge Pricing Only Charges Once
-**Priority:** 🔴 Critical (Revenue Impact)
-**Effort:** Medium
-**Status:** Investigated
-
-**Problem:** If both pickup AND delivery are outside the core service area, customer should be charged $175 x 2 = $350. Currently only charges $175 max.
-
-**Example:** NJ pickup (outside zone) + Montauk delivery (outside zone) = Should be $350, but only charges $175.
-
-**Root Cause:** Code uses boolean OR instead of counting both:
-```python
-# Current (wrong):
-self.is_outside_core_area = pickup_surcharge or delivery_surcharge
-
-# Should track both separately and sum
-```
-
-**Files to Fix:**
-- `backend/apps/bookings/models.py` (line 353) - Track both surcharges
-- `backend/apps/bookings/models.py` (lines 499-503) - `calculate_geographic_surcharge()` method
-- `backend/apps/bookings/views.py` (lines 228-230, 298-300, 355-357) - Pricing preview
-- `backend/apps/bookings/serializers.py` (lines 340-341, 385-386, 424-425) - Price calculation
-
-**Solution:**
-1. Add `pickup_outside_core_area` and `delivery_outside_core_area` fields (or calculate on the fly)
-2. Update `calculate_geographic_surcharge()` to return $175 per out-of-zone address
-3. Update all pricing views/serializers to sum both surcharges
+### Infrastructure Fixes (Previous Session)
+- ✅ Stripe webhook retry logic (race condition fix)
+- ✅ Onfleet webhook retry logic (race condition fix)
+- ✅ Onfleet Trigger 7 handler (taskUpdated)
+- ✅ Customer profile 500 error fix (staff users)
+- ✅ Memory scaling for Celery beat (512 MB)
 
 ---
 
@@ -240,20 +163,9 @@ self.is_outside_core_area = pickup_surcharge or delivery_surcharge
 ### 3.1 Reports Page Implementation
 **Priority:** 🟡 Medium
 **Effort:** Large
-**Status:** Placeholder Only
+**Status:** ✅ Complete
 
-**Current State:** Page shows "Business reports and analytics will be implemented here."
-
-**Request:** Need working reports for:
-- Daily sales
-- Weekly sales
-- Monthly sales
-- Filter by service type (Blade vs Tote Taxi vs Standard vs Mini Moves)
-
-**Implementation Notes:**
-- Backend: Create `/api/staff/reports/` endpoints with date range and service type filters
-- Frontend: Build report components with charts/tables
-- Permission system already exists (`can_view_financial_reports`)
+See [Completed Work](#completed-work) section for details.
 
 ---
 
@@ -353,16 +265,19 @@ self.is_outside_core_area = pickup_surcharge or delivery_surcharge
 
 ## Priority Summary
 
-### Immediate Fixes (Do First)
-| Item | Type | Effort |
+### Completed ✅
+| Item | Type | Status |
 |------|------|--------|
-| Double-click login | Bug | Medium |
-| Calendar not loading | Bug | Easy |
-| Service buttons not working | Bug | Easy |
-| Surge pricing x2 | Bug | Medium |
-| Logistics stats empty | Bug | Medium |
+| Double-click login | Bug | ✅ Fixed |
+| Calendar not loading | Bug | ✅ Fixed |
+| Service buttons not working | Bug | ✅ Fixed |
+| Surge pricing x2 | Bug | ✅ Fixed |
+| Logistics stats empty | Bug | ✅ Fixed |
+| Refresh button feedback | Bug | ✅ Fixed |
+| Password field not registering | Bug | ✅ Fixed |
+| Reports page | Feature | ✅ Complete |
 
-### Easy Wins (Quick Value)
+### Easy Wins (Quick Value) - Remaining
 | Item | Type | Effort |
 |------|------|--------|
 | Calendar invite in emails | Feature | Easy |
@@ -372,13 +287,11 @@ self.is_outside_core_area = pickup_surcharge or delivery_surcharge
 | Hampton Jitney partner | Content | Easy |
 | Tote Camps footer link | Content | Easy |
 | JFK promo banner | Feature | Easy |
-| Refresh button feedback | Bug | Easy |
 
-### Medium Priority
+### Medium Priority - Remaining
 | Item | Type | Effort |
 |------|------|--------|
 | Abandoned cart emails | Feature | Medium |
-| Reports page | Feature | Large |
 | Service type filters | Bug/Feature | Medium |
 | CRM customer data | Bug | Unknown |
 | Round-trip bookings | Feature | Large |
@@ -386,28 +299,12 @@ self.is_outside_core_area = pickup_surcharge or delivery_surcharge
 ### Needs More Information
 - Service type filters - need specific example of failure
 - CRM customer data - need specific example of missing data
-- Surge pricing - need booking number from NJ→Montauk case
-
----
-
-## Technical Notes
-
-### Already Completed (This Session)
-- ✅ Stripe webhook retry logic (race condition fix)
-- ✅ Onfleet webhook retry logic (race condition fix)
-- ✅ Onfleet Trigger 7 handler (taskUpdated)
-- ✅ Customer profile 500 error fix (staff users)
-- ✅ Memory scaling for Celery beat (512 MB)
-
-### Pending Deployment
-- Customer profile view fix (`backend/apps/customers/views.py`)
 
 ---
 
 ## Questions for Client
 
-1. **Surge pricing:** Can you provide the booking number for the NJ→Montauk delivery that only charged once?
-2. **CRM issues:** Can you show a specific example of a customer record that's not populating correctly?
-3. **Report filters:** Which specific filter combination isn't working? (date range + service type?)
-4. **Round-trip bookings:** Should round-trip get a discount? Same-day return or different days?
-5. **Abandoned cart:** How long after starting a booking should we send the reminder? (24h? 48h?)
+1. **CRM issues:** Can you show a specific example of a customer record that's not populating correctly?
+2. **Report filters:** Which specific filter combination isn't working? (date range + service type?)
+3. **Round-trip bookings:** Should round-trip get a discount? Same-day return or different days?
+4. **Abandoned cart:** How long after starting a booking should we send the reminder? (24h? 48h?)

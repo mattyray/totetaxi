@@ -110,6 +110,29 @@ export default function PartnershipsPage() {
               </CardContent>
             </Card>
 
+            {/* Hampton Jitney */}
+            <Card variant="luxury">
+              <CardHeader>
+                <h3 className="text-2xl font-serif font-bold text-navy-900">
+                  HAMPTON JITNEY
+                </h3>
+                <p className="text-navy-600">Transportation Partner</p>
+              </CardHeader>
+              <CardContent>
+                <p className="text-navy-700 mb-4">
+                  Travel light on the Jitney while Tote Taxi handles your luggage. Our partnership with Hampton Jitney lets you enjoy a comfortable bus ride without worrying about bulky bags — we'll deliver your belongings directly to your destination.
+                </p>
+                <a
+                  href="https://www.hamptonjitney.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-navy-600 hover:text-navy-900 underline"
+                >
+                  Visit Hampton Jitney →
+                </a>
+              </CardContent>
+            </Card>
+
             {/* Other Partners */}
             <Card variant="elevated">
               <CardHeader>

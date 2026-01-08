@@ -5,6 +5,7 @@ from apps.bookings.models import Booking
 from apps.customers.emails import (
     send_booking_status_update_email,
     send_booking_confirmation_email,
+    send_review_request_email,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,3 +47,10 @@ def booking_status_changed(sender, instance, **kwargs):
             send_booking_confirmation_email(instance)
         except Exception as e:
             logger.error(f"Failed to send confirmation for {instance.booking_number}: {e}", exc_info=True)
+
+    # Review request on completion
+    if new_status == 'completed':
+        try:
+            send_review_request_email(instance)
+        except Exception as e:
+            logger.error(f"Failed to send review request for {instance.booking_number}: {e}", exc_info=True)
