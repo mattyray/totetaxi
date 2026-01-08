@@ -743,3 +743,168 @@ class StaffCSRFTokenView(APIView):
         return Response({
             'csrf_token': get_token(request)
         })
+
+
+@method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
+class StaffReportsView(APIView):
+    """Staff reports and analytics API"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not hasattr(request.user, 'staff_profile'):
+            return Response(
+                {'error': 'Not a staff account'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from django.db.models import Sum, Avg
+        from django.db.models.functions import TruncDate, TruncMonth
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Date ranges
+        today = timezone.now().date()
+        thirty_days_ago = today - timedelta(days=30)
+        ninety_days_ago = today - timedelta(days=90)
+        start_of_year = today.replace(month=1, day=1)
+
+        # === REVENUE METRICS ===
+        # Total revenue all time
+        total_revenue_cents = Payment.objects.filter(status='succeeded').aggregate(
+            total=Sum('amount_cents')
+        )['total'] or 0
+
+        # Revenue last 30 days
+        revenue_30_days = Payment.objects.filter(
+            status='succeeded',
+            created_at__date__gte=thirty_days_ago
+        ).aggregate(total=Sum('amount_cents'))['total'] or 0
+
+        # Revenue by day (last 30 days) for chart
+        daily_revenue = Payment.objects.filter(
+            status='succeeded',
+            created_at__date__gte=thirty_days_ago
+        ).annotate(
+            date=TruncDate('created_at')
+        ).values('date').annotate(
+            revenue=Sum('amount_cents')
+        ).order_by('date')
+
+        # Revenue by month (last 12 months) for chart
+        monthly_revenue = Payment.objects.filter(
+            status='succeeded',
+            created_at__date__gte=today - timedelta(days=365)
+        ).annotate(
+            month=TruncMonth('created_at')
+        ).values('month').annotate(
+            revenue=Sum('amount_cents'),
+            count=Count('id')
+        ).order_by('month')
+
+        # === BOOKING METRICS ===
+        all_bookings = Booking.objects.filter(deleted_at__isnull=True)
+
+        # Bookings by status
+        bookings_by_status = {
+            'pending': all_bookings.filter(status='pending').count(),
+            'confirmed': all_bookings.filter(status='confirmed').count(),
+            'paid': all_bookings.filter(status='paid').count(),
+            'completed': all_bookings.filter(status='completed').count(),
+            'cancelled': all_bookings.filter(status='cancelled').count(),
+        }
+
+        # Bookings by service type
+        bookings_by_service = all_bookings.values('service_type').annotate(
+            count=Count('id'),
+            revenue=Sum('total_price_cents')
+        ).order_by('-count')
+
+        # Bookings last 30 days by day
+        daily_bookings = all_bookings.filter(
+            created_at__date__gte=thirty_days_ago
+        ).annotate(
+            date=TruncDate('created_at')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+
+        # Average booking value
+        avg_booking_value = all_bookings.filter(
+            status__in=['paid', 'completed']
+        ).aggregate(avg=Avg('total_price_cents'))['avg'] or 0
+
+        # === CUSTOMER METRICS ===
+        total_customers = CustomerProfile.objects.count()
+        vip_customers = CustomerProfile.objects.filter(is_vip=True).count()
+        new_customers_30_days = CustomerProfile.objects.filter(
+            created_at__date__gte=thirty_days_ago
+        ).count()
+
+        # Top customers by booking count
+        top_customers = CustomerProfile.objects.annotate(
+            booking_count=Count('user__bookings', filter=Q(user__bookings__deleted_at__isnull=True)),
+            total_spent=Sum('user__bookings__total_price_cents', filter=Q(user__bookings__status__in=['paid', 'completed']))
+        ).filter(booking_count__gt=0).order_by('-booking_count')[:10]
+
+        # === PERFORMANCE METRICS ===
+        # Completion rate
+        completed = all_bookings.filter(status='completed').count()
+        total_non_cancelled = all_bookings.exclude(status='cancelled').count()
+        completion_rate = (completed / total_non_cancelled * 100) if total_non_cancelled > 0 else 0
+
+        # Cancellation rate
+        cancelled = all_bookings.filter(status='cancelled').count()
+        total_all = all_bookings.count()
+        cancellation_rate = (cancelled / total_all * 100) if total_all > 0 else 0
+
+        return Response({
+            'revenue': {
+                'total_all_time': total_revenue_cents / 100,
+                'last_30_days': revenue_30_days / 100,
+                'average_booking_value': avg_booking_value / 100 if avg_booking_value else 0,
+                'daily': [
+                    {'date': str(d['date']), 'revenue': d['revenue'] / 100}
+                    for d in daily_revenue
+                ],
+                'monthly': [
+                    {'month': str(d['month'].strftime('%Y-%m')), 'revenue': d['revenue'] / 100, 'count': d['count']}
+                    for d in monthly_revenue
+                ],
+            },
+            'bookings': {
+                'total': all_bookings.count(),
+                'by_status': bookings_by_status,
+                'by_service': [
+                    {
+                        'service_type': b['service_type'],
+                        'count': b['count'],
+                        'revenue': (b['revenue'] or 0) / 100
+                    }
+                    for b in bookings_by_service
+                ],
+                'daily': [
+                    {'date': str(d['date']), 'count': d['count']}
+                    for d in daily_bookings
+                ],
+            },
+            'customers': {
+                'total': total_customers,
+                'vip': vip_customers,
+                'new_last_30_days': new_customers_30_days,
+                'top_customers': [
+                    {
+                        'name': f"{c.user.first_name} {c.user.last_name}",
+                        'email': c.user.email,
+                        'booking_count': c.booking_count,
+                        'total_spent': (c.total_spent or 0) / 100,
+                        'is_vip': c.is_vip
+                    }
+                    for c in top_customers
+                ],
+            },
+            'performance': {
+                'completion_rate': round(completion_rate, 1),
+                'cancellation_rate': round(cancellation_rate, 1),
+            },
+            'generated_at': timezone.now().isoformat(),
+        })

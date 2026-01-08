@@ -134,7 +134,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     }
   };
 
-  const displayValue = value !== undefined ? value : internalValue;
+  // Only use internal value management if we're not in controlled mode (no onChange from react-hook-form)
+  // When using {...register()}, we should let the native input handle its own value
+  const isControlled = value !== undefined;
+  const displayValue = isControlled ? value : undefined;
   const actualVariant = error || validationError ? 'error' : success ? 'success' : variant;
 
   // Enhanced styling for date and time inputs to make them stand out and more clickable
@@ -169,8 +172,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           ref={inputRef}
           id={inputId}
           type={type}
-          value={displayValue}
-          onChange={handleChange}
           className={cn(
             baseStyles,
             inputVariants.variant[actualVariant],
@@ -178,6 +179,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
             dateTimeStyles,
             className
           )}
+          {...(isControlled ? { value: displayValue, onChange: handleChange } : {})}
           {...props}
         />
       </div>

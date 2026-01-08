@@ -25,6 +25,7 @@ export default function ServicesPage() {
 
   // Handler for selecting a mini move package
   const handleSelectPackage = (pkg: { id: string; package_type: string }) => {
+    console.log('Button clicked! Package:', pkg);
     resetWizard();
     updateBookingData({
       service_type: 'mini_move',

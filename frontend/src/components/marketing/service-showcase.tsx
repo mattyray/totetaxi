@@ -2,12 +2,17 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useBookingWizard } from '@/stores/booking-store';
 import type { ServiceCatalog } from '@/types';
 
 export function ServiceShowcase() {
+  const router = useRouter();
+  const { updateBookingData, resetWizard } = useBookingWizard();
+
   const { data: services, isLoading, error } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -40,6 +45,17 @@ export function ServiceShowcase() {
       </section>
     );
   }
+
+  // Handler for selecting a mini move package
+  const handleSelectPackage = (pkg: { id: string; package_type: string }) => {
+    resetWizard();
+    updateBookingData({
+      service_type: 'mini_move',
+      mini_move_package_id: pkg.id,
+      package_type: pkg.package_type as 'petite' | 'standard' | 'full',
+    });
+    router.push('/book');
+  };
 
   return (
     <section className="py-16 bg-cream-50">
@@ -114,9 +130,10 @@ export function ServiceShowcase() {
                     )}
                   </ul>
                   
-                  <Button 
-                    variant={pkg.is_most_popular ? "primary" : "outline"} 
+                  <Button
+                    variant={pkg.is_most_popular ? "primary" : "outline"}
                     className="w-full"
+                    onClick={() => handleSelectPackage(pkg)}
                   >
                     Select {pkg.name}
                   </Button>
