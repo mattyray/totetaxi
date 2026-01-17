@@ -284,13 +284,23 @@ class SurchargeRule(models.Model):
         help_text="Fixed surcharge amount in cents"
     )
     
-    # Date rules (for specific dates like Sept 1)
+    # Date rules - supports single date OR date range
     specific_date = models.DateField(
         null=True,
         blank=True,
-        help_text="Specific date for peak date surcharges"
+        help_text="Single specific date (use this OR start/end date range)"
     )
-    
+    start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Start of date range (inclusive)"
+    )
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="End of date range (inclusive)"
+    )
+
     # Day of week rules (for weekend surcharges)
     applies_saturday = models.BooleanField(default=False)
     applies_sunday = models.BooleanField(default=False)
@@ -326,14 +336,21 @@ class SurchargeRule(models.Model):
     
     def applies_to_date(self, booking_date):
         """Check if surcharge rule applies to given date"""
+        # Check single specific date
         if self.specific_date and self.specific_date == booking_date:
             return True
-        
+
+        # Check date range (inclusive)
+        if self.start_date and self.end_date:
+            if self.start_date <= booking_date <= self.end_date:
+                return True
+
+        # Check weekend days
         weekday = booking_date.weekday()
         if weekday == 5 and self.applies_saturday:
             return True
         if weekday == 6 and self.applies_sunday:
             return True
-        
+
         return False
     

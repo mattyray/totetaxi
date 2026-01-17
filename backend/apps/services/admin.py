@@ -174,8 +174,8 @@ class SurchargeRuleAdmin(admin.ModelAdmin):
             'fields': ('calculation_type', 'percentage', 'fixed_amount_cents')
         }),
         ('Date Rules', {
-            'fields': ('specific_date', 'applies_saturday', 'applies_sunday'),
-            'description': 'Set specific date OR weekend days, not both'
+            'fields': ('specific_date', 'start_date', 'end_date', 'applies_saturday', 'applies_sunday'),
+            'description': 'Set specific date OR date range OR weekend days'
         })
     )
     
@@ -191,11 +191,13 @@ class SurchargeRuleAdmin(admin.ModelAdmin):
         applies_to = []
         if obj.specific_date:
             applies_to.append(f"📅 {obj.specific_date}")
+        if obj.start_date and obj.end_date:
+            applies_to.append(f"📆 {obj.start_date} → {obj.end_date}")
         if obj.applies_saturday:
             applies_to.append("🗓️ Saturdays")
         if obj.applies_sunday:
             applies_to.append("🗓️ Sundays")
-        
+
         if applies_to:
             return format_html("<br>".join(applies_to))
         return "❓ No dates set"
