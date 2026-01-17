@@ -20,7 +20,7 @@ Your Tote Taxi booking has been confirmed!
 - Total: ${{ booking.total_price_dollars }}
 
 {% if booking.service_type == 'blade_transfer' %}
-=== BLADE TRANSFER DETAILS ===
+=== AIRPORT TRANSFER DETAILS ===
 • Rate: $75 per bag (minimum 2 bags = $150)
 • Weight limit: 50 lbs per bag
 • Overweight bags: $100 additional per bag

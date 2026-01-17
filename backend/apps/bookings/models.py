@@ -134,7 +134,7 @@ class Booking(models.Model):
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
         ('specialty_item', 'Specialty Item'),
-        ('blade_transfer', 'BLADE Airport Transfer'),
+        ('blade_transfer', 'Airport Transfer'),
     ]
     
     PICKUP_TIME_CHOICES = [

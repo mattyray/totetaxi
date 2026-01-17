@@ -156,13 +156,18 @@ export function DateTimeStep() {
       if (bookingData.service_type === 'mini_move' && !bookingData.mini_move_package_id) {
         return;
       }
-      if (bookingData.service_type === 'standard_delivery' && !bookingData.standard_delivery_item_count) {
-        return;
+      // Standard delivery can have item count OR specialty items (or both)
+      if (bookingData.service_type === 'standard_delivery') {
+        const hasItemCount = (bookingData.standard_delivery_item_count ?? 0) > 0;
+        const hasSpecialtyItems = bookingData.specialty_items && bookingData.specialty_items.length > 0;
+        if (!hasItemCount && !hasSpecialtyItems) {
+          return;
+        }
       }
       if (bookingData.service_type === 'specialty_item' && (!bookingData.specialty_items || bookingData.specialty_items.length === 0)) {
         return;
       }
-      
+
       pricingMutation.mutate();
     }
   }, [selectedDate, selectedTime, specificHour, bookingData.service_type, bookingData.mini_move_package_id, bookingData.standard_delivery_item_count, bookingData.specialty_items]);
@@ -546,7 +551,7 @@ export function DateTimeStep() {
         </Card>
       )}
 
-      {selectedDate && bookingData.service_type !== 'specialty_item' && (
+      {selectedDate && bookingData.service_type === 'mini_move' && (
         <div>
           <h3 className="text-lg font-medium text-navy-900 mb-6">Select Pickup Time</h3>
           <div className="space-y-4">
