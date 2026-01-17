@@ -414,8 +414,14 @@ class CustomerDashboardView(APIView):
         
         all_bookings = request.user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')
         recent_bookings = all_bookings[:5]
-        
-        pending_bookings = all_bookings.filter(status__in=['pending', 'confirmed']).count()
+
+        # Upcoming = paid bookings with future pickup date (not yet completed/cancelled)
+        from django.utils import timezone
+        today = timezone.now().date()
+        upcoming_bookings = all_bookings.filter(
+            status='paid',
+            pickup_date__gte=today
+        ).count()
         completed_bookings = all_bookings.filter(status='completed').count()
         
         saved_addresses = request.user.saved_addresses.filter(is_active=True)
@@ -437,7 +443,7 @@ class CustomerDashboardView(APIView):
                 'last_booking_at': customer_profile.last_booking_at
             },
             'booking_summary': {
-                'pending_bookings': pending_bookings,
+                'pending_bookings': upcoming_bookings,
                 'completed_bookings': completed_bookings,
                 'total_bookings': all_bookings.count()
             },

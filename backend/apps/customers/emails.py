@@ -145,9 +145,10 @@ def send_password_reset_email(user, reset_token, reset_url):
 
 def send_booking_confirmation_email(booking):
     """
-    Send booking confirmation email:
+    Send booking confirmation email with calendar invite:
     - To: customer
     - BCC: internal list (BOOKING_EMAIL_BCC)
+    - Attachment: .ics calendar invite for pickup
     """
     try:
         subject = f'Booking Confirmation - {booking.booking_number}'
@@ -169,6 +170,17 @@ def send_booking_confirmation_email(booking):
             bcc=bcc_list,
         )
         email.content_subtype = 'plain'
+
+        # Generate and attach calendar invite
+        ics_content = generate_ics_calendar_invite(booking)
+        if ics_content:
+            email.attach(
+                f'totetaxi-pickup-{booking.booking_number}.ics',
+                ics_content,
+                'text/calendar'
+            )
+            logger.info(f'Calendar invite attached to confirmation for {booking.booking_number}')
+
         email.send(fail_silently=False)
 
         logger.info(
