@@ -103,7 +103,7 @@ export function DashboardOverview() {
             <div className="flex items-center justify-between mb-2">
               <CalendarIcon className="h-5 w-5 text-navy-500" />
               <span className="text-3xl font-bold text-navy-900">
-                {profile?.total_bookings || 0}
+                {bookingSummary?.total_bookings || 0}
               </span>
             </div>
             <p className="text-sm font-medium text-navy-600">Total Bookings</p>
@@ -148,9 +148,9 @@ export function DashboardOverview() {
             </div>
             <p className="text-sm font-medium text-navy-600">Account Status</p>
             <p className="text-xs text-navy-500 mt-1">
-              {profile?.is_vip 
-                ? 'Priority access' 
-                : `${3 - (profile?.total_bookings || 0)} more for VIP`
+              {profile?.is_vip
+                ? 'Priority access'
+                : `${Math.max(0, 3 - (bookingSummary?.total_bookings || 0))} more for VIP`
               }
             </p>
           </CardContent>
