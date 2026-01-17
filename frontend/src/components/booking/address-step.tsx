@@ -384,6 +384,10 @@ export function AddressStep() {
         const payload: any = {
           service_type: bookingData.service_type,
           pickup_date: bookingData.pickup_date,
+          // Send ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
+          pickup_zip_code: pickup?.zip_code,
+          delivery_zip_code: delivery?.zip_code,
+          // Keep is_outside_core_area as fallback for backwards compatibility
           is_outside_core_area: bookingData.is_outside_core_area || false,
         };
 

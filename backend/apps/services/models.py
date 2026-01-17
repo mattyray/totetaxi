@@ -237,8 +237,8 @@ class SurchargeRule(models.Model):
     """Weekend, holiday, and peak date surcharges from homework"""
     
     SURCHARGE_TYPES = [
-        ('weekend', 'Weekend Surcharge'),
-        ('holiday', 'Holiday Surcharge'),
+        ('weekend', 'Peak Date Surcharge'),
+        ('holiday', 'Peak Date Surcharge'),
         ('peak_date', 'Peak Date Surcharge'),
     ]
     
@@ -353,4 +353,57 @@ class SurchargeRule(models.Model):
             return True
 
         return False
+
+    def is_peak_date_rule(self):
+        """Check if this rule is a peak date (specific date or date range) vs weekend"""
+        return bool(self.specific_date or (self.start_date and self.end_date))
+
+    def is_weekend_rule(self):
+        """Check if this rule is a weekend rule"""
+        return self.applies_saturday or self.applies_sunday
+
+
+def calculate_surcharges_for_date(base_amount_cents, booking_date, service_type):
+    """
+    Calculate total surcharges for a booking date.
+
+    Peak date surcharges OVERRIDE weekend surcharges (don't stack).
+    If a date has a peak date surcharge, weekend surcharge is skipped.
+
+    Returns:
+        int: Total surcharge in cents
+    """
+    active_surcharges = SurchargeRule.objects.filter(is_active=True)
+
+    # Separate peak date rules from weekend rules
+    peak_date_rules = []
+    weekend_rules = []
+
+    for rule in active_surcharges:
+        if rule.is_peak_date_rule():
+            peak_date_rules.append(rule)
+        elif rule.is_weekend_rule():
+            weekend_rules.append(rule)
+
+    # Check if any peak date rule applies to this date and service type
+    peak_surcharge = 0
+    peak_date_applies = False
+
+    for rule in peak_date_rules:
+        if rule.applies_to_date(booking_date):
+            amount = rule.calculate_surcharge(base_amount_cents, booking_date, service_type)
+            if amount > 0:
+                peak_surcharge += amount
+                peak_date_applies = True
+
+    # If peak date applies, return only peak surcharge (skip weekend)
+    if peak_date_applies:
+        return peak_surcharge
+
+    # Otherwise, calculate weekend surcharge
+    weekend_surcharge = 0
+    for rule in weekend_rules:
+        weekend_surcharge += rule.calculate_surcharge(base_amount_cents, booking_date, service_type)
+
+    return weekend_surcharge
     

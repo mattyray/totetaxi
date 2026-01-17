@@ -685,10 +685,10 @@ export function DateTimeStep() {
                 </div>
               )}
 
-              {/* Weekend Surcharge */}
+              {/* Peak Date Surcharge */}
               {(pricingMutation.data.pricing.surcharge_dollars ?? 0) > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-medium">Peak Date Surcharge:</span>
                   <span className="text-navy-900 font-semibold">+${pricingMutation.data.pricing.surcharge_dollars}</span>
                 </div>
               )}

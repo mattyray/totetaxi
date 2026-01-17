@@ -4,12 +4,13 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta, time as dt_time
 from apps.bookings.models import Booking, Address, BookingSpecialtyItem
+from apps.bookings.pricing_utils import calculate_geographic_surcharge_from_zips
 from apps.payments.models import Payment
 from apps.payments.services import StripePaymentService
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
 import logging
 from .serializers import SavedAddressSerializer
-from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, SurchargeRule
+from apps.services.models import MiniMovePackage, SpecialtyItem, StandardDeliveryConfig, calculate_surcharges_for_date
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,10 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     
     coi_required = serializers.BooleanField(default=False)
     is_outside_core_area = serializers.BooleanField(default=False)
-    
+    # ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
+    pickup_zip_code = serializers.CharField(required=False, max_length=10)
+    delivery_zip_code = serializers.CharField(required=False, max_length=10)
+
     def validate_specialty_items(self, value):
         """Validate specialty items with quantities"""
         if not value:
@@ -163,10 +167,15 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                     
                     if organizing_total > 0:
                         total_cents += organizing_total + int(organizing_total * 0.0825)
-                
-                if data.get('is_outside_core_area'):
-                    total_cents += 17500
-                
+
+                # Geographic surcharge: $175 per out-of-zone address (max $350)
+                geographic_surcharge = calculate_geographic_surcharge_from_zips(
+                    data.get('pickup_zip_code'),
+                    data.get('delivery_zip_code'),
+                    fallback_is_outside=data.get('is_outside_core_area', False)
+                )
+                total_cents += geographic_surcharge
+
                 if data.get('pickup_time') == 'morning_specific' and package.package_type == 'standard':
                     total_cents += 17500
                 
@@ -196,13 +205,18 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                     
                     if data.get('is_same_day_delivery'):
                         total_cents += config.same_day_flat_rate_cents
-                    
+
                     if data.get('coi_required'):
                         total_cents += 5000
-                    
-                    if data.get('is_outside_core_area'):
-                        total_cents += 17500
-                        
+
+                    # Geographic surcharge: $175 per out-of-zone address (max $350)
+                    geographic_surcharge = calculate_geographic_surcharge_from_zips(
+                        data.get('pickup_zip_code'),
+                        data.get('delivery_zip_code'),
+                        fallback_is_outside=data.get('is_outside_core_area', False)
+                    )
+                    total_cents += geographic_surcharge
+
             except StandardDeliveryConfig.DoesNotExist:
                 raise serializers.ValidationError("Standard delivery not configured")
         
@@ -227,21 +241,24 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
             
             if data.get('coi_required'):
                 total_cents += 5000
-            
-            if data.get('is_outside_core_area'):
-                total_cents += 17500
-        
-        # Weekend surcharges (not for BLADE)
+
+            # Geographic surcharge: $175 per out-of-zone address (max $350)
+            geographic_surcharge = calculate_geographic_surcharge_from_zips(
+                data.get('pickup_zip_code'),
+                data.get('delivery_zip_code'),
+                fallback_is_outside=data.get('is_outside_core_area', False)
+            )
+            total_cents += geographic_surcharge
+
+        # Weekend/peak date surcharges (peak dates override weekends)
         if service_type != 'blade_transfer' and data.get('pickup_date'):
-            active_surcharges = SurchargeRule.objects.filter(is_active=True)
-            for surcharge in active_surcharges:
-                surcharge_amount = surcharge.calculate_surcharge(
-                    total_cents,
-                    data['pickup_date'],
-                    service_type
-                )
-                total_cents += surcharge_amount
-        
+            surcharge_amount = calculate_surcharges_for_date(
+                total_cents,
+                data['pickup_date'],
+                service_type
+            )
+            total_cents += surcharge_amount
+
         return total_cents
 
 

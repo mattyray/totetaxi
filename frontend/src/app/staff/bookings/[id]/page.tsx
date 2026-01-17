@@ -593,10 +593,10 @@ export default function BookingDetailPage() {
                     </div>
                   )}
 
-                  {/* Weekend Surcharges */}
+                  {/* Peak Date Surcharges */}
                   {booking.booking?.surcharge_dollars > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-navy-900">Weekend Surcharge:</span>
+                      <span className="text-navy-900">Peak Date Surcharge:</span>
                       <span className="text-navy-900 font-medium">+${booking.booking.surcharge_dollars}</span>
                     </div>
                   )}

@@ -136,10 +136,14 @@ const useRecalculatePricing = () => {
       try {
         let pricingRequest: any = {
           service_type: bookingData.service_type,
-          pickup_date: bookingData.service_type === 'blade_transfer' 
-            ? bookingData.blade_flight_date 
+          pickup_date: bookingData.service_type === 'blade_transfer'
+            ? bookingData.blade_flight_date
             : bookingData.pickup_date,
           coi_required: bookingData.coi_required || false,
+          // Send ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
+          pickup_zip_code: bookingData.pickup_address?.zip_code,
+          delivery_zip_code: bookingData.delivery_address?.zip_code,
+          // Keep is_outside_core_area as fallback for backwards compatibility
           is_outside_core_area: bookingData.is_outside_core_area || false,
         };
 
@@ -239,10 +243,14 @@ export function ReviewPaymentStep() {
 
       let paymentRequest: any = {
         service_type: bookingData.service_type,
-        pickup_date: bookingData.service_type === 'blade_transfer' 
-          ? bookingData.blade_flight_date 
+        pickup_date: bookingData.service_type === 'blade_transfer'
+          ? bookingData.blade_flight_date
           : bookingData.pickup_date,
         coi_required: bookingData.coi_required || false,
+        // Send ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
+        pickup_zip_code: bookingData.pickup_address?.zip_code,
+        delivery_zip_code: bookingData.delivery_address?.zip_code,
+        // Keep is_outside_core_area as fallback for backwards compatibility
         is_outside_core_area: bookingData.is_outside_core_area || false,
       };
 
@@ -736,7 +744,7 @@ export function ReviewPaymentStep() {
               
               {bookingData.pricing_data.surcharge_dollars > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-navy-900 font-medium">Weekend Surcharge:</span>
+                  <span className="text-navy-900 font-medium">Peak Date Surcharge:</span>
                   <span className="text-navy-900 font-semibold">+${bookingData.pricing_data.surcharge_dollars}</span>
                 </div>
               )}

@@ -167,7 +167,15 @@ export function ServiceShowcase() {
                         Same-Day Delivery: ${services.standard_delivery.same_day_flat_rate_dollars}
                       </p>
                     </div>
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        resetWizard();
+                        updateBookingData({ service_type: 'standard_delivery' });
+                        router.push('/book');
+                      }}
+                    >
                       Calculate Your Delivery
                     </Button>
                   </div>

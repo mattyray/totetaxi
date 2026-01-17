@@ -543,7 +543,7 @@ class Booking(models.Model):
     
     def calculate_pricing(self):
         """Calculate total pricing using services pricing engine + BLADE support"""
-        from apps.services.models import StandardDeliveryConfig, SurchargeRule
+        from apps.services.models import StandardDeliveryConfig, calculate_surcharges_for_date
         
         self.base_price_cents = 0
         self.surcharge_cents = 0
@@ -572,18 +572,15 @@ class Booking(models.Model):
             self.coi_fee_cents = self.calculate_coi_fee()
             
             if self.pickup_date:
-                active_surcharges = SurchargeRule.objects.filter(is_active=True)
-                for surcharge in active_surcharges:
-                    surcharge_amount = surcharge.calculate_surcharge(
-                        self.base_price_cents, 
-                        self.pickup_date,
-                        self.service_type
-                    )
-                    self.surcharge_cents += surcharge_amount
-            
+                self.surcharge_cents = calculate_surcharges_for_date(
+                    self.base_price_cents,
+                    self.pickup_date,
+                    self.service_type
+                )
+
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
             self.time_window_surcharge_cents = self.calculate_time_window_surcharge()
-        
+
         # Standard Delivery pricing
         elif self.service_type == 'standard_delivery':
             try:
@@ -608,20 +605,17 @@ class Booking(models.Model):
             except StandardDeliveryConfig.DoesNotExist:
                 pass
             
-            # Weekend surcharges
+            # Weekend/peak date surcharges
             if self.pickup_date:
-                active_surcharges = SurchargeRule.objects.filter(is_active=True)
-                for surcharge in active_surcharges:
-                    surcharge_amount = surcharge.calculate_surcharge(
-                        self.base_price_cents, 
-                        self.pickup_date,
-                        self.service_type
-                    )
-                    self.surcharge_cents += surcharge_amount
-            
+                self.surcharge_cents = calculate_surcharges_for_date(
+                    self.base_price_cents,
+                    self.pickup_date,
+                    self.service_type
+                )
+
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
             self.coi_fee_cents = self.calculate_coi_fee()
-        
+
         # Specialty Item pricing
         elif self.service_type == 'specialty_item':
             specialty_total = 0
@@ -638,17 +632,14 @@ class Booking(models.Model):
                 except StandardDeliveryConfig.DoesNotExist:
                     pass
             
-            # Apply weekend surcharges
+            # Apply weekend/peak date surcharges
             if self.pickup_date:
-                active_surcharges = SurchargeRule.objects.filter(is_active=True)
-                for surcharge in active_surcharges:
-                    surcharge_amount = surcharge.calculate_surcharge(
-                        self.base_price_cents, 
-                        self.pickup_date,
-                        self.service_type
-                    )
-                    self.surcharge_cents += surcharge_amount
-            
+                self.surcharge_cents = calculate_surcharges_for_date(
+                    self.base_price_cents,
+                    self.pickup_date,
+                    self.service_type
+                )
+
             self.geographic_surcharge_cents = self.calculate_geographic_surcharge()
             self.coi_fee_cents = self.calculate_coi_fee()
         
