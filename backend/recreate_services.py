@@ -20,6 +20,7 @@ MiniMovePackage.objects.create(
 )
 
 
+
 MiniMovePackage.objects.create(
     package_type='standard',
     name='Standard',
