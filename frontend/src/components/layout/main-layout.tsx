@@ -213,32 +213,36 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
       <footer className="bg-navy-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <Link href="/" className="inline-block mb-4 hover:opacity-80 transition-opacity">
-                <Image
-                  src="/assets/images/totetaxi-logo-white.png"
-                  alt="Tote Taxi"
-                  width={150}
-                  height={72}
-                  className="h-auto w-[120px]"
-                />
-              </Link>
-              <p className="text-navy-300 text-sm">
-                Luxury delivery service for Manhattan to Hamptons transport
-              </p>
+            <div className="space-y-6">
+              <div>
+                <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+                  <Image
+                    src="/assets/images/totetaxi-logo-white.png"
+                    alt="Tote Taxi"
+                    width={120}
+                    height={58}
+                    className="h-auto w-[100px]"
+                  />
+                </Link>
+                <p className="text-navy-300 text-sm mt-2">
+                  Luxury delivery service for Manhattan to Hamptons transport
+                </p>
+              </div>
 
-              <a href="https://totecamps.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-6 hover:opacity-80 transition-opacity">
-                <Image
-                  src="/assets/images/totecamps-logo-white.png"
-                  alt="Tote Camps"
-                  width={150}
-                  height={72}
-                  className="h-auto w-[120px]"
-                />
-              </a>
-              <p className="text-navy-300 text-sm mt-2">
-                Sleepaway Camp Baggage Transportation
-              </p>
+              <div className="border-t border-navy-700 pt-4">
+                <a href="https://totecamps.com" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity">
+                  <Image
+                    src="/assets/images/totecamps-logo-white.png"
+                    alt="Tote Camps"
+                    width={120}
+                    height={58}
+                    className="h-auto w-[100px]"
+                  />
+                </a>
+                <p className="text-navy-300 text-sm mt-2">
+                  Sleepaway Camp Baggage Transportation
+                </p>
+              </div>
             </div>
             <div>
               <h4 className="font-medium mb-4">Services</h4>
