@@ -214,9 +214,30 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className="text-xl font-serif mb-4">Tote Taxi</div>
+              <Link href="/" className="inline-block mb-4 hover:opacity-80 transition-opacity">
+                <Image
+                  src="/assets/images/totetaxi-logo-white.png"
+                  alt="Tote Taxi"
+                  width={150}
+                  height={72}
+                  className="h-auto w-[120px]"
+                />
+              </Link>
               <p className="text-navy-300 text-sm">
                 Luxury delivery service for Manhattan to Hamptons transport
+              </p>
+
+              <a href="https://totecamps.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-6 hover:opacity-80 transition-opacity">
+                <Image
+                  src="/assets/images/totecamps-logo-white.png"
+                  alt="Tote Camps"
+                  width={150}
+                  height={72}
+                  className="h-auto w-[120px]"
+                />
+              </a>
+              <p className="text-navy-300 text-sm mt-2">
+                Sleepaway Camp Baggage Transportation
               </p>
             </div>
             <div>
