@@ -10,6 +10,7 @@ from django.http import HttpResponse
 import hmac
 import hashlib
 import logging
+from django.conf import settings as django_settings
 
 from .services import ToteTaxiOnfleetIntegration
 from .models import OnfleetTask
@@ -39,7 +40,6 @@ class LogisticsSummaryView(APIView):
             logger.error(f"Error in logistics summary: {e}")
             return Response({
                 'error': 'Failed to fetch logistics data',
-                'details': str(e)
             }, status=500)
 
 
@@ -75,7 +75,7 @@ def sync_onfleet_status(request):
     except Exception as e:
         logger.error(f"Sync error: {e}")
         return Response({
-            'error': f'Sync failed: {str(e)}'
+            'error': 'Sync failed'
         }, status=500)
 
 
@@ -120,7 +120,7 @@ def create_task_manually(request):
     except Exception as e:
         logger.error(f"Manual task creation error: {e}")
         return Response({
-            'error': f'Task creation failed: {str(e)}'
+            'error': 'Task creation failed'
         }, status=500)
 
 
@@ -151,13 +151,40 @@ class OnfleetWebhookView(APIView):
         logger.info(f"✅ Onfleet webhook verification successful: {check_value}")
         return HttpResponse(check_value, content_type='text/plain', status=200)
     
+    def _verify_signature(self, request):
+        """Verify Onfleet HMAC-SHA512 webhook signature."""
+        secret = getattr(django_settings, 'ONFLEET_WEBHOOK_SECRET', '')
+        if not secret:
+            logger.error("ONFLEET_WEBHOOK_SECRET not configured")
+            return False
+
+        signature = request.META.get('HTTP_X_ONFLEET_SIGNATURE', '')
+        if not signature:
+            logger.warning("Onfleet webhook missing X-Onfleet-Signature header")
+            return False
+
+        expected = hmac.new(
+            secret.encode('utf-8'),
+            request.body,
+            hashlib.sha512,
+        ).hexdigest()
+
+        return hmac.compare_digest(signature, expected)
+
     def post(self, request):
         """
         Handle actual webhook events from Onfleet
-        
+
         ✅ CRITICAL: Always return 200 OK for webhook processing
         Even if processing fails, return 200 to prevent Onfleet retries
         """
+        # ========== C3: Verify webhook signature ==========
+        if not self._verify_signature(request):
+            return Response(
+                {'error': 'Invalid webhook signature'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         try:
             webhook_data = request.data
             trigger_id = webhook_data.get('triggerId')
@@ -193,7 +220,6 @@ class OnfleetWebhookView(APIView):
             return Response({
                 'success': False,
                 'error': 'Webhook processing failed',
-                'details': str(e),
                 'timestamp': timezone.now()
             }, status=200)  # ✅ Still 200, not 500
 
@@ -251,5 +277,4 @@ class TaskStatusView(APIView):
             logger.error(f"Error fetching tasks: {e}")
             return Response({
                 'error': 'Failed to fetch tasks',
-                'details': str(e)
             }, status=500)

@@ -76,7 +76,7 @@ class CreatePaymentIntentView(APIView):
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
-                {'error': f'Payment initialization failed: {str(e)}'}, 
+                {'error': 'Payment initialization failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -90,52 +90,63 @@ class CustomerBookingCreateView(APIView):
     
     def post(self, request):
         logger.info(f"Booking create request from user: {request.user.email}")
-        
+
         # Ensure user has customer profile
         if not hasattr(request.user, 'customer_profile'):
             logger.warning(f"User {request.user.email} has no customer profile")
             return Response(
-                {'error': 'This is not a customer account'}, 
+                {'error': 'This is not a customer account'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         # Verify payment_intent_id is provided
         payment_intent_id = request.data.get('payment_intent_id')
         if not payment_intent_id:
             return Response(
-                {'error': 'payment_intent_id is required'}, 
+                {'error': 'payment_intent_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # ========== C2: PaymentIntent reuse prevention ==========
+        if Payment.objects.filter(
+            stripe_payment_intent_id=payment_intent_id,
+            booking__isnull=False,
+        ).exists():
+            logger.warning(f"PI reuse attempt by {request.user.email}: {payment_intent_id}")
+            return Response(
+                {'error': 'This payment has already been used for a booking'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Verify payment with Stripe
         try:
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            
+
             if payment_intent.status != 'succeeded':
                 logger.warning(f"Payment not succeeded for {request.user.email}: {payment_intent.status}")
                 return Response(
-                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    {'error': 'Payment has not succeeded'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
-            
+
         except stripe.error.StripeError as e:
             logger.error(f"Stripe verification failed: {str(e)}")
             return Response(
-                {'error': f'Payment verification failed: {str(e)}'}, 
+                {'error': 'Payment verification failed'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = AuthenticatedBookingCreateSerializer(
             data=request.data,
             context={'user': request.user}
         )
-        
+
         if not serializer.is_valid():
             logger.warning(f"Booking validation failed for {request.user.email}: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # ========== SAME-DAY RESTRICTION CHECK ==========
         pickup_date = serializer.validated_data.get('pickup_date')
         if pickup_date:
@@ -147,41 +158,55 @@ class CustomerBookingCreateView(APIView):
                     'contact_phone': '(631) 595-5100'
                 }, status=status.HTTP_400_BAD_REQUEST)
         # ========== END RESTRICTION CHECK ==========
-        
+
         try:
             booking = serializer.save()
             logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
-            
-            # Create payment record immediately
-            payment, created = Payment.objects.get_or_create(
+
+            # ========== C1: Payment amount verification ==========
+            if payment_intent.amount != booking.total_price_cents:
+                logger.error(
+                    f"Payment amount mismatch: PI={payment_intent.amount}, "
+                    f"booking={booking.total_price_cents} for {booking.booking_number}"
+                )
+                booking.status = 'cancelled'
+                booking.save()
+                return Response(
+                    {'error': 'Payment amount does not match booking total'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Create payment record
+            charge_id = getattr(payment_intent, 'latest_charge', None)
+            if not isinstance(charge_id, str):
+                charge_id = ''
+            Payment.objects.create(
+                booking=booking,
+                customer=request.user,
+                amount_cents=payment_intent.amount,
                 stripe_payment_intent_id=payment_intent_id,
-                defaults={
-                    'booking': booking,
-                    'amount_cents': payment_intent.amount,
-                    'status': 'succeeded',
-                    'stripe_charge_id': payment_intent.get('latest_charge', ''),
-                    'processed_at': timezone.now()
-                }
+                stripe_charge_id=charge_id,
+                status='succeeded',
+                processed_at=timezone.now(),
             )
-            
-            if created:
-                logger.info(f"Payment record created for booking {booking.booking_number}")
-            else:
-                logger.info(f"Payment record already exists for booking {booking.booking_number}")
-            
+            logger.info(f"Payment record created for booking {booking.booking_number}")
+
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save()
-            
+
         except Exception as e:
             logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+            return Response(
+                {'error': 'An error occurred while creating the booking'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         response_data = {
             'message': 'Booking created successfully',
             'booking': CustomerBookingDetailSerializer(booking).data
         }
-        
+
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 

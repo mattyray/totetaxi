@@ -11,7 +11,8 @@ import json
 import stripe
 from django.conf import settings
 
-from .models import Booking, Address, GuestCheckout, check_same_day_restriction  # ← ADDED IMPORT
+from .models import Booking, Address, GuestCheckout, check_same_day_restriction
+from apps.payments.models import Payment
 from .serializers import (
     BookingSerializer,
     GuestBookingCreateSerializer,
@@ -417,69 +418,80 @@ class PricingPreviewView(APIView):
 
 
 class CalendarAvailabilityView(APIView):
-    """Calendar data with booking details - no capacity limits"""
+    """Calendar availability data.
+    - Public requests: dates, counts, surcharges only (no PII).
+    - Staff requests: full booking details for the staff dashboard calendar.
+    """
     permission_classes = [permissions.AllowAny]
-    
+
     def get(self, request):
         start_date = request.query_params.get('start_date', date.today())
         if isinstance(start_date, str):
             start_date = date.fromisoformat(start_date)
-        
+
         end_date_param = request.query_params.get('end_date')
         if end_date_param:
             end_date = date.fromisoformat(end_date_param)
         else:
             end_date = start_date + timedelta(days=60)
-        
+
+        is_staff = (
+            request.user.is_authenticated
+            and hasattr(request.user, 'staff_profile')
+        )
+
         availability = []
         current_date = start_date
-        
+
         while current_date <= end_date:
-            bookings_today = Booking.objects.filter(
+            bookings_qs = Booking.objects.filter(
                 pickup_date=current_date,
-                deleted_at__isnull=True
-            ).select_related(
-                'customer',
-                'guest_checkout',
-                'mini_move_package'
+                deleted_at__isnull=True,
             )
-            
+
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
                     surcharges.append({
                         'name': rule.name,
                         'type': rule.surcharge_type,
-                        'description': rule.description
+                        'description': rule.description,
                     })
-            
-            booking_list = []
-            for booking in bookings_today:
-                booking_list.append({
-                    'id': str(booking.id),
-                    'booking_number': booking.booking_number,
-                    'customer_name': booking.get_customer_name(),
-                    'service_type': booking.get_service_type_display(),
-                    'pickup_time': booking.get_pickup_time_display(),
-                    'status': booking.status,
-                    'total_price_dollars': booking.total_price_dollars,
-                    'coi_required': booking.coi_required
-                })
-            
-            availability.append({
+
+            day_data = {
                 'date': current_date.isoformat(),
                 'available': True,
                 'is_weekend': current_date.weekday() >= 5,
-                'bookings': booking_list,
-                'surcharges': surcharges
-            })
-            
+                'surcharges': surcharges,
+            }
+
+            if is_staff:
+                bookings_today = bookings_qs.select_related(
+                    'customer', 'guest_checkout', 'mini_move_package',
+                )
+                day_data['bookings'] = [
+                    {
+                        'id': str(b.id),
+                        'booking_number': b.booking_number,
+                        'customer_name': b.get_customer_name(),
+                        'service_type': b.get_service_type_display(),
+                        'pickup_time': b.get_pickup_time_display(),
+                        'status': b.status,
+                        'total_price_dollars': b.total_price_dollars,
+                        'coi_required': b.coi_required,
+                    }
+                    for b in bookings_today
+                ]
+            else:
+                day_data['booking_count'] = bookings_qs.count()
+
+            availability.append(day_data)
             current_date += timedelta(days=1)
-        
+
         return Response({
             'availability': availability,
             'start_date': start_date.isoformat(),
-            'end_date': end_date.isoformat()
+            'end_date': end_date.isoformat(),
         })
 
 
@@ -527,7 +539,7 @@ class CreateGuestPaymentIntentView(APIView):
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
-                {'error': f'Payment initialization failed: {str(e)}'}, 
+                {'error': 'Payment initialization failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -542,38 +554,49 @@ class GuestBookingCreateView(generics.CreateAPIView):
     
     def create(self, request, *args, **kwargs):
         logger.info(f"Guest booking create request - Service: {request.data.get('service_type')}, Email: {request.data.get('email')}")
-        
+
         # Verify payment_intent_id is provided
         payment_intent_id = request.data.get('payment_intent_id')
         if not payment_intent_id:
             return Response(
-                {'error': 'payment_intent_id is required'}, 
+                {'error': 'payment_intent_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # ========== C2: PaymentIntent reuse prevention ==========
+        if Payment.objects.filter(
+            stripe_payment_intent_id=payment_intent_id,
+            booking__isnull=False,
+        ).exists():
+            logger.warning(f"PI reuse attempt: {payment_intent_id}")
+            return Response(
+                {'error': 'This payment has already been used for a booking'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Verify payment with Stripe
         try:
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            
+
             if payment_intent.status != 'succeeded':
                 logger.warning(f"Payment not succeeded: {payment_intent.status}")
                 return Response(
-                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    {'error': 'Payment has not succeeded'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
-            
+
         except stripe.error.StripeError as e:
             logger.error(f"Stripe verification failed: {str(e)}")
             return Response(
-                {'error': f'Payment verification failed: {str(e)}'}, 
+                {'error': 'Payment verification failed'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # ========== SAME-DAY RESTRICTION CHECK ==========
         pickup_date = serializer.validated_data.get('pickup_date')
         if pickup_date:
@@ -585,15 +608,41 @@ class GuestBookingCreateView(generics.CreateAPIView):
                     'contact_phone': '(631) 595-5100'
                 }, status=status.HTTP_400_BAD_REQUEST)
         # ========== END RESTRICTION CHECK ==========
-        
+
         booking = serializer.save()
-        
+
+        # ========== C1: Payment amount verification ==========
+        if payment_intent.amount != booking.total_price_cents:
+            logger.error(
+                f"Payment amount mismatch: PI={payment_intent.amount}, "
+                f"booking={booking.total_price_cents} for {booking.booking_number}"
+            )
+            booking.status = 'cancelled'
+            booking.save()
+            return Response(
+                {'error': 'Payment amount does not match booking total'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ========== C2b: Create Payment record for guest booking ==========
+        charge_id = getattr(payment_intent, 'latest_charge', None)
+        if not isinstance(charge_id, str):
+            charge_id = ''
+        Payment.objects.create(
+            booking=booking,
+            amount_cents=payment_intent.amount,
+            stripe_payment_intent_id=payment_intent_id,
+            stripe_charge_id=charge_id,
+            status='succeeded',
+            processed_at=timezone.now(),
+        )
+
         # Update booking status to paid since payment already succeeded
         booking.status = 'paid'
         booking.save()
-        
+
         logger.info(f"Guest booking created: {booking.booking_number} - {booking.service_type} - ${booking.total_price_dollars}")
-        
+
         response_data = {
             'message': 'Booking created successfully',
             'booking': {
@@ -604,7 +653,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'status': booking.status,
             }
         }
-        
+
         # Add BLADE-specific response data
         if booking.service_type == 'blade_transfer':
             response_data['booking']['blade_details'] = {
@@ -613,23 +662,37 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'flight_date': booking.blade_flight_date.isoformat() if booking.blade_flight_date else None,
                 'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
             }
-        
+
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class BookingStatusView(APIView):
-    """Get booking status by booking number - no authentication required"""
+    """Get booking status by UUID — non-guessable, no PII leak."""
     permission_classes = [permissions.AllowAny]
-    
-    def get(self, request, booking_number):
+
+    def get(self, request, booking_lookup):
         try:
-            booking = Booking.objects.get(booking_number=booking_number, deleted_at__isnull=True)
-            serializer = BookingStatusSerializer(booking)
-            return Response(serializer.data)
+            # Accept UUID only (non-guessable). Sequential TT-XXXXXX is rejected.
+            import uuid as _uuid
+            try:
+                booking_uuid = _uuid.UUID(str(booking_lookup))
+            except ValueError:
+                return Response(
+                    {'error': 'Booking not found'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            booking = Booking.objects.get(id=booking_uuid, deleted_at__isnull=True)
+            return Response({
+                'booking_number': booking.booking_number,
+                'service_type': booking.service_type,
+                'status': booking.status,
+                'pickup_date': booking.pickup_date.isoformat(),
+            })
         except Booking.DoesNotExist:
             return Response(
-                {'error': 'Booking not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Booking not found'},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
 

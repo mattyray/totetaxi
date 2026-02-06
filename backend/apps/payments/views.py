@@ -92,39 +92,44 @@ class PaymentIntentCreateView(APIView):
         except Exception as e:
             logger.error(f"Error creating payment intent: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Failed to create payment intent'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
 class PaymentStatusView(APIView):
-    """Check payment status by booking number - no authentication required"""
+    """Check payment status by booking UUID — non-guessable, minimal data."""
     permission_classes = [permissions.AllowAny]
-    
-    def get(self, request, booking_number):
+
+    def get(self, request, booking_lookup):
+        import uuid as _uuid
         try:
-            booking = Booking.objects.get(booking_number=booking_number, deleted_at__isnull=True)
+            booking_uuid = _uuid.UUID(str(booking_lookup))
+        except ValueError:
+            return Response(
+                {'error': 'Booking not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            booking = Booking.objects.get(id=booking_uuid, deleted_at__isnull=True)
             payment = Payment.objects.filter(booking=booking).first()
-            
+
             if not payment:
                 return Response({
-                    'booking_number': booking_number,
                     'payment_status': 'not_created',
-                    'booking_status': booking.status
-                })
-            
-            return Response({
-                    'booking_number': booking_number,
-                    'payment_status': payment.status,
                     'booking_status': booking.status,
-                    'amount_dollars': payment.amount_dollars,
-                    'processed_at': payment.processed_at
+                })
+
+            return Response({
+                'payment_status': payment.status,
+                'booking_status': booking.status,
             })
-            
+
         except Booking.DoesNotExist:
             return Response(
-                {'error': 'Booking not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Booking not found'},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
 
@@ -291,7 +296,7 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -375,7 +380,7 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -433,7 +438,7 @@ class MockPaymentConfirmView(APIView):
         except Exception as e:
             logger.error(f"Mock payment error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -475,7 +480,7 @@ class PaymentConfirmView(APIView):
         except Exception as e:
             logger.error(f"Payment confirm error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment confirmation failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -624,6 +629,6 @@ class RefundProcessView(APIView):
         except Exception as e:
             logger.error(f"Refund processing error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Refund processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
