@@ -418,69 +418,53 @@ class PricingPreviewView(APIView):
 
 
 class CalendarAvailabilityView(APIView):
-    """Calendar data with booking details - no capacity limits"""
+    """Public calendar data — returns only dates, counts, and surcharges.
+    No PII (customer names, booking IDs, prices) is exposed."""
     permission_classes = [permissions.AllowAny]
-    
+
     def get(self, request):
         start_date = request.query_params.get('start_date', date.today())
         if isinstance(start_date, str):
             start_date = date.fromisoformat(start_date)
-        
+
         end_date_param = request.query_params.get('end_date')
         if end_date_param:
             end_date = date.fromisoformat(end_date_param)
         else:
             end_date = start_date + timedelta(days=60)
-        
+
         availability = []
         current_date = start_date
-        
+
         while current_date <= end_date:
-            bookings_today = Booking.objects.filter(
+            booking_count = Booking.objects.filter(
                 pickup_date=current_date,
-                deleted_at__isnull=True
-            ).select_related(
-                'customer',
-                'guest_checkout',
-                'mini_move_package'
-            )
-            
+                deleted_at__isnull=True,
+            ).count()
+
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
                 if rule.applies_to_date(current_date):
                     surcharges.append({
                         'name': rule.name,
                         'type': rule.surcharge_type,
-                        'description': rule.description
+                        'description': rule.description,
                     })
-            
-            booking_list = []
-            for booking in bookings_today:
-                booking_list.append({
-                    'id': str(booking.id),
-                    'booking_number': booking.booking_number,
-                    'customer_name': booking.get_customer_name(),
-                    'service_type': booking.get_service_type_display(),
-                    'pickup_time': booking.get_pickup_time_display(),
-                    'status': booking.status,
-                    'total_price_dollars': booking.total_price_dollars,
-                    'coi_required': booking.coi_required
-                })
-            
+
             availability.append({
                 'date': current_date.isoformat(),
                 'available': True,
                 'is_weekend': current_date.weekday() >= 5,
-                'bookings': booking_list,
-                'surcharges': surcharges
+                'booking_count': booking_count,
+                'surcharges': surcharges,
             })
-            
+
             current_date += timedelta(days=1)
-        
+
         return Response({
             'availability': availability,
             'start_date': start_date.isoformat(),
-            'end_date': end_date.isoformat()
+            'end_date': end_date.isoformat(),
         })
 
 
@@ -653,18 +637,32 @@ class GuestBookingCreateView(generics.CreateAPIView):
 
 
 class BookingStatusView(APIView):
-    """Get booking status by booking number - no authentication required"""
+    """Get booking status by UUID — non-guessable, no PII leak."""
     permission_classes = [permissions.AllowAny]
-    
-    def get(self, request, booking_number):
+
+    def get(self, request, booking_lookup):
         try:
-            booking = Booking.objects.get(booking_number=booking_number, deleted_at__isnull=True)
-            serializer = BookingStatusSerializer(booking)
-            return Response(serializer.data)
+            # Accept UUID only (non-guessable). Sequential TT-XXXXXX is rejected.
+            import uuid as _uuid
+            try:
+                booking_uuid = _uuid.UUID(str(booking_lookup))
+            except ValueError:
+                return Response(
+                    {'error': 'Booking not found'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            booking = Booking.objects.get(id=booking_uuid, deleted_at__isnull=True)
+            return Response({
+                'booking_number': booking.booking_number,
+                'service_type': booking.service_type,
+                'status': booking.status,
+                'pickup_date': booking.pickup_date.isoformat(),
+            })
         except Booking.DoesNotExist:
             return Response(
-                {'error': 'Booking not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Booking not found'},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
 

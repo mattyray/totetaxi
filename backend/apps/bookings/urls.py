@@ -20,8 +20,8 @@ urlpatterns = [
     # Guest booking (requires payment_intent_id)
     path('guest-booking/', views.GuestBookingCreateView.as_view(), name='guest-booking-create'),
     
-    # Booking status lookup
-    path('booking-status/<str:booking_number>/', views.BookingStatusView.as_view(), name='booking-status'),
+    # Booking status lookup (UUID only — non-guessable)
+    path('booking-status/<str:booking_lookup>/', views.BookingStatusView.as_view(), name='booking-status'),
     
     # ZIP code validation endpoint
     path('validate-zip/', views.ValidateZipCodeView.as_view(), name='validate-zip'),
