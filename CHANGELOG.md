@@ -109,10 +109,11 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Calendar invite (.ics) in reminder emails
 - Post-delivery review request email
 
-### Content Updates: 3
+### Content Updates: 4
 - Tote Camps footer link
 - Hampton Jitney on partnerships page
 - Hampton Jitney on homepage
+- JFK promo banner/popup
 
 ### Infrastructure Fixes: 5
 - Stripe webhook retry logic
@@ -125,14 +126,28 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Pending Work
 
-See [UPDATES.md](UPDATES.md) for remaining tasks and priorities.
+### Proposed Features (Approved Jan 9)
 
-### Easy Wins (Ready to Build)
-- Description box required field (complex - multiple pages affected)
-- Box size dimensions info (complex - multiple pages affected)
+| Feature | Estimate | Priority | Status |
+|---------|----------|----------|--------|
+| Discount Codes | 10-12 hours | HIGH | Not Started |
+| Item Description Field | 5-6 hours | MEDIUM | Not Started |
+| MailChimp Integration | 3-4 hours | LOW | Not Started |
+
+### Easy Wins
+
+| Item | Effort | Status |
+|------|--------|--------|
+| Box size dimensions info | Easy | Not Started |
+
+### Medium Priority
+
+| Item | Effort | Status |
+|------|--------|--------|
+| Abandoned cart emails | Medium | Not Started |
+| Round-trip bookings | Large | Not Started |
 
 ### Needs Client Input
 - Service type filters - need specific example of failure
 - CRM customer data - need specific example of missing data
-- Round-trip bookings - pricing/discount questions
-- Abandoned cart emails - timing questions
+- Special dates surcharges - need date list from Danielle
