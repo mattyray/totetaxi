@@ -177,12 +177,15 @@ class CustomerBookingCreateView(APIView):
                 )
 
             # Create payment record
+            charge_id = getattr(payment_intent, 'latest_charge', None)
+            if not isinstance(charge_id, str):
+                charge_id = ''
             Payment.objects.create(
                 booking=booking,
                 customer=request.user,
                 amount_cents=payment_intent.amount,
                 stripe_payment_intent_id=payment_intent_id,
-                stripe_charge_id=payment_intent.get('latest_charge', '') if hasattr(payment_intent, 'get') else getattr(payment_intent, 'latest_charge', ''),
+                stripe_charge_id=charge_id,
                 status='succeeded',
                 processed_at=timezone.now(),
             )

@@ -163,7 +163,7 @@ class TestPaymentAmountVerification:
             id='pi_test_cheap_auth',
             status='succeeded',
             amount=100,
-            get=lambda k, d=None: d,
+            latest_charge='ch_test',
         )
 
         client = APIClient()
@@ -176,13 +176,13 @@ class TestPaymentAmountVerification:
             'mini_move_package_id': str(mini_move_package.id),
             'pickup_date': _next_weekday().isoformat(),
             'pickup_time': 'morning',
-            'pickup_address': {
+            'new_pickup_address': {
                 'address_line_1': pickup.address_line_1,
                 'city': pickup.city,
                 'state': pickup.state,
                 'zip_code': pickup.zip_code,
             },
-            'delivery_address': {
+            'new_delivery_address': {
                 'address_line_1': delivery.address_line_1,
                 'city': delivery.city,
                 'state': delivery.state,
@@ -271,7 +271,7 @@ class TestPaymentIntentReuse:
             id='pi_already_used_auth',
             status='succeeded',
             amount=guest_booking.total_price_cents,
-            get=lambda k, d=None: d,
+            latest_charge='ch_test',
         )
 
         Payment.objects.create(
@@ -291,13 +291,13 @@ class TestPaymentIntentReuse:
             'mini_move_package_id': str(mini_move_package.id),
             'pickup_date': _next_weekday().isoformat(),
             'pickup_time': 'morning',
-            'pickup_address': {
+            'new_pickup_address': {
                 'address_line_1': pickup.address_line_1,
                 'city': pickup.city,
                 'state': pickup.state,
                 'zip_code': pickup.zip_code,
             },
-            'delivery_address': {
+            'new_delivery_address': {
                 'address_line_1': delivery.address_line_1,
                 'city': delivery.city,
                 'state': delivery.state,

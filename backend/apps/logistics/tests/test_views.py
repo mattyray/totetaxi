@@ -406,14 +406,17 @@ class TestWebhookView:
         
         assert response.status_code == 400
     
-    def test_webhook_post_processes_event(self, test_booking):
+    def test_webhook_post_processes_event(self, test_booking, settings):
         """Test POST webhook processes event"""
+        import hmac, hashlib, json
+        settings.ONFLEET_WEBHOOK_SECRET = 'test-webhook-secret'
+
         client = APIClient()
-        
+
         # Create tasks first
         integration = ToteTaxiOnfleetIntegration()
         pickup, dropoff = integration.create_tasks_for_booking(test_booking)
-        
+
         # Assigned = triggerId 9
         webhook_data = {
             'triggerId': 9,
@@ -423,16 +426,20 @@ class TestWebhookView:
                 'worker': 'worker_123'
             }
         }
-        
+
+        payload_bytes = json.dumps(webhook_data).encode('utf-8')
+        sig = hmac.new(b'test-webhook-secret', payload_bytes, hashlib.sha512).hexdigest()
+
         response = client.post(
             '/api/staff/logistics/webhook/',
-            webhook_data,
-            format='json'
+            data=payload_bytes,
+            content_type='application/json',
+            HTTP_X_ONFLEET_SIGNATURE=sig,
         )
-        
+
         assert response.status_code == 200
         assert response.data['success'] is True
-        
+
         # Verify task was updated
         pickup.refresh_from_db()
         assert pickup.status == 'assigned'
