@@ -11,7 +11,8 @@ import json
 import stripe
 from django.conf import settings
 
-from .models import Booking, Address, GuestCheckout, check_same_day_restriction  # ← ADDED IMPORT
+from .models import Booking, Address, GuestCheckout, check_same_day_restriction
+from apps.payments.models import Payment
 from .serializers import (
     BookingSerializer,
     GuestBookingCreateSerializer,
@@ -542,38 +543,49 @@ class GuestBookingCreateView(generics.CreateAPIView):
     
     def create(self, request, *args, **kwargs):
         logger.info(f"Guest booking create request - Service: {request.data.get('service_type')}, Email: {request.data.get('email')}")
-        
+
         # Verify payment_intent_id is provided
         payment_intent_id = request.data.get('payment_intent_id')
         if not payment_intent_id:
             return Response(
-                {'error': 'payment_intent_id is required'}, 
+                {'error': 'payment_intent_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # ========== C2: PaymentIntent reuse prevention ==========
+        if Payment.objects.filter(
+            stripe_payment_intent_id=payment_intent_id,
+            booking__isnull=False,
+        ).exists():
+            logger.warning(f"PI reuse attempt: {payment_intent_id}")
+            return Response(
+                {'error': 'This payment has already been used for a booking'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Verify payment with Stripe
         try:
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            
+
             if payment_intent.status != 'succeeded':
                 logger.warning(f"Payment not succeeded: {payment_intent.status}")
                 return Response(
-                    {'error': f'Payment has not succeeded. Status: {payment_intent.status}'}, 
+                    {'error': 'Payment has not succeeded'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
-            
+
         except stripe.error.StripeError as e:
             logger.error(f"Stripe verification failed: {str(e)}")
             return Response(
-                {'error': f'Payment verification failed: {str(e)}'}, 
+                {'error': 'Payment verification failed'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # ========== SAME-DAY RESTRICTION CHECK ==========
         pickup_date = serializer.validated_data.get('pickup_date')
         if pickup_date:
@@ -585,15 +597,38 @@ class GuestBookingCreateView(generics.CreateAPIView):
                     'contact_phone': '(631) 595-5100'
                 }, status=status.HTTP_400_BAD_REQUEST)
         # ========== END RESTRICTION CHECK ==========
-        
+
         booking = serializer.save()
-        
+
+        # ========== C1: Payment amount verification ==========
+        if payment_intent.amount != booking.total_price_cents:
+            logger.error(
+                f"Payment amount mismatch: PI={payment_intent.amount}, "
+                f"booking={booking.total_price_cents} for {booking.booking_number}"
+            )
+            booking.status = 'cancelled'
+            booking.save()
+            return Response(
+                {'error': 'Payment amount does not match booking total'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ========== C2b: Create Payment record for guest booking ==========
+        Payment.objects.create(
+            booking=booking,
+            amount_cents=payment_intent.amount,
+            stripe_payment_intent_id=payment_intent_id,
+            stripe_charge_id=payment_intent.get('latest_charge', '') if hasattr(payment_intent, 'get') else getattr(payment_intent, 'latest_charge', ''),
+            status='succeeded',
+            processed_at=timezone.now(),
+        )
+
         # Update booking status to paid since payment already succeeded
         booking.status = 'paid'
         booking.save()
-        
+
         logger.info(f"Guest booking created: {booking.booking_number} - {booking.service_type} - ${booking.total_price_dollars}")
-        
+
         response_data = {
             'message': 'Booking created successfully',
             'booking': {
@@ -604,7 +639,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'status': booking.status,
             }
         }
-        
+
         # Add BLADE-specific response data
         if booking.service_type == 'blade_transfer':
             response_data['booking']['blade_details'] = {
@@ -613,7 +648,7 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 'flight_date': booking.blade_flight_date.isoformat() if booking.blade_flight_date else None,
                 'ready_time': booking.blade_ready_time.isoformat() if booking.blade_ready_time else None,
             }
-        
+
         return Response(response_data, status=status.HTTP_201_CREATED)
 
 
