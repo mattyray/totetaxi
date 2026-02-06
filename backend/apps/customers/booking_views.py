@@ -76,7 +76,7 @@ class CreatePaymentIntentView(APIView):
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
-                {'error': f'Payment initialization failed: {str(e)}'}, 
+                {'error': 'Payment initialization failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

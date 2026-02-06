@@ -40,7 +40,6 @@ class LogisticsSummaryView(APIView):
             logger.error(f"Error in logistics summary: {e}")
             return Response({
                 'error': 'Failed to fetch logistics data',
-                'details': str(e)
             }, status=500)
 
 
@@ -76,7 +75,7 @@ def sync_onfleet_status(request):
     except Exception as e:
         logger.error(f"Sync error: {e}")
         return Response({
-            'error': f'Sync failed: {str(e)}'
+            'error': 'Sync failed'
         }, status=500)
 
 
@@ -121,7 +120,7 @@ def create_task_manually(request):
     except Exception as e:
         logger.error(f"Manual task creation error: {e}")
         return Response({
-            'error': f'Task creation failed: {str(e)}'
+            'error': 'Task creation failed'
         }, status=500)
 
 
@@ -278,5 +277,4 @@ class TaskStatusView(APIView):
             logger.error(f"Error fetching tasks: {e}")
             return Response({
                 'error': 'Failed to fetch tasks',
-                'details': str(e)
             }, status=500)

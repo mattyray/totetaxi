@@ -92,7 +92,7 @@ class PaymentIntentCreateView(APIView):
         except Exception as e:
             logger.error(f"Error creating payment intent: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Failed to create payment intent'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -296,7 +296,7 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -380,7 +380,7 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -438,7 +438,7 @@ class MockPaymentConfirmView(APIView):
         except Exception as e:
             logger.error(f"Mock payment error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -480,7 +480,7 @@ class PaymentConfirmView(APIView):
         except Exception as e:
             logger.error(f"Payment confirm error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Payment confirmation failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -629,6 +629,6 @@ class RefundProcessView(APIView):
         except Exception as e:
             logger.error(f"Refund processing error: {str(e)}", exc_info=True)
             return Response(
-                {'error': str(e)}, 
+                {'error': 'Refund processing failed'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
