@@ -418,8 +418,10 @@ class PricingPreviewView(APIView):
 
 
 class CalendarAvailabilityView(APIView):
-    """Public calendar data — returns only dates, counts, and surcharges.
-    No PII (customer names, booking IDs, prices) is exposed."""
+    """Calendar availability data.
+    - Public requests: dates, counts, surcharges only (no PII).
+    - Staff requests: full booking details for the staff dashboard calendar.
+    """
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
@@ -433,14 +435,19 @@ class CalendarAvailabilityView(APIView):
         else:
             end_date = start_date + timedelta(days=60)
 
+        is_staff = (
+            request.user.is_authenticated
+            and hasattr(request.user, 'staff_profile')
+        )
+
         availability = []
         current_date = start_date
 
         while current_date <= end_date:
-            booking_count = Booking.objects.filter(
+            bookings_qs = Booking.objects.filter(
                 pickup_date=current_date,
                 deleted_at__isnull=True,
-            ).count()
+            )
 
             surcharges = []
             for rule in SurchargeRule.objects.filter(is_active=True):
@@ -451,14 +458,34 @@ class CalendarAvailabilityView(APIView):
                         'description': rule.description,
                     })
 
-            availability.append({
+            day_data = {
                 'date': current_date.isoformat(),
                 'available': True,
                 'is_weekend': current_date.weekday() >= 5,
-                'booking_count': booking_count,
                 'surcharges': surcharges,
-            })
+            }
 
+            if is_staff:
+                bookings_today = bookings_qs.select_related(
+                    'customer', 'guest_checkout', 'mini_move_package',
+                )
+                day_data['bookings'] = [
+                    {
+                        'id': str(b.id),
+                        'booking_number': b.booking_number,
+                        'customer_name': b.get_customer_name(),
+                        'service_type': b.get_service_type_display(),
+                        'pickup_time': b.get_pickup_time_display(),
+                        'status': b.status,
+                        'total_price_dollars': b.total_price_dollars,
+                        'coi_required': b.coi_required,
+                    }
+                    for b in bookings_today
+                ]
+            else:
+                day_data['booking_count'] = bookings_qs.count()
+
+            availability.append(day_data)
             current_date += timedelta(days=1)
 
         return Response({
