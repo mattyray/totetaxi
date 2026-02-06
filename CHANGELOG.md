@@ -1,13 +1,33 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** January 8, 2026
+**Last Updated:** February 6, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## February 6, 2026
+
+### Security Audit & Critical Fixes (PR #4)
+
+Full security audit performed. 6 findings fixed and deployed.
+
+| Finding | Severity | Description | Fix |
+|---------|----------|-------------|-----|
+| C1 | CRITICAL | Payment amount never verified — attacker could pay $1 for a $995 move | Server-side Stripe PI amount vs booking total check on both guest and authenticated flows |
+| C2 | CRITICAL | PaymentIntent reuse — same PI could create multiple bookings; guest flow had no Payment record | PI reuse check before booking creation; guest flow now creates Payment record |
+| C3 | CRITICAL | Onfleet webhook had zero authentication — anyone could fake delivery status updates | HMAC-SHA512 signature verification using `ONFLEET_WEBHOOK_SECRET` |
+| H1 | HIGH | Public calendar endpoint leaked customer names, booking IDs, prices to unauthenticated users | Staff gets full data, public gets booking counts only |
+| H2 | HIGH | Booking/payment status endpoints enumerable via sequential TT-XXXXXX numbers | Changed to UUID-only lookup, stripped sensitive fields from response |
+| H8 | HIGH | API error responses included raw exceptions — leaked Stripe keys, DB schema, file paths | Replaced all `str(e)` with generic messages; detailed errors logged server-side only |
+
+**Tests added:** 24 new security tests across 4 test files
+**Test results:** 162 passed, 0 regressions
 
 ---
 
@@ -91,6 +111,14 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 ---
 
 ## Running Totals
+
+### Security Fixes: 6
+- C1: Payment amount verification
+- C2: PaymentIntent reuse prevention + guest Payment record
+- C3: Onfleet webhook HMAC authentication
+- H1: Calendar PII stripped for public users
+- H2: Booking/payment status UUID-only lookup
+- H8: Error message sanitization
 
 ### Bugs Fixed: 8
 - Double-click login (CSRF)
