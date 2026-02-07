@@ -427,11 +427,23 @@ class CalendarAvailabilityView(APIView):
     def get(self, request):
         start_date = request.query_params.get('start_date', date.today())
         if isinstance(start_date, str):
-            start_date = date.fromisoformat(start_date)
+            try:
+                start_date = date.fromisoformat(start_date)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid start_date format. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         end_date_param = request.query_params.get('end_date')
         if end_date_param:
-            end_date = date.fromisoformat(end_date_param)
+            try:
+                end_date = date.fromisoformat(end_date_param)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid end_date format. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
             end_date = start_date + timedelta(days=60)
 

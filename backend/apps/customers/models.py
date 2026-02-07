@@ -60,7 +60,8 @@ class PasswordResetToken(models.Model):
     
     @classmethod
     def create_token(cls, user):
-        """Create a new password reset token"""
+        """Create a new password reset token, invalidating any existing unused tokens."""
+        cls.objects.filter(user=user, used=False).update(used=True)
         token = secrets.token_urlsafe(32)
         expires_at = timezone.now() + timedelta(hours=24)
         return cls.objects.create(

@@ -224,3 +224,29 @@ class TestPaymentStatusEnumeration:
         response = client.get(f'/api/payments/status/{booking_uuid}/')
 
         assert response.status_code == 200
+
+
+# ============================================================
+# M9: date.fromisoformat error handling
+# ============================================================
+
+@pytest.mark.django_db
+class TestCalendarDateValidation:
+    """M9: Invalid date parameters should return 400, not 500."""
+
+    def test_calendar_invalid_start_date_returns_400(self):
+        client = APIClient()
+        response = client.get('/api/public/availability/', {
+            'start_date': 'not-a-date',
+        })
+        assert response.status_code == 400
+        assert 'start_date' in response.data.get('error', '').lower()
+
+    def test_calendar_invalid_end_date_returns_400(self):
+        client = APIClient()
+        response = client.get('/api/public/availability/', {
+            'start_date': date.today().isoformat(),
+            'end_date': '2026-13-99',
+        })
+        assert response.status_code == 400
+        assert 'end_date' in response.data.get('error', '').lower()

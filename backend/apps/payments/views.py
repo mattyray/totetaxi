@@ -288,8 +288,8 @@ class StripeWebhookView(APIView):
                 f"Webhook: Payment not found for payment_intent_id {payment_intent_id}"
             )
             return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'status': 'error', 'detail': 'Payment record not found'},
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(
@@ -297,8 +297,8 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': 'Payment processing failed'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'status': 'error', 'detail': 'Internal processing error'},
+                status=status.HTTP_200_OK,
             )
     
     def _handle_payment_failed(self, event):
@@ -372,8 +372,8 @@ class StripeWebhookView(APIView):
                 f"Webhook: Payment not found for failed payment_intent {payment_intent_id}"
             )
             return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'status': 'error', 'detail': 'Payment record not found'},
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             logger.error(
@@ -381,8 +381,8 @@ class StripeWebhookView(APIView):
                 exc_info=True
             )
             return Response(
-                {'error': 'Payment processing failed'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'status': 'error', 'detail': 'Internal processing error'},
+                status=status.HTTP_200_OK,
             )
 
 

@@ -350,7 +350,9 @@ class CustomerBookingListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return self.request.user.bookings.all().order_by('-created_at')
+        return self.request.user.bookings.filter(
+            deleted_at__isnull=True
+        ).order_by('-created_at')
     
     def get(self, request, *args, **kwargs):
         bookings = self.get_queryset()
@@ -469,9 +471,16 @@ class BookingPreferencesView(APIView):
         })
     
     def _get_most_used_address(self, address_type):
-        most_used = self.request.user.saved_addresses.filter(is_active=True).order_by('-times_used').first()
+        """Return the most-used saved address.
+
+        Note: address_type is accepted for labeling but not filtered —
+        SavedAddress has no address_type field.
+        """
+        most_used = self.request.user.saved_addresses.filter(
+            is_active=True
+        ).order_by('-times_used').first()
         return SavedAddressSerializer(most_used).data if most_used else None
-    
+
 # Add these imports at the top
 
 # Add these new views at the end of the file

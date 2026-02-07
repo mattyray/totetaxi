@@ -151,3 +151,55 @@ class TestStripeWebhooks:
         # Verify booking updated
         test_booking.refresh_from_db()
         assert test_booking.status == 'paid'
+
+    @patch('stripe.Webhook.construct_event')
+    def test_webhook_payment_not_found_returns_200(self, mock_construct):
+        """M10: Webhook should return 200 even when Payment record not found."""
+        client = APIClient()
+
+        mock_construct.return_value = {
+            'id': 'evt_not_found_test',
+            'type': 'payment_intent.succeeded',
+            'data': {
+                'object': {
+                    'id': 'pi_nonexistent_999',
+                    'latest_charge': 'ch_test',
+                    'amount': 99500,
+                }
+            }
+        }
+
+        response = client.post(
+            '/api/payments/webhook/',
+            data={},
+            content_type='application/json',
+            HTTP_STRIPE_SIGNATURE='test_signature',
+        )
+
+        # Must return 200 to prevent Stripe retries
+        assert response.status_code == 200
+
+    @patch('stripe.Webhook.construct_event')
+    def test_webhook_failed_payment_not_found_returns_200(self, mock_construct):
+        """M10: Failed payment webhook should also return 200 when Payment not found."""
+        client = APIClient()
+
+        mock_construct.return_value = {
+            'id': 'evt_failed_not_found',
+            'type': 'payment_intent.payment_failed',
+            'data': {
+                'object': {
+                    'id': 'pi_nonexistent_888',
+                    'last_payment_error': {'message': 'Card declined'},
+                }
+            }
+        }
+
+        response = client.post(
+            '/api/payments/webhook/',
+            data={},
+            content_type='application/json',
+            HTTP_STRIPE_SIGNATURE='test_signature',
+        )
+
+        assert response.status_code == 200
