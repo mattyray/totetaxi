@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from collections import defaultdict
 from datetime import date, timedelta, time as dt_time
 import logging
 import json
@@ -452,23 +453,38 @@ class CalendarAvailabilityView(APIView):
             and hasattr(request.user, 'staff_profile')
         )
 
+        # Bulk-fetch all bookings in date range (single query instead of N)
+        bookings_qs = Booking.objects.filter(
+            pickup_date__gte=start_date,
+            pickup_date__lte=end_date,
+            deleted_at__isnull=True,
+        )
+        if is_staff:
+            bookings_qs = bookings_qs.select_related(
+                'customer', 'guest_checkout', 'mini_move_package',
+            )
+
+        # Group bookings by date in Python
+        bookings_by_date = defaultdict(list)
+        for b in bookings_qs:
+            bookings_by_date[b.pickup_date].append(b)
+
+        # Fetch surcharge rules once (instead of per-day)
+        surcharge_rules = list(SurchargeRule.objects.filter(is_active=True))
+
         availability = []
         current_date = start_date
 
         while current_date <= end_date:
-            bookings_qs = Booking.objects.filter(
-                pickup_date=current_date,
-                deleted_at__isnull=True,
-            )
-
-            surcharges = []
-            for rule in SurchargeRule.objects.filter(is_active=True):
-                if rule.applies_to_date(current_date):
-                    surcharges.append({
-                        'name': rule.name,
-                        'type': rule.surcharge_type,
-                        'description': rule.description,
-                    })
+            surcharges = [
+                {
+                    'name': rule.name,
+                    'type': rule.surcharge_type,
+                    'description': rule.description,
+                }
+                for rule in surcharge_rules
+                if rule.applies_to_date(current_date)
+            ]
 
             day_data = {
                 'date': current_date.isoformat(),
@@ -477,10 +493,9 @@ class CalendarAvailabilityView(APIView):
                 'surcharges': surcharges,
             }
 
+            day_bookings = bookings_by_date.get(current_date, [])
+
             if is_staff:
-                bookings_today = bookings_qs.select_related(
-                    'customer', 'guest_checkout', 'mini_move_package',
-                )
                 day_data['bookings'] = [
                     {
                         'id': str(b.id),
@@ -492,10 +507,10 @@ class CalendarAvailabilityView(APIView):
                         'total_price_dollars': b.total_price_dollars,
                         'coi_required': b.coi_required,
                     }
-                    for b in bookings_today
+                    for b in day_bookings
                 ]
             else:
-                day_data['booking_count'] = bookings_qs.count()
+                day_data['booking_count'] = len(day_bookings)
 
             availability.append(day_data)
             current_date += timedelta(days=1)

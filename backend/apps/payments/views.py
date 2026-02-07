@@ -495,7 +495,9 @@ class PaymentListView(generics.ListAPIView):
     def get_queryset(self):
         if not hasattr(self.request.user, 'staff_profile'):
             return Payment.objects.none()
-        return Payment.objects.all().order_by('-created_at')
+        return Payment.objects.select_related(
+            'booking', 'booking__customer', 'booking__guest_checkout',
+        ).order_by('-created_at')
 
 
 class RefundListView(generics.ListAPIView):
