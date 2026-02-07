@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** PR 1 & PR 2 merged & deployed, PR 3 merged & deployed
+**Status:** All 4 PRs merged & deployed. Audit complete.
 
 ---
 
@@ -44,11 +44,11 @@
 
 | ID | Finding | Files |
 |----|---------|-------|
-| M1 | No rate limiting on payment intent creation endpoints (Stripe cost amplification) | `bookings/views.py`, `payments/views.py`, `customers/booking_views.py` |
+| M1 | No rate limiting on payment intent creation endpoints (Stripe cost amplification) | `bookings/views.py`, `payments/views.py`, `customers/booking_views.py` | **FIXED** PR #7 — 10/h per IP on all 3 endpoints |
 | M2 | Calendar availability: 120+ DB queries for 60-day range (N+1) | `bookings/views.py:437-477` | **FIXED** PR #6 — bulk query + defaultdict |
 | M3 | Customer management: 200+ queries for 100 customers (N+1) | `accounts/views.py:242-273` | **FIXED** PR #6 — Prefetch with to_attr |
 | M4 | `Booking.save()` recalculates pricing every time — can silently change prices after config updates | `bookings/models.py:327-358` | **FIXED** PR #6 — _skip_pricing flag |
-| M5 | Webhook idempotency on volatile Redis (lost on restart, 24h TTL < Stripe's 72h retry) | `payments/views.py:170-177` |
+| M5 | Webhook idempotency on volatile Redis (lost on restart, 24h TTL < Stripe's 72h retry) | `payments/views.py:170-177` | **FIXED** PR #7 — TTL extended to 72h |
 | M6 | BrowsableAPI enabled in production | `config/settings.py:200-213` | **FIXED** PR #6 — conditional on DEBUG |
 | M7 | Payment/Refund list views have no pagination | `payments/views.py:484-518` | **ALREADY FIXED** — DEFAULT_PAGINATION_CLASS in settings |
 | M8 | PaymentSerializer N+1 on booking relation | `payments/serializers.py:35-39` | **FIXED** PR #6 — select_related |
@@ -60,25 +60,25 @@
 | ID | Finding | Files |
 |----|---------|-------|
 | L1 | `StaffAction.log_action` called with invalid `action_type` `'view_booking'` | `accounts/views.py:495` — **FIXED** PR #5 |
-| L2 | `sync_onfleet_status` is a stub that doesn't actually sync | `logistics/views.py:46-79` |
-| L3 | Dead `try/except DoesNotExist` on `.filter().first()` calls | `bookings/models.py`, `bookings/views.py`, `bookings/serializers.py` |
+| L2 | `sync_onfleet_status` is a stub that doesn't actually sync | `logistics/views.py:46-79` | **DOCUMENTED** PR #7 — TODO docstring + response message |
+| L3 | Dead `try/except DoesNotExist` on `.filter().first()` calls | `bookings/models.py`, `bookings/views.py`, `bookings/serializers.py` | **FIXED** PR #7 |
 | L4 | `_get_most_used_address` ignores `address_type` parameter | `customers/booking_views.py:322-323` | **DOCUMENTED** PR #6 — SavedAddress has no address_type field |
 | L5 | `CustomerBookingListView` returns soft-deleted bookings | `customers/views.py:351-352` | **FIXED** PR #6 — filter deleted_at__isnull=True |
-| L6 | Duplicate `BookingData`/`BookingAddress` type definitions | `frontend/src/types/index.ts`, `frontend/src/stores/booking-store.ts` |
+| L6 | Duplicate `BookingData`/`BookingAddress` type definitions | `frontend/src/types/index.ts`, `frontend/src/stores/booking-store.ts` | DEFERRED — risky refactor, no security benefit |
 | L7 | Console.log throughout production frontend code | Multiple frontend files | **ALREADY FIXED** — next.config removeConsole strips in prod |
-| L8 | `useRecalculatePricing` stale closure (empty dependency array) | `frontend/src/components/booking/review-payment-step.tsx:128-189` |
+| L8 | `useRecalculatePricing` stale closure (empty dependency array) | `frontend/src/components/booking/review-payment-step.tsx:128-189` | **FIXED** PR #7 — useRef pattern |
 | L9 | Refund modal doesn't account for prior partial refunds (client-side only) | `frontend/src/components/staff/refund-modal.tsx:47-54` | **FIXED** PR #6 — shows remaining refundable amount |
-| L10 | Floating-point arithmetic for monetary dollar calculations | Multiple `*_dollars` properties |
+| L10 | Floating-point arithmetic for monetary dollar calculations | Multiple `*_dollars` properties | DEFERRED — risky refactor, no security benefit |
 | L11 | No search debounce on booking/customer management | `frontend/src/components/staff/booking-management.tsx:124-125` | **FIXED** PR #6 — 300ms useDebounce hook |
-| L12 | Duplicate view classes across `customers/views.py` and `customers/booking_views.py` | Both files |
-| L13 | `CustomerNotesUpdateView` in customers app has no audit logging (unlike accounts version) | `customers/views.py:375-398` |
-| L14 | Booking wizard auto-skip step 4 fragile pattern | `frontend/src/components/booking/booking-wizard.tsx:86-91` |
+| L12 | Duplicate view classes across `customers/views.py` and `customers/booking_views.py` | Both files | DEFERRED — risky refactor, no security benefit |
+| L13 | `CustomerNotesUpdateView` in customers app has no audit logging (unlike accounts version) | `customers/views.py:375-398` | **FIXED** PR #7 — StaffAction audit log |
+| L14 | Booking wizard auto-skip step 4 fragile pattern | `frontend/src/components/booking/booking-wizard.tsx:86-91` | **FIXED** PR #7 — removed redundant useEffect |
 | L15 | `401` response interceptor clears both auth stores on any 401 | `frontend/src/lib/api-client.ts:64-87` — **FIXED** (scoped to matching store) |
 | L16 | `CustomerProfile.add_booking_stats` no concurrency protection (needs F() expressions) | `customers/models.py:141-146` — **FIXED** PR #5 |
-| L17 | Signal-based Onfleet task creation runs on every `Booking.save()` | `logistics/models.py:181-205` |
+| L17 | Signal-based Onfleet task creation runs on every `Booking.save()` | `logistics/models.py:181-205` | **FIXED** PR #7 — scoped to status transitions |
 | L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` — **FIXED** PR #5 |
 | L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` | **FIXED** PR #6 — invalidate old tokens on new request |
-| L20 | Session ID logged in plaintext (partial, 10 chars) | `customers/authentication.py:32-50` |
+| L20 | Session ID logged in plaintext (partial, 10 chars) | `customers/authentication.py:32-50` | **FIXED** PR #7 — masked to 4 chars + *** |
 
 ### Positive Security Controls (Already Done Right)
 - Stripe webhook signature verification (properly implemented)
