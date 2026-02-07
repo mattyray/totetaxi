@@ -483,7 +483,8 @@ class BookingDetailView(APIView):
             booking = Booking.objects.select_related(
                 'customer', 'customer__customer_profile',
                 'mini_move_package', 'guest_checkout',
-                'pickup_address', 'delivery_address'
+                'pickup_address', 'delivery_address',
+                'discount_code'
             ).prefetch_related('specialty_items').get(id=booking_id, deleted_at__isnull=True)
         except Booking.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -571,6 +572,12 @@ class BookingDetailView(APIView):
                 'geographic_surcharge_dollars': booking.geographic_surcharge_dollars,
                 'time_window_surcharge_dollars': booking.time_window_surcharge_dollars,
                 'total_price_dollars': booking.total_price_dollars,
+
+                # DISCOUNT FIELDS
+                'discount_amount_dollars': booking.discount_amount_dollars,
+                'pre_discount_total_dollars': booking.pre_discount_total_dollars,
+                'discount_code_name': booking.discount_code.code if booking.discount_code else None,
+                'discount_description': booking.discount_code.discount_value_display if booking.discount_code else None,
                 
                 'pricing_breakdown': booking.get_pricing_breakdown(),
                 'service_details': service_details,

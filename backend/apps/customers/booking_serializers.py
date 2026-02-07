@@ -481,7 +481,10 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                 except SpecialtyItem.DoesNotExist:
                     pass
 
-        # Apply discount code if provided
+        # Save to recalculate pricing with package + specialty items set
+        booking.save()
+
+        # Apply discount code AFTER save so pre_discount_total_cents is correct
         discount_code_str = (validated_data.get('discount_code') or '').strip()
         if discount_code_str:
             from apps.bookings.models import DiscountCode as DiscountCodeModel
@@ -491,14 +494,14 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                 is_valid, _ = discount.is_valid_for_customer(email)
 
                 if is_valid and discount.is_valid_for_service(validated_data['service_type']):
-                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents or booking.total_price_cents)
+                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents)
                     booking.discount_code = discount
                     booking.discount_amount_cents = discount_amount
                     discount.record_usage(email=email, booking=booking)
+                    booking.save()
             except DiscountCodeModel.DoesNotExist:
                 pass
 
-        booking.save()
         return booking
     
     def _get_or_create_address(self, user, address_id, new_address_data, save_address, nickname):
@@ -527,7 +530,11 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             if save_address:
                 import uuid
                 unique_nickname = nickname or f"Address {str(uuid.uuid4())[:8]}"
-                
+
+                # Avoid duplicate nickname constraint violation on booking retry
+                if SavedAddress.objects.filter(user=user, nickname=unique_nickname).exists():
+                    unique_nickname = f"{unique_nickname} ({str(uuid.uuid4())[:4]})"
+
                 SavedAddress.objects.create(
                     user=user,
                     nickname=unique_nickname,

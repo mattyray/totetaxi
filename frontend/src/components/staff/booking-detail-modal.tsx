@@ -102,7 +102,18 @@ interface BookingDetail {
     coi_required: boolean;
     is_outside_core_area: boolean;
     total_price_dollars: number;
-    organizing_total_dollars?: number;
+    base_price_dollars: number;
+    surcharge_dollars: number;
+    same_day_surcharge_dollars: number;
+    coi_fee_dollars: number;
+    organizing_total_dollars: number;
+    organizing_tax_dollars: number;
+    geographic_surcharge_dollars: number;
+    time_window_surcharge_dollars: number;
+    discount_amount_dollars: number;
+    pre_discount_total_dollars: number;
+    discount_code_name: string | null;
+    discount_description: string | null;
     pricing_breakdown: any;
     service_details: ServiceDetails;
     created_at: string;
@@ -538,21 +549,73 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
             <Card>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-lg font-semibold border-b pb-2">
+                  <div className="space-y-2 text-sm">
+                    {/* Base Price */}
+                    <div className="flex justify-between">
+                      <span className="text-navy-600">Base Price:</span>
+                      <span className="text-navy-900">${bookingDetail.booking.base_price_dollars || 0}</span>
+                    </div>
+
+                    {/* Surcharges */}
+                    {bookingDetail.booking.same_day_surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">Same-Day Delivery:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.same_day_surcharge_dollars}</span>
+                      </div>
+                    )}
+                    {bookingDetail.booking.surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">Peak Date Surcharge:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.surcharge_dollars}</span>
+                      </div>
+                    )}
+                    {bookingDetail.booking.coi_fee_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">COI Fee:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.coi_fee_dollars}</span>
+                      </div>
+                    )}
+                    {bookingDetail.booking.organizing_total_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">Organizing Services:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.organizing_total_dollars}</span>
+                      </div>
+                    )}
+                    {bookingDetail.booking.geographic_surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">Geographic Surcharge:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.geographic_surcharge_dollars}</span>
+                      </div>
+                    )}
+                    {bookingDetail.booking.time_window_surcharge_dollars > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-navy-600">Time Window Surcharge:</span>
+                        <span className="text-navy-900">+${bookingDetail.booking.time_window_surcharge_dollars}</span>
+                      </div>
+                    )}
+
+                    {/* Discount */}
+                    {bookingDetail.booking.discount_amount_dollars > 0 && (
+                      <>
+                        <div className="flex justify-between border-t pt-2 mt-2">
+                          <span className="text-navy-600">Subtotal:</span>
+                          <span className="text-navy-900">${bookingDetail.booking.pre_discount_total_dollars}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-green-700">
+                            Discount ({bookingDetail.booking.discount_description || bookingDetail.booking.discount_code_name}):
+                          </span>
+                          <span className="text-green-700">-${bookingDetail.booking.discount_amount_dollars}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Total */}
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
                     <span>Total:</span>
                     <span>${bookingDetail.booking.total_price_dollars}</span>
                   </div>
-                  
-                  {bookingDetail.booking.pricing_breakdown && (
-                    <div className="space-y-2 text-sm">
-                      {Object.entries(bookingDetail.booking.pricing_breakdown).map(([key, value]: [string, any]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-navy-600 capitalize">{key.replace(/_/g, ' ')}:</span>
-                          <span className="text-navy-900">${value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="text-xs text-navy-600 pt-3 border-t">
                     <p>Created: {new Date(bookingDetail.booking.created_at).toLocaleString()}</p>

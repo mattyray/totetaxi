@@ -569,6 +569,15 @@ class CreateGuestPaymentIntentView(APIView):
         amount_cents = validated_data['calculated_total_cents']
         customer_email = validated_data.get('email')
         
+        # Handle free orders (100% discount)
+        if amount_cents == 0:
+            logger.info(f"Free order via discount for guest {customer_email}")
+            return Response({
+                'client_secret': None,
+                'payment_intent_id': 'free_order',
+                'amount_dollars': 0
+            }, status=status.HTTP_200_OK)
+
         try:
             # Create Stripe payment intent
             metadata = {
@@ -585,15 +594,15 @@ class CreateGuestPaymentIntentView(APIView):
                 payment_method_types=['card'],
                 metadata=metadata
             )
-            
+
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
-            
+
             return Response({
                 'client_secret': payment_intent.client_secret,
                 'payment_intent_id': payment_intent.id,
                 'amount_dollars': amount_cents / 100
             }, status=status.HTTP_200_OK)
-            
+
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
@@ -621,36 +630,39 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ========== C2: PaymentIntent reuse prevention ==========
-        if Payment.objects.filter(
-            stripe_payment_intent_id=payment_intent_id,
-            booking__isnull=False,
-        ).exists():
-            logger.warning(f"PI reuse attempt: {payment_intent_id}")
-            return Response(
-                {'error': 'This payment has already been used for a booking'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        is_free_order = (payment_intent_id == 'free_order')
 
-        # Verify payment with Stripe
-        try:
-            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-
-            if payment_intent.status != 'succeeded':
-                logger.warning(f"Payment not succeeded: {payment_intent.status}")
+        if not is_free_order:
+            # ========== C2: PaymentIntent reuse prevention ==========
+            if Payment.objects.filter(
+                stripe_payment_intent_id=payment_intent_id,
+                booking__isnull=False,
+            ).exists():
+                logger.warning(f"PI reuse attempt: {payment_intent_id}")
                 return Response(
-                    {'error': 'Payment has not succeeded'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'error': 'This payment has already been used for a booking'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            # Verify payment with Stripe
+            try:
+                payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
 
-        except stripe.error.StripeError as e:
-            logger.error(f"Stripe verification failed: {str(e)}")
-            return Response(
-                {'error': 'Payment verification failed'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                if payment_intent.status != 'succeeded':
+                    logger.warning(f"Payment not succeeded: {payment_intent.status}")
+                    return Response(
+                        {'error': 'Payment has not succeeded'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+
+            except stripe.error.StripeError as e:
+                logger.error(f"Stripe verification failed: {str(e)}")
+                return Response(
+                    {'error': 'Payment verification failed'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -669,31 +681,54 @@ class GuestBookingCreateView(generics.CreateAPIView):
 
         booking = serializer.save()
 
-        # ========== C1: Payment amount verification ==========
-        if payment_intent.amount != booking.total_price_cents:
-            logger.error(
-                f"Payment amount mismatch: PI={payment_intent.amount}, "
-                f"booking={booking.total_price_cents} for {booking.booking_number}"
+        if is_free_order:
+            # Verify the booking total is actually $0
+            if booking.total_price_cents != 0:
+                logger.error(
+                    f"Free order claimed but total is {booking.total_price_cents} "
+                    f"for {booking.booking_number}"
+                )
+                booking.status = 'cancelled'
+                booking.save()
+                return Response(
+                    {'error': 'Free order verification failed'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Create $0 payment record for audit trail
+            Payment.objects.create(
+                booking=booking,
+                amount_cents=0,
+                stripe_payment_intent_id='free_order',
+                stripe_charge_id='',
+                status='succeeded',
+                processed_at=timezone.now(),
             )
-            booking.status = 'cancelled'
-            booking.save()
-            return Response(
-                {'error': 'Payment amount does not match booking total'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        else:
+            # ========== C1: Payment amount verification ==========
+            if payment_intent.amount != booking.total_price_cents:
+                logger.error(
+                    f"Payment amount mismatch: PI={payment_intent.amount}, "
+                    f"booking={booking.total_price_cents} for {booking.booking_number}"
+                )
+                booking.status = 'cancelled'
+                booking.save()
+                return Response(
+                    {'error': 'Payment amount does not match booking total'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # ========== C2b: Create Payment record for guest booking ==========
-        charge_id = getattr(payment_intent, 'latest_charge', None)
-        if not isinstance(charge_id, str):
-            charge_id = ''
-        Payment.objects.create(
-            booking=booking,
-            amount_cents=payment_intent.amount,
-            stripe_payment_intent_id=payment_intent_id,
-            stripe_charge_id=charge_id,
-            status='succeeded',
-            processed_at=timezone.now(),
-        )
+            # ========== C2b: Create Payment record for guest booking ==========
+            charge_id = getattr(payment_intent, 'latest_charge', None)
+            if not isinstance(charge_id, str):
+                charge_id = ''
+            Payment.objects.create(
+                booking=booking,
+                amount_cents=payment_intent.amount,
+                stripe_payment_intent_id=payment_intent_id,
+                stripe_charge_id=charge_id,
+                status='succeeded',
+                processed_at=timezone.now(),
+            )
 
         # Update booking status to paid since payment already succeeded
         booking.status = 'paid'

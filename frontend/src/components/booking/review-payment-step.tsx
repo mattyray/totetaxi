@@ -125,6 +125,7 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
 // Uses a ref to avoid stale closure over bookingData (L8 fix).
 const useRecalculatePricing = () => {
   const { bookingData, updateBookingData } = useBookingWizard();
+  const { user } = useAuthStore();
   const [isRecalculating, setIsRecalculating] = useState(false);
   const bookingDataRef = useRef(bookingData);
   bookingDataRef.current = bookingData;
@@ -171,7 +172,7 @@ const useRecalculatePricing = () => {
         // Include discount code if validated
         if (data.discount_code && data.discount_validated) {
           pricingRequest.discount_code = data.discount_code;
-          pricingRequest.discount_email = data.customer_info?.email || '';
+          pricingRequest.discount_email = user?.email || data.customer_info?.email || '';
         }
 
         const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
@@ -189,7 +190,7 @@ const useRecalculatePricing = () => {
 
     recalculatePricing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bookingData.discount_code, bookingData.discount_validated]);
 
   return isRecalculating;
 };
@@ -274,7 +275,7 @@ function DiscountCodeInput() {
           onChange={(e) => setInputCode(e.target.value.toUpperCase())}
           onKeyDown={handleKeyDown}
           placeholder="Enter discount code"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-navy-500 focus:border-navy-500"
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm text-navy-900 placeholder:text-navy-400 focus:ring-navy-500 focus:border-navy-500"
           maxLength={50}
         />
         <Button
@@ -370,6 +371,14 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       console.log('💳 Payment intent successful:', data);
+
+      // Free order — skip Stripe payment, go directly to booking
+      if (data.payment_intent_id === 'free_order') {
+        console.log('🎉 Free order — skipping payment');
+        createBookingMutation.mutate('free_order');
+        return;
+      }
+
       setClientSecret(data.client_secret);
       setPaymentIntentId(data.payment_intent_id);
       setShowPayment(true);

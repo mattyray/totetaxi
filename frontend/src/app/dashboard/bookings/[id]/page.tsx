@@ -415,8 +415,63 @@ export default function BookingDetailPage() {
                       </span>
                     </div>
                   )}
-                  
-                  <div className="border-t pt-2 mt-2">
+
+                  {(booking.pricing_breakdown?.same_day_surcharge_dollars ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Same-Day Delivery:</span>
+                      <span className="font-medium text-navy-900">
+                        +${booking.pricing_breakdown.same_day_surcharge_dollars.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {(booking.pricing_breakdown?.organizing_total_dollars ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Organizing Services:</span>
+                      <span className="font-medium text-navy-900">
+                        +${booking.pricing_breakdown.organizing_total_dollars.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {(booking.pricing_breakdown?.geographic_surcharge_dollars ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Geographic Surcharge:</span>
+                      <span className="font-medium text-navy-900">
+                        +${booking.pricing_breakdown.geographic_surcharge_dollars.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {(booking.pricing_breakdown?.time_window_surcharge_dollars ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-navy-700">Time Window Surcharge:</span>
+                      <span className="font-medium text-navy-900">
+                        +${booking.pricing_breakdown.time_window_surcharge_dollars.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {(booking.pricing_breakdown?.discount_amount_dollars ?? 0) > 0 && (
+                    <>
+                      <div className="flex justify-between border-t pt-2 mt-2">
+                        <span className="text-navy-700">Subtotal:</span>
+                        <span className="font-medium text-navy-900">
+                          ${booking.pricing_breakdown.pre_discount_total_dollars.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700">
+                          Discount ({booking.pricing_breakdown.discount_description || booking.pricing_breakdown.discount_code}):
+                        </span>
+                        <span className="font-medium text-green-700">
+                          -${booking.pricing_breakdown.discount_amount_dollars.toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className={`pt-2 mt-2 ${(booking.pricing_breakdown?.discount_amount_dollars ?? 0) > 0 ? '' : 'border-t'}`}>
                     <div className="flex justify-between text-lg">
                       <span className="font-bold text-navy-900">Total:</span>
                       <span className="font-bold text-navy-900">

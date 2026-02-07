@@ -156,7 +156,7 @@ class PricingPreviewSerializer(serializers.Serializer):
 
     # Discount code (optional)
     discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
-    discount_email = serializers.EmailField(required=False)
+    discount_email = serializers.EmailField(required=False, allow_blank=True)
 
     def validate_specialty_items(self, value):
         """Validate specialty items list with quantities"""
@@ -692,7 +692,10 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                         quantity=item_data['quantity']
                     )
         
-        # Apply discount code if provided
+        # Save to recalculate pricing with package + specialty items set
+        booking.save()
+
+        # Apply discount code AFTER save so pre_discount_total_cents is correct
         discount_code_str = (validated_data.get('discount_code') or '').strip()
         if discount_code_str:
             from .models import DiscountCode as DiscountCodeModel
@@ -702,12 +705,12 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                 is_valid, _ = discount.is_valid_for_customer(email)
 
                 if is_valid and discount.is_valid_for_service(validated_data['service_type']):
-                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents or booking.total_price_cents)
+                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents)
                     booking.discount_code = discount
                     booking.discount_amount_cents = discount_amount
                     discount.record_usage(email=email, booking=booking)
+                    booking.save()
             except DiscountCodeModel.DoesNotExist:
                 pass
 
-        booking.save()
         return booking
