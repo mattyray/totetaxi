@@ -423,7 +423,7 @@ class ToteTaxiOnfleetIntegration:
                 if onfleet_task.task_type == 'dropoff':
                     booking = onfleet_task.booking
                     booking.status = 'completed'
-                    booking.save()
+                    booking.save(_skip_pricing=True)
                     logger.info(f"✓ Booking {booking.booking_number} completed")
 
                 logger.info(f"Task completed: {task_id} ({onfleet_task.task_type})")

@@ -1,7 +1,6 @@
 # backend/apps/payments/views.py
 import stripe
 import logging
-import time
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -11,12 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.http import HttpResponse
 from django.conf import settings
-from django.utils import timezone
 from django.core.cache import cache
-from django.db import transaction, models  # ADDED models HERE
-from django.contrib.auth import get_user_model  # NEW
+from django.db import transaction, models
+from django.contrib.auth import get_user_model
 
-from .models import Payment, Refund, PaymentAudit
+from .models import Payment, Refund
 from .serializers import (
     PaymentIntentCreateSerializer,
     PaymentSerializer,
@@ -26,7 +24,7 @@ from .serializers import (
 )
 from .services import StripePaymentService
 from apps.bookings.models import Booking
-from apps.accounts.models import StaffProfile, StaffAction  # NEW
+from apps.accounts.models import StaffProfile
 from apps.accounts.permissions import IsStaffMember
 
 logger = logging.getLogger(__name__)
@@ -194,196 +192,20 @@ class StripeWebhookView(APIView):
             return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
     
     def _handle_payment_succeeded(self, event):
-        """Handle successful payment - update Payment and Booking status"""
-        payment_intent = event['data']['object']
-        payment_intent_id = payment_intent['id']
+        """Dispatch payment succeeded processing to Celery task.
 
-        try:
-            # Find payment record with retry logic to handle race condition
-            # where webhook arrives before DB transaction commits
-            payment = None
-            max_retries = 5
-            retry_delays = [0.1, 0.3, 0.5, 1.0, 2.0]  # exponential backoff in seconds
+        The task handles retry logic via Celery's built-in retry mechanism
+        instead of blocking the gunicorn worker with time.sleep().
+        """
+        from apps.payments.tasks import process_payment_succeeded
+        process_payment_succeeded.delay(dict(event))
+        return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
-            for attempt in range(max_retries):
-                try:
-                    payment = Payment.objects.select_related('booking').get(
-                        stripe_payment_intent_id=payment_intent_id
-                    )
-                    break  # Found it, exit retry loop
-                except Payment.DoesNotExist:
-                    if attempt < max_retries - 1:
-                        delay = retry_delays[attempt]
-                        logger.info(
-                            f"Webhook: Payment not found for {payment_intent_id}, "
-                            f"retry {attempt + 1}/{max_retries} in {delay}s"
-                        )
-                        time.sleep(delay)
-                    else:
-                        raise  # Re-raise on final attempt
-
-            if not payment:
-                raise Payment.DoesNotExist()
-            
-            # Skip if already processed
-            if payment.status == 'succeeded':
-                logger.info(f"Webhook: Payment {payment.id} already marked as succeeded")
-                return Response({'status': 'already_succeeded'}, status=status.HTTP_200_OK)
-            
-            # Update payment status
-            payment.status = 'succeeded'
-            payment.stripe_charge_id = payment_intent.get('latest_charge', '')
-            payment.processed_at = timezone.now()
-            payment.save()
-            
-            # Update booking status from pending to paid
-            booking = payment.booking
-            if booking.status == 'pending':
-                old_status = booking.status
-                booking.status = 'paid'
-                booking.save()
-                
-                logger.info(
-                    f"Webhook: Booking {booking.booking_number} status updated: "
-                    f"{old_status} → {booking.status}"
-                )
-                
-                # Create audit log (system action, no user)
-                StaffAction.objects.create(
-                    staff_user=_get_system_staff_user(),  # ← use system staff user
-                    action_type='modify_booking',
-                    description=(
-                        f"Booking {booking.booking_number} automatically confirmed via Stripe webhook. "
-                        f"Payment: ${payment.amount_dollars:.2f}"
-                    ),
-                    ip_address='127.0.0.1',
-                    user_agent='Stripe Webhook',
-                    booking_id=booking.id
-                )
-            
-            # Log payment audit
-            PaymentAudit.log(
-                action='payment_succeeded',
-                description=(
-                    f"Payment succeeded for booking {booking.booking_number} "
-                    f"via Stripe webhook (Event: {event['id']})"
-                ),
-                payment=payment,
-                user=None
-            )
-            
-            logger.info(
-                f"Webhook: Successfully processed payment_intent.succeeded for "
-                f"booking {booking.booking_number}"
-            )
-            
-            return Response({
-                'status': 'success',
-                'booking_number': booking.booking_number,
-                'booking_status': booking.status
-            }, status=status.HTTP_200_OK)
-            
-        except Payment.DoesNotExist:
-            logger.error(
-                f"Webhook: Payment not found for payment_intent_id {payment_intent_id}"
-            )
-            return Response(
-                {'status': 'error', 'detail': 'Payment record not found'},
-                status=status.HTTP_200_OK,
-            )
-        except Exception as e:
-            logger.error(
-                f"Webhook: Error processing payment_intent.succeeded: {str(e)}",
-                exc_info=True
-            )
-            return Response(
-                {'status': 'error', 'detail': 'Internal processing error'},
-                status=status.HTTP_200_OK,
-            )
-    
     def _handle_payment_failed(self, event):
-        """Handle failed payment - mark as failed, keep booking pending"""
-        payment_intent = event['data']['object']
-        payment_intent_id = payment_intent['id']
-
-        try:
-            # Find payment record with retry logic to handle race condition
-            payment = None
-            max_retries = 5
-            retry_delays = [0.1, 0.3, 0.5, 1.0, 2.0]
-
-            for attempt in range(max_retries):
-                try:
-                    payment = Payment.objects.select_related('booking').get(
-                        stripe_payment_intent_id=payment_intent_id
-                    )
-                    break
-                except Payment.DoesNotExist:
-                    if attempt < max_retries - 1:
-                        delay = retry_delays[attempt]
-                        logger.info(
-                            f"Webhook: Payment not found for failed intent {payment_intent_id}, "
-                            f"retry {attempt + 1}/{max_retries} in {delay}s"
-                        )
-                        time.sleep(delay)
-                    else:
-                        raise
-
-            if not payment:
-                raise Payment.DoesNotExist()
-            
-            # Update payment to failed
-            payment.status = 'failed'
-            payment.failure_reason = payment_intent.get(
-                'last_payment_error', {}
-            ).get('message', 'Payment failed')
-            payment.save()
-            
-            # Keep booking as pending so customer can retry
-            booking = payment.booking
-            if booking.status != 'pending':
-                booking.status = 'pending'
-                booking.save()
-            
-            # Log audit
-            PaymentAudit.log(
-                action='payment_failed',
-                description=(
-                    f"Payment failed for booking {booking.booking_number}. "
-                    f"Reason: {payment.failure_reason}"
-                ),
-                payment=payment,
-                user=None
-            )
-            
-            logger.warning(
-                f"Webhook: Payment failed for booking {booking.booking_number}. "
-                f"Reason: {payment.failure_reason}"
-            )
-            
-            return Response({
-                'status': 'payment_failed',
-                'booking_number': booking.booking_number,
-                'reason': payment.failure_reason
-            }, status=status.HTTP_200_OK)
-            
-        except Payment.DoesNotExist:
-            logger.error(
-                f"Webhook: Payment not found for failed payment_intent {payment_intent_id}"
-            )
-            return Response(
-                {'status': 'error', 'detail': 'Payment record not found'},
-                status=status.HTTP_200_OK,
-            )
-        except Exception as e:
-            logger.error(
-                f"Webhook: Error processing payment_intent.payment_failed: {str(e)}",
-                exc_info=True
-            )
-            return Response(
-                {'status': 'error', 'detail': 'Internal processing error'},
-                status=status.HTTP_200_OK,
-            )
+        """Dispatch payment failed processing to Celery task."""
+        from apps.payments.tasks import process_payment_failed
+        process_payment_failed.delay(dict(event))
+        return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
 
 class MockPaymentConfirmView(APIView):
@@ -406,7 +228,7 @@ class MockPaymentConfirmView(APIView):
                     # Update booking status from pending to paid
                     if payment.booking.status == 'pending':
                         payment.booking.status = 'paid'
-                        payment.booking.save()
+                        payment.booking.save(_skip_pricing=True)
                         logger.info(f"Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
                 
                 return Response({
@@ -423,7 +245,7 @@ class MockPaymentConfirmView(APIView):
                 
                 # Keep booking as pending for failed payments
                 payment.booking.status = 'pending'
-                payment.booking.save()
+                payment.booking.save(_skip_pricing=True)
                 
                 return Response({
                     'message': 'Payment marked as failed',

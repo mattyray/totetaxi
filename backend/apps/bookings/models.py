@@ -333,6 +333,8 @@ class Booking(models.Model):
         ]
     
     def save(self, *args, **kwargs):
+        skip_pricing = kwargs.pop('_skip_pricing', False)
+
         # Generate booking number if new
         if not self.booking_number:
             with transaction.atomic():
@@ -349,27 +351,28 @@ class Booking(models.Model):
                 else:
                     next_num = 1
                 self.booking_number = f"TT-{next_num:06d}"
-        
-        # ========== AUTO-SET GEOGRAPHIC SURCHARGE ==========
-        if self.pickup_address and self.delivery_address:
-            from .zip_codes import validate_service_area
-            
-            # Validate pickup ZIP
-            pickup_valid, pickup_surcharge, _, _ = validate_service_area(
-                self.pickup_address.zip_code
-            )
-            
-            # Validate delivery ZIP
-            delivery_valid, delivery_surcharge, _, _ = validate_service_area(
-                self.delivery_address.zip_code
-            )
-            
-            # Apply surcharge if EITHER address is in surcharge zone
-            self.is_outside_core_area = pickup_surcharge or delivery_surcharge
-        # ========== END AUTO-SET GEOGRAPHIC SURCHARGE ==========
-        
-        
-        self.calculate_pricing()
+
+        if not skip_pricing:
+            # ========== AUTO-SET GEOGRAPHIC SURCHARGE ==========
+            if self.pickup_address and self.delivery_address:
+                from .zip_codes import validate_service_area
+
+                # Validate pickup ZIP
+                pickup_valid, pickup_surcharge, _, _ = validate_service_area(
+                    self.pickup_address.zip_code
+                )
+
+                # Validate delivery ZIP
+                delivery_valid, delivery_surcharge, _, _ = validate_service_area(
+                    self.delivery_address.zip_code
+                )
+
+                # Apply surcharge if EITHER address is in surcharge zone
+                self.is_outside_core_area = pickup_surcharge or delivery_surcharge
+            # ========== END AUTO-SET GEOGRAPHIC SURCHARGE ==========
+
+            self.calculate_pricing()
+
         super().save(*args, **kwargs)
     
     def __str__(self):

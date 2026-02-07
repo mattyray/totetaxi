@@ -722,7 +722,7 @@ class BookingDetailView(APIView):
                 )
 
             booking.status = new_status
-            booking.save()
+            booking.save(_skip_pricing=True)
             
             # Log status change
             StaffAction.log_action(
