@@ -160,7 +160,7 @@ class OnfleetTask(models.Model):
         try:
             if self.booking.status in ['confirmed', 'paid', 'in_progress']:
                 self.booking.status = 'completed'
-                self.booking.save()
+                self.booking.save(_skip_pricing=True)
                 logger.info(f"✓ Booking {self.booking.booking_number} marked completed")
 
         except Exception as e:

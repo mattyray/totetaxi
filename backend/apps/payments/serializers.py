@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import models as db_models
 from .models import Payment, Refund
 from apps.bookings.models import Booking
 
@@ -22,21 +23,32 @@ class PaymentSerializer(serializers.ModelSerializer):
     amount_dollars = serializers.ReadOnlyField()
     booking_number = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
-    
+    total_refunded_cents = serializers.SerializerMethodField()
+    total_refunded_dollars = serializers.SerializerMethodField()
+
     class Meta:
         model = Payment
         fields = (
-            'id', 'booking_number', 'customer_name', 'amount_cents', 
+            'id', 'booking_number', 'customer_name', 'amount_cents',
             'amount_dollars', 'status', 'stripe_payment_intent_id',
-            'stripe_charge_id', 'failure_reason', 'processed_at', 'created_at'
+            'stripe_charge_id', 'failure_reason', 'processed_at', 'created_at',
+            'total_refunded_cents', 'total_refunded_dollars',
         )
         read_only_fields = ('id', 'created_at')
-    
+
     def get_booking_number(self, obj):
         return obj.booking.booking_number
-    
+
     def get_customer_name(self, obj):
         return obj.booking.get_customer_name()
+
+    def get_total_refunded_cents(self, obj):
+        return obj.refunds.filter(status='completed').aggregate(
+            total=db_models.Sum('amount_cents')
+        )['total'] or 0
+
+    def get_total_refunded_dollars(self, obj):
+        return self.get_total_refunded_cents(obj) / 100
 
 
 class PaymentConfirmSerializer(serializers.Serializer):

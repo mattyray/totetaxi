@@ -73,7 +73,7 @@ class StripePaymentService:
                 booking = payment.booking
                 if booking.status == 'pending':
                     booking.status = 'paid'
-                    booking.save()
+                    booking.save(_skip_pricing=True)
                 
                 try:
                     if booking.customer and hasattr(booking.customer, 'customer_profile'):

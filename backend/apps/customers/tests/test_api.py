@@ -214,3 +214,86 @@ class TestProfileAPI:
         verified_user.customer_profile.refresh_from_db()
         assert verified_user.customer_profile.phone == '5559999999'
         assert not verified_user.customer_profile.email_notifications
+
+
+# ============================================================
+# L5: CustomerBookingListView excludes soft-deleted bookings
+# ============================================================
+
+@pytest.mark.django_db
+class TestCustomerBookingList:
+    """L5: Soft-deleted bookings must not appear in customer booking list."""
+
+    def test_soft_deleted_booking_excluded(self, api_client, verified_user):
+        from apps.bookings.models import Booking, Address
+        from apps.services.models import MiniMovePackage
+        from django.utils import timezone
+        from datetime import timedelta
+
+        api_client.force_authenticate(user=verified_user)
+
+        package, _ = MiniMovePackage.objects.get_or_create(
+            package_type='petite',
+            defaults={
+                'name': 'Petite',
+                'base_price_cents': 99500,
+                'max_items': 15,
+                'is_active': True,
+            },
+        )
+        pickup = Address.objects.create(
+            address_line_1='1 Test St', city='New York', state='NY', zip_code='10001',
+        )
+        delivery = Address.objects.create(
+            address_line_1='2 Test St', city='New York', state='NY', zip_code='10002',
+        )
+
+        # Active booking
+        Booking.objects.create(
+            customer=verified_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=3),
+            status='pending',
+        )
+        # Soft-deleted booking
+        Booking.objects.create(
+            customer=verified_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=4),
+            status='pending',
+            deleted_at=timezone.now(),
+        )
+
+        response = api_client.get('/api/customer/bookings/')
+        assert response.status_code == 200
+        assert response.data['total_count'] == 1
+
+
+# ============================================================
+# L19: Password reset invalidates previous tokens
+# ============================================================
+
+@pytest.mark.django_db
+class TestPasswordResetTokenInvalidation:
+    """L19: Creating a new reset token must invalidate existing unused tokens."""
+
+    def test_new_token_invalidates_old_tokens(self, verified_user):
+        from apps.customers.models import PasswordResetToken
+
+        # Create first token
+        token1 = PasswordResetToken.create_token(verified_user)
+        assert token1.is_valid()
+
+        # Create second token — should invalidate the first
+        token2 = PasswordResetToken.create_token(verified_user)
+
+        token1.refresh_from_db()
+        assert token1.used is True  # old token invalidated
+        assert not token1.is_valid()
+        assert token2.is_valid()  # new token still valid

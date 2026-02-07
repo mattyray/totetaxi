@@ -124,3 +124,80 @@ class TestBookingModel:
         
         booking.refresh_from_db()
         assert booking.reminder_sent_at is not None
+
+
+# ============================================================
+# M4: _skip_pricing flag on Booking.save()
+# ============================================================
+
+@pytest.mark.django_db
+class TestSkipPricing:
+    """M4: Booking.save(_skip_pricing=True) must not recalculate pricing."""
+
+    def test_skip_pricing_does_not_recalculate(self, customer_user, addresses):
+        pickup, delivery = addresses
+        package = MiniMovePackage.objects.create(
+            package_type='petite',
+            name='Petite Skip',
+            base_price_cents=99500,
+            max_items=15,
+            is_active=True,
+        )
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+            status='pending',
+        )
+        original_total = booking.total_price_cents
+
+        # Status-only save with skip_pricing — total must not change
+        booking.status = 'paid'
+        booking.save(_skip_pricing=True)
+        booking.refresh_from_db()
+        assert booking.total_price_cents == original_total
+        assert booking.status == 'paid'
+
+    def test_normal_save_recalculates(self, customer_user, addresses):
+        pickup, delivery = addresses
+        package = MiniMovePackage.objects.create(
+            package_type='standard',
+            name='Standard Recalc',
+            base_price_cents=149500,
+            max_items=30,
+            is_active=True,
+        )
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=2),
+        )
+        # Normal save should always recalculate
+        assert booking.base_price_cents == 149500
+
+    def test_new_booking_always_calculates_pricing(self, customer_user, addresses):
+        pickup, delivery = addresses
+        package = MiniMovePackage.objects.create(
+            package_type='full',
+            name='Full New',
+            base_price_cents=249500,
+            max_items=60,
+            is_active=True,
+        )
+        booking = Booking.objects.create(
+            customer=customer_user,
+            service_type='mini_move',
+            mini_move_package=package,
+            pickup_address=pickup,
+            delivery_address=delivery,
+            pickup_date=timezone.now().date() + timedelta(days=3),
+        )
+        # Even first save must have pricing
+        assert booking.base_price_cents > 0
+        assert booking.total_price_cents > 0

@@ -144,6 +144,8 @@ export interface Payment {
   failure_reason?: string;
   processed_at: string | null;
   created_at: string;
+  total_refunded_cents?: number;
+  total_refunded_dollars?: number;
 }
 
 export interface Refund {

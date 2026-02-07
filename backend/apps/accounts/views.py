@@ -9,7 +9,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Prefetch
 from django_ratelimit.decorators import ratelimit
 from .models import StaffProfile, StaffAction
 from .permissions import IsStaffMember
@@ -211,9 +211,29 @@ class CustomerManagementView(APIView):
         search = request.query_params.get('search', '')
         vip = request.query_params.get('vip', '')
         
-        # Start with all customer profiles
-        customers = User.objects.filter(customer_profile__isnull=False).select_related('customer_profile')
-        
+        # Start with all customer profiles, prefetch related data to avoid N+1
+        from apps.customers.models import SavedAddress
+        customers = User.objects.filter(
+            customer_profile__isnull=False,
+        ).select_related(
+            'customer_profile',
+        ).prefetch_related(
+            Prefetch(
+                'bookings',
+                queryset=Booking.objects.filter(
+                    deleted_at__isnull=True,
+                ).order_by('-created_at'),
+                to_attr='prefetched_bookings',
+            ),
+            Prefetch(
+                'saved_addresses',
+                queryset=SavedAddress.objects.filter(
+                    is_active=True,
+                ).order_by('-times_used'),
+                to_attr='prefetched_addresses',
+            ),
+        )
+
         # Apply search filter
         if search:
             customers = customers.filter(
@@ -222,21 +242,20 @@ class CustomerManagementView(APIView):
                 Q(email__icontains=search) |
                 Q(customer_profile__phone__icontains=search)
             )
-        
+
         # Apply VIP filter
         if vip == 'true':
             customers = customers.filter(customer_profile__is_vip=True)
         elif vip == 'false':
             customers = customers.filter(customer_profile__is_vip=False)
-        
+
         # Serialize customer data
         customer_data = []
         for user in customers[:100]:  # Limit to 100 results
             profile = user.customer_profile
-            
-            # Get recent bookings
-            recent_bookings = user.bookings.filter(deleted_at__isnull=True).order_by('-created_at')[:5]
-            
+            recent_bookings = user.prefetched_bookings[:5]
+            saved_addrs = user.prefetched_addresses[:3]
+
             customer_data.append({
                 'id': user.id,
                 'name': user.get_full_name(),
@@ -262,7 +281,7 @@ class CustomerManagementView(APIView):
                     'city': addr.city,
                     'state': addr.state,
                     'is_primary': addr.times_used > 0
-                } for addr in user.saved_addresses.filter(is_active=True)[:3]]
+                } for addr in saved_addrs]
             })
         
         return Response({
@@ -703,7 +722,7 @@ class BookingDetailView(APIView):
                 )
 
             booking.status = new_status
-            booking.save()
+            booking.save(_skip_pricing=True)
             
             # Log status change
             StaffAction.log_action(

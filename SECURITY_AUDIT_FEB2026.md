@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** PR 1 & PR 2 merged & deployed, PR 3 pending
+**Status:** PR 1 & PR 2 merged & deployed, PR 3 merged & deployed
 
 ---
 
@@ -37,7 +37,7 @@
 | H4 | **`StaffProfile.lock_account` broken** — references `timezone.timedelta` which doesn't exist. Account lockout crashes instead of working. | `accounts/models.py:84` | **NOT BROKEN** — Django re-exports timedelta from datetime |
 | H5 | **Booking status accepts any arbitrary string** — staff PATCH doesn't validate against `STATUS_CHOICES`. | `accounts/views.py:696-734` | **FIXED** PR #5 — VALID_TRANSITIONS state machine |
 | H6 | **HybridAuthentication bypasses CSRF** — overrides `authenticate()` without calling `enforce_csrf()`. | `customers/authentication.py:8-58` | SKIPPED — low risk (CORS + SameSite + separate domains) |
-| H7 | **`time.sleep()` in Stripe webhook** — blocks gunicorn workers up to 3.9 seconds per retry, can exhaust all workers. | `payments/views.py:200-217` | NONE — PR 3 |
+| H7 | **`time.sleep()` in Stripe webhook** — blocks gunicorn workers up to 3.9 seconds per retry, can exhaust all workers. | `payments/views.py:200-217` | **FIXED** PR #6 — Celery tasks with exponential backoff |
 | H8 | **Raw `str(e)` in error responses** — leaks Stripe API details, DB schema, file paths to clients. | Multiple views across payments, bookings, logistics, customers | **FIXED** PR #4 |
 
 ### MEDIUM
@@ -45,15 +45,15 @@
 | ID | Finding | Files |
 |----|---------|-------|
 | M1 | No rate limiting on payment intent creation endpoints (Stripe cost amplification) | `bookings/views.py`, `payments/views.py`, `customers/booking_views.py` |
-| M2 | Calendar availability: 120+ DB queries for 60-day range (N+1) | `bookings/views.py:437-477` |
-| M3 | Customer management: 200+ queries for 100 customers (N+1) | `accounts/views.py:242-273` |
-| M4 | `Booking.save()` recalculates pricing every time — can silently change prices after config updates | `bookings/models.py:327-358` |
+| M2 | Calendar availability: 120+ DB queries for 60-day range (N+1) | `bookings/views.py:437-477` | **FIXED** PR #6 — bulk query + defaultdict |
+| M3 | Customer management: 200+ queries for 100 customers (N+1) | `accounts/views.py:242-273` | **FIXED** PR #6 — Prefetch with to_attr |
+| M4 | `Booking.save()` recalculates pricing every time — can silently change prices after config updates | `bookings/models.py:327-358` | **FIXED** PR #6 — _skip_pricing flag |
 | M5 | Webhook idempotency on volatile Redis (lost on restart, 24h TTL < Stripe's 72h retry) | `payments/views.py:170-177` |
-| M6 | BrowsableAPI enabled in production | `config/settings.py:200-213` |
-| M7 | Payment/Refund list views have no pagination | `payments/views.py:484-518` |
-| M8 | PaymentSerializer N+1 on booking relation | `payments/serializers.py:35-39` |
-| M9 | `date.fromisoformat` crashes on invalid input (public endpoint) | `bookings/views.py:424-432` |
-| M10 | Stripe webhook returns 404/500 instead of 200 (causes unwanted retries) | `payments/views.py:280-296` |
+| M6 | BrowsableAPI enabled in production | `config/settings.py:200-213` | **FIXED** PR #6 — conditional on DEBUG |
+| M7 | Payment/Refund list views have no pagination | `payments/views.py:484-518` | **ALREADY FIXED** — DEFAULT_PAGINATION_CLASS in settings |
+| M8 | PaymentSerializer N+1 on booking relation | `payments/serializers.py:35-39` | **FIXED** PR #6 — select_related |
+| M9 | `date.fromisoformat` crashes on invalid input (public endpoint) | `bookings/views.py:424-432` | **FIXED** PR #6 — try/except ValueError |
+| M10 | Stripe webhook returns 404/500 instead of 200 (causes unwanted retries) | `payments/views.py:280-296` | **FIXED** PR #6 — Celery async dispatch always returns 200 |
 
 ### MINOR
 
@@ -62,14 +62,14 @@
 | L1 | `StaffAction.log_action` called with invalid `action_type` `'view_booking'` | `accounts/views.py:495` — **FIXED** PR #5 |
 | L2 | `sync_onfleet_status` is a stub that doesn't actually sync | `logistics/views.py:46-79` |
 | L3 | Dead `try/except DoesNotExist` on `.filter().first()` calls | `bookings/models.py`, `bookings/views.py`, `bookings/serializers.py` |
-| L4 | `_get_most_used_address` ignores `address_type` parameter | `customers/booking_views.py:322-323` |
-| L5 | `CustomerBookingListView` returns soft-deleted bookings | `customers/views.py:351-352` |
+| L4 | `_get_most_used_address` ignores `address_type` parameter | `customers/booking_views.py:322-323` | **DOCUMENTED** PR #6 — SavedAddress has no address_type field |
+| L5 | `CustomerBookingListView` returns soft-deleted bookings | `customers/views.py:351-352` | **FIXED** PR #6 — filter deleted_at__isnull=True |
 | L6 | Duplicate `BookingData`/`BookingAddress` type definitions | `frontend/src/types/index.ts`, `frontend/src/stores/booking-store.ts` |
-| L7 | Console.log throughout production frontend code | Multiple frontend files |
+| L7 | Console.log throughout production frontend code | Multiple frontend files | **ALREADY FIXED** — next.config removeConsole strips in prod |
 | L8 | `useRecalculatePricing` stale closure (empty dependency array) | `frontend/src/components/booking/review-payment-step.tsx:128-189` |
-| L9 | Refund modal doesn't account for prior partial refunds (client-side only) | `frontend/src/components/staff/refund-modal.tsx:47-54` |
+| L9 | Refund modal doesn't account for prior partial refunds (client-side only) | `frontend/src/components/staff/refund-modal.tsx:47-54` | **FIXED** PR #6 — shows remaining refundable amount |
 | L10 | Floating-point arithmetic for monetary dollar calculations | Multiple `*_dollars` properties |
-| L11 | No search debounce on booking/customer management | `frontend/src/components/staff/booking-management.tsx:124-125` |
+| L11 | No search debounce on booking/customer management | `frontend/src/components/staff/booking-management.tsx:124-125` | **FIXED** PR #6 — 300ms useDebounce hook |
 | L12 | Duplicate view classes across `customers/views.py` and `customers/booking_views.py` | Both files |
 | L13 | `CustomerNotesUpdateView` in customers app has no audit logging (unlike accounts version) | `customers/views.py:375-398` |
 | L14 | Booking wizard auto-skip step 4 fragile pattern | `frontend/src/components/booking/booking-wizard.tsx:86-91` |
@@ -77,7 +77,7 @@
 | L16 | `CustomerProfile.add_booking_stats` no concurrency protection (needs F() expressions) | `customers/models.py:141-146` — **FIXED** PR #5 |
 | L17 | Signal-based Onfleet task creation runs on every `Booking.save()` | `logistics/models.py:181-205` |
 | L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` — **FIXED** PR #5 |
-| L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` |
+| L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` | **FIXED** PR #6 — invalidate old tokens on new request |
 | L20 | Session ID logged in plaintext (partial, 10 chars) | `customers/authentication.py:32-50` |
 
 ### Positive Security Controls (Already Done Right)
