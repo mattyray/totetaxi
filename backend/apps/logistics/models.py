@@ -151,25 +151,18 @@ class OnfleetTask(models.Model):
             self._mark_booking_completed()
     
     def _mark_booking_completed(self):
-        """Update ToteTaxi booking when DROPOFF delivery completes"""
+        """Update ToteTaxi booking when DROPOFF delivery completes.
+
+        NOTE: Customer stats (total_bookings, total_spent_cents) are
+        incremented in payments/services.py when payment succeeds.
+        Do NOT increment them here — that causes double-counting (C5 fix).
+        """
         try:
             if self.booking.status in ['confirmed', 'paid', 'in_progress']:
                 self.booking.status = 'completed'
                 self.booking.save()
                 logger.info(f"✓ Booking {self.booking.booking_number} marked completed")
-            
-            # Update customer stats if authenticated user
-            if self.booking.customer and hasattr(self.booking.customer, 'customer_profile'):
-                profile = self.booking.customer.customer_profile
-                profile.total_bookings += 1
-                profile.total_spent_cents += self.booking.total_price_cents
-                profile.last_booking_at = timezone.now()
-                
-                if not profile.is_vip and profile.total_spent_dollars >= 2000:
-                    profile.is_vip = True
-                
-                profile.save()
-                
+
         except Exception as e:
             logger.error(f"Error updating booking completion: {e}")
 

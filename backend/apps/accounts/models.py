@@ -121,6 +121,7 @@ class StaffAction(models.Model):
         ('send_notification', 'Send Notification'),
         ('export_data', 'Export Data'),
         ('view_dashboard', 'View Dashboard'),
+        ('view_booking', 'View Booking'),
         ('modify_customer', 'Modify Customer'),
     ]
     

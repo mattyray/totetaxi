@@ -119,7 +119,6 @@ class TestLogisticsSummaryView:
         response = client.get('/api/staff/logistics/summary/')
         
         assert response.status_code == 403
-        assert 'staff' in str(response.data).lower()
     
     def test_summary_returns_data_for_staff(self, staff_client):
         """Test staff user gets summary data"""

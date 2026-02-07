@@ -27,6 +27,7 @@ from .serializers import (
 from .services import StripePaymentService
 from apps.bookings.models import Booking
 from apps.accounts.models import StaffProfile, StaffAction  # NEW
+from apps.accounts.permissions import IsStaffMember
 
 logger = logging.getLogger(__name__)
 
@@ -537,16 +538,9 @@ class RefundCreateView(generics.CreateAPIView):
 
 class RefundProcessView(APIView):
     """Process refund immediately - staff only (direct refund, no approval)"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def post(self, request):
-        # Verify staff
-        if not hasattr(request.user, 'staff_profile'):
-            return Response(
-                {'error': 'Not a staff account'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         # Validate input
         payment_id = request.data.get('payment_id')
         amount_cents = request.data.get('amount_cents')

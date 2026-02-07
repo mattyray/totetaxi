@@ -22,7 +22,10 @@ env = environ.Env(
 if not os.environ.get('FLY_APP_NAME') and (BASE_DIR / '.env').exists():
     environ.Env.read_env(BASE_DIR / '.env')
 
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
+if os.environ.get('FLY_APP_NAME'):
+    SECRET_KEY = env('SECRET_KEY')  # Required in production — no fallback
+else:
+    SECRET_KEY = env('SECRET_KEY', default='django-insecure-local-dev-only')
 DEBUG = env('DEBUG', default=False)
 FLY_APP_NAME = env('FLY_APP_NAME', default='')
 
