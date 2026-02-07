@@ -68,12 +68,15 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
     
     customer_email = serializers.EmailField(required=False)
-    
+
     coi_required = serializers.BooleanField(default=False)
     is_outside_core_area = serializers.BooleanField(default=False)
     # ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
     pickup_zip_code = serializers.CharField(required=False, max_length=10)
     delivery_zip_code = serializers.CharField(required=False, max_length=10)
+
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
 
     def validate_specialty_items(self, value):
         """Validate specialty items with quantities"""
@@ -259,6 +262,27 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
             )
             total_cents += surcharge_amount
 
+        # Apply discount code if provided
+        discount_code_str = (data.get('discount_code') or '').strip()
+        if discount_code_str:
+            from apps.bookings.models import DiscountCode as DiscountCodeModel
+            try:
+                discount = DiscountCodeModel.objects.get(code__iexact=discount_code_str)
+                email = data.get('customer_email', '')
+                # Fall back to user context email
+                if not email and self.context.get('user'):
+                    email = self.context['user'].email
+                is_valid, _ = discount.is_valid_for_customer(email)
+
+                if is_valid and discount.is_valid_for_service(data['service_type']):
+                    if total_cents >= discount.minimum_order_cents:
+                        discount_amount = discount.calculate_discount(total_cents)
+                        data['_discount_amount_cents'] = discount_amount
+                        data['_discount_code_id'] = str(discount.id)
+                        total_cents = max(0, total_cents - discount_amount)
+            except DiscountCodeModel.DoesNotExist:
+                pass
+
         return total_cents
 
 
@@ -318,11 +342,14 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
-    
+
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
+
     def validate_specialty_items(self, value):
         if not value:
             return []
-        
+
         for item in value:
             if 'item_id' not in item or 'quantity' not in item:
                 raise serializers.ValidationError(
@@ -330,9 +357,9 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                 )
             if item['quantity'] < 1:
                 raise serializers.ValidationError("Quantity must be >= 1")
-        
+
         return value
-    
+
     def validate(self, attrs):
         user = self.context['user']
         service_type = attrs['service_type']
@@ -453,7 +480,24 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                     )
                 except SpecialtyItem.DoesNotExist:
                     pass
-        
+
+        # Apply discount code if provided
+        discount_code_str = (validated_data.get('discount_code') or '').strip()
+        if discount_code_str:
+            from apps.bookings.models import DiscountCode as DiscountCodeModel
+            try:
+                discount = DiscountCodeModel.objects.get(code__iexact=discount_code_str)
+                email = user.email
+                is_valid, _ = discount.is_valid_for_customer(email)
+
+                if is_valid and discount.is_valid_for_service(validated_data['service_type']):
+                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents or booking.total_price_cents)
+                    booking.discount_code = discount
+                    booking.discount_amount_cents = discount_amount
+                    discount.record_usage(email=email, booking=booking)
+            except DiscountCodeModel.DoesNotExist:
+                pass
+
         booking.save()
         return booking
     

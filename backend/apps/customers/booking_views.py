@@ -58,14 +58,19 @@ class CreatePaymentIntentView(APIView):
         
         try:
             # Create Stripe payment intent
+            metadata = {
+                'service_type': validated_data['service_type'],
+                'customer_email': customer_email,
+            }
+            if validated_data.get('_discount_code_id'):
+                metadata['discount_code_id'] = validated_data['_discount_code_id']
+                metadata['discount_amount_cents'] = str(validated_data.get('_discount_amount_cents', 0))
+
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
                 currency='usd',
                 payment_method_types=['card'],
-                metadata={
-                    'service_type': validated_data['service_type'],
-                    'customer_email': customer_email,
-                }
+                metadata=metadata
             )
             
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")

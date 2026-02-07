@@ -54,6 +54,16 @@ export interface BookingData {
     geographic_surcharge_dollars: number;
     time_window_surcharge_dollars: number;
     total_price_dollars: number;
+    pre_discount_total_dollars?: number | null;
+    discount_amount_dollars?: number;
+  };
+  discount_code?: string;
+  discount_validated?: boolean;
+  discount_info?: {
+    code: string;
+    discount_type: 'percentage' | 'fixed';
+    discount_description: string;
+    discount_amount_dollars: number;
   };
 }
 
@@ -85,6 +95,8 @@ interface BookingWizardActions {
   initializeForUser: (userId?: string, isGuest?: boolean) => void;
   updateSpecialtyItemQuantity: (itemId: string, quantity: number) => void;
   getSpecialtyItemQuantity: (itemId: string) => number;
+  applyDiscountCode: (code: string, discountInfo: NonNullable<BookingData['discount_info']>) => void;
+  clearDiscountCode: () => void;
 }
 
 const initialBookingData: BookingData = {
@@ -98,7 +110,7 @@ const initialBookingData: BookingData = {
   specialty_items: [],
 };
 
-const STORE_VERSION = 5;
+const STORE_VERSION = 6;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
@@ -190,7 +202,29 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         const item = state.bookingData.specialty_items?.find(i => i.item_id === itemId);
         return item?.quantity || 0;
       },
-      
+
+      applyDiscountCode: (code, discountInfo) => {
+        set((state) => ({
+          bookingData: {
+            ...state.bookingData,
+            discount_code: code,
+            discount_validated: true,
+            discount_info: discountInfo,
+          }
+        }));
+      },
+
+      clearDiscountCode: () => {
+        set((state) => ({
+          bookingData: {
+            ...state.bookingData,
+            discount_code: undefined,
+            discount_validated: false,
+            discount_info: undefined,
+          }
+        }));
+      },
+
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {

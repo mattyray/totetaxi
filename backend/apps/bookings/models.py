@@ -96,6 +96,148 @@ class GuestCheckout(models.Model):
         return f"{self.first_name} {self.last_name} ({self.email})"
 
 
+class DiscountCode(models.Model):
+    """Discount/promo codes for bookings"""
+
+    DISCOUNT_TYPE_CHOICES = [
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    description = models.CharField(max_length=200, blank=True)
+
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES)
+    discount_value = models.PositiveIntegerField(
+        help_text="Percentage (e.g. 20 for 20%) or fixed amount in cents (e.g. 5000 for $50)"
+    )
+
+    max_uses = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Maximum total uses. Null = unlimited."
+    )
+    max_uses_per_customer = models.PositiveIntegerField(
+        default=1,
+        help_text="Maximum uses per customer/email address"
+    )
+    valid_from = models.DateTimeField(default=timezone.now)
+    valid_until = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Expiration date. Null = never expires."
+    )
+    minimum_order_cents = models.PositiveIntegerField(
+        default=0,
+        help_text="Minimum order total (pre-discount) in cents"
+    )
+    maximum_discount_cents = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Cap the discount amount (for percentage codes). Null = no cap."
+    )
+
+    allowed_service_types = models.JSONField(
+        default=list, blank=True,
+        help_text="Service types this code applies to. Empty = all services."
+    )
+
+    is_active = models.BooleanField(default=True)
+    times_used = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'bookings_discount_code'
+
+    def __str__(self):
+        if self.discount_type == 'percentage':
+            return f"{self.code} - {self.discount_value}% off"
+        return f"{self.code} - ${self.discount_value / 100:.2f} off"
+
+    @property
+    def discount_value_display(self):
+        if self.discount_type == 'percentage':
+            return f"{self.discount_value}%"
+        return f"${self.discount_value / 100:.2f}"
+
+    def is_valid(self):
+        """Check if discount code is currently valid (ignoring per-customer limits)"""
+        if not self.is_active:
+            return False, "This discount code is no longer active."
+
+        now = timezone.now()
+        if self.valid_from and now < self.valid_from:
+            return False, "This discount code is not yet active."
+        if self.valid_until and now > self.valid_until:
+            return False, "This discount code has expired."
+        if self.max_uses is not None and self.times_used >= self.max_uses:
+            return False, "This discount code has reached its usage limit."
+
+        return True, None
+
+    def is_valid_for_customer(self, email):
+        """Check if a specific customer/email can use this code"""
+        is_valid, error = self.is_valid()
+        if not is_valid:
+            return False, error
+
+        usage_count = self.usages.filter(customer_email__iexact=email).count()
+        if usage_count >= self.max_uses_per_customer:
+            return False, "You have already used this discount code."
+
+        return True, None
+
+    def is_valid_for_service(self, service_type):
+        """Check if code applies to a specific service type"""
+        if not self.allowed_service_types:
+            return True
+        return service_type in self.allowed_service_types
+
+    def calculate_discount(self, subtotal_cents):
+        """Calculate discount amount in cents for a given subtotal"""
+        if self.discount_type == 'percentage':
+            discount = int(subtotal_cents * self.discount_value / 100)
+            if self.maximum_discount_cents is not None:
+                discount = min(discount, self.maximum_discount_cents)
+        else:
+            discount = self.discount_value
+
+        return min(discount, subtotal_cents)
+
+    def record_usage(self, email, booking=None):
+        """Record that this code was used"""
+        DiscountCodeUsage.objects.create(
+            discount_code=self,
+            customer_email=email,
+            booking=booking,
+        )
+        self.times_used = models.F('times_used') + 1
+        self.save(update_fields=['times_used'])
+        self.refresh_from_db(fields=['times_used'])
+
+
+class DiscountCodeUsage(models.Model):
+    """Track per-customer discount code usage"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    discount_code = models.ForeignKey(
+        DiscountCode, on_delete=models.CASCADE, related_name='usages'
+    )
+    customer_email = models.EmailField()
+    booking = models.ForeignKey(
+        'Booking', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'bookings_discount_code_usage'
+        indexes = [
+            models.Index(fields=['discount_code', 'customer_email'], name='discount_usage_customer_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.discount_code.code} used by {self.customer_email}"
+
+
 class BookingSpecialtyItem(models.Model):
     """Through model to track quantity of each specialty item per booking"""
     booking = models.ForeignKey('Booking', on_delete=models.CASCADE)
@@ -302,7 +444,17 @@ class Booking(models.Model):
         help_text="Tax on organizing services"
     )
     total_price_cents = models.PositiveBigIntegerField(default=0)
-    
+
+    # Discount fields
+    discount_code = models.ForeignKey(
+        'DiscountCode',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='bookings',
+    )
+    discount_amount_cents = models.PositiveBigIntegerField(default=0)
+    pre_discount_total_cents = models.PositiveBigIntegerField(default=0)
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -435,6 +587,14 @@ class Booking(models.Model):
     @property
     def organizing_tax_dollars(self):
         return self.organizing_tax_cents / 100
+
+    @property
+    def discount_amount_dollars(self):
+        return self.discount_amount_cents / 100
+
+    @property
+    def pre_discount_total_dollars(self):
+        return self.pre_discount_total_cents / 100
             
     def get_pickup_time_display(self):
         """
@@ -662,16 +822,22 @@ class Booking(models.Model):
             self.coi_fee_cents = self.calculate_coi_fee()
         
         # Calculate total
-        self.total_price_cents = (
-            self.base_price_cents + 
-            self.surcharge_cents + 
+        pre_discount = (
+            self.base_price_cents +
+            self.surcharge_cents +
             self.same_day_surcharge_cents +
-            self.coi_fee_cents + 
+            self.coi_fee_cents +
             self.organizing_total_cents +
             self.organizing_tax_cents +
             self.geographic_surcharge_cents +
             self.time_window_surcharge_cents
         )
+        self.pre_discount_total_cents = pre_discount
+
+        if self.discount_code_id and self.discount_amount_cents > 0:
+            self.total_price_cents = max(0, pre_discount - self.discount_amount_cents)
+        else:
+            self.total_price_cents = pre_discount
     
     def get_pricing_breakdown(self):
         """Return detailed pricing breakdown for display"""
@@ -688,9 +854,16 @@ class Booking(models.Model):
             'service_type': self.get_service_type_display(),
         }
         
+        if self.discount_amount_cents > 0:
+            breakdown['discount_amount_dollars'] = self.discount_amount_dollars
+            breakdown['pre_discount_total_dollars'] = self.pre_discount_total_dollars
+            if self.discount_code:
+                breakdown['discount_code'] = self.discount_code.code
+                breakdown['discount_description'] = self.discount_code.discount_value_display
+
         if self.organizing_total_cents > 0:
             breakdown['organizing_services'] = self.get_organizing_services_breakdown()
-        
+
         if self.service_type == 'blade_transfer':
             breakdown['blade_details'] = {
                 'airport': self.blade_airport,

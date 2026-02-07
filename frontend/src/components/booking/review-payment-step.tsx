@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
 import type { ServiceCatalog } from '@/types';
+import { useDiscountCode } from '@/hooks/use-discount-code';
 
 interface PaymentIntentResponse {
   client_secret: string;
@@ -167,6 +168,12 @@ const useRecalculatePricing = () => {
           pricingRequest.blade_bag_count = data.blade_bag_count;
         }
 
+        // Include discount code if validated
+        if (data.discount_code && data.discount_validated) {
+          pricingRequest.discount_code = data.discount_code;
+          pricingRequest.discount_email = data.customer_info?.email || '';
+        }
+
         const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
 
         updateBookingData({
@@ -213,6 +220,74 @@ function SpecialtyItemsList({ bookingData }: { bookingData: any }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DiscountCodeInput() {
+  const [inputCode, setInputCode] = useState('');
+  const { validateCode, removeCode, isValidating, error, success, appliedCode } = useDiscountCode();
+
+  const handleApply = () => {
+    validateCode(inputCode);
+  };
+
+  const handleRemove = () => {
+    setInputCode('');
+    removeCode();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleApply();
+    }
+  };
+
+  if (appliedCode) {
+    return (
+      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+        <div>
+          <span className="text-green-800 font-medium">
+            Code &quot;{appliedCode.code}&quot; applied
+          </span>
+          <span className="text-green-700 text-sm ml-2">
+            ({appliedCode.discount_description} off)
+          </span>
+        </div>
+        <button
+          onClick={handleRemove}
+          className="text-sm text-red-600 hover:text-red-800 underline"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={inputCode}
+          onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+          onKeyDown={handleKeyDown}
+          placeholder="Enter discount code"
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-navy-500 focus:border-navy-500"
+          maxLength={50}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleApply}
+          disabled={!inputCode.trim() || isValidating}
+        >
+          {isValidating ? 'Checking...' : 'Apply'}
+        </Button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {success && <p className="text-sm text-green-600">{success}</p>}
     </div>
   );
 }
@@ -280,6 +355,11 @@ export function ReviewPaymentStep() {
         paymentRequest.phone = bookingData.customer_info.phone;
       } else if (isAuthenticated && user?.email) {
         paymentRequest.customer_email = user.email;
+      }
+
+      // Include discount code if validated
+      if (bookingData.discount_code && bookingData.discount_validated) {
+        paymentRequest.discount_code = bookingData.discount_code;
       }
 
       console.log('💳 Creating payment intent:', paymentRequest);
@@ -360,10 +440,15 @@ export function ReviewPaymentStep() {
         bookingRequest.delivery_address = bookingData.delivery_address;
       }
 
+      // Include discount code if validated
+      if (bookingData.discount_code && bookingData.discount_validated) {
+        bookingRequest.discount_code = bookingData.discount_code;
+      }
+
       console.log('📦 Creating booking with payment:', bookingRequest);
       const response = await apiClient.post(endpoint, bookingRequest);
       console.log('✅ Booking created:', response.data);
-      
+
       return response.data;
     },
     onSuccess: (data) => {
@@ -717,6 +802,15 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
+      <Card variant="default" className="border-navy-200">
+        <CardHeader>
+          <h3 className="text-lg font-medium text-navy-900">Discount Code</h3>
+        </CardHeader>
+        <CardContent>
+          <DiscountCodeInput />
+        </CardContent>
+      </Card>
+
       {bookingData.pricing_data && (
         <Card variant="elevated">
           <CardHeader>
@@ -783,11 +877,20 @@ export function ReviewPaymentStep() {
                 </div>
               )}
               
+              {(bookingData.pricing_data.discount_amount_dollars ?? 0) > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span className="font-medium">
+                    Discount ({bookingData.discount_info?.discount_description}):
+                  </span>
+                  <span className="font-semibold">-${bookingData.pricing_data.discount_amount_dollars?.toFixed(2)}</span>
+                </div>
+              )}
+
               <hr className="border-gray-200" />
-              
+
               <div className="flex justify-between text-xl font-bold">
                 <span className="text-navy-900">Total:</span>
-                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars}</span>
+                <span className="text-navy-900">${bookingData.pricing_data.total_price_dollars.toFixed(2)}</span>
               </div>
               
               {bookingData.service_type === 'blade_transfer' && (

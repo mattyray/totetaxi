@@ -153,7 +153,11 @@ class PricingPreviewSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
-    
+
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
+    discount_email = serializers.EmailField(required=False)
+
     def validate_specialty_items(self, value):
         """Validate specialty items list with quantities"""
         if not value:
@@ -252,11 +256,14 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
     pickup_zip_code = serializers.CharField(required=False, max_length=10)
     delivery_zip_code = serializers.CharField(required=False, max_length=10)
 
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
+
     def validate_specialty_items(self, value):
         """Validate specialty items with quantities"""
         if not value:
             return []
-        
+
         for item in value:
             if 'item_id' not in item or 'quantity' not in item:
                 raise serializers.ValidationError(
@@ -264,38 +271,38 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
                 )
             if item['quantity'] < 1:
                 raise serializers.ValidationError("Quantity must be at least 1")
-        
+
         return value
-    
+
     def validate(self, attrs):
         service_type = attrs['service_type']
-        
+
         if service_type == 'blade_transfer':
-            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
                 raise serializers.ValidationError("All BLADE fields required")
-            
+
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("Minimum 2 bags")
-        
+
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("Package ID required")
-        
+
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
             specialty_items = attrs.get('specialty_items', [])
-            
+
             if item_count == 0 and len(specialty_items) == 0:
                 raise serializers.ValidationError("At least one item required")
-        
+
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_items'):
                 raise serializers.ValidationError("Specialty items required")
-        
+
         # Calculate pricing
         attrs['calculated_total_cents'] = self._calculate_total_price(attrs)
-        
+
         return attrs
     
     def _calculate_total_price(self, data):
@@ -448,6 +455,24 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
             )
             total_cents += surcharge_amount
 
+        # Apply discount code if provided
+        discount_code_str = (data.get('discount_code') or '').strip()
+        if discount_code_str:
+            from .models import DiscountCode as DiscountCodeModel
+            try:
+                discount = DiscountCodeModel.objects.get(code__iexact=discount_code_str)
+                email = data.get('email', '')
+                is_valid, _ = discount.is_valid_for_customer(email)
+
+                if is_valid and discount.is_valid_for_service(data['service_type']):
+                    if total_cents >= discount.minimum_order_cents:
+                        discount_amount = discount.calculate_discount(total_cents)
+                        data['_discount_amount_cents'] = discount_amount
+                        data['_discount_code_id'] = str(discount.id)
+                        total_cents = max(0, total_cents - discount_amount)
+            except DiscountCodeModel.DoesNotExist:
+                pass
+
         return total_cents
 
 
@@ -506,7 +531,10 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
-    
+
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
+
     def validate_pickup_address(self, value):
         required_fields = ['address_line_1', 'city', 'state', 'zip_code']
         for field in required_fields:
@@ -664,5 +692,22 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                         quantity=item_data['quantity']
                     )
         
+        # Apply discount code if provided
+        discount_code_str = (validated_data.get('discount_code') or '').strip()
+        if discount_code_str:
+            from .models import DiscountCode as DiscountCodeModel
+            try:
+                discount = DiscountCodeModel.objects.get(code__iexact=discount_code_str)
+                email = validated_data['email']
+                is_valid, _ = discount.is_valid_for_customer(email)
+
+                if is_valid and discount.is_valid_for_service(validated_data['service_type']):
+                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents or booking.total_price_cents)
+                    booking.discount_code = discount
+                    booking.discount_amount_cents = discount_amount
+                    discount.record_usage(email=email, booking=booking)
+            except DiscountCodeModel.DoesNotExist:
+                pass
+
         booking.save()
         return booking

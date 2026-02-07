@@ -25,5 +25,8 @@ urlpatterns = [
     
     # ZIP code validation endpoint
     path('validate-zip/', views.ValidateZipCodeView.as_view(), name='validate-zip'),
+
+    # Discount code validation
+    path('validate-discount/', views.ValidateDiscountCodeView.as_view(), name='validate-discount'),
 ]
 
