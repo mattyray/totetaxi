@@ -198,13 +198,19 @@ class StripeWebhookView(APIView):
         instead of blocking the gunicorn worker with time.sleep().
         """
         from apps.payments.tasks import process_payment_succeeded
-        process_payment_succeeded.delay(dict(event))
+        try:
+            process_payment_succeeded.delay(dict(event))
+        except Exception:
+            logger.exception("Failed to dispatch payment succeeded task")
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
     def _handle_payment_failed(self, event):
         """Dispatch payment failed processing to Celery task."""
         from apps.payments.tasks import process_payment_failed
-        process_payment_failed.delay(dict(event))
+        try:
+            process_payment_failed.delay(dict(event))
+        except Exception:
+            logger.exception("Failed to dispatch payment failed task")
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
 

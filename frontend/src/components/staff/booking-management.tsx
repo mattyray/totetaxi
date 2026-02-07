@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface BookingListItem {
   id: string;
@@ -35,14 +36,15 @@ export function BookingManagement() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<BookingFilters>({});
+  const debouncedSearch = useDebounce(filters.search, 300);
 
   const { data: bookingData, isLoading, error } = useQuery({
-    queryKey: ['staff', 'bookings', filters],
+    queryKey: ['staff', 'bookings', { ...filters, search: debouncedSearch }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
       if (filters.date) params.append('date', filters.date);
-      if (filters.search) params.append('search', filters.search);
+      if (debouncedSearch) params.append('search', debouncedSearch);
       
       const response = await apiClient.get(`/api/staff/bookings/?${params}`);
       return response.data;

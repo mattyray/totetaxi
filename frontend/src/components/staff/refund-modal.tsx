@@ -18,7 +18,8 @@ interface RefundModalProps {
 
 export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundModalProps) {
   const queryClient = useQueryClient();
-  const [amount, setAmount] = useState(payment.amount_dollars.toString());
+  const maxRefundable = payment.amount_dollars - (payment.total_refunded_dollars || 0);
+  const [amount, setAmount] = useState(maxRefundable.toString());
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
 
@@ -31,7 +32,7 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
       queryClient.invalidateQueries({ queryKey: ['staff', 'booking'] });
       queryClient.invalidateQueries({ queryKey: ['staff', 'bookings'] });
       onClose();
-      setAmount(payment.amount_dollars.toString());
+      setAmount(maxRefundable.toString());
       setReason('');
       setError('');
     },
@@ -50,8 +51,8 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
       return;
     }
 
-    if (amountNum > payment.amount_dollars) {
-      setError(`Amount cannot exceed $${payment.amount_dollars}`);
+    if (amountNum > maxRefundable) {
+      setError(`Amount cannot exceed $${maxRefundable.toFixed(2)} (remaining refundable)`);
       return;
     }
 
@@ -70,7 +71,7 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
       onClose={onClose}
       size="md"
       title={`Issue Refund - ${bookingNumber}`}
-      description={`Payment: $${payment.amount_dollars} (${payment.status})`}
+      description={`Payment: $${payment.amount_dollars}${(payment.total_refunded_dollars || 0) > 0 ? ` ($${payment.total_refunded_dollars?.toFixed(2)} already refunded)` : ''} (${payment.status})`}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
@@ -83,7 +84,7 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
               type="number"
               step="0.01"
               min="0.01"
-              max={payment.amount_dollars}
+              max={maxRefundable}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="pl-7"
@@ -92,7 +93,7 @@ export function RefundModal({ isOpen, onClose, payment, bookingNumber }: RefundM
             />
           </div>
           <p className="text-xs text-navy-500 mt-1">
-            Maximum: ${payment.amount_dollars}
+            Maximum refundable: ${maxRefundable.toFixed(2)}
           </p>
         </div>
 

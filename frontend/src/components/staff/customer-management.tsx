@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { 
+import { useDebounce } from '@/hooks/use-debounce';
+import {
   MagnifyingGlassIcon,
   StarIcon,
   PhoneIcon,
@@ -49,14 +50,15 @@ interface CustomerProfile {
 
 export function CustomerManagement() {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [vipFilter, setVipFilter] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
 
   const { data: customersData, isLoading } = useQuery({
-    queryKey: ['staff', 'customers', searchTerm, vipFilter],
+    queryKey: ['staff', 'customers', debouncedSearch, vipFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
+      if (debouncedSearch) params.append('search', debouncedSearch);
       if (vipFilter) params.append('vip', vipFilter);
       
       const response = await apiClient.get(`/api/staff/customers/?${params}`);

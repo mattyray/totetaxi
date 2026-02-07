@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import patch, Mock
 from rest_framework.test import APIClient
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from apps.customers.models import CustomerProfile
 from apps.payments.models import Payment
 from apps.bookings.models import Booking, Address, GuestCheckout
@@ -105,7 +106,10 @@ class TestPaymentIntents:
 @pytest.mark.django_db
 class TestStripeWebhooks:
     """Test Stripe webhook handling"""
-    
+
+    def setup_method(self):
+        cache.clear()
+
     @patch('stripe.Webhook.construct_event')
     @patch('apps.logistics.models.create_onfleet_tasks_on_payment')  # ← Mock the signal
     def test_payment_succeeded_webhook(self, mock_signal, mock_construct, test_booking, settings):
@@ -212,6 +216,9 @@ class TestStripeWebhooks:
 @pytest.mark.django_db
 class TestWebhookCeleryTasks:
     """H7: Webhook processing moved to Celery tasks."""
+
+    def setup_method(self):
+        cache.clear()
 
     def test_webhook_returns_200_immediately(self, test_booking):
         """Webhook should return 200 right away (task runs async)."""
