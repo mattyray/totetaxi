@@ -12,8 +12,9 @@ ToteTaxi is a booking and logistics platform for moving/transport services. Cust
 
 ## Production URLs
 - **Frontend:** https://totetaxi.netlify.app (Netlify)
-- **Backend:** https://totetaxi-backend.fly.dev (Fly.io, region `ewr`)
-- **Django Admin:** https://totetaxi-backend.fly.dev/admin/
+- **Backend:** https://api.totetaxi.com (Fly.io, region `ewr`)
+- **Backend (fallback):** https://totetaxi-backend.fly.dev
+- **Django Admin:** https://api.totetaxi.com/admin/
 
 ## Development Setup
 
@@ -119,7 +120,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 ## Environment Variables
 
 ### Frontend (`frontend/.env.local` for dev, `.env.production` for prod)
-- `NEXT_PUBLIC_API_URL` — Backend URL (localhost:8005 dev, fly.dev prod)
+- `NEXT_PUBLIC_API_URL` — Backend URL (localhost:8005 dev, api.totetaxi.com prod)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — Stripe public key
 - `NEXT_PUBLIC_GOOGLE_PLACES_API_KEY` — Google Places autocomplete
 - `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` — reCAPTCHA v3 spam prevention

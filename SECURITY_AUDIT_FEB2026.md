@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** PR 1 merged & deployed, PR 2 in testing
+**Status:** PR 1 & PR 2 merged & deployed, PR 3 pending
 
 ---
 
@@ -73,8 +73,8 @@
 | L12 | Duplicate view classes across `customers/views.py` and `customers/booking_views.py` | Both files |
 | L13 | `CustomerNotesUpdateView` in customers app has no audit logging (unlike accounts version) | `customers/views.py:375-398` |
 | L14 | Booking wizard auto-skip step 4 fragile pattern | `frontend/src/components/booking/booking-wizard.tsx:86-91` |
-| L15 | `401` response interceptor clears both auth stores on any 401 | `frontend/src/lib/api-client.ts:64-87` |
-| L16 | `CustomerProfile.add_booking_stats` no concurrency protection (needs F() expressions) | `customers/models.py:141-146` |
+| L15 | `401` response interceptor clears both auth stores on any 401 | `frontend/src/lib/api-client.ts:64-87` — **FIXED** (scoped to matching store) |
+| L16 | `CustomerProfile.add_booking_stats` no concurrency protection (needs F() expressions) | `customers/models.py:141-146` — **FIXED** PR #5 |
 | L17 | Signal-based Onfleet task creation runs on every `Booking.save()` | `logistics/models.py:181-205` |
 | L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` — **FIXED** PR #5 |
 | L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` |
