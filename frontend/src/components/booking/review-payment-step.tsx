@@ -1,7 +1,7 @@
 // frontend/src/components/booking/review-payment-step.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -120,69 +120,68 @@ function getTimeDisplay(pickupTime: string | undefined, specificHour?: number) {
   }
 }
 
-// ✅ Hook to recalculate pricing when Review & Pay loads
+// Hook to recalculate pricing when Review & Pay loads.
+// Uses a ref to avoid stale closure over bookingData (L8 fix).
 const useRecalculatePricing = () => {
   const { bookingData, updateBookingData } = useBookingWizard();
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const bookingDataRef = useRef(bookingData);
+  bookingDataRef.current = bookingData;
 
   useEffect(() => {
     const recalculatePricing = async () => {
       if (isRecalculating) return;
 
-      console.log('🔄 Recalculating pricing on Review & Pay load');
-      
       setIsRecalculating(true);
-      
+      const data = bookingDataRef.current;
+
       try {
         let pricingRequest: any = {
-          service_type: bookingData.service_type,
-          pickup_date: bookingData.service_type === 'blade_transfer'
-            ? bookingData.blade_flight_date
-            : bookingData.pickup_date,
-          coi_required: bookingData.coi_required || false,
-          // Send ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
-          pickup_zip_code: bookingData.pickup_address?.zip_code,
-          delivery_zip_code: bookingData.delivery_address?.zip_code,
-          // Keep is_outside_core_area as fallback for backwards compatibility
-          is_outside_core_area: bookingData.is_outside_core_area || false,
+          service_type: data.service_type,
+          pickup_date: data.service_type === 'blade_transfer'
+            ? data.blade_flight_date
+            : data.pickup_date,
+          coi_required: data.coi_required || false,
+          pickup_zip_code: data.pickup_address?.zip_code,
+          delivery_zip_code: data.delivery_address?.zip_code,
+          is_outside_core_area: data.is_outside_core_area || false,
         };
 
-        if (bookingData.service_type === 'mini_move') {
-          pricingRequest.mini_move_package_id = bookingData.mini_move_package_id;
-          pricingRequest.include_packing = bookingData.include_packing;
-          pricingRequest.include_unpacking = bookingData.include_unpacking;
-          pricingRequest.pickup_time = bookingData.pickup_time;
-          pricingRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
-        } else if (bookingData.service_type === 'standard_delivery') {
-          pricingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
-          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-          pricingRequest.specialty_items = bookingData.specialty_items;
-        } else if (bookingData.service_type === 'specialty_item') {
-          pricingRequest.specialty_items = bookingData.specialty_items;
-          pricingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        } else if (bookingData.service_type === 'blade_transfer') {
-          pricingRequest.blade_airport = bookingData.blade_airport;
-          pricingRequest.blade_flight_date = bookingData.blade_flight_date;
-          pricingRequest.blade_flight_time = bookingData.blade_flight_time;
-          pricingRequest.blade_bag_count = bookingData.blade_bag_count;
+        if (data.service_type === 'mini_move') {
+          pricingRequest.mini_move_package_id = data.mini_move_package_id;
+          pricingRequest.include_packing = data.include_packing;
+          pricingRequest.include_unpacking = data.include_unpacking;
+          pricingRequest.pickup_time = data.pickup_time;
+          pricingRequest.specific_pickup_hour = data.specific_pickup_hour;
+        } else if (data.service_type === 'standard_delivery') {
+          pricingRequest.standard_delivery_item_count = data.standard_delivery_item_count;
+          pricingRequest.is_same_day_delivery = data.is_same_day_delivery;
+          pricingRequest.specialty_items = data.specialty_items;
+        } else if (data.service_type === 'specialty_item') {
+          pricingRequest.specialty_items = data.specialty_items;
+          pricingRequest.is_same_day_delivery = data.is_same_day_delivery;
+        } else if (data.service_type === 'blade_transfer') {
+          pricingRequest.blade_airport = data.blade_airport;
+          pricingRequest.blade_flight_date = data.blade_flight_date;
+          pricingRequest.blade_flight_time = data.blade_flight_time;
+          pricingRequest.blade_bag_count = data.blade_bag_count;
         }
-        
+
         const response = await apiClient.post('/api/public/pricing-preview/', pricingRequest);
-        
-        console.log('✅ Pricing recalculated:', response.data);
-        
-        updateBookingData({ 
+
+        updateBookingData({
           pricing_data: response.data.pricing,
-          blade_ready_time: response.data.details?.ready_time 
+          blade_ready_time: response.data.details?.ready_time
         });
       } catch (error) {
-        console.error('❌ Failed to recalculate pricing:', error);
+        console.error('Failed to recalculate pricing:', error);
       } finally {
         setIsRecalculating(false);
       }
     };
 
     recalculatePricing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return isRecalculating;

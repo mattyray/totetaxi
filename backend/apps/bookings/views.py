@@ -40,6 +40,8 @@ from apps.services.serializers import (
 )
 from apps.payments.services import StripePaymentService
 from .pricing_utils import calculate_geographic_surcharge_from_zips
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -252,53 +254,49 @@ class PricingPreviewView(APIView):
             specialty_items_data = serializer.validated_data.get('specialty_items', [])
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             
-            try:
-                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                if config:
-                    if item_count > 0:
-                        item_total = config.price_per_item_cents * item_count
-                        base_price_cents = max(item_total, config.minimum_charge_cents)
-                        
-                        details['item_count'] = item_count
-                        details['per_item_rate'] = config.price_per_item_cents / 100
-                        details['minimum_charge'] = config.minimum_charge_cents / 100
-                    else:
-                        base_price_cents = 0
-                    
-                    # Calculate specialty items with quantities
-                    if specialty_items_data:
-                        specialty_items_list = []
-                        specialty_total_cents = 0
-                        
-                        for item_data in specialty_items_data:
-                            item_id = item_data.get('item_id')
-                            quantity = item_data.get('quantity', 1)
-                            
-                            try:
-                                specialty_item = SpecialtyItem.objects.get(id=item_id, is_active=True)
-                                item_total = specialty_item.price_cents * quantity
-                                specialty_total_cents += item_total
-                                
-                                specialty_items_list.append({
-                                    'name': specialty_item.name,
-                                    'price_dollars': specialty_item.price_dollars,
-                                    'quantity': quantity,
-                                    'subtotal_dollars': item_total / 100
-                                })
-                            except SpecialtyItem.DoesNotExist:
-                                logger.warning(f"Specialty item {item_id} not found")
-                                continue
-                        
-                        base_price_cents += specialty_total_cents
-                        details['specialty_items'] = specialty_items_list
-                    
-                    if is_same_day:
-                        same_day_fee_cents = config.same_day_flat_rate_cents
-                        details['is_same_day'] = True
-                        details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-            
-            except StandardDeliveryConfig.DoesNotExist:
-                return Response({'error': 'Standard delivery not configured'}, status=status.HTTP_400_BAD_REQUEST)
+            config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+            if config:
+                if item_count > 0:
+                    item_total = config.price_per_item_cents * item_count
+                    base_price_cents = max(item_total, config.minimum_charge_cents)
+
+                    details['item_count'] = item_count
+                    details['per_item_rate'] = config.price_per_item_cents / 100
+                    details['minimum_charge'] = config.minimum_charge_cents / 100
+                else:
+                    base_price_cents = 0
+
+                # Calculate specialty items with quantities
+                if specialty_items_data:
+                    specialty_items_list = []
+                    specialty_total_cents = 0
+
+                    for item_data in specialty_items_data:
+                        item_id = item_data.get('item_id')
+                        quantity = item_data.get('quantity', 1)
+
+                        try:
+                            specialty_item = SpecialtyItem.objects.get(id=item_id, is_active=True)
+                            item_total = specialty_item.price_cents * quantity
+                            specialty_total_cents += item_total
+
+                            specialty_items_list.append({
+                                'name': specialty_item.name,
+                                'price_dollars': specialty_item.price_dollars,
+                                'quantity': quantity,
+                                'subtotal_dollars': item_total / 100
+                            })
+                        except SpecialtyItem.DoesNotExist:
+                            logger.warning(f"Specialty item {item_id} not found")
+                            continue
+
+                    base_price_cents += specialty_total_cents
+                    details['specialty_items'] = specialty_items_list
+
+                if is_same_day:
+                    same_day_fee_cents = config.same_day_flat_rate_cents
+                    details['is_same_day'] = True
+                    details['same_day_rate'] = config.same_day_flat_rate_cents / 100
             
             # Apply geographic surcharge for Standard Delivery ($175 per out-of-zone address)
             geographic_surcharge_cents = calculate_geographic_surcharge_from_zips(
@@ -350,14 +348,11 @@ class PricingPreviewView(APIView):
             # Apply same-day delivery for specialty items
             is_same_day = serializer.validated_data.get('is_same_day_delivery', False)
             if is_same_day:
-                try:
-                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                    if config:
-                        same_day_fee_cents = config.same_day_flat_rate_cents
-                        details['is_same_day'] = True
-                        details['same_day_rate'] = config.same_day_flat_rate_cents / 100
-                except StandardDeliveryConfig.DoesNotExist:
-                    pass
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    same_day_fee_cents = config.same_day_flat_rate_cents
+                    details['is_same_day'] = True
+                    details['same_day_rate'] = config.same_day_flat_rate_cents / 100
             
             # Apply geographic surcharge for Specialty Items ($175 per out-of-zone address)
             geographic_surcharge_cents = calculate_geographic_surcharge_from_zips(
@@ -522,13 +517,14 @@ class CalendarAvailabilityView(APIView):
         })
 
 
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')
 class CreateGuestPaymentIntentView(APIView):
     """
     Create payment intent BEFORE guest booking
     This separates payment from booking creation to avoid pending bookings
     """
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
         logger.info("Guest payment intent request received")
         

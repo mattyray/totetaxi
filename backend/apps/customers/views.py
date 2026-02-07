@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from .emails import send_welcome_email, send_password_reset_email, send_email_verification
 from .models import CustomerProfile, SavedAddress, PasswordResetToken, EmailVerificationToken
 from apps.accounts.permissions import IsStaffMember
+from apps.accounts.models import StaffAction
 from .serializers import (
     CustomerRegistrationSerializer, 
     CustomerLoginSerializer,
@@ -390,7 +391,15 @@ class CustomerNotesUpdateView(APIView):
         notes = request.data.get('notes', '')
         customer_profile.notes = notes
         customer_profile.save()
-        
+
+        StaffAction.log_action(
+            staff_user=request.user,
+            action_type='modify_customer',
+            description=f'Updated notes for customer {customer_user.get_full_name()}',
+            request=request,
+            customer_id=customer_profile.id,
+        )
+
         return Response({
             'message': 'Customer notes updated successfully',
             'notes': customer_profile.notes

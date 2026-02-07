@@ -44,29 +44,32 @@ class LogisticsSummaryView(APIView):
 @api_view(['POST'])
 @permission_classes([IsStaffMember])
 def sync_onfleet_status(request):
-    """Manual sync button for staff dashboard"""
+    """Manual sync button for staff dashboard.
+
+    TODO: Fetch real-time status from Onfleet API for each task.
+    Currently a stub — updates last_synced timestamp only.
+    """
+    from datetime import timedelta as _td
+
     try:
-        # Get recent incomplete tasks
         recent_tasks = OnfleetTask.objects.filter(
             status__in=['created', 'assigned', 'active'],
-            created_at__gte=timezone.now() - timezone.timedelta(days=7)
+            created_at__gte=timezone.now() - _td(days=7),
         )
-        
+
         synced_count = 0
         for task in recent_tasks:
-            # In production, you'd fetch current status from Onfleet API
-            # For now, just update the sync timestamp
             task.last_synced = timezone.now()
             task.save()
             synced_count += 1
-        
+
         return Response({
             'success': True,
-            'message': f'Synced {synced_count} tasks',
+            'message': f'Synced {synced_count} tasks (timestamps only — real sync not yet implemented)',
             'synced_count': synced_count,
-            'timestamp': timezone.now()
+            'timestamp': timezone.now(),
         })
-        
+
     except Exception as e:
         logger.error(f"Sync error: {e}")
         return Response({

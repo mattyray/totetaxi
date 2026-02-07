@@ -22,6 +22,8 @@ from .booking_serializers import (
     QuickBookingSerializer,
     PaymentIntentCreateSerializer
 )
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +31,14 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')
 class CreatePaymentIntentView(APIView):
     """
     Create payment intent BEFORE booking
     This separates payment from booking creation to avoid pending bookings
     """
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
         logger.info("Payment intent request received")
         

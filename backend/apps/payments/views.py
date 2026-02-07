@@ -14,6 +14,8 @@ from django.core.cache import cache
 from django.db import transaction, models
 from django.contrib.auth import get_user_model
 
+from django_ratelimit.decorators import ratelimit
+
 from .models import Payment, Refund
 from .serializers import (
     PaymentIntentCreateSerializer,
@@ -47,10 +49,11 @@ def _get_system_staff_user():
     return user
 
 
+@method_decorator(ratelimit(key='ip', rate='10/h', method='POST', block=True), name='post')
 class PaymentIntentCreateView(APIView):
     """Create Stripe PaymentIntent for a booking - no authentication required for guest bookings"""
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
         serializer = PaymentIntentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -177,8 +180,8 @@ class StripeWebhookView(APIView):
             logger.info(f"Webhook: Event {event_id} already processed, skipping")
             return Response({'status': 'already_processed'}, status=status.HTTP_200_OK)
         
-        # Mark event as processed (cache for 24 hours)
-        cache.set(cache_key, True, timeout=86400)
+        # Mark event as processed (cache for 72 hours to match Stripe's retry window)
+        cache.set(cache_key, True, timeout=259200)
         
         logger.info(f"Webhook: Processing event {event_id} of type {event_type}")
         

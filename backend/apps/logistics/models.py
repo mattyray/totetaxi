@@ -174,25 +174,31 @@ from django.dispatch import receiver
 @receiver(post_save, sender='bookings.Booking')
 def create_onfleet_tasks_on_payment(sender, instance, created, **kwargs):
     """
-    Auto-create Onfleet tasks when booking payment is confirmed
-    Creates 2 tasks: pickup + dropoff
+    Auto-create Onfleet tasks when booking status transitions to paid/confirmed.
+    Only fires on actual status changes, not every save. Creates 2 tasks: pickup + dropoff.
     """
-    # Trigger on 'paid' or 'confirmed' status
-    if instance.status in ['paid', 'confirmed']:
-        # Check if tasks already exist
-        if instance.onfleet_tasks.exists():
-            logger.debug(f"Tasks already exist for booking {instance.booking_number}")
-            return
-        
-        try:
-            from .services import ToteTaxiOnfleetIntegration
-            integration = ToteTaxiOnfleetIntegration()
-            pickup, dropoff = integration.create_tasks_for_booking(instance)
-            
-            if pickup and dropoff:
-                logger.info(f"✓ Created 2 Onfleet tasks for booking {instance.booking_number}")
-            else:
-                logger.error(f"✗ Failed to create tasks for booking {instance.booking_number}")
-                
-        except Exception as e:
-            logger.error(f"Error in Onfleet signal: {e}", exc_info=True)
+    if instance.status not in ['paid', 'confirmed']:
+        return
+
+    # Only act on real transitions (new booking or status actually changed)
+    original = getattr(instance, '_original_status', None)
+    if not created and original == instance.status:
+        return
+
+    # Check if tasks already exist
+    if instance.onfleet_tasks.exists():
+        logger.debug(f"Tasks already exist for booking {instance.booking_number}")
+        return
+
+    try:
+        from .services import ToteTaxiOnfleetIntegration
+        integration = ToteTaxiOnfleetIntegration()
+        pickup, dropoff = integration.create_tasks_for_booking(instance)
+
+        if pickup and dropoff:
+            logger.info(f"✓ Created 2 Onfleet tasks for booking {instance.booking_number}")
+        else:
+            logger.error(f"✗ Failed to create tasks for booking {instance.booking_number}")
+
+    except Exception as e:
+        logger.error(f"Error in Onfleet signal: {e}", exc_info=True)
