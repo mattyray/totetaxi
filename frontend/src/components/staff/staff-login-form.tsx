@@ -31,6 +31,8 @@ export function StaffLoginForm() {
     setValue,
   } = useForm<StaffLoginForm>({
     resolver: zodResolver(staffLoginSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     defaultValues: {
       username: '',
       password: '',

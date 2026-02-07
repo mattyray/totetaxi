@@ -8,22 +8,26 @@ import { useStaffAuthStore } from '@/stores/staff-auth-store';
 
 // Component to handle session validation
 function SessionValidator() {
-  const { isAuthenticated: customerAuth, validateSession: validateCustomer } = useAuthStore();
-  const { isAuthenticated: staffAuth, validateSession: validateStaff } = useStaffAuthStore();
+  const { validateSession: validateCustomer } = useAuthStore();
+  const { validateSession: validateStaff } = useStaffAuthStore();
 
   useEffect(() => {
     const validateSessions = async () => {
       console.log('Validating stored sessions on app startup');
-      
+
+      // Read auth state at call time (not from stale closure)
+      const isCustomerAuth = useAuthStore.getState().isAuthenticated;
+      const isStaffAuth = useStaffAuthStore.getState().isAuthenticated;
+
       try {
-        if (customerAuth) {
+        if (isCustomerAuth) {
           const isValid = await validateCustomer();
           if (!isValid) {
             console.log('Customer session invalid - cleared automatically');
           }
         }
-        
-        if (staffAuth) {
+
+        if (isStaffAuth) {
           const isValid = await validateStaff();
           if (!isValid) {
             console.log('Staff session invalid - cleared automatically');
@@ -34,10 +38,11 @@ function SessionValidator() {
       }
     };
 
-    // Run validation after a brief delay to ensure stores are initialized
+    // Run validation once on mount only
     const timer = setTimeout(validateSessions, 1000);
     return () => clearTimeout(timer);
-  }, [customerAuth, staffAuth, validateCustomer, validateStaff]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null; // This component doesn't render anything
 }

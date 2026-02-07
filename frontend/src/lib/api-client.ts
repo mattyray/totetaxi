@@ -65,22 +65,25 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      console.log('401 Unauthorized - clearing auth state');
-      
-      // Clear stored session data
-      localStorage.removeItem('totetaxi-session-id');
-      localStorage.removeItem('totetaxi-csrf-token');
-      
-      // Clear auth stores
+      const requestUrl = error.config?.url || '';
+
+      // Only clear the auth store that matches the failed request
+      // This prevents a customer 401 from logging out staff (and vice versa)
       try {
-        const { useAuthStore } = await import('@/stores/auth-store');
-        const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
-        
-        useAuthStore.getState().clearAuth();
-        useStaffAuthStore.getState().clearAuth();
+        if (requestUrl.includes('/api/staff/')) {
+          console.log('401 on staff endpoint - clearing staff auth');
+          const { useStaffAuthStore } = await import('@/stores/staff-auth-store');
+          useStaffAuthStore.getState().clearAuth();
+        } else if (requestUrl.includes('/api/customer/')) {
+          console.log('401 on customer endpoint - clearing customer auth');
+          const { useAuthStore } = await import('@/stores/auth-store');
+          useAuthStore.getState().clearAuth();
+        }
       } catch (e) {
         console.warn('Error clearing auth on 401:', e);
       }
+
+      localStorage.removeItem('totetaxi-csrf-token');
     }
     
     return Promise.reject(error);
