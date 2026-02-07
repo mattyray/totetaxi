@@ -1,13 +1,43 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** February 6, 2026
+**Last Updated:** February 7, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## February 7, 2026
+
+### Performance & Code Quality (PR #6)
+
+13 findings fixed from the security audit (1 HIGH, 7 MEDIUM, 5 MINOR). 2 items confirmed already fixed.
+
+| Finding | Severity | Description | Fix |
+|---------|----------|-------------|-----|
+| H7 | HIGH | `time.sleep()` in Stripe webhook blocked gunicorn workers up to 3.9s | Moved to Celery tasks with exponential backoff retry |
+| M2 | MEDIUM | Calendar N+1 queries (120+ for 60-day range) | Bulk query + defaultdict grouping (2 queries total) |
+| M3 | MEDIUM | Customer management N+1 (200+ for 100 customers) | Prefetch with to_attr (3 queries total) |
+| M4 | MEDIUM | Booking.save() recalculated pricing every time | Added `_skip_pricing` flag for status-only saves |
+| M6 | MEDIUM | BrowsableAPI enabled in production | Conditional on DEBUG setting |
+| M8 | MEDIUM | PaymentSerializer N+1 on booking relation | Added select_related to PaymentListView |
+| M9 | MEDIUM | date.fromisoformat crashed on invalid input | Added try/except returning 400 |
+| M10 | MEDIUM | Stripe webhook returned 404/500 causing Stripe retries | Now always returns 200 (async Celery processing) |
+| L4 | MINOR | _get_most_used_address ignores address_type | Documented: SavedAddress has no address_type field |
+| L5 | MINOR | CustomerBookingListView returned soft-deleted bookings | Added deleted_at__isnull=True filter |
+| L9 | MINOR | Refund modal didn't show remaining refundable amount | Shows total_refunded and remaining amount |
+| L11 | MINOR | No search debounce on staff management pages | 300ms useDebounce hook on booking + customer search |
+| L19 | MINOR | Password reset didn't invalidate previous tokens | Old tokens marked used before creating new one |
+
+**Already fixed (no changes needed):** M7 (pagination — DEFAULT_PAGINATION_CLASS in settings), L7 (console.log — next.config removeConsole)
+
+**New files:** `backend/apps/payments/tasks.py`, `frontend/src/hooks/use-debounce.ts`
+**Tests added:** 14 new tests across 4 test files
+**Test results:** 199 passed, 0 regressions (5 pre-existing failures)
 
 ---
 
@@ -132,7 +162,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Running Totals
 
-### Security Fixes: 12
+### Security Fixes: 25
 - C1: Payment amount verification
 - C2: PaymentIntent reuse prevention + guest Payment record
 - C3: Onfleet webhook HMAC authentication
@@ -142,9 +172,22 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - H2: Booking/payment status UUID-only lookup
 - H3: Staff permission classes (replace inline hasattr checks)
 - H5: Booking status transition validation
+- H7: Webhook time.sleep() replaced with Celery tasks
 - H8: Error message sanitization
+- M2: Calendar N+1 queries optimized
+- M3: Customer management N+1 queries optimized
+- M4: Booking.save() _skip_pricing flag
+- M6: BrowsableAPI disabled in production
+- M8: PaymentSerializer N+1 fixed
+- M9: date.fromisoformat error handling
+- M10: Stripe webhook always returns 200
 - L1: StaffAction view_booking type added
+- L4: _get_most_used_address documented
+- L5: Soft-deleted bookings filtered
+- L9: Refund modal partial refund awareness
+- L11: Search debounce (300ms)
 - L18: SECRET_KEY required in production
+- L19: Password reset token invalidation
 
 ### Bugs Fixed: 8
 - Double-click login (CSRF)
