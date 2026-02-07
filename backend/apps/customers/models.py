@@ -1,6 +1,7 @@
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import F
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -139,11 +140,16 @@ class CustomerProfile(models.Model):
         return self.total_spent_cents / 100
     
     def add_booking_stats(self, booking_total_cents):
-        """Update customer statistics after booking completion"""
-        self.total_bookings += 1
-        self.total_spent_cents += booking_total_cents
-        self.last_booking_at = timezone.now()
-        self.save()
+        """Update customer statistics after booking completion.
+
+        Uses F() expressions for atomic updates to prevent race conditions.
+        """
+        CustomerProfile.objects.filter(pk=self.pk).update(
+            total_bookings=F('total_bookings') + 1,
+            total_spent_cents=F('total_spent_cents') + booking_total_cents,
+            last_booking_at=timezone.now(),
+        )
+        self.refresh_from_db()
 
     @classmethod
     def ensure_single_profile_type(cls, user):

@@ -1,6 +1,6 @@
 # backend/apps/bookings/models.py
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
@@ -129,7 +129,15 @@ class Booking(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
-    
+
+    VALID_TRANSITIONS = {
+        'pending': ['confirmed', 'paid', 'cancelled'],
+        'confirmed': ['paid', 'cancelled'],
+        'paid': ['completed', 'cancelled'],
+        'completed': [],  # terminal
+        'cancelled': [],  # terminal
+    }
+
     SERVICE_TYPE_CHOICES = [
         ('mini_move', 'Mini Move'),
         ('standard_delivery', 'Standard Delivery'),
@@ -327,13 +335,20 @@ class Booking(models.Model):
     def save(self, *args, **kwargs):
         # Generate booking number if new
         if not self.booking_number:
-            last_booking = Booking.objects.order_by('created_at').last()
-            if last_booking and last_booking.booking_number:
-                last_num = int(last_booking.booking_number.split('-')[1])
-                next_num = last_num + 1
-            else:
-                next_num = 1
-            self.booking_number = f"TT-{next_num:06d}"
+            with transaction.atomic():
+                last_booking = (
+                    Booking.objects
+                    .filter(booking_number__isnull=False)
+                    .select_for_update()
+                    .order_by('-booking_number')
+                    .first()
+                )
+                if last_booking and last_booking.booking_number:
+                    last_num = int(last_booking.booking_number.split('-')[1])
+                    next_num = last_num + 1
+                else:
+                    next_num = 1
+                self.booking_number = f"TT-{next_num:06d}"
         
         # ========== AUTO-SET GEOGRAPHIC SURCHARGE ==========
         if self.pickup_address and self.delivery_address:

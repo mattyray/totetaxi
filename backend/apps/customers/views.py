@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from .emails import send_welcome_email, send_password_reset_email, send_email_verification
 from .models import CustomerProfile, SavedAddress, PasswordResetToken, EmailVerificationToken
+from apps.accounts.permissions import IsStaffMember
 from .serializers import (
     CustomerRegistrationSerializer, 
     CustomerLoginSerializer,
@@ -375,13 +376,9 @@ class CustomerBookingListView(generics.ListAPIView):
 @method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
     """Update customer notes with rate limiting - staff only"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def patch(self, request, customer_id):
-        # Check if user is staff
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-        
         try:
             customer_user = User.objects.get(id=customer_id)
             customer_profile = customer_user.customer_profile

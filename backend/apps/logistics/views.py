@@ -1,5 +1,5 @@
 # apps/logistics/views.py
-from rest_framework import status, permissions
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,18 +14,16 @@ from django.conf import settings as django_settings
 
 from .services import ToteTaxiOnfleetIntegration
 from .models import OnfleetTask
+from apps.accounts.permissions import IsStaffMember
 
 logger = logging.getLogger(__name__)
 
 
 class LogisticsSummaryView(APIView):
     """Simple logistics overview for staff dashboard"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Staff access required'}, status=403)
-        
         try:
             integration = ToteTaxiOnfleetIntegration()
             summary = integration.get_dashboard_summary()
@@ -44,12 +42,9 @@ class LogisticsSummaryView(APIView):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsStaffMember])
 def sync_onfleet_status(request):
     """Manual sync button for staff dashboard"""
-    if not hasattr(request.user, 'staff_profile'):
-        return Response({'error': 'Staff access required'}, status=403)
-    
     try:
         # Get recent incomplete tasks
         recent_tasks = OnfleetTask.objects.filter(
@@ -80,12 +75,9 @@ def sync_onfleet_status(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsStaffMember])
 def create_task_manually(request):
     """Manually create Onfleet task for a booking"""
-    if not hasattr(request.user, 'staff_profile'):
-        return Response({'error': 'Staff access required'}, status=403)
-    
     booking_id = request.data.get('booking_id')
     if not booking_id:
         return Response({'error': 'booking_id required'}, status=400)
@@ -226,12 +218,9 @@ class OnfleetWebhookView(APIView):
 
 class TaskStatusView(APIView):
     """Get status of Onfleet tasks"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Staff access required'}, status=403)
-        
         # Get query params
         booking_id = request.query_params.get('booking_id')
         date_filter = request.query_params.get('date')

@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
 from django_ratelimit.decorators import ratelimit
 from .models import StaffProfile, StaffAction
+from .permissions import IsStaffMember
 from .serializers import (
     StaffLoginSerializer,
     StaffProfileSerializer,
@@ -113,15 +114,9 @@ class StaffLogoutView(APIView):
 @method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class StaffDashboardView(APIView):
     """Staff operations dashboard with KPIs and rate limiting"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response(
-                {'error': 'Not a staff account'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         # Log dashboard access
         StaffAction.log_action(
             staff_user=request.user,
@@ -209,12 +204,9 @@ class StaffDashboardView(APIView):
 @method_decorator(ratelimit(key='user', rate='20/m', method='GET', block=True), name='get')
 class CustomerManagementView(APIView):
     """Staff customer management with rate limiting - list and search customers"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
-        
         # Get query parameters
         search = request.query_params.get('search', '')
         vip = request.query_params.get('vip', '')
@@ -286,12 +278,9 @@ class CustomerManagementView(APIView):
 @method_decorator(ratelimit(key='user', rate='15/m', method='GET', block=True), name='get')
 class CustomerDetailView(APIView):
     """Staff view for individual customer details with rate limiting"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request, customer_id):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
-        
         try:
             user = User.objects.get(id=customer_id, customer_profile__isnull=False)
             profile = user.customer_profile
@@ -344,12 +333,9 @@ class CustomerDetailView(APIView):
 @method_decorator(ratelimit(key='user', rate='5/m', method='PATCH', block=True), name='patch')
 class CustomerNotesUpdateView(APIView):
     """Update customer notes with rate limiting - staff only"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def patch(self, request, customer_id):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Staff access required'}, status=status.HTTP_403_FORBIDDEN)
-        
         try:
             user = User.objects.get(id=customer_id, customer_profile__isnull=False)
             profile = user.customer_profile
@@ -380,12 +366,10 @@ class CustomerNotesUpdateView(APIView):
 @method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class BookingManagementView(APIView):
     """Enhanced staff booking management with rate limiting and date range support"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request):
         """List all bookings with enhanced filtering including date ranges"""
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
         
         # Get query parameters
         status_filter = request.query_params.get('status', None)
@@ -473,15 +457,12 @@ class BookingManagementView(APIView):
 @method_decorator(ratelimit(key='user', rate='10/m', method='PATCH', block=True), name='patch')
 class BookingDetailView(APIView):
     """Staff view for individual booking details and management with rate limiting"""
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get(self, request, booking_id):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
-        
         try:
             booking = Booking.objects.select_related(
-                'customer', 'customer__customer_profile', 
+                'customer', 'customer__customer_profile',
                 'mini_move_package', 'guest_checkout',
                 'pickup_address', 'delivery_address'
             ).prefetch_related('specialty_items').get(id=booking_id, deleted_at__isnull=True)
@@ -695,9 +676,6 @@ class BookingDetailView(APIView):
     
     def patch(self, request, booking_id):
         """Update booking status and details"""
-        if not hasattr(request.user, 'staff_profile'):
-            return Response({'error': 'Not a staff account'}, status=status.HTTP_403_FORBIDDEN)
-        
         try:
             booking = Booking.objects.get(id=booking_id, deleted_at__isnull=True)
         except Booking.DoesNotExist:
@@ -706,11 +684,24 @@ class BookingDetailView(APIView):
         # Get update data
         new_status = request.data.get('status')
         staff_notes = request.data.get('staff_notes', '')
-        
+
         old_status = booking.status
-        
-        # Update booking
+
+        # Validate status transition
         if new_status and new_status != old_status:
+            valid_statuses = [s[0] for s in Booking.STATUS_CHOICES]
+            if new_status not in valid_statuses:
+                return Response(
+                    {'error': f'Invalid status: {new_status}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            allowed = Booking.VALID_TRANSITIONS.get(old_status, [])
+            if new_status not in allowed:
+                return Response(
+                    {'error': f'Cannot transition from {old_status} to {new_status}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             booking.status = new_status
             booking.save()
             
@@ -748,15 +739,9 @@ class StaffCSRFTokenView(APIView):
 @method_decorator(ratelimit(key='user', rate='30/m', method='GET', block=True), name='get')
 class StaffReportsView(APIView):
     """Staff reports and analytics API"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsStaffMember]
 
     def get(self, request):
-        if not hasattr(request.user, 'staff_profile'):
-            return Response(
-                {'error': 'Not a staff account'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         from django.db.models import Sum, Avg
         from django.db.models.functions import TruncDate, TruncMonth
         from django.utils import timezone

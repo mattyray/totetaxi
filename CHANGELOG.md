@@ -13,6 +13,26 @@ This document tracks all completed development work for client presentation and 
 
 ## February 6, 2026
 
+### Auth & Permissions Security Fixes (PR #5)
+
+6 more findings fixed from the security audit.
+
+| Finding | Severity | Description | Fix |
+|---------|----------|-------------|-----|
+| H3 | HIGH | Staff endpoints used inline `hasattr` checks instead of DRF permission classes — no role enforcement | Created `IsStaffMember` and `IsAdminStaff` permission classes, applied to all 14 staff views |
+| H5 | HIGH | Booking status accepted any arbitrary string — no transition validation | Added `VALID_TRANSITIONS` state machine to Booking model, validated in staff update view |
+| C4 | CRITICAL | Booking number generation had race condition — concurrent saves could produce duplicates | Wrapped in `transaction.atomic()` + `select_for_update()` |
+| C5 | CRITICAL | Customer stats (total_bookings, total_spent_cents) incremented in both payments AND logistics — double counting | Removed duplicate from logistics; kept single increment in payments with F() expressions |
+| L1 | MINOR | StaffAction logged `view_booking` but it wasn't in ACTION_TYPES choices | Added `view_booking` to ACTION_TYPES |
+| L18 | MINOR | SECRET_KEY had insecure default that could silently be used in production | Required in production (no fallback when FLY_APP_NAME set), default only for local dev |
+
+**Skipped:** H4 (lock_account `timezone.timedelta`) — investigated and confirmed NOT broken (Django re-exports timedelta). H6 (CSRF) — low risk given CORS + SameSite + separate domains.
+
+**Tests added:** 23 new tests across 3 test files
+**Test results:** 185 passed, 0 regressions
+
+---
+
 ### Security Audit & Critical Fixes (PR #4)
 
 Full security audit performed. 6 findings fixed and deployed.
@@ -112,13 +132,19 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Running Totals
 
-### Security Fixes: 6
+### Security Fixes: 12
 - C1: Payment amount verification
 - C2: PaymentIntent reuse prevention + guest Payment record
 - C3: Onfleet webhook HMAC authentication
+- C4: Booking number race condition (atomic generation)
+- C5: Customer stats double-counting fix
 - H1: Calendar PII stripped for public users
 - H2: Booking/payment status UUID-only lookup
+- H3: Staff permission classes (replace inline hasattr checks)
+- H5: Booking status transition validation
 - H8: Error message sanitization
+- L1: StaffAction view_booking type added
+- L18: SECRET_KEY required in production
 
 ### Bugs Fixed: 8
 - Double-click login (CSRF)

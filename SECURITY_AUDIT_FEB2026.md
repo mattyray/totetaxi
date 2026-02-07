@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** Planning
+**Status:** PR 1 merged & deployed, PR 2 in testing
 
 ---
 
@@ -21,24 +21,24 @@
 
 | ID | Finding | Files | Test Coverage |
 |----|---------|-------|---------------|
-| C1 | **Payment amount never verified** — booking creation checks `payment_intent.status == 'succeeded'` but never checks amount matches booking total. Attacker could pay $1 and book a $2,500 move. | `bookings/views.py:554-572`, `customers/booking_views.py:110-128` | NONE — existing payment tests don't test amount mismatch |
-| C2 | **PaymentIntent reuse** — no check prevents using one successful PI to create multiple bookings. Guest flow doesn't even create a Payment record. | `bookings/views.py:535-617`, `customers/booking_views.py:84-185` | NONE |
-| C3 | **Onfleet webhook has zero auth** — no signature verification despite `ONFLEET_WEBHOOK_SECRET` in settings. Anyone can POST fake task completions to mark bookings complete. | `logistics/views.py:127-198` | Webhook handling tested but NOT auth/signature verification |
-| C4 | **Booking number race condition** — concurrent saves generate same `TT-XXXXXX`, one crashes with unhandled `IntegrityError` after payment. | `bookings/models.py:327-336` | `test_booking_number_generation` exists but doesn't test concurrency |
-| C5 | **Double-counting customer stats** — both `confirm_payment()` and `_mark_booking_completed()` increment `total_bookings` and `total_spent_cents`. | `payments/services.py:78-85`, `logistics/models.py:153-174` | `test_payment_confirmation_updates_customer_stats` exists but doesn't check for double-count |
+| C1 | **Payment amount never verified** — booking creation checks `payment_intent.status == 'succeeded'` but never checks amount matches booking total. Attacker could pay $1 and book a $2,500 move. | `bookings/views.py:554-572`, `customers/booking_views.py:110-128` | **FIXED** PR #4 |
+| C2 | **PaymentIntent reuse** — no check prevents using one successful PI to create multiple bookings. Guest flow doesn't even create a Payment record. | `bookings/views.py:535-617`, `customers/booking_views.py:84-185` | **FIXED** PR #4 |
+| C3 | **Onfleet webhook has zero auth** — no signature verification despite `ONFLEET_WEBHOOK_SECRET` in settings. Anyone can POST fake task completions to mark bookings complete. | `logistics/views.py:127-198` | **FIXED** PR #4 |
+| C4 | **Booking number race condition** — concurrent saves generate same `TT-XXXXXX`, one crashes with unhandled `IntegrityError` after payment. | `bookings/models.py:327-336` | **FIXED** PR #5 — atomic select_for_update |
+| C5 | **Double-counting customer stats** — both `confirm_payment()` and `_mark_booking_completed()` increment `total_bookings` and `total_spent_cents`. | `payments/services.py:78-85`, `logistics/models.py:153-174` | **FIXED** PR #5 — removed duplicate, F() expressions |
 
 ### HIGH — Fix Within One Sprint
 
 | ID | Finding | Files | Test Coverage |
 |----|---------|-------|---------------|
-| H1 | **Calendar endpoint leaks all booking PII publicly** — customer names, prices, booking numbers via `AllowAny` permission. | `bookings/views.py:419-483` | NONE |
-| H2 | **Booking status endpoint enumerable** — sequential `TT-000001` + `AllowAny` = mass scraping of customer names and full addresses. | `bookings/views.py:620-633` | NONE |
-| H3 | **Staff role permissions never enforced** — `staff` and `admin` roles exist but every view just checks `hasattr(request.user, 'staff_profile')`. Any staff can process unlimited refunds. | `accounts/views.py` (15+ locations), `payments/views.py:521-629` | NONE — no staff permission tests exist |
-| H4 | **`StaffProfile.lock_account` broken** — references `timezone.timedelta` which doesn't exist. Account lockout crashes instead of working. | `accounts/models.py:84` | NONE |
-| H5 | **Booking status accepts any arbitrary string** — staff PATCH doesn't validate against `STATUS_CHOICES`. | `accounts/views.py:696-734` | NONE |
-| H6 | **HybridAuthentication bypasses CSRF** — overrides `authenticate()` without calling `enforce_csrf()`. | `customers/authentication.py:8-58` | NONE |
-| H7 | **`time.sleep()` in Stripe webhook** — blocks gunicorn workers up to 3.9 seconds per retry, can exhaust all workers. | `payments/views.py:200-217` | NONE |
-| H8 | **Raw `str(e)` in error responses** — leaks Stripe API details, DB schema, file paths to clients. | Multiple views across payments, bookings, logistics, customers | NONE |
+| H1 | **Calendar endpoint leaks all booking PII publicly** — customer names, prices, booking numbers via `AllowAny` permission. | `bookings/views.py:419-483` | **FIXED** PR #4 |
+| H2 | **Booking status endpoint enumerable** — sequential `TT-000001` + `AllowAny` = mass scraping of customer names and full addresses. | `bookings/views.py:620-633` | **FIXED** PR #4 |
+| H3 | **Staff role permissions never enforced** — `staff` and `admin` roles exist but every view just checks `hasattr(request.user, 'staff_profile')`. Any staff can process unlimited refunds. | `accounts/views.py` (15+ locations), `payments/views.py:521-629` | **FIXED** PR #5 — IsStaffMember/IsAdminStaff permission classes |
+| H4 | **`StaffProfile.lock_account` broken** — references `timezone.timedelta` which doesn't exist. Account lockout crashes instead of working. | `accounts/models.py:84` | **NOT BROKEN** — Django re-exports timedelta from datetime |
+| H5 | **Booking status accepts any arbitrary string** — staff PATCH doesn't validate against `STATUS_CHOICES`. | `accounts/views.py:696-734` | **FIXED** PR #5 — VALID_TRANSITIONS state machine |
+| H6 | **HybridAuthentication bypasses CSRF** — overrides `authenticate()` without calling `enforce_csrf()`. | `customers/authentication.py:8-58` | SKIPPED — low risk (CORS + SameSite + separate domains) |
+| H7 | **`time.sleep()` in Stripe webhook** — blocks gunicorn workers up to 3.9 seconds per retry, can exhaust all workers. | `payments/views.py:200-217` | NONE — PR 3 |
+| H8 | **Raw `str(e)` in error responses** — leaks Stripe API details, DB schema, file paths to clients. | Multiple views across payments, bookings, logistics, customers | **FIXED** PR #4 |
 
 ### MEDIUM
 
@@ -59,7 +59,7 @@
 
 | ID | Finding | Files |
 |----|---------|-------|
-| L1 | `StaffAction.log_action` called with invalid `action_type` `'view_booking'` | `accounts/views.py:495` |
+| L1 | `StaffAction.log_action` called with invalid `action_type` `'view_booking'` | `accounts/views.py:495` — **FIXED** PR #5 |
 | L2 | `sync_onfleet_status` is a stub that doesn't actually sync | `logistics/views.py:46-79` |
 | L3 | Dead `try/except DoesNotExist` on `.filter().first()` calls | `bookings/models.py`, `bookings/views.py`, `bookings/serializers.py` |
 | L4 | `_get_most_used_address` ignores `address_type` parameter | `customers/booking_views.py:322-323` |
@@ -76,7 +76,7 @@
 | L15 | `401` response interceptor clears both auth stores on any 401 | `frontend/src/lib/api-client.ts:64-87` |
 | L16 | `CustomerProfile.add_booking_stats` no concurrency protection (needs F() expressions) | `customers/models.py:141-146` |
 | L17 | Signal-based Onfleet task creation runs on every `Booking.save()` | `logistics/models.py:181-205` |
-| L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` |
+| L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` — **FIXED** PR #5 |
 | L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` |
 | L20 | Session ID logged in plaintext (partial, 10 chars) | `customers/authentication.py:32-50` |
 
