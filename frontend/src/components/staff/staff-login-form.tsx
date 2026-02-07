@@ -52,9 +52,9 @@ export function StaffLoginForm() {
   const onSubmit = async (data: StaffLoginForm) => {
     // Prevent double submit
     if (isSubmitting || isLoading) return;
-    
+
     setApiError('');
-    
+
     try {
       // Handle remember me
       if (data.rememberMe) {
@@ -64,7 +64,7 @@ export function StaffLoginForm() {
       }
 
       const result = await login(data.username, data.password);
-      
+
       if (result.success) {
         console.log('Staff login successful, redirecting to dashboard');
         router.push('/staff/dashboard');
@@ -75,6 +75,19 @@ export function StaffLoginForm() {
       console.error('Staff login error:', error);
       setApiError('An unexpected error occurred. Please try again.');
     }
+  };
+
+  // Sync DOM values to React Hook Form before validation.
+  // Mobile password managers fill inputs without triggering React events,
+  // so RHF's internal state can be empty even when fields are filled.
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const usernameEl = form.elements.namedItem('username') as HTMLInputElement;
+    const passwordEl = form.elements.namedItem('password') as HTMLInputElement;
+    if (usernameEl) setValue('username', usernameEl.value);
+    if (passwordEl) setValue('password', passwordEl.value);
+    await handleSubmit(onSubmit)();
   };
 
   return (
@@ -91,7 +104,7 @@ export function StaffLoginForm() {
 
         <Card variant="elevated">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-navy-900 mb-1">
                   Username

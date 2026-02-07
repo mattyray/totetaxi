@@ -83,6 +83,7 @@ if FLY_APP_NAME:
         f'{FLY_APP_NAME}.fly.dev',
         f'{FLY_APP_NAME}.internal',
         '.fly.dev',
+        'api.totetaxi.com',
     ])
 
 DJANGO_APPS = [
