@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Booking, Address, GuestCheckout, BookingSpecialtyItem
+from .models import Booking, Address, GuestCheckout, BookingSpecialtyItem, DiscountCode, DiscountCodeUsage
 from django.utils import timezone
 from django.contrib import messages
 
@@ -43,8 +43,9 @@ class BookingAdmin(admin.ModelAdmin):
     )
     search_fields = ('booking_number', 'customer__email', 'guest_checkout__email')
     readonly_fields = (
-        'booking_number', 'base_price_cents', 'surcharge_cents', 
-        'coi_fee_cents', 'organizing_total_cents', 'total_price_cents', 
+        'booking_number', 'base_price_cents', 'surcharge_cents',
+        'coi_fee_cents', 'organizing_total_cents', 'total_price_cents',
+        'discount_amount_cents', 'pre_discount_total_cents',
         'created_at', 'updated_at'
     )
     
@@ -75,6 +76,10 @@ class BookingAdmin(admin.ModelAdmin):
         }),
         ('Calculated Pricing', {
             'fields': ('base_price_cents', 'surcharge_cents', 'coi_fee_cents', 'organizing_total_cents', 'total_price_cents'),
+            'classes': ('collapse',)
+        }),
+        ('Discount', {
+            'fields': ('discount_code', 'discount_amount_cents', 'pre_discount_total_cents'),
             'classes': ('collapse',)
         }),
         ('Status', {
@@ -152,6 +157,56 @@ class BookingAdmin(admin.ModelAdmin):
         count = queryset.filter(deleted_at__isnull=False).update(deleted_at=None)
         self.message_user(request, f'Restored {count} bookings to dashboard')
     restore_selected.short_description = "Restore hidden bookings"
+
+
+class DiscountCodeUsageInline(admin.TabularInline):
+    model = DiscountCodeUsage
+    extra = 0
+    readonly_fields = ('customer_email', 'booking', 'used_at')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DiscountCode)
+class DiscountCodeAdmin(admin.ModelAdmin):
+    list_display = (
+        'code', 'discount_type', 'get_discount_display', 'is_active',
+        'times_used', 'max_uses', 'valid_until', 'get_service_types',
+    )
+    list_filter = ('discount_type', 'is_active')
+    search_fields = ('code', 'description')
+    readonly_fields = ('times_used', 'created_at', 'updated_at')
+    inlines = [DiscountCodeUsageInline]
+
+    fieldsets = (
+        ('Code Details', {
+            'fields': ('code', 'description', 'discount_type', 'discount_value', 'is_active')
+        }),
+        ('Restrictions', {
+            'fields': (
+                'max_uses', 'max_uses_per_customer',
+                'valid_from', 'valid_until',
+                'minimum_order_cents', 'maximum_discount_cents',
+                'allowed_service_types',
+            )
+        }),
+        ('Usage', {
+            'fields': ('times_used', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_discount_display(self, obj):
+        return obj.discount_value_display
+    get_discount_display.short_description = 'Discount'
+
+    def get_service_types(self, obj):
+        if not obj.allowed_service_types:
+            return "All"
+        return ", ".join(obj.allowed_service_types)
+    get_service_types.short_description = 'Service Types'
 
 
 @admin.register(Address)

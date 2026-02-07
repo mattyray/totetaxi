@@ -633,8 +633,24 @@ export default function BookingDetailPage() {
                     </div>
                   )}
 
+                  {/* Discount */}
+                  {booking.booking?.discount_amount_dollars > 0 && (
+                    <>
+                      <div className="flex justify-between border-t pt-2 mt-2">
+                        <span className="text-navy-900">Subtotal:</span>
+                        <span className="text-navy-900 font-medium">${booking.booking.pre_discount_total_dollars}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700">
+                          Discount ({booking.booking.discount_description || booking.booking.discount_code_name}):
+                        </span>
+                        <span className="text-green-700 font-medium">-${booking.booking.discount_amount_dollars}</span>
+                      </div>
+                    </>
+                  )}
+
                   {/* Total */}
-                  <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                  <div className={`flex justify-between text-lg font-bold pt-2 mt-2 ${booking.booking?.discount_amount_dollars > 0 ? '' : 'border-t'}`}>
                     <span className="text-navy-900">Total:</span>
                     <span className="text-navy-900">${booking.booking?.total_price_dollars}</span>
                   </div>

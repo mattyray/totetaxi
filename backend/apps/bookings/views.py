@@ -385,16 +385,43 @@ class PricingPreviewView(APIView):
                 details['surcharges'] = surcharge_details
         
         total_price_cents = (
-            base_price_cents + 
-            same_day_fee_cents + 
-            surcharge_cents + 
-            coi_fee_cents + 
-            organizing_total_cents + 
-            organizing_tax_cents + 
-            geographic_surcharge_cents + 
+            base_price_cents +
+            same_day_fee_cents +
+            surcharge_cents +
+            coi_fee_cents +
+            organizing_total_cents +
+            organizing_tax_cents +
+            geographic_surcharge_cents +
             time_window_surcharge_cents
         )
-        
+
+        # Apply discount code if provided
+        discount_amount_cents = 0
+        discount_info = None
+
+        discount_code_str = (serializer.validated_data.get('discount_code') or '').strip()
+        discount_email = (serializer.validated_data.get('discount_email') or '').strip()
+
+        if discount_code_str and discount_email:
+            from .models import DiscountCode
+            try:
+                discount = DiscountCode.objects.get(code__iexact=discount_code_str)
+                is_valid, _ = discount.is_valid_for_customer(discount_email)
+
+                if is_valid and discount.is_valid_for_service(service_type):
+                    if total_price_cents >= discount.minimum_order_cents:
+                        discount_amount_cents = discount.calculate_discount(total_price_cents)
+                        discount_info = {
+                            'code': discount.code,
+                            'discount_type': discount.discount_type,
+                            'discount_description': discount.discount_value_display,
+                            'discount_amount_dollars': discount_amount_cents / 100,
+                        }
+            except DiscountCode.DoesNotExist:
+                pass
+
+        final_total_cents = max(0, total_price_cents - discount_amount_cents)
+
         return Response({
             'service_type': service_type,
             'pricing': {
@@ -406,9 +433,12 @@ class PricingPreviewView(APIView):
                 'organizing_tax_dollars': organizing_tax_cents / 100,
                 'geographic_surcharge_dollars': geographic_surcharge_cents / 100,
                 'time_window_surcharge_dollars': time_window_surcharge_cents / 100,
-                'total_price_dollars': total_price_cents / 100
+                'total_price_dollars': final_total_cents / 100,
+                'pre_discount_total_dollars': total_price_cents / 100 if discount_amount_cents > 0 else None,
+                'discount_amount_dollars': discount_amount_cents / 100 if discount_amount_cents > 0 else 0,
             },
             'details': details,
+            'discount': discount_info,
             'pickup_date': pickup_date
         })
 
@@ -539,26 +569,40 @@ class CreateGuestPaymentIntentView(APIView):
         amount_cents = validated_data['calculated_total_cents']
         customer_email = validated_data.get('email')
         
+        # Handle free orders (100% discount)
+        if amount_cents == 0:
+            logger.info(f"Free order via discount for guest {customer_email}")
+            return Response({
+                'client_secret': None,
+                'payment_intent_id': 'free_order',
+                'amount_dollars': 0
+            }, status=status.HTTP_200_OK)
+
         try:
             # Create Stripe payment intent
+            metadata = {
+                'service_type': validated_data['service_type'],
+                'customer_email': customer_email,
+            }
+            if validated_data.get('_discount_code_id'):
+                metadata['discount_code_id'] = validated_data['_discount_code_id']
+                metadata['discount_amount_cents'] = str(validated_data.get('_discount_amount_cents', 0))
+
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
                 currency='usd',
                 payment_method_types=['card'],
-                metadata={
-                    'service_type': validated_data['service_type'],
-                    'customer_email': customer_email,
-                }
+                metadata=metadata
             )
-            
+
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
-            
+
             return Response({
                 'client_secret': payment_intent.client_secret,
                 'payment_intent_id': payment_intent.id,
                 'amount_dollars': amount_cents / 100
             }, status=status.HTTP_200_OK)
-            
+
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating payment intent: {str(e)}")
             return Response(
@@ -586,36 +630,39 @@ class GuestBookingCreateView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ========== C2: PaymentIntent reuse prevention ==========
-        if Payment.objects.filter(
-            stripe_payment_intent_id=payment_intent_id,
-            booking__isnull=False,
-        ).exists():
-            logger.warning(f"PI reuse attempt: {payment_intent_id}")
-            return Response(
-                {'error': 'This payment has already been used for a booking'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        is_free_order = (payment_intent_id == 'free_order')
 
-        # Verify payment with Stripe
-        try:
-            payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-
-            if payment_intent.status != 'succeeded':
-                logger.warning(f"Payment not succeeded: {payment_intent.status}")
+        if not is_free_order:
+            # ========== C2: PaymentIntent reuse prevention ==========
+            if Payment.objects.filter(
+                stripe_payment_intent_id=payment_intent_id,
+                booking__isnull=False,
+            ).exists():
+                logger.warning(f"PI reuse attempt: {payment_intent_id}")
                 return Response(
-                    {'error': 'Payment has not succeeded'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'error': 'This payment has already been used for a booking'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+            # Verify payment with Stripe
+            try:
+                payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
 
-        except stripe.error.StripeError as e:
-            logger.error(f"Stripe verification failed: {str(e)}")
-            return Response(
-                {'error': 'Payment verification failed'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                if payment_intent.status != 'succeeded':
+                    logger.warning(f"Payment not succeeded: {payment_intent.status}")
+                    return Response(
+                        {'error': 'Payment has not succeeded'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
+
+            except stripe.error.StripeError as e:
+                logger.error(f"Stripe verification failed: {str(e)}")
+                return Response(
+                    {'error': 'Payment verification failed'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -634,31 +681,54 @@ class GuestBookingCreateView(generics.CreateAPIView):
 
         booking = serializer.save()
 
-        # ========== C1: Payment amount verification ==========
-        if payment_intent.amount != booking.total_price_cents:
-            logger.error(
-                f"Payment amount mismatch: PI={payment_intent.amount}, "
-                f"booking={booking.total_price_cents} for {booking.booking_number}"
+        if is_free_order:
+            # Verify the booking total is actually $0
+            if booking.total_price_cents != 0:
+                logger.error(
+                    f"Free order claimed but total is {booking.total_price_cents} "
+                    f"for {booking.booking_number}"
+                )
+                booking.status = 'cancelled'
+                booking.save()
+                return Response(
+                    {'error': 'Free order verification failed'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Create $0 payment record for audit trail
+            Payment.objects.create(
+                booking=booking,
+                amount_cents=0,
+                stripe_payment_intent_id='free_order',
+                stripe_charge_id='',
+                status='succeeded',
+                processed_at=timezone.now(),
             )
-            booking.status = 'cancelled'
-            booking.save()
-            return Response(
-                {'error': 'Payment amount does not match booking total'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        else:
+            # ========== C1: Payment amount verification ==========
+            if payment_intent.amount != booking.total_price_cents:
+                logger.error(
+                    f"Payment amount mismatch: PI={payment_intent.amount}, "
+                    f"booking={booking.total_price_cents} for {booking.booking_number}"
+                )
+                booking.status = 'cancelled'
+                booking.save()
+                return Response(
+                    {'error': 'Payment amount does not match booking total'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # ========== C2b: Create Payment record for guest booking ==========
-        charge_id = getattr(payment_intent, 'latest_charge', None)
-        if not isinstance(charge_id, str):
-            charge_id = ''
-        Payment.objects.create(
-            booking=booking,
-            amount_cents=payment_intent.amount,
-            stripe_payment_intent_id=payment_intent_id,
-            stripe_charge_id=charge_id,
-            status='succeeded',
-            processed_at=timezone.now(),
-        )
+            # ========== C2b: Create Payment record for guest booking ==========
+            charge_id = getattr(payment_intent, 'latest_charge', None)
+            if not isinstance(charge_id, str):
+                charge_id = ''
+            Payment.objects.create(
+                booking=booking,
+                amount_cents=payment_intent.amount,
+                stripe_payment_intent_id=payment_intent_id,
+                stripe_charge_id=charge_id,
+                status='succeeded',
+                processed_at=timezone.now(),
+            )
 
         # Update booking status to paid since payment already succeeded
         booking.status = 'paid'
@@ -733,6 +803,71 @@ class OrganizingServiceDetailView(APIView):
                 {'error': 'Organizing service not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+@method_decorator(ratelimit(key='ip', rate='20/h', method='POST', block=True), name='post')
+class ValidateDiscountCodeView(APIView):
+    """Validate a discount code and return discount details."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from .models import DiscountCode
+
+        code = (request.data.get('code') or '').strip().upper()
+        email = (request.data.get('email') or '').strip().lower()
+        service_type = request.data.get('service_type', '')
+        subtotal_cents = request.data.get('subtotal_cents', 0)
+
+        if not code:
+            return Response(
+                {'error': 'Discount code is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not email:
+            return Response(
+                {'error': 'Email is required for discount validation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            discount = DiscountCode.objects.get(code__iexact=code)
+        except DiscountCode.DoesNotExist:
+            return Response(
+                {'error': 'Invalid discount code'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        is_valid, error = discount.is_valid_for_customer(email)
+        if not is_valid:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        if service_type and not discount.is_valid_for_service(service_type):
+            return Response(
+                {'error': f'This discount code does not apply to {service_type} bookings'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if subtotal_cents and discount.minimum_order_cents > 0:
+            if int(subtotal_cents) < discount.minimum_order_cents:
+                return Response(
+                    {'error': f'Minimum order of ${discount.minimum_order_cents / 100:.2f} required for this code'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        discount_amount_cents = discount.calculate_discount(int(subtotal_cents)) if subtotal_cents else 0
+
+        return Response({
+            'valid': True,
+            'code': discount.code,
+            'discount_type': discount.discount_type,
+            'discount_value': discount.discount_value,
+            'discount_description': discount.discount_value_display,
+            'discount_amount_cents': discount_amount_cents,
+            'discount_amount_dollars': discount_amount_cents / 100,
+            'minimum_order_cents': discount.minimum_order_cents,
+            'allowed_service_types': discount.allowed_service_types,
+        })
 
 
 class ValidateZipCodeView(APIView):
