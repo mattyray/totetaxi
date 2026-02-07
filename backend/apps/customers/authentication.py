@@ -29,20 +29,20 @@ class HybridAuthentication(SessionAuthentication):
         if not session_key:
             return None
         
-        logger.info(f"Mobile auth attempt with session: {session_key[:10]}...")
+        logger.info(f"Mobile auth attempt with session: {session_key[:4] + '***'}...")
         
         try:
             # Validate session exists and get user
             session = SessionStore(session_key=session_key)
             
             if not session.exists(session_key):
-                logger.warning(f"Session does not exist: {session_key[:10]}...")
+                logger.warning(f"Session does not exist: {session_key[:4] + '***'}...")
                 return None
             
             user_id = session.get('_auth_user_id')
             
             if not user_id:
-                logger.warning(f"No user_id in session: {session_key[:10]}...")
+                logger.warning(f"No user_id in session: {session_key[:4] + '***'}...")
                 return None
             
             # 🔧 FIX: Load user with related profiles
@@ -51,7 +51,7 @@ class HybridAuthentication(SessionAuthentication):
             return (user, None)
             
         except User.DoesNotExist:
-            logger.error(f"User not found for session: {session_key[:10]}...")
+            logger.error(f"User not found for session: {session_key[:4] + '***'}...")
             return None
         except Exception as e:
             logger.error(f"Mobile auth error: {str(e)}")

@@ -82,13 +82,8 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     }
   }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
 
-  // ✅ FIX: Auto-skip customer info step if authenticated
-  useEffect(() => {
-    if (currentStep === 4 && isAuthenticated && !isGuestMode) {
-      console.log('⏭️ Skipping customer info step - user is authenticated');
-      nextStep();
-    }
-  }, [currentStep, isAuthenticated, isGuestMode, nextStep]);
+  // Step 4 skip for authenticated users is handled in the store's
+  // nextStep/previousStep — no useEffect needed (L14 fix).
 
   if (!mounted) {
     return (

@@ -304,7 +304,7 @@ class Booking(models.Model):
     total_price_cents = models.PositiveBigIntegerField(default=0)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    
+
     deleted_at = models.DateTimeField(null=True, blank=True)
     reminder_sent_at = models.DateTimeField(null=True, blank=True, help_text='When 24hr reminder email was sent')
 
@@ -332,6 +332,11 @@ class Booking(models.Model):
             models.Index(fields=['service_type'], name='bookings_service_type_idx'),
         ]
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Track original status so signals can detect real transitions (L17)
+        self._original_status = self.status
+
     def save(self, *args, **kwargs):
         skip_pricing = kwargs.pop('_skip_pricing', False)
 
@@ -374,7 +379,9 @@ class Booking(models.Model):
             self.calculate_pricing()
 
         super().save(*args, **kwargs)
-    
+        # Keep _original_status in sync so the signal detects the next transition
+        self._original_status = self.status
+
     def __str__(self):
         customer_name = self.get_customer_name()
         return f"{self.booking_number} - {customer_name} - ${self.total_price_dollars}"
@@ -601,27 +608,23 @@ class Booking(models.Model):
 
         # Standard Delivery pricing
         elif self.service_type == 'standard_delivery':
-            try:
-                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                if config:
-                    if self.standard_delivery_item_count and self.standard_delivery_item_count > 0:
-                        item_total = config.price_per_item_cents * self.standard_delivery_item_count
-                        self.base_price_cents = max(item_total, config.minimum_charge_cents)
-                    else:
-                        self.base_price_cents = 0
-                    
-                    if self.specialty_items.exists():
-                        specialty_total = 0
-                        for booking_item in self.bookingspecialtyitem_set.all():
-                            specialty_total += booking_item.subtotal_cents
-                        self.base_price_cents += specialty_total
-                    
-                    # Apply same-day delivery surcharge
-                    if self.is_same_day_delivery:
-                        self.same_day_surcharge_cents = config.same_day_flat_rate_cents
-                    
-            except StandardDeliveryConfig.DoesNotExist:
-                pass
+            config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+            if config:
+                if self.standard_delivery_item_count and self.standard_delivery_item_count > 0:
+                    item_total = config.price_per_item_cents * self.standard_delivery_item_count
+                    self.base_price_cents = max(item_total, config.minimum_charge_cents)
+                else:
+                    self.base_price_cents = 0
+
+                if self.specialty_items.exists():
+                    specialty_total = 0
+                    for booking_item in self.bookingspecialtyitem_set.all():
+                        specialty_total += booking_item.subtotal_cents
+                    self.base_price_cents += specialty_total
+
+                # Apply same-day delivery surcharge
+                if self.is_same_day_delivery:
+                    self.same_day_surcharge_cents = config.same_day_flat_rate_cents
             
             # Weekend/peak date surcharges
             if self.pickup_date:
@@ -643,12 +646,9 @@ class Booking(models.Model):
             
             # Apply same-day delivery surcharge for specialty items
             if self.is_same_day_delivery:
-                try:
-                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                    if config:
-                        self.same_day_surcharge_cents = config.same_day_flat_rate_cents
-                except StandardDeliveryConfig.DoesNotExist:
-                    pass
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    self.same_day_surcharge_cents = config.same_day_flat_rate_cents
             
             # Apply weekend/peak date surcharges
             if self.pickup_date:

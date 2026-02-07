@@ -360,50 +360,46 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
 
         # Standard Delivery pricing - ✅ OPTIMIZED WITH BULK FETCH
         elif service_type == 'standard_delivery':
-            try:
-                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                if config:
-                    item_count = data.get('standard_delivery_item_count', 0)
-                    if item_count > 0:
-                        item_total = config.price_per_item_cents * item_count
-                        total_cents = max(item_total, config.minimum_charge_cents)
-                    
-                    # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
-                    specialty_items_data = data.get('specialty_items', [])
-                    if specialty_items_data:
-                        # Extract all item IDs
-                        item_ids = [item_data['item_id'] for item_data in specialty_items_data]
-                        
-                        # Single query to fetch all items
-                        items_dict = {
-                            str(item.id): item 
-                            for item in SpecialtyItem.objects.filter(id__in=item_ids, is_active=True)
-                        }
-                        
-                        # Calculate totals
-                        for item_data in specialty_items_data:
-                            item_id = str(item_data['item_id'])
-                            if item_id in items_dict:
-                                item = items_dict[item_id]
-                                quantity = item_data['quantity']
-                                total_cents += item.price_cents * quantity
-                    
-                    if data.get('is_same_day_delivery'):
-                        total_cents += config.same_day_flat_rate_cents
+            config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+            if config:
+                item_count = data.get('standard_delivery_item_count', 0)
+                if item_count > 0:
+                    item_total = config.price_per_item_cents * item_count
+                    total_cents = max(item_total, config.minimum_charge_cents)
 
-                    if data.get('coi_required'):
-                        total_cents += 5000
+                # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
+                specialty_items_data = data.get('specialty_items', [])
+                if specialty_items_data:
+                    # Extract all item IDs
+                    item_ids = [item_data['item_id'] for item_data in specialty_items_data]
 
-                    # Geographic surcharge: $175 per out-of-zone address (max $350)
-                    geographic_surcharge = calculate_geographic_surcharge_from_zips(
-                        data.get('pickup_zip_code'),
-                        data.get('delivery_zip_code'),
-                        fallback_is_outside=data.get('is_outside_core_area', False)
-                    )
-                    total_cents += geographic_surcharge
+                    # Single query to fetch all items
+                    items_dict = {
+                        str(item.id): item
+                        for item in SpecialtyItem.objects.filter(id__in=item_ids, is_active=True)
+                    }
 
-            except StandardDeliveryConfig.DoesNotExist:
-                raise serializers.ValidationError("Standard delivery not configured")
+                    # Calculate totals
+                    for item_data in specialty_items_data:
+                        item_id = str(item_data['item_id'])
+                        if item_id in items_dict:
+                            item = items_dict[item_id]
+                            quantity = item_data['quantity']
+                            total_cents += item.price_cents * quantity
+
+                if data.get('is_same_day_delivery'):
+                    total_cents += config.same_day_flat_rate_cents
+
+                if data.get('coi_required'):
+                    total_cents += 5000
+
+                # Geographic surcharge: $175 per out-of-zone address (max $350)
+                geographic_surcharge = calculate_geographic_surcharge_from_zips(
+                    data.get('pickup_zip_code'),
+                    data.get('delivery_zip_code'),
+                    fallback_is_outside=data.get('is_outside_core_area', False)
+                )
+                total_cents += geographic_surcharge
 
         # Specialty Item pricing - ✅ OPTIMIZED WITH BULK FETCH
         elif service_type == 'specialty_item':
@@ -428,12 +424,9 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
                         total_cents += item.price_cents * quantity
             
             if data.get('is_same_day_delivery'):
-                try:
-                    config = StandardDeliveryConfig.objects.filter(is_active=True).first()
-                    if config:
-                        total_cents += config.same_day_flat_rate_cents
-                except StandardDeliveryConfig.DoesNotExist:
-                    pass
+                config = StandardDeliveryConfig.objects.filter(is_active=True).first()
+                if config:
+                    total_cents += config.same_day_flat_rate_cents
             
             if data.get('coi_required'):
                 total_cents += 5000
