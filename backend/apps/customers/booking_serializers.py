@@ -134,8 +134,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
             bag_count = data.get('blade_bag_count', 0)
             per_bag_price = 7500  # $75
             total_cents = max(bag_count * per_bag_price, 15000)  # $150 min
-            return total_cents
-        
+
         # Mini Move pricing
         elif service_type == 'mini_move':
             try:

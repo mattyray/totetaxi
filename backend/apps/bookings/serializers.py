@@ -317,8 +317,7 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
         if service_type == 'blade_transfer':
             bag_count = data.get('blade_bag_count', 0)
             total_cents = max(bag_count * 7500, 15000)
-            return total_cents
-        
+
         # Mini Move pricing
         elif service_type == 'mini_move':
             try:
