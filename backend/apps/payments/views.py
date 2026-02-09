@@ -275,57 +275,13 @@ class MockPaymentConfirmView(APIView):
             )
 
 
-class PaymentConfirmView(APIView):
-    """Confirm payment after Stripe processes it - called from frontend"""
-    permission_classes = [permissions.AllowAny]
-    
-    def post(self, request):
-        payment_intent_id = request.data.get('payment_intent_id')
-        
-        if not payment_intent_id:
-            return Response(
-                {'error': 'payment_intent_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Service handles payment update, booking status, customer stats
-            payment = StripePaymentService.confirm_payment(payment_intent_id)
-            
-            if not payment:
-                return Response(
-                    {'error': 'Payment confirmation failed'}, 
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-            
-            return Response({
-                'message': 'Payment confirmed successfully',
-                'booking_status': payment.booking.status if payment.booking else None,
-                'payment_status': payment.status
-            })
-            
-        except Payment.DoesNotExist:
-            return Response(
-                {'error': 'Payment not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Payment confirm error: {str(e)}", exc_info=True)
-            return Response(
-                {'error': 'Payment confirmation failed'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
 # Staff payment management views
 class PaymentListView(generics.ListAPIView):
     """List all payments - staff only"""
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get_queryset(self):
-        if not hasattr(self.request.user, 'staff_profile'):
-            return Payment.objects.none()
         return Payment.objects.select_related(
             'booking', 'booking__customer', 'booking__guest_checkout',
         ).order_by('-created_at')
@@ -334,12 +290,9 @@ class PaymentListView(generics.ListAPIView):
 class RefundListView(generics.ListAPIView):
     """List all refunds - staff only, optionally filter by booking"""
     serializer_class = RefundSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def get_queryset(self):
-        if not hasattr(self.request.user, 'staff_profile'):
-            return Refund.objects.none()
-        
         queryset = Refund.objects.select_related(
             'payment__booking', 'requested_by', 'approved_by'
         ).order_by('-created_at')
@@ -360,12 +313,9 @@ class RefundListView(generics.ListAPIView):
 class RefundCreateView(generics.CreateAPIView):
     """Create refund request - staff only"""
     serializer_class = RefundCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsStaffMember]
+
     def perform_create(self, serializer):
-        if not hasattr(self.request.user, 'staff_profile'):
-            raise permissions.PermissionDenied('Not a staff account')
-        
         serializer.save(requested_by=self.request.user)
 
 
@@ -402,9 +352,9 @@ class RefundProcessView(APIView):
             payment = Payment.objects.select_related('booking').get(id=payment_id)
             
             # Validate payment status
-            if payment.status != 'succeeded':
+            if payment.status not in ('succeeded', 'partially_refunded'):
                 return Response(
-                    {'error': f'Cannot refund payment with status: {payment.status}'}, 
+                    {'error': f'Cannot refund payment with status: {payment.status}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             

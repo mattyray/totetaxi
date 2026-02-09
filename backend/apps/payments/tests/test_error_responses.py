@@ -195,21 +195,6 @@ class TestPaymentErrorSanitization:
         leaks, pattern = _response_leaks_details(response)
         assert not leaks, f"Response leaks internal detail: '{pattern}'"
 
-    @patch('stripe.PaymentIntent.retrieve')
-    def test_payment_confirm_error_sanitized(self, mock_retrieve):
-        """Payment confirmation error must not leak details."""
-        mock_retrieve.side_effect = Exception(
-            'Connection error to api.stripe.com/v1/payment_intents/pi_xyz'
-        )
-
-        client = APIClient()
-        response = client.post('/api/payments/confirm/', {
-            'payment_intent_id': 'pi_xyz',
-        }, format='json')
-
-        leaks, pattern = _response_leaks_details(response)
-        assert not leaks, f"Response leaks internal detail: '{pattern}'"
-
     @patch('stripe.PaymentIntent.create')
     def test_customer_payment_intent_error_sanitized(self, mock_create):
         """Authenticated PI creation error must not leak details."""

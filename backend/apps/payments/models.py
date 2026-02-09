@@ -12,6 +12,7 @@ class Payment(models.Model):
         ('pending', 'Pending'),
         ('succeeded', 'Succeeded'),
         ('failed', 'Failed'),
+        ('partially_refunded', 'Partially Refunded'),
         ('refunded', 'Refunded'),
     ]
     

@@ -699,7 +699,10 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         if discount_code_str:
             from .models import DiscountCode as DiscountCodeModel
             try:
-                discount = DiscountCodeModel.objects.get(code__iexact=discount_code_str)
+                # Lock the discount row to prevent TOCTOU race on usage count
+                discount = DiscountCodeModel.objects.select_for_update().get(
+                    code__iexact=discount_code_str
+                )
                 email = validated_data['email']
                 is_valid, _ = discount.is_valid_for_customer(email)
 

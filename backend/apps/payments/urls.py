@@ -8,7 +8,6 @@ urlpatterns = [
     path('create-intent/', views.PaymentIntentCreateView.as_view(), name='payment-intent-create'),
     path('status/<str:booking_lookup>/', views.PaymentStatusView.as_view(), name='payment-status'),
     path('webhook/', views.StripeWebhookView.as_view(), name='stripe-webhook'),
-    path('confirm/', views.PaymentConfirmView.as_view(), name='payment-confirm'),
     
     # Staff endpoints
     path('payments/', views.PaymentListView.as_view(), name='payment-list'),
