@@ -5,12 +5,13 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=5, default_retry_delay=1)
+@shared_task(bind=True, max_retries=10, default_retry_delay=1)
 def process_payment_succeeded(self, event_data):
     """Process payment_intent.succeeded webhook event asynchronously.
 
     Replaces the synchronous time.sleep() retry loop that blocked gunicorn workers.
-    Uses Celery's built-in retry with exponential backoff.
+    Uses Celery's built-in retry with exponential backoff (up to 60s per retry).
+    Total retry window ~5 minutes to allow frontend booking creation to complete.
     """
     from apps.payments.models import Payment, PaymentAudit
     from apps.accounts.models import StaffProfile, StaffAction
@@ -25,11 +26,32 @@ def process_payment_succeeded(self, event_data):
             stripe_payment_intent_id=payment_intent_id
         )
     except Payment.DoesNotExist:
+        if self.request.retries >= self.max_retries:
+            # Exhausted all retries — customer was charged but no booking was created.
+            # Log critical details for manual follow-up (refund via Stripe dashboard).
+            metadata = payment_intent.get('metadata', {})
+            amount_dollars = payment_intent.get('amount', 0) / 100
+            logger.critical(
+                f"ORPHANED PAYMENT: Stripe PI {payment_intent_id} succeeded "
+                f"(${amount_dollars:.2f}) but no Payment record found after "
+                f"{self.max_retries} retries. "
+                f"Customer: {metadata.get('customer_email', 'unknown')}. "
+                f"Service: {metadata.get('service_type', 'unknown')}. "
+                f"Event: {event_id}. "
+                f"MANUAL REFUND REQUIRED via Stripe dashboard."
+            )
+            return {
+                'status': 'orphaned',
+                'payment_intent_id': payment_intent_id,
+                'amount': payment_intent.get('amount', 0),
+                'event_id': event_id,
+            }
+
         logger.info(
             f"Webhook task: Payment not found for {payment_intent_id}, "
             f"retry {self.request.retries}/{self.max_retries}"
         )
-        raise self.retry(countdown=min(2 ** self.request.retries, 30))
+        raise self.retry(countdown=min(2 ** self.request.retries, 60))
 
     # Skip if already processed
     if payment.status == 'succeeded':
@@ -84,7 +106,7 @@ def process_payment_succeeded(self, event_data):
     return {'status': 'success', 'booking_number': booking.booking_number}
 
 
-@shared_task(bind=True, max_retries=5, default_retry_delay=1)
+@shared_task(bind=True, max_retries=10, default_retry_delay=1)
 def process_payment_failed(self, event_data):
     """Process payment_intent.payment_failed webhook event asynchronously."""
     from apps.payments.models import Payment, PaymentAudit
@@ -97,11 +119,21 @@ def process_payment_failed(self, event_data):
             stripe_payment_intent_id=payment_intent_id
         )
     except Payment.DoesNotExist:
+        if self.request.retries >= self.max_retries:
+            metadata = payment_intent.get('metadata', {})
+            logger.warning(
+                f"Webhook task: Payment not found for failed PI {payment_intent_id} "
+                f"after {self.max_retries} retries. "
+                f"Customer: {metadata.get('customer_email', 'unknown')}. "
+                f"No action needed — payment was not captured."
+            )
+            return {'status': 'orphaned_failed', 'payment_intent_id': payment_intent_id}
+
         logger.info(
             f"Webhook task: Payment not found for failed {payment_intent_id}, "
             f"retry {self.request.retries}/{self.max_retries}"
         )
-        raise self.retry(countdown=min(2 ** self.request.retries, 30))
+        raise self.retry(countdown=min(2 ** self.request.retries, 60))
 
     # Update payment to failed
     payment.status = 'failed'

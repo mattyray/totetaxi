@@ -301,7 +301,10 @@ LOGGING = {
 # Stripe
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
-STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
+if os.environ.get('FLY_APP_NAME'):
+    STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')  # Required in production
+else:
+    STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 
 # Onfleet
 ONFLEET_API_KEY = env('ONFLEET_API_KEY', default='')

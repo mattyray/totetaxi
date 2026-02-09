@@ -3,6 +3,7 @@ from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.conf import settings
@@ -180,65 +181,66 @@ class CustomerBookingCreateView(APIView):
         # ========== END RESTRICTION CHECK ==========
 
         try:
-            booking = serializer.save()
-            logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
+            with transaction.atomic():
+                booking = serializer.save()
+                logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
 
-            if is_free_order:
-                # Verify the booking total is actually $0
-                if booking.total_price_cents != 0:
-                    logger.error(
-                        f"Free order claimed but total is {booking.total_price_cents} "
-                        f"for {booking.booking_number}"
+                if is_free_order:
+                    # Verify the booking total is actually $0
+                    if booking.total_price_cents != 0:
+                        logger.error(
+                            f"Free order claimed but total is {booking.total_price_cents} "
+                            f"for {booking.booking_number}"
+                        )
+                        booking.status = 'cancelled'
+                        booking.save()
+                        return Response(
+                            {'error': 'Free order verification failed'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    # Create $0 payment record for audit trail
+                    Payment.objects.create(
+                        booking=booking,
+                        customer=request.user,
+                        amount_cents=0,
+                        stripe_payment_intent_id='free_order',
+                        stripe_charge_id='',
+                        status='succeeded',
+                        processed_at=timezone.now(),
                     )
-                    booking.status = 'cancelled'
-                    booking.save()
-                    return Response(
-                        {'error': 'Free order verification failed'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                # Create $0 payment record for audit trail
-                Payment.objects.create(
-                    booking=booking,
-                    customer=request.user,
-                    amount_cents=0,
-                    stripe_payment_intent_id='free_order',
-                    stripe_charge_id='',
-                    status='succeeded',
-                    processed_at=timezone.now(),
-                )
-            else:
-                # ========== C1: Payment amount verification ==========
-                if payment_intent.amount != booking.total_price_cents:
-                    logger.error(
-                        f"Payment amount mismatch: PI={payment_intent.amount}, "
-                        f"booking={booking.total_price_cents} for {booking.booking_number}"
-                    )
-                    booking.status = 'cancelled'
-                    booking.save()
-                    return Response(
-                        {'error': 'Payment amount does not match booking total'},
-                        status=status.HTTP_400_BAD_REQUEST,
+                else:
+                    # ========== C1: Payment amount verification ==========
+                    if payment_intent.amount != booking.total_price_cents:
+                        logger.error(
+                            f"Payment amount mismatch: PI={payment_intent.amount}, "
+                            f"booking={booking.total_price_cents} for {booking.booking_number}"
+                        )
+                        booking.status = 'cancelled'
+                        booking.save()
+                        return Response(
+                            {'error': 'Payment amount does not match booking total'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                    # Create payment record
+                    charge_id = getattr(payment_intent, 'latest_charge', None)
+                    if not isinstance(charge_id, str):
+                        charge_id = ''
+                    Payment.objects.create(
+                        booking=booking,
+                        customer=request.user,
+                        amount_cents=payment_intent.amount,
+                        stripe_payment_intent_id=payment_intent_id,
+                        stripe_charge_id=charge_id,
+                        status='succeeded',
+                        processed_at=timezone.now(),
                     )
 
-                # Create payment record
-                charge_id = getattr(payment_intent, 'latest_charge', None)
-                if not isinstance(charge_id, str):
-                    charge_id = ''
-                Payment.objects.create(
-                    booking=booking,
-                    customer=request.user,
-                    amount_cents=payment_intent.amount,
-                    stripe_payment_intent_id=payment_intent_id,
-                    stripe_charge_id=charge_id,
-                    status='succeeded',
-                    processed_at=timezone.now(),
-                )
+                logger.info(f"Payment record created for booking {booking.booking_number}")
 
-            logger.info(f"Payment record created for booking {booking.booking_number}")
-
-            # Update booking status to paid since payment already succeeded
-            booking.status = 'paid'
-            booking.save()
+                # Update booking status to paid since payment already succeeded
+                booking.status = 'paid'
+                booking.save(_skip_pricing=True)
 
         except Exception as e:
             logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)
