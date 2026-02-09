@@ -5,6 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
 
+from django.db import models as db_models
 from .models import Payment, PaymentAudit
 from apps.bookings.models import Booking
 
@@ -123,8 +124,15 @@ class StripePaymentService:
                 stripe_refund_id=refund.id,
                 status='completed'
             )
-            
-            payment.status = 'refunded'
+
+            # Determine if fully or partially refunded
+            total_refunded = Refund.objects.filter(
+                payment=payment, status='completed'
+            ).aggregate(total=db_models.Sum('amount_cents'))['total'] or 0
+            if total_refunded >= payment.amount_cents:
+                payment.status = 'refunded'
+            else:
+                payment.status = 'partially_refunded'
             payment.save()
             
             PaymentAudit.log(

@@ -141,11 +141,11 @@ class TestRefundProcessing(TestCase):
         # Verify correct amount refunded
         assert refund.amount_cents == 7500
         assert refund.amount_dollars == 75.0
-        
-        # Verify payment marked as refunded
+
+        # Verify payment marked as partially refunded (not fully refunded)
         self.payment.refresh_from_db()
-        assert self.payment.status == 'refunded'
-        
+        assert self.payment.status == 'partially_refunded'
+
         print(f"✅ Partial refund processed: ${refund.amount_dollars}")
     
     @patch('stripe.Refund.create')

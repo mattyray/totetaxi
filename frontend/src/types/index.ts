@@ -138,7 +138,7 @@ export interface Payment {
   customer_name: string;
   amount_cents: number;
   amount_dollars: number;
-  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  status: 'pending' | 'succeeded' | 'failed' | 'partially_refunded' | 'refunded';
   stripe_payment_intent_id: string;
   stripe_charge_id: string;
   failure_reason?: string;

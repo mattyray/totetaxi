@@ -223,7 +223,7 @@ class TestValidateDiscountEndpoint:
             'code': 'DOESNOTEXIST',
             'email': 'test@example.com',
         })
-        assert response.status_code == 404
+        assert response.status_code == 400  # R11: uniform 400 to prevent code enumeration
 
     def test_validate_expired_code(self, api_client, expired_discount):
         response = api_client.post('/api/public/validate-discount/', {

@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.conf import settings
 import logging
 import json
+import uuid as _uuid_mod
 import stripe
 
 from .models import CustomerProfile, SavedAddress, CustomerPaymentMethod
@@ -38,7 +39,7 @@ class CreatePaymentIntentView(APIView):
     Create payment intent BEFORE booking
     This separates payment from booking creation to avoid pending bookings
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         logger.info("Payment intent request received")
@@ -59,10 +60,11 @@ class CreatePaymentIntentView(APIView):
         
         # Handle free orders (100% discount)
         if amount_cents == 0:
+            free_order_id = f'free_order_{_uuid_mod.uuid4()}'
             logger.info(f"Free order via discount for {customer_email}")
             return Response({
                 'client_secret': None,
-                'payment_intent_id': 'free_order',
+                'payment_intent_id': free_order_id,
                 'amount_dollars': 0
             }, status=status.HTTP_200_OK)
 
@@ -125,19 +127,20 @@ class CustomerBookingCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        is_free_order = (payment_intent_id == 'free_order')
+        is_free_order = payment_intent_id.startswith('free_order_')
+
+        # ========== C2: PaymentIntent reuse prevention ==========
+        if Payment.objects.filter(
+            stripe_payment_intent_id=payment_intent_id,
+            booking__isnull=False,
+        ).exists():
+            logger.warning(f"PI reuse attempt by {request.user.email}: {payment_intent_id}")
+            return Response(
+                {'error': 'This payment has already been used for a booking'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not is_free_order:
-            # ========== C2: PaymentIntent reuse prevention ==========
-            if Payment.objects.filter(
-                stripe_payment_intent_id=payment_intent_id,
-                booking__isnull=False,
-            ).exists():
-                logger.warning(f"PI reuse attempt by {request.user.email}: {payment_intent_id}")
-                return Response(
-                    {'error': 'This payment has already been used for a booking'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             # Verify payment with Stripe
             try:

@@ -205,6 +205,7 @@ export default function BookingDetailPage() {
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case 'succeeded': return 'bg-green-100 text-green-800';
+      case 'partially_refunded': return 'bg-orange-100 text-orange-800';
       case 'refunded': return 'bg-orange-100 text-orange-800';
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'failed': return 'bg-red-100 text-red-800';
@@ -251,8 +252,9 @@ export default function BookingDetailPage() {
               </span>
               {booking?.payment && (
                 <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getPaymentStatusColor(booking.payment.status)}`}>
-                  {booking.payment.status === 'refunded' ? '↩️ Refunded' : 
-                   booking.payment.status === 'succeeded' ? '✓ Paid' : 
+                  {booking.payment.status === 'refunded' ? '↩️ Refunded' :
+                   booking.payment.status === 'partially_refunded' ? '↩️ Partial Refund' :
+                   booking.payment.status === 'succeeded' ? '✓ Paid' :
                    booking.payment.status}
                 </span>
               )}
@@ -700,7 +702,7 @@ export default function BookingDetailPage() {
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-medium text-navy-900">Payment Information</h3>
-                    {booking.payment.status === 'succeeded' && (
+                    {(booking.payment.status === 'succeeded' || booking.payment.status === 'partially_refunded') && (
                       <Button
                         variant="primary"
                         size="sm"
