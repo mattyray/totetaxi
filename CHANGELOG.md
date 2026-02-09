@@ -11,6 +11,28 @@ This document tracks all completed development work for client presentation and 
 
 ---
 
+## February 9, 2026
+
+### Payment Flow Hardening (PR #9)
+
+4 fixes to improve payment reliability and prevent orphaned records.
+
+| Finding | Severity | Description | Fix |
+|---------|----------|-------------|-----|
+| NEW | HIGH | Booking creation not atomic — if Payment.objects.create() failed mid-flow, customer charged but no booking record | Wrapped booking + payment creation in `transaction.atomic()` (both guest + authenticated) |
+| #5 gap | MEDIUM | `booking.save()` after status='paid' triggered full pricing recalculation | Added `_skip_pricing=True` (was already used elsewhere from M4 fix) |
+| Sentry | MEDIUM | Webhook task crashed with MaxRetriesExceededError for Stripe invoices created outside the app | Graceful handling: log details + return instead of crashing. Increased retry window from ~31s to ~5min |
+| #8 gap | LOW | STRIPE_WEBHOOK_SECRET defaulted to empty string in production | Required in production (same pattern as SECRET_KEY from L18) |
+
+**Tests:** 238 passed, 0 regressions (5 pre-existing failures)
+**Remaining from re-audit (PR 2+3 planned):** Discount code TOCTOU race, unlimited free orders, partial refund blocking, legacy endpoint cleanup
+
+### Discount Code Bug Fix
+
+Fixed 100% discount codes not applying to blade_transfer bookings. Root cause: `return total_cents` inside blade_transfer pricing block caused early return before discount code section in both `PaymentIntentCreateSerializer._calculate_total_price()` paths (guest + authenticated).
+
+---
+
 ## February 7, 2026
 
 ### Performance & Code Quality (PR #6)
@@ -162,7 +184,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Running Totals
 
-### Security Fixes: 25
+### Security Fixes: 29
 - C1: Payment amount verification
 - C2: PaymentIntent reuse prevention + guest Payment record
 - C3: Onfleet webhook HMAC authentication
@@ -188,6 +210,10 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - L11: Search debounce (300ms)
 - L18: SECRET_KEY required in production
 - L19: Password reset token invalidation
+- R1: Booking creation atomic transactions
+- R5: _skip_pricing on final booking save
+- R6: Webhook task graceful retry exhaustion
+- R9: STRIPE_WEBHOOK_SECRET required in production
 
 ### Bugs Fixed: 8
 - Double-click login (CSRF)
@@ -227,7 +253,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 | Feature | Estimate | Priority | Status |
 |---------|----------|----------|--------|
-| Discount Codes | 10-12 hours | HIGH | Not Started |
+| Discount Codes | 10-12 hours | HIGH | **DONE** (PR #8) |
 | Item Description Field | 5-6 hours | MEDIUM | Not Started |
 | MailChimp Integration | 3-4 hours | LOW | Not Started |
 

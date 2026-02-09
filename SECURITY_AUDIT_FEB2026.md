@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** All 4 PRs merged & deployed. Audit complete.
+**Status:** All 4 PRs merged & deployed. Re-audit Feb 9 found additional items — PR #9 shipped, PR #10-11 planned.
 
 ---
 
@@ -79,6 +79,24 @@
 | L18 | `SECRET_KEY` has insecure default fallback | `config/settings.py:25` — **FIXED** PR #5 |
 | L19 | Password reset doesn't invalidate previous tokens | `customers/views.py:484-525`, `customers/models.py:41-73` | **FIXED** PR #6 — invalidate old tokens on new request |
 | L20 | Session ID logged in plaintext (partial, 10 chars) | `customers/authentication.py:32-50` | **FIXED** PR #7 — masked to 4 chars + *** |
+
+### Re-Audit Findings (February 9, 2026)
+
+Second audit run after discount codes feature (PR #8). Found items from new code + gaps in original fixes.
+
+| ID | Severity | Finding | Status |
+|----|----------|---------|--------|
+| R1 | HIGH | Booking creation not wrapped in `transaction.atomic()` — partial failure leaves orphaned records | **FIXED** PR #9 |
+| R2 | HIGH | Unlimited free orders — `free_order` PI string skips C2 reuse check, no unique ID | Planned PR #10 |
+| R3 | HIGH | Discount code TOCTOU race — usage not recorded until booking creation, concurrent requests bypass limit | Planned PR #10 |
+| R4 | HIGH | Partial refund sets `payment.status='refunded'` blocking all future refunds | Planned PR #11 |
+| R5 | MEDIUM | `booking.save()` without `_skip_pricing=True` after setting status='paid' | **FIXED** PR #9 |
+| R6 | MEDIUM | Webhook task crashed with MaxRetriesExceededError for external Stripe invoices | **FIXED** PR #9 |
+| R7 | MEDIUM | Legacy `PaymentIntentCreateView` + `PaymentConfirmView` are AllowAny, no rate limiting | Planned PR #11 |
+| R8 | MEDIUM | `CreatePaymentIntentView` (authenticated) uses AllowAny instead of IsAuthenticated | Planned PR #11 |
+| R9 | LOW | `STRIPE_WEBHOOK_SECRET` defaults to empty in production | **FIXED** PR #9 |
+| R10 | LOW | Refund views use `hasattr` instead of `IsStaffMember` permission class | Planned PR #11 |
+| R11 | LOW | Discount code validation returns 404 vs 400 (enables code enumeration) | Planned PR #10 |
 
 ### Positive Security Controls (Already Done Right)
 - Stripe webhook signature verification (properly implemented)
