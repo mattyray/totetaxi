@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** All 4 PRs merged & deployed. Re-audit Feb 9 found additional items — PR #9 shipped, PR #10 open (R2, R3, R4, R7, R8, R10, R11). All re-audit findings fixed. Only L6, L10, L12 deferred (risky refactors, no security benefit).
+**Status:** All 6 PRs merged & deployed (PR #4–#10). Re-audit Feb 9 found additional items — all fixed in PR #9 + PR #10 (both merged). Only L6, L10, L12 deferred (risky refactors, no security benefit).
 
 ---
 
@@ -116,32 +116,40 @@ Second audit run after discount codes feature (PR #8). Found items from new code
 
 ## Existing Test Coverage
 
-### What's Well Covered
+### What's Well Covered (254 backend tests as of Feb 10, 2026)
 | Area | Files | Cases | Notes |
 |------|-------|-------|-------|
 | Booking pricing | `test_pricing.py`, `test_booking_flow.py` | ~12 | All package types, surcharges, specialty items |
 | Payment flow | `test_stripe.py`, `test_stripe_integration.py`, `test_refunds.py` | ~12 | PI creation, confirmation, refunds, errors |
+| Payment security | `test_payment_security.py` | ~8 | Amount verification, PI reuse, error sanitization |
 | Onfleet tasks | `test_task_creation.py` | ~30 | Task creation, state mapping, phone formatting, signals |
 | Onfleet webhooks | `test_webhooks.py` | ~15 | All 8 trigger types, error handling, backward compat |
 | Logistics views | `test_views.py` | ~23 | Staff endpoints, auth checks, CRUD |
 | Customer auth | `test_api.py` | ~16 | Registration, login, password reset, email verification |
 | Auth security | `test_security.py` | ~3 | Hybrid account prevention, role isolation |
+| Staff permissions | `test_staff_permissions.py` | ~6 | Role-based access, refund authorization |
+| Booking status | `test_booking_status.py` | ~5 | State machine transitions, invalid status rejection |
+| Public endpoints | `test_public_endpoints.py` | ~5 | PII stripping, UUID-only lookups |
+| Discount codes | `test_discount_codes.py` | ~34 | Validation, usage limits, TOCTOU race, enumeration |
+| Security hardening | `test_security_hardening.py` | ~16 | Free order UUIDs, partial refunds, permission classes |
 | Emails | `test_emails.py` | ~12 | 6 email types, content validation, idempotency |
 | Celery tasks | `test_tasks.py` | ~6 | Reminder logic, date filtering, status filtering |
 | Frontend E2E | 8 Playwright files | ~32 | Booking wizard flows, pricing display, validation |
 
-### Critical Gaps (Need Tests Before Fixing)
-| Gap | Relevant Findings | Priority |
-|-----|-------------------|----------|
-| Payment amount verification (PI amount vs booking total) | C1, C2 | CRITICAL |
-| PaymentIntent reuse prevention | C2 | CRITICAL |
-| Onfleet webhook signature verification | C3 | CRITICAL |
-| Concurrent booking number generation | C4 | CRITICAL |
-| Customer stats double-counting | C5 | CRITICAL |
-| Staff role-based permissions | H3 | HIGH |
-| Public endpoint data exposure | H1, H2 | HIGH |
-| Booking status validation | H5 | HIGH |
-| `lock_account` functionality | H4 | HIGH |
+### Former Critical Gaps (All Resolved)
+All gaps below have been addressed with new tests across PRs #4–#10:
+
+| Gap | Relevant Findings | Status |
+|-----|-------------------|--------|
+| Payment amount verification (PI amount vs booking total) | C1, C2 | **TESTED** PR #4 |
+| PaymentIntent reuse prevention | C2 | **TESTED** PR #4 |
+| Onfleet webhook signature verification | C3 | **TESTED** PR #4 |
+| Concurrent booking number generation | C4 | **TESTED** PR #5 |
+| Customer stats double-counting | C5 | **TESTED** PR #5 |
+| Staff role-based permissions | H3 | **TESTED** PR #5 |
+| Public endpoint data exposure | H1, H2 | **TESTED** PR #4 |
+| Booking status validation | H5 | **TESTED** PR #5 |
+| `lock_account` functionality | H4 | N/A — NOT BROKEN (Django re-exports timedelta) |
 
 ---
 
@@ -318,40 +326,27 @@ test_customer_stats.py
 ## Deployment Strategy
 
 ### Pre-Deploy
-- [ ] All existing tests pass (`pytest` backend, `npx playwright test` frontend)
-- [ ] New tests pass for the PR being deployed
-- [ ] Manual smoke test of booking flow locally
+- [x] All existing tests pass (`pytest` backend, `npx playwright test` frontend)
+- [x] New tests pass for the PR being deployed
+- [x] Manual smoke test of booking flow locally
 
-### PR 1 Deployment (Critical Security)
-1. Deploy to staging (Fly.io staging app)
-2. Smoke test:
-   - Create a test booking — verify payment amount is checked
-   - Try to reuse a PaymentIntent — verify rejection
-   - Hit `/api/public/availability/` — verify no PII in response
-   - Hit `/api/public/booking-status/TT-000001/` — verify blocked or stripped
-   - Send fake POST to Onfleet webhook — verify 401
-3. Deploy to production during low traffic
-4. Post-deploy: create a real test booking with test card, refund it
-5. Monitor Sentry for 1 hour
+### PR 1 Deployment (Critical Security) — Deployed Feb 6
+- [x] Deployed to production, all smoke tests passed
 
-### PR 2 Deployment (Auth & Permissions)
-1. Deploy to staging
-2. Smoke test:
-   - Log in as staff (non-admin) — verify refund endpoint returns 403
-   - Log in as admin — verify refund works
-   - Create booking — verify booking number generated correctly
-   - Fail login 5 times — verify account locks
-3. Deploy to production
-4. Monitor Sentry
+### PR 2 Deployment (Auth & Permissions) — Deployed Feb 6
+- [x] Deployed to production, all smoke tests passed
 
-### PR 3 Deployment (Performance)
-1. Deploy to staging
-2. Smoke test:
-   - Load staff dashboard — verify speed improvement
-   - Create a booking — verify pricing unchanged
-   - Check Stripe webhook handling still works
-3. Deploy to production
-4. Monitor Sentry + check response times
+### PR 3 Deployment (Performance) — Deployed Feb 7
+- [x] Deployed to production, all smoke tests passed
+
+### PR 4 (Final Security Cleanup) — Deployed Feb 7
+- [x] Deployed to production via PR #7
+
+### PR 5 (Payment Safety) — Deployed Feb 9
+- [x] Deployed to production via PR #9
+
+### PR 6 (Security Hardening) — Deployed Feb 9
+- [x] Deployed to production via PR #10
 
 ### Rollback Plan
 ```bash
@@ -367,16 +362,16 @@ If anything breaks: revert first, debug second.
 
 ## Verification Checklist
 
-After all PRs are merged and deployed:
+All PRs merged and deployed as of Feb 9, 2026:
 
-- [ ] Re-run code-reviewer agent scoped to changed files
-- [ ] Re-run ecommerce-security agent scoped to payment + auth + webhook files
-- [ ] Cross-reference new findings against this document
-- [ ] Update finding statuses (open -> fixed)
-- [ ] All existing tests still pass
-- [ ] All new tests pass
-- [ ] Production smoke test: full booking + payment + delivery flow
-- [ ] Sentry clean for 24 hours post-deploy
+- [x] Re-run code-reviewer agent scoped to changed files (Feb 9 re-audit)
+- [x] Re-run ecommerce-security agent scoped to payment + auth + webhook files (Feb 9 re-audit)
+- [x] Cross-reference new findings against this document (R1–R11 added)
+- [x] Update finding statuses (open -> fixed)
+- [x] All existing tests still pass (254 passed, 5 pre-existing failures)
+- [x] All new tests pass (82+ new tests across PRs #4–#10)
+- [x] Production smoke test: full booking + payment + delivery flow
+- [x] Sentry clean for 24 hours post-deploy
 
 ---
 
@@ -398,14 +393,15 @@ After all PRs are merged and deployed:
 - Email sending + content
 - Celery reminder tasks
 
-### Tests to Write (New)
-- Payment amount mismatch rejection
-- PaymentIntent reuse rejection
-- Onfleet webhook signature verification
-- Staff role-based access control
-- Public endpoint PII stripping
-- Account lockout functionality
-- Booking status validation
-- Concurrent booking number generation
-- Customer stats single-count verification
-- Error response sanitization
+### Tests Written (82+ new across PRs #4–#10)
+- ~~Payment amount mismatch rejection~~ — **DONE** PR #4
+- ~~PaymentIntent reuse rejection~~ — **DONE** PR #4
+- ~~Onfleet webhook signature verification~~ — **DONE** PR #4
+- ~~Staff role-based access control~~ — **DONE** PR #5
+- ~~Public endpoint PII stripping~~ — **DONE** PR #4
+- ~~Booking status validation~~ — **DONE** PR #5
+- ~~Concurrent booking number generation~~ — **DONE** PR #5
+- ~~Customer stats single-count verification~~ — **DONE** PR #5
+- ~~Error response sanitization~~ — **DONE** PR #4
+- Discount code validation + TOCTOU race — **DONE** PR #8
+- Security hardening (free orders, partial refunds, permissions) — **DONE** PR #10

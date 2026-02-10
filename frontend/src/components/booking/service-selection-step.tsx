@@ -645,22 +645,6 @@ export function ServiceSelectionStep() {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={bookingData.is_same_day_delivery || false}
-                  onChange={(e) => updateBookingData({ is_same_day_delivery: e.target.checked })}
-                  className="mr-3"
-                />
-                <span className="text-navy-900 font-medium">
-                  Same-Day Delivery (+$360)
-                </span>
-              </label>
-            </CardContent>
-          </Card>
-
-          <Card variant="default">
-            <CardContent>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
                   checked={bookingData.coi_required || false}
                   onChange={(e) => updateBookingData({ coi_required: e.target.checked })}
                   className="mr-3 h-4 w-4"

@@ -2,7 +2,7 @@
 # CLAUDE.md — ToteTaxi
 
 ## Project Overview
-ToteTaxi is a booking and logistics platform for moving/transport services. Customers book services (Petite Move, Standard Move, Full Move, Organizing), make payments via Stripe, and track deliveries. Staff manage bookings, logistics, analytics, and customer data through a dedicated dashboard.
+ToteTaxi is a booking and logistics platform for moving/transport services. Customers book services (Mini Moves, Standard Delivery, Specialty Items, Organizing, Airport Transfer), apply discount codes, make payments via Stripe, and track deliveries. Staff manage bookings, logistics, analytics, and customer data through a dedicated dashboard.
 
 ## Tech Stack
 - **Backend:** Django 5.2 + Django REST Framework, PostgreSQL 16, Redis 7, Celery + Celery Beat
