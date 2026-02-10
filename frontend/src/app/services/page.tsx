@@ -44,6 +44,15 @@ export default function ServicesPage() {
     router.push('/book');
   };
 
+  // Handler for airport transfer
+  const handleSelectAirportTransfer = () => {
+    resetWizard();
+    updateBookingData({
+      service_type: 'blade_transfer',
+    });
+    router.push('/book');
+  };
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -255,6 +264,86 @@ export default function ServicesPage() {
             </div>
           </section>
         )}
+
+        {/* Airport Transfer */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Airport Transfer</h2>
+            <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+              Premium luggage transport to and from JFK and Newark airports.
+              We handle your bags so you can travel light.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Card variant="elevated">
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <div className="text-3xl font-bold text-navy-900 mb-2">
+                      $75 per bag
+                    </div>
+                    <p className="text-navy-600 mb-4">
+                      JFK & Newark (EWR) • Terminal-specific pickup & dropoff
+                    </p>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-navy-900">What's Included:</h4>
+                      <ul className="space-y-2 text-sm text-navy-700">
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Door-to-terminal or terminal-to-door service
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Real-time tracking via Onfleet
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Professional handling of all luggage
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Timed to your flight schedule
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-4">
+                      <h4 className="font-medium text-navy-900 mb-3">To Airport</h4>
+                      <p className="text-sm text-navy-700 mb-2">
+                        We pick up your bags and deliver them to your terminal before your departure.
+                      </p>
+                    </div>
+                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-6">
+                      <h4 className="font-medium text-navy-900 mb-3">From Airport</h4>
+                      <p className="text-sm text-navy-700 mb-2">
+                        We collect your bags at the terminal and deliver them to your door after you land.
+                      </p>
+                    </div>
+                    <div className="bg-navy-50 border border-navy-200 rounded-lg p-4 text-center">
+                      <p className="text-xs text-navy-600">
+                        No surcharges — no weekend, geographic, or time window fees.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleSelectAirportTransfer}
+                  >
+                    Book Airport Transfer
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
 
         {/* Specialty Items */}
         {services?.specialty_items && services.specialty_items.length > 0 && (
