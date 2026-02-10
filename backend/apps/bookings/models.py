@@ -297,6 +297,16 @@ class Booking(models.Model):
         ('JFK', 'JFK International Airport'),
         ('EWR', 'Newark Liberty International Airport'),
     ]
+
+    TRANSFER_DIRECTION_CHOICES = [
+        ('to_airport', 'To Airport'),
+        ('from_airport', 'From Airport'),
+    ]
+
+    VALID_TERMINALS = {
+        'JFK': ['1', '4', '5', '7', '8'],
+        'EWR': ['A', 'B', 'C'],
+    }
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking_number = models.CharField(max_length=20, unique=True, blank=True)
@@ -376,11 +386,23 @@ class Booking(models.Model):
         help_text="Number of bags for BLADE transfer (minimum 2)"
     )
     blade_ready_time = models.TimeField(
-        null=True, 
+        null=True,
         blank=True,
         help_text="Auto-calculated: when bags must be ready for pickup"
     )
-    
+    transfer_direction = models.CharField(
+        max_length=15,
+        choices=TRANSFER_DIRECTION_CHOICES,
+        default='to_airport',
+        help_text="Transfer direction: to airport or from airport"
+    )
+    blade_terminal = models.CharField(
+        max_length=2,
+        null=True,
+        blank=True,
+        help_text="Airport terminal (JFK: 1/4/5/7/8, EWR: A/B/C)"
+    )
+
     # Address and scheduling
     pickup_address = models.ForeignKey(
         Address, 
@@ -621,8 +643,11 @@ class Booking(models.Model):
     
     
     def calculate_blade_ready_time(self):
-        """Calculate BLADE ready time based on flight time"""
+        """Calculate BLADE ready time based on flight time (to_airport only)"""
         if self.service_type == 'blade_transfer' and self.blade_flight_time:
+            if self.transfer_direction == 'from_airport':
+                self.blade_ready_time = None
+                return
             from datetime import time
             if self.blade_flight_time < time(13, 0):
                 self.blade_ready_time = time(5, 0)
@@ -867,6 +892,8 @@ class Booking(models.Model):
         if self.service_type == 'blade_transfer':
             breakdown['blade_details'] = {
                 'airport': self.blade_airport,
+                'transfer_direction': self.transfer_direction,
+                'terminal': self.blade_terminal,
                 'bag_count': self.blade_bag_count,
                 'per_bag_price': 75,
                 'flight_date': self.blade_flight_date.isoformat() if self.blade_flight_date else None,

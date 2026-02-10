@@ -226,7 +226,7 @@ export default function BookingDetailPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-gray-700 font-medium">
-                              {booking.service_type === 'blade_transfer' ? '🚁 BLADE Delivery' : '🚚 Delivery'}
+                              {booking.service_type === 'blade_transfer' ? '✈️ Airport Transfer' : '🚚 Delivery'}
                             </span>
                             {getTaskStatusBadge(dropoffTask.status)}
                           </div>
@@ -316,13 +316,77 @@ export default function BookingDetailPage() {
                   </div>
                 </div>
                 
+                {booking.service_type === 'blade_transfer' && (
+                  <div className="border-t pt-3 space-y-3">
+                    <p className="text-sm font-bold text-navy-900">Airport Transfer Details</p>
+
+                    {booking.transfer_direction && (
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${
+                          booking.transfer_direction === 'from_airport'
+                            ? 'bg-green-50 text-green-800'
+                            : 'bg-blue-50 text-blue-800'
+                        }`}>
+                          {booking.transfer_direction === 'from_airport' ? 'From Airport' : 'To Airport'}
+                        </span>
+                      </div>
+                    )}
+
+                    {booking.blade_airport && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-900">Airport</p>
+                        <p className="text-navy-700">
+                          {booking.blade_airport}
+                          {booking.blade_terminal && ` - Terminal ${booking.blade_terminal}`}
+                        </p>
+                      </div>
+                    )}
+
+                    {booking.blade_flight_date && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-900">Flight Date</p>
+                        <p className="text-navy-700">
+                          {new Date(booking.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    )}
+
+                    {booking.blade_flight_time && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-900">
+                          {booking.transfer_direction === 'from_airport' ? 'Arrival Time' : 'Departure Time'}
+                        </p>
+                        <p className="text-navy-700">{booking.blade_flight_time}</p>
+                      </div>
+                    )}
+
+                    {booking.blade_ready_time && booking.transfer_direction !== 'from_airport' && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-900">Pickup Ready Time</p>
+                        <p className="text-navy-700">{booking.blade_ready_time}</p>
+                      </div>
+                    )}
+
+                    {booking.blade_bag_count && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-900">Bags</p>
+                        <p className="text-navy-700">{booking.blade_bag_count}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {booking.special_instructions && (
                   <div className="border-t pt-3">
                     <p className="text-sm font-medium text-navy-900 mb-1">Special Instructions</p>
                     <p className="text-navy-700 text-sm">{booking.special_instructions}</p>
                   </div>
                 )}
-                
+
                 <div className="flex flex-wrap gap-2 pt-2">
                   {booking.coi_required && (
                     <span className="px-3 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
@@ -342,7 +406,11 @@ export default function BookingDetailPage() {
                   <div>
                     <div className="flex items-center space-x-2 mb-2">
                       <MapPinIcon className="w-5 h-5 text-blue-600" />
-                      <h4 className="font-medium text-navy-900">Pickup</h4>
+                      <h4 className="font-medium text-navy-900">
+                        {booking.service_type === 'blade_transfer'
+                          ? booking.transfer_direction === 'from_airport' ? 'Pickup (Airport)' : 'Pickup (Your Location)'
+                          : 'Pickup'}
+                      </h4>
                     </div>
                     <div className="text-navy-700 text-sm">
                       <p>{booking.pickup_address.address_line_1}</p>
@@ -353,14 +421,19 @@ export default function BookingDetailPage() {
                         {booking.pickup_address.city}, {booking.pickup_address.state}{' '}
                         {booking.pickup_address.zip_code}
                       </p>
+                      {booking.service_type === 'blade_transfer' && booking.transfer_direction === 'from_airport' && booking.blade_terminal && (
+                        <p className="text-navy-600 font-medium mt-1">Terminal {booking.blade_terminal}</p>
+                      )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <div className="flex items-center space-x-2 mb-2">
                       <MapPinIcon className="w-5 h-5 text-green-600" />
                       <h4 className="font-medium text-navy-900">
-                        {booking.service_type === 'blade_transfer' ? 'BLADE Delivery' : 'Delivery'}
+                        {booking.service_type === 'blade_transfer'
+                          ? booking.transfer_direction === 'from_airport' ? 'Delivery (Your Location)' : 'Delivery (Airport)'
+                          : 'Delivery'}
                       </h4>
                     </div>
                     <div className="text-navy-700 text-sm">
@@ -372,6 +445,9 @@ export default function BookingDetailPage() {
                         {booking.delivery_address.city}, {booking.delivery_address.state}{' '}
                         {booking.delivery_address.zip_code}
                       </p>
+                      {booking.service_type === 'blade_transfer' && booking.transfer_direction !== 'from_airport' && booking.blade_terminal && (
+                        <p className="text-navy-600 font-medium mt-1">Terminal {booking.blade_terminal}</p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -207,13 +207,19 @@ export function AddressStep() {
   const [isRecalculating, setIsRecalculating] = useState(false);
 
   const isBlade = bookingData.service_type === 'blade_transfer';
+  const isFromAirport = isBlade && bookingData.transfer_direction === 'from_airport';
+  const isToAirport = isBlade && bookingData.transfer_direction !== 'from_airport';
 
   useEffect(() => {
     if (isBlade && bookingData.blade_airport) {
       const airportAddress = AIRPORT_ADDRESSES[bookingData.blade_airport];
-      updateBookingData({ delivery_address: airportAddress });
+      if (isFromAirport) {
+        updateBookingData({ pickup_address: airportAddress });
+      } else {
+        updateBookingData({ delivery_address: airportAddress });
+      }
     }
-  }, [isBlade, bookingData.blade_airport, updateBookingData]); // ✅ Complete
+  }, [isBlade, isFromAirport, bookingData.blade_airport, updateBookingData]);
   
   const validateZipCode = async (
     zipCode: string, 
@@ -280,6 +286,8 @@ export function AddressStep() {
   };
 
   const handlePickupZipChange = (zipCode: string) => {
+    if (isFromAirport) return;
+
     if (pickupDebounce) {
       clearTimeout(pickupDebounce);
     }
@@ -295,9 +303,25 @@ export function AddressStep() {
     }
   };
 
+  const handlePickupChange = (address: BookingAddress) => {
+    if (isFromAirport) return;
+    updateBookingData({ pickup_address: address });
+    if (address.address_line_1) clearError('pickup_address');
+    if (address.city) clearError('pickup_city');
+    if (address.zip_code) clearError('pickup_zip');
+  };
+
+  const handleDeliveryChange = (address: BookingAddress) => {
+    if (isToAirport) return;
+    updateBookingData({ delivery_address: address });
+    if (address.address_line_1) clearError('delivery_address');
+    if (address.city) clearError('delivery_city');
+    if (address.zip_code) clearError('delivery_zip');
+  };
+
   const handleDeliveryZipChange = (zipCode: string) => {
-    if (isBlade) return;
-    
+    if (isToAirport) return;
+
     if (deliveryDebounce) {
       clearTimeout(deliveryDebounce);
     }
@@ -311,22 +335,6 @@ export function AddressStep() {
       
       setDeliveryDebounce(timeout);
     }
-  };
-
-  const handlePickupChange = (address: BookingAddress) => {
-    updateBookingData({ pickup_address: address });
-    if (address.address_line_1) clearError('pickup_address');
-    if (address.city) clearError('pickup_city');
-    if (address.zip_code) clearError('pickup_zip');
-  };
-
-  const handleDeliveryChange = (address: BookingAddress) => {
-    if (isBlade) return;
-    
-    updateBookingData({ delivery_address: address });
-    if (address.address_line_1) clearError('delivery_address');
-    if (address.city) clearError('delivery_city');
-    if (address.zip_code) clearError('delivery_zip');
   };
 
   const handleContinue = async () => {
@@ -344,20 +352,24 @@ export function AddressStep() {
     const delivery = bookingData.delivery_address;
     let hasErrors = false;
 
-    if (!pickup?.address_line_1) {
-      setError('pickup_address', 'Pickup address is required');
-      hasErrors = true;
-    }
-    if (!pickup?.city) {
-      setError('pickup_city', 'Pickup city is required');
-      hasErrors = true;
-    }
-    if (!pickup?.zip_code) {
-      setError('pickup_zip', 'Pickup ZIP code is required');
-      hasErrors = true;
+    // For from_airport, pickup is the airport (auto-set) — only validate customer address
+    // For to_airport, delivery is the airport (auto-set) — only validate customer address
+    if (!isFromAirport) {
+      if (!pickup?.address_line_1) {
+        setError('pickup_address', 'Pickup address is required');
+        hasErrors = true;
+      }
+      if (!pickup?.city) {
+        setError('pickup_city', 'Pickup city is required');
+        hasErrors = true;
+      }
+      if (!pickup?.zip_code) {
+        setError('pickup_zip', 'Pickup ZIP code is required');
+        hasErrors = true;
+      }
     }
 
-    if (!isBlade) {
+    if (!isToAirport) {
       if (!delivery?.address_line_1) {
         setError('delivery_address', 'Delivery address is required');
         hasErrors = true;
@@ -430,17 +442,39 @@ export function AddressStep() {
 
   return (
     <div className="space-y-8">
-      <AddressForm
-        title="Pickup Address"
-        address={bookingData.pickup_address}
-        onAddressChange={handlePickupChange}
-        errors={errors}
-        onZipChange={handlePickupZipChange}
-        validationMessage={pickupValidation}
-        isValidating={pickupValidating}
-      />
+      {/* Pickup: editable for to_airport & non-blade, readonly for from_airport */}
+      {isFromAirport ? (
+        <AddressForm
+          title="Pickup Address (Airport)"
+          address={bookingData.pickup_address}
+          onAddressChange={handlePickupChange}
+          errors={{}}
+          readOnly={true}
+        />
+      ) : (
+        <AddressForm
+          title="Pickup Address"
+          address={bookingData.pickup_address}
+          onAddressChange={handlePickupChange}
+          errors={errors}
+          onZipChange={handlePickupZipChange}
+          validationMessage={pickupValidation}
+          isValidating={pickupValidating}
+        />
+      )}
 
-      {!isBlade && (
+      {/* Delivery: editable for from_airport & non-blade, readonly for to_airport */}
+      {isToAirport ? (
+        bookingData.delivery_address && (
+          <AddressForm
+            title="Delivery Address (Airport)"
+            address={bookingData.delivery_address}
+            onAddressChange={handleDeliveryChange}
+            errors={{}}
+            readOnly={true}
+          />
+        )
+      ) : (
         <AddressForm
           title="Delivery Address"
           address={bookingData.delivery_address}
@@ -452,15 +486,23 @@ export function AddressStep() {
         />
       )}
 
-      {isBlade && bookingData.delivery_address && (
-        <AddressForm
-          title="Delivery Address (Airport)"
-          address={bookingData.delivery_address}
-          onAddressChange={handleDeliveryChange}
-          errors={{}}
-          readOnly={true}
-        />
-      )}
+      {/* Special instructions */}
+      <Card variant="elevated" className="p-8">
+        <CardHeader className="p-0 pb-4">
+          <h3 className="text-lg font-medium text-navy-900">Special Instructions (Optional)</h3>
+        </CardHeader>
+        <CardContent className="p-0">
+          <textarea
+            value={bookingData.special_instructions || ''}
+            onChange={(e) => updateBookingData({ special_instructions: e.target.value })}
+            placeholder={isBlade
+              ? 'Any special instructions for the driver (e.g., fragile items, specific pickup location at terminal)...'
+              : 'Any special instructions for the driver (e.g., doorman building, buzzer code, elevator access)...'}
+            className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white resize-y min-h-[80px]"
+            rows={3}
+          />
+        </CardContent>
+      </Card>
 
       {errors.general && (
         <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200">

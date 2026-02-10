@@ -96,7 +96,9 @@ export interface BookingData {
   blade_flight_time?: string;
   blade_bag_count?: number;
   blade_ready_time?: string;
-  
+  transfer_direction?: 'to_airport' | 'from_airport';
+  blade_terminal?: string;
+
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;
@@ -194,6 +196,13 @@ export interface BookingWithTracking {
   pricing_breakdown: any;
   payment_status: string;
   can_rebook: boolean;
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  blade_ready_time?: string;
+  transfer_direction?: 'to_airport' | 'from_airport';
+  blade_terminal?: string;
   onfleet_tasks: OnfleetTask[];
   created_at: string;
   updated_at: string;

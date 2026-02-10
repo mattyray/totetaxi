@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta, time as dt_time
 from apps.bookings.models import Booking, Address, BookingSpecialtyItem
+from apps.bookings.serializers import validate_blade_terminal
 from apps.bookings.pricing_utils import calculate_geographic_surcharge_from_zips
 from apps.payments.models import Payment
 from apps.payments.services import StripePaymentService
@@ -58,7 +59,13 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
-    
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
+
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -66,7 +73,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         ('no_time_preference', 'No time preference'),
     ], required=False)
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
-    
+
     customer_email = serializers.EmailField(required=False)
 
     coi_required = serializers.BooleanField(default=False)
@@ -97,13 +104,22 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         service_type = attrs['service_type']
         
         if service_type == 'blade_transfer':
-            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
                 raise serializers.ValidationError("All BLADE fields are required")
-            
+
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("BLADE service requires minimum 2 bags")
-        
+
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError(
+                        f'Invalid terminal for {airport}. Valid: {valid}'
+                    )
+
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("mini_move_package_id is required")
@@ -318,7 +334,13 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
-    
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
+
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -326,7 +348,7 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         ('no_time_preference', 'No time preference'),
     ], required=False)
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
-    
+
     # Address selection
     pickup_address_id = serializers.UUIDField(required=False)
     delivery_address_id = serializers.UUIDField(required=False)
@@ -365,18 +387,27 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         
         # BLADE validation
         if service_type == 'blade_transfer':
-            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
                 raise serializers.ValidationError("All BLADE fields required")
-            
+
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("Minimum 2 bags")
-        
+
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError(
+                        f'Invalid terminal for {airport}. Valid: {valid}'
+                    )
+
         # Mini Move validation
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
                 raise serializers.ValidationError("Package ID required")
-        
+
         # Standard Delivery validation
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
@@ -455,6 +486,8 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             blade_flight_date=validated_data.get('blade_flight_date'),
             blade_flight_time=validated_data.get('blade_flight_time'),
             blade_bag_count=validated_data.get('blade_bag_count'),
+            transfer_direction=validated_data.get('transfer_direction', 'to_airport'),
+            blade_terminal=validated_data.get('blade_terminal') or None,
             status='pending',
         )
         
@@ -574,8 +607,9 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
             'service_type', 'pickup_date', 'pickup_time', 'status',
             'pickup_address', 'delivery_address',
             'special_instructions', 'coi_required',
-            'blade_airport', 'blade_flight_date', 'blade_flight_time', 
+            'blade_airport', 'blade_flight_date', 'blade_flight_time',
             'blade_bag_count', 'blade_ready_time',
+            'transfer_direction', 'blade_terminal',
             'total_price_dollars', 'pricing_breakdown',
             'payment_status', 'can_rebook', 
             'onfleet_tasks',

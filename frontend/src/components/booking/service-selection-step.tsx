@@ -300,8 +300,8 @@ export function ServiceSelectionStep() {
             }`}
           >
             <h4 className="font-medium text-navy-900 mb-2">Airport Transfer</h4>
-            <p className="text-sm text-navy-600">NYC → Airport luggage delivery</p>
-            <p className="text-xs text-navy-500 mt-2">JFK/EWR</p>
+            <p className="text-sm text-navy-600">Airport luggage transfer</p>
+            <p className="text-xs text-navy-500 mt-2">JFK/EWR &bull; To or From</p>
           </button>
         </div>
       </div>
@@ -691,7 +691,41 @@ export function ServiceSelectionStep() {
       {bookingData.service_type === 'blade_transfer' && (
         <div className="space-y-6">
           <h3 className="text-lg font-medium text-navy-900 mb-4">Flight Details</h3>
-          
+
+          {/* Direction Toggle */}
+          <Card variant="elevated">
+            <CardHeader>
+              <h4 className="font-medium text-navy-900">Transfer Direction</h4>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => updateBookingData({ transfer_direction: 'to_airport', blade_ready_time: undefined })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    (bookingData.transfer_direction || 'to_airport') === 'to_airport'
+                      ? 'border-navy-500 bg-navy-50 ring-2 ring-navy-500'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-navy-900">To Airport</div>
+                  <div className="text-sm text-navy-600 mt-1">NYC to Airport delivery</div>
+                </button>
+                <button
+                  onClick={() => updateBookingData({ transfer_direction: 'from_airport', blade_ready_time: undefined })}
+                  className={`p-4 rounded-lg border-2 text-center transition-all ${
+                    bookingData.transfer_direction === 'from_airport'
+                      ? 'border-navy-500 bg-navy-50 ring-2 ring-navy-500'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-navy-900">From Airport</div>
+                  <div className="text-sm text-navy-600 mt-1">Airport to NYC pickup</div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Airport Selection */}
           <Card variant="elevated">
             <CardHeader>
               <h4 className="font-medium text-navy-900">Airport Selection</h4>
@@ -699,7 +733,7 @@ export function ServiceSelectionStep() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => updateBookingData({ blade_airport: 'JFK' })}
+                  onClick={() => updateBookingData({ blade_airport: 'JFK', blade_terminal: undefined })}
                   className={`p-4 rounded-lg border-2 text-center transition-all ${
                     bookingData.blade_airport === 'JFK'
                       ? 'border-navy-500 bg-navy-50'
@@ -709,9 +743,8 @@ export function ServiceSelectionStep() {
                   <div className="font-medium text-navy-900">JFK</div>
                   <div className="text-sm text-navy-600">John F. Kennedy</div>
                 </button>
-                
                 <button
-                  onClick={() => updateBookingData({ blade_airport: 'EWR' })}
+                  onClick={() => updateBookingData({ blade_airport: 'EWR', blade_terminal: undefined })}
                   className={`p-4 rounded-lg border-2 text-center transition-all ${
                     bookingData.blade_airport === 'EWR'
                       ? 'border-navy-500 bg-navy-50'
@@ -722,9 +755,41 @@ export function ServiceSelectionStep() {
                   <div className="text-sm text-navy-600">Newark Liberty</div>
                 </button>
               </div>
+
+              {/* Terminal Picker */}
+              {bookingData.blade_airport && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-navy-900 mb-1">Terminal (Optional)</label>
+                  <select
+                    value={bookingData.blade_terminal || ''}
+                    onChange={(e) => updateBookingData({ blade_terminal: e.target.value || undefined })}
+                    className="w-full px-4 py-3 text-base border border-gray-300 rounded-md shadow-sm focus:border-navy-500 focus:ring-navy-500 text-gray-900 bg-white"
+                  >
+                    <option value="">Select terminal (optional)</option>
+                    {bookingData.blade_airport === 'JFK' && (
+                      <>
+                        <option value="1">Terminal 1</option>
+                        <option value="4">Terminal 4</option>
+                        <option value="5">Terminal 5</option>
+                        <option value="7">Terminal 7</option>
+                        <option value="8">Terminal 8</option>
+                      </>
+                    )}
+                    {bookingData.blade_airport === 'EWR' && (
+                      <>
+                        <option value="A">Terminal A</option>
+                        <option value="B">Terminal B</option>
+                        <option value="C">Terminal C</option>
+                      </>
+                    )}
+                  </select>
+                  <p className="text-sm text-navy-600 mt-1">Helps our drivers find you faster</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Flight Info */}
           <Card variant="elevated">
             <CardHeader>
               <h4 className="font-medium text-navy-900">Flight Information</h4>
@@ -745,12 +810,12 @@ export function ServiceSelectionStep() {
                     return tomorrow.toISOString().split('T')[0];
                   })()}
                   error={dateError}
-                  helper={!dateError ? "Select your flight date (must be tomorrow or call us)" : undefined}
+                  helper={!dateError ? "Select your flight date (must be tomorrow or later)" : undefined}
                   required
                 />
-                
+
                 <Input
-                  label="Flight Departure Time"
+                  label={bookingData.transfer_direction === 'from_airport' ? 'Flight Arrival Time' : 'Flight Departure Time'}
                   type="time"
                   value={bookingData.blade_flight_time || ''}
                   onChange={(e) => {
@@ -758,11 +823,11 @@ export function ServiceSelectionStep() {
                     updateBookingData({ blade_flight_time: e.target.value });
                   }}
                   error={timeError}
-                  helper={!timeError ? "Select your departure time" : undefined}
+                  helper={!timeError ? (bookingData.transfer_direction === 'from_airport' ? 'Select your arrival time' : 'Select your departure time') : undefined}
                   required
                 />
-                
-                {bookingData.blade_flight_time && !timeError && (
+
+                {(bookingData.transfer_direction || 'to_airport') === 'to_airport' && bookingData.blade_flight_time && !timeError && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
                       <strong>Bags Ready Time:</strong> Your bags must be ready for pickup by{' '}
@@ -774,6 +839,7 @@ export function ServiceSelectionStep() {
             </CardContent>
           </Card>
 
+          {/* Bag Count */}
           <Card variant="elevated">
             <CardHeader>
               <h4 className="font-medium text-navy-900">Number of Bags</h4>
@@ -791,9 +857,9 @@ export function ServiceSelectionStep() {
                   }
                 }}
                 placeholder="Enter number of bags"
-                helper="$75 per bag • $150 minimum for up to 2 bags"
+                helper="$75 per bag &bull; $150 minimum for up to 2 bags"
               />
-              
+
               {bookingData.blade_bag_count && bookingData.blade_bag_count < 2 && (
                 <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
                   <p className="text-sm text-red-800 font-medium">
@@ -801,7 +867,7 @@ export function ServiceSelectionStep() {
                   </p>
                 </div>
               )}
-              
+
               {bookingData.blade_bag_count && bookingData.blade_bag_count >= 2 && (
                 <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800">
@@ -812,12 +878,12 @@ export function ServiceSelectionStep() {
             </CardContent>
           </Card>
 
+          {/* Info box */}
           <Card variant="default">
             <CardContent>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-navy-900">Important Information:</p>
                 <ul className="text-sm text-navy-700 space-y-2">
-                  <li>• NYC to airport only (one-way service)</li>
                   <li>• Book by 8:00 PM the night before your flight</li>
                   <li>• 2-bag minimum required</li>
                   <li>• Overweight bags (over 50 lbs): $100 per bag upon pickup</li>

@@ -8,6 +8,12 @@ from .pricing_utils import calculate_geographic_surcharge_from_zips
 from apps.services.models import MiniMovePackage, SpecialtyItem, OrganizingService, StandardDeliveryConfig, calculate_surcharges_for_date
 
 
+def validate_blade_terminal(airport, terminal):
+    """Validate terminal code matches airport"""
+    valid = Booking.VALID_TERMINALS.get(airport, [])
+    return terminal in valid
+
+
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -59,8 +65,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'pickup_address', 'delivery_address', 'guest_checkout',
             'special_instructions', 'coi_required', 'is_outside_core_area',
             'include_packing', 'include_unpacking',
-            'blade_airport', 'blade_flight_date', 'blade_flight_time', 
+            'blade_airport', 'blade_flight_date', 'blade_flight_time',
             'blade_bag_count', 'blade_ready_time',
+            'transfer_direction', 'blade_terminal',
             'total_price_dollars', 'organizing_total_dollars',
             'pricing_breakdown', 'organizing_services_breakdown', 'created_at'
         )
@@ -95,8 +102,9 @@ class BookingStatusSerializer(serializers.ModelSerializer):
             'pickup_date', 'pickup_time', 'specific_pickup_hour', 'status',
             'pickup_address', 'delivery_address',
             'include_packing', 'include_unpacking',
-            'blade_airport', 'blade_flight_date', 'blade_flight_time', 
+            'blade_airport', 'blade_flight_date', 'blade_flight_time',
             'blade_bag_count', 'blade_ready_time',
+            'transfer_direction', 'blade_terminal',
             'total_price_dollars', 'organizing_total_dollars', 'created_at'
         )
     
@@ -153,6 +161,12 @@ class PricingPreviewSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
 
     # Discount code (optional)
     discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
@@ -189,7 +203,16 @@ class PricingPreviewSerializer(serializers.Serializer):
             
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError({'blade_bag_count': 'Minimum 2 bags'})
-        
+
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError({
+                        'blade_terminal': f'Invalid terminal for {airport}. Valid: {valid}'
+                    })
+
         # Standard Delivery validation
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
@@ -241,7 +264,13 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
-    
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
+
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -249,7 +278,7 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
         ('no_time_preference', 'No time preference'),
     ], required=False)
     specific_pickup_hour = serializers.IntegerField(required=False, allow_null=True)
-    
+
     coi_required = serializers.BooleanField(default=False)
     is_outside_core_area = serializers.BooleanField(default=False)
     # ZIP codes for accurate geographic surcharge calculation ($175 per out-of-zone address)
@@ -284,6 +313,15 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
 
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("Minimum 2 bags")
+
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError(
+                        f'Invalid terminal for {airport}. Valid: {valid}'
+                    )
 
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
@@ -514,7 +552,13 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     blade_flight_date = serializers.DateField(required=False)
     blade_flight_time = serializers.TimeField(required=False)
     blade_bag_count = serializers.IntegerField(required=False, min_value=2)
-    
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
+
     pickup_date = serializers.DateField()
     pickup_time = serializers.ChoiceField(choices=[
         ('morning', '8 AM - 11 AM'),
@@ -522,9 +566,9 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         ('no_time_preference', 'No time preference'),
     ], default='morning')
     specific_pickup_hour = serializers.IntegerField(required=False, min_value=8, max_value=10)
-    
+
     is_outside_core_area = serializers.BooleanField(default=False)
-    
+
     pickup_address = serializers.DictField()
     delivery_address = serializers.DictField()
     
@@ -539,15 +583,20 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing: {field}")
-        
+
+        # Skip zip validation for airport address (from_airport pickup is at airport)
+        if (self.initial_data.get('service_type') == 'blade_transfer'
+                and self.initial_data.get('transfer_direction') == 'from_airport'):
+            return value
+
         from .zip_codes import validate_service_area
-        
+
         zip_code = value.get('zip_code')
         is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
-        
+
         if not is_serviceable:
             raise serializers.ValidationError(error)
-        
+
         return value
 
     def validate_delivery_address(self, value):
@@ -555,18 +604,20 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         for field in required_fields:
             if field not in value:
                 raise serializers.ValidationError(f"Missing: {field}")
-        
-        if self.initial_data.get('service_type') == 'blade_transfer':
+
+        # Skip zip validation for airport address (to_airport delivery is at airport)
+        if (self.initial_data.get('service_type') == 'blade_transfer'
+                and self.initial_data.get('transfer_direction', 'to_airport') == 'to_airport'):
             return value
-        
+
         from .zip_codes import validate_service_area
-        
+
         zip_code = value.get('zip_code')
         is_serviceable, requires_surcharge, zone, error = validate_service_area(zip_code)
-        
+
         if not is_serviceable:
             raise serializers.ValidationError(error)
-        
+
         return value
     
     def validate_specialty_items(self, value):
@@ -592,13 +643,22 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         
         # BLADE validation
         if service_type == 'blade_transfer':
-            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'), 
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
                 raise serializers.ValidationError("All BLADE fields required")
-            
+
             if attrs.get('blade_bag_count', 0) < 2:
                 raise serializers.ValidationError("Minimum 2 bags")
-        
+
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError(
+                        f'Invalid terminal for {airport}. Valid: {valid}'
+                    )
+
         # Mini Move validation
         elif service_type == 'mini_move':
             if not attrs.get('mini_move_package_id'):
@@ -659,6 +719,8 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             blade_flight_date=validated_data.get('blade_flight_date'),
             blade_flight_time=validated_data.get('blade_flight_time'),
             blade_bag_count=validated_data.get('blade_bag_count'),
+            transfer_direction=validated_data.get('transfer_direction', 'to_airport'),
+            blade_terminal=validated_data.get('blade_terminal') or None,
             status='pending',
         )
         

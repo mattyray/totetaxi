@@ -187,7 +187,7 @@ export function ServiceShowcase() {
 
         {/* Specialty Items */}
         {services?.specialty_items && services.specialty_items.length > 0 && (
-          <div>
+          <div className="mb-16">
             <h3 className="text-2xl font-serif font-bold text-navy-900 text-center mb-8">
               Specialty Items
             </h3>
@@ -213,6 +213,53 @@ export function ServiceShowcase() {
             </div>
           </div>
         )}
+
+        {/* Airport Transfer */}
+        <div>
+          <h3 className="text-2xl font-serif font-bold text-navy-900 text-center mb-8">
+            Airport Transfer
+          </h3>
+          <div className="max-w-2xl mx-auto">
+            <Card variant="elevated">
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-navy-900 mb-2">
+                    $75 per bag
+                  </div>
+                  <p className="text-navy-600 mb-4">
+                    2 bag minimum • $150 minimum • JFK &amp; EWR
+                  </p>
+                  <p className="text-sm text-navy-700 mb-4">
+                    Door-to-door luggage transfer between NYC and the airport.
+                    Available in both directions — we pick up before your departure or collect your bags on arrival.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2 mb-4">
+                    <span className="inline-block bg-blue-50 text-blue-800 text-xs px-3 py-1 rounded-full">
+                      To Airport
+                    </span>
+                    <span className="inline-block bg-green-50 text-green-800 text-xs px-3 py-1 rounded-full">
+                      From Airport
+                    </span>
+                    <span className="inline-block bg-gold-50 text-gold-800 text-xs px-3 py-1 rounded-full">
+                      Terminal Selection
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      resetWizard();
+                      updateBookingData({ service_type: 'blade_transfer' });
+                      router.push('/book');
+                    }}
+                  >
+                    Book Airport Transfer
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </section>
   );

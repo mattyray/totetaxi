@@ -1,7 +1,7 @@
 # ToteTaxi Security Audit & Fix Plan
 **Date:** February 6, 2026
 **Audited by:** Claude Code (code-reviewer + ecommerce-security agents)
-**Status:** All 4 PRs merged & deployed. Re-audit Feb 9 found additional items — PR #9 shipped, PR #10-11 planned.
+**Status:** All 4 PRs merged & deployed. Re-audit Feb 9 found additional items — PR #9 shipped, PR #10 open (R2, R3, R4, R7, R8, R10, R11). All re-audit findings fixed. Only L6, L10, L12 deferred (risky refactors, no security benefit).
 
 ---
 
@@ -87,16 +87,16 @@ Second audit run after discount codes feature (PR #8). Found items from new code
 | ID | Severity | Finding | Status |
 |----|----------|---------|--------|
 | R1 | HIGH | Booking creation not wrapped in `transaction.atomic()` — partial failure leaves orphaned records | **FIXED** PR #9 |
-| R2 | HIGH | Unlimited free orders — `free_order` PI string skips C2 reuse check, no unique ID | Planned PR #10 |
-| R3 | HIGH | Discount code TOCTOU race — usage not recorded until booking creation, concurrent requests bypass limit | Planned PR #10 |
-| R4 | HIGH | Partial refund sets `payment.status='refunded'` blocking all future refunds | Planned PR #11 |
+| R2 | HIGH | Unlimited free orders — `free_order` PI string skips C2 reuse check, no unique ID | **FIXED** PR #10 |
+| R3 | HIGH | Discount code TOCTOU race — usage not recorded until booking creation, concurrent requests bypass limit | **FIXED** PR #10 |
+| R4 | HIGH | Partial refund sets `payment.status='refunded'` blocking all future refunds | **FIXED** PR #10 |
 | R5 | MEDIUM | `booking.save()` without `_skip_pricing=True` after setting status='paid' | **FIXED** PR #9 |
 | R6 | MEDIUM | Webhook task crashed with MaxRetriesExceededError for external Stripe invoices | **FIXED** PR #9 |
-| R7 | MEDIUM | Legacy `PaymentIntentCreateView` + `PaymentConfirmView` are AllowAny, no rate limiting | Planned PR #11 |
-| R8 | MEDIUM | `CreatePaymentIntentView` (authenticated) uses AllowAny instead of IsAuthenticated | Planned PR #11 |
+| R7 | MEDIUM | Legacy `PaymentConfirmView` is AllowAny, no rate limiting | **FIXED** PR #10 — removed endpoint |
+| R8 | MEDIUM | `CreatePaymentIntentView` (authenticated) uses AllowAny instead of IsAuthenticated | **FIXED** PR #10 |
 | R9 | LOW | `STRIPE_WEBHOOK_SECRET` defaults to empty in production | **FIXED** PR #9 |
-| R10 | LOW | Refund views use `hasattr` instead of `IsStaffMember` permission class | Planned PR #11 |
-| R11 | LOW | Discount code validation returns 404 vs 400 (enables code enumeration) | Planned PR #10 |
+| R10 | LOW | Refund views use `hasattr` instead of `IsStaffMember` permission class | **FIXED** PR #10 |
+| R11 | LOW | Discount code validation returns 404 vs 400 (enables code enumeration) | **FIXED** PR #10 |
 
 ### Positive Security Controls (Already Done Right)
 - Stripe webhook signature verification (properly implemented)

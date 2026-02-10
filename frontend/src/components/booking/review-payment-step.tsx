@@ -167,6 +167,8 @@ const useRecalculatePricing = () => {
           pricingRequest.blade_flight_date = data.blade_flight_date;
           pricingRequest.blade_flight_time = data.blade_flight_time;
           pricingRequest.blade_bag_count = data.blade_bag_count;
+          pricingRequest.transfer_direction = data.transfer_direction || 'to_airport';
+          if (data.blade_terminal) pricingRequest.blade_terminal = data.blade_terminal;
         }
 
         // Include discount code if validated
@@ -347,6 +349,8 @@ export function ReviewPaymentStep() {
         paymentRequest.blade_flight_date = bookingData.blade_flight_date;
         paymentRequest.blade_flight_time = bookingData.blade_flight_time;
         paymentRequest.blade_bag_count = bookingData.blade_bag_count;
+        paymentRequest.transfer_direction = bookingData.transfer_direction || 'to_airport';
+        if (bookingData.blade_terminal) paymentRequest.blade_terminal = bookingData.blade_terminal;
       }
 
       if (!isAuthenticated && bookingData.customer_info?.email) {
@@ -428,6 +432,8 @@ export function ReviewPaymentStep() {
         bookingRequest.blade_flight_date = bookingData.blade_flight_date;
         bookingRequest.blade_flight_time = bookingData.blade_flight_time;
         bookingRequest.blade_bag_count = bookingData.blade_bag_count;
+        bookingRequest.transfer_direction = bookingData.transfer_direction || 'to_airport';
+        if (bookingData.blade_terminal) bookingRequest.blade_terminal = bookingData.blade_terminal;
       }
 
       if (isAuthenticated) {
@@ -698,7 +704,11 @@ export function ReviewPaymentStep() {
                 <div>
                   <h4 className="font-medium text-navy-900 mb-2">Flight Details</h4>
                   <p className="text-navy-700">
+                    <strong>Direction:</strong> {bookingData.transfer_direction === 'from_airport' ? 'Airport to NYC (Arrival Pickup)' : 'NYC to Airport (Departure Drop-off)'}
+                  </p>
+                  <p className="text-navy-700">
                     <strong>Airport:</strong> {bookingData.blade_airport === 'JFK' ? 'JFK International' : 'Newark Liberty (EWR)'}
+                    {bookingData.blade_terminal && ` — Terminal ${bookingData.blade_terminal}`}
                   </p>
                   <p className="text-navy-700">
                     <strong>Flight Date:</strong> {bookingData.blade_flight_date && new Date(bookingData.blade_flight_date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -709,7 +719,7 @@ export function ReviewPaymentStep() {
                     })}
                   </p>
                   <p className="text-navy-700">
-                    <strong>Flight Time:</strong> {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
+                    <strong>{bookingData.transfer_direction === 'from_airport' ? 'Flight Arrival Time' : 'Flight Departure Time'}:</strong> {bookingData.blade_flight_time && new Date(`2000-01-01T${bookingData.blade_flight_time}`).toLocaleTimeString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
                       hour12: true
@@ -718,15 +728,17 @@ export function ReviewPaymentStep() {
                   <p className="text-navy-700">
                     <strong>Bags:</strong> {bookingData.blade_bag_count}
                   </p>
-                  <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-2">
-                    <p className="text-sm text-blue-800">
-                      <strong>Pickup Ready Time:</strong> {bookingData.blade_ready_time && new Date(`2000-01-01T${bookingData.blade_ready_time}`).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </p>
-                  </div>
+                  {bookingData.transfer_direction !== 'from_airport' && bookingData.blade_ready_time && (
+                    <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-2">
+                      <p className="text-sm text-blue-800">
+                        <strong>Pickup Ready Time:</strong> {new Date(`2000-01-01T${bookingData.blade_ready_time}`).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -749,7 +761,9 @@ export function ReviewPaymentStep() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">
-                  {bookingData.service_type === 'blade_transfer' ? 'Pickup Address (NYC)' : 'Pickup Address'}
+                  {bookingData.service_type === 'blade_transfer'
+                    ? bookingData.transfer_direction === 'from_airport' ? 'Pickup (Airport)' : 'Pickup Address (Your Location)'
+                    : 'Pickup Address'}
                 </h4>
                 <div className="text-navy-700 text-sm">
                   <div>{bookingData.pickup_address?.address_line_1}</div>
@@ -761,27 +775,21 @@ export function ReviewPaymentStep() {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="font-medium text-navy-900 mb-2">
-                  {bookingData.service_type === 'blade_transfer' ? 'Delivery (Airport)' : 'Delivery Address'}
+                  {bookingData.service_type === 'blade_transfer'
+                    ? bookingData.transfer_direction === 'from_airport' ? 'Delivery Address (Your Location)' : 'Delivery (Airport)'
+                    : 'Delivery Address'}
                 </h4>
                 <div className="text-navy-700 text-sm">
-                  {bookingData.service_type === 'blade_transfer' ? (
-                    <div className="font-medium">
-                      {bookingData.blade_airport === 'JFK' ? 'JFK International Airport' : 'Newark Liberty International Airport (EWR)'}
-                    </div>
-                  ) : (
-                    <>
-                      <div>{bookingData.delivery_address?.address_line_1}</div>
-                      {bookingData.delivery_address?.address_line_2 && (
-                        <div>{bookingData.delivery_address.address_line_2}</div>
-                      )}
-                      <div>
-                        {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
-                      </div>
-                    </>
+                  <div>{bookingData.delivery_address?.address_line_1}</div>
+                  {bookingData.delivery_address?.address_line_2 && (
+                    <div>{bookingData.delivery_address.address_line_2}</div>
                   )}
+                  <div>
+                    {bookingData.delivery_address?.city}, {bookingData.delivery_address?.state} {bookingData.delivery_address?.zip_code}
+                  </div>
                 </div>
               </div>
             </div>

@@ -696,6 +696,8 @@ class BookingDetailView(APIView):
                 'bag_count': booking.blade_bag_count,
                 'ready_time': booking.blade_ready_time.strftime('%H:%M') if booking.blade_ready_time else None,
                 'per_bag_price': 75,
+                'transfer_direction': getattr(booking, 'transfer_direction', 'to_airport') or 'to_airport',
+                'terminal': getattr(booking, 'blade_terminal', None),
             }
         
         return details
