@@ -377,9 +377,9 @@ export function ReviewPaymentStep() {
       console.log('💳 Payment intent successful:', data);
 
       // Free order — skip Stripe payment, go directly to booking
-      if (data.payment_intent_id === 'free_order') {
+      if (data.payment_intent_id.startsWith('free_order_')) {
         console.log('🎉 Free order — skipping payment');
-        createBookingMutation.mutate('free_order');
+        createBookingMutation.mutate(data.payment_intent_id);
         return;
       }
 
