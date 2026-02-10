@@ -2,19 +2,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useBookingWizard } from '@/stores/booking-store';
 import type { ServiceCatalog } from '@/types';
 
 export default function ServicesPage() {
-  const router = useRouter();
-  const { updateBookingData, resetWizard } = useBookingWizard();
-
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -22,36 +17,6 @@ export default function ServicesPage() {
       return response.data;
     }
   });
-
-  // Handler for selecting a mini move package
-  const handleSelectPackage = (pkg: { id: string; package_type: string }) => {
-    console.log('Button clicked! Package:', pkg);
-    resetWizard();
-    updateBookingData({
-      service_type: 'mini_move',
-      mini_move_package_id: pkg.id,
-      package_type: pkg.package_type as 'petite' | 'standard' | 'full',
-    });
-    router.push('/book');
-  };
-
-  // Handler for standard delivery
-  const handleSelectStandardDelivery = () => {
-    resetWizard();
-    updateBookingData({
-      service_type: 'standard_delivery',
-    });
-    router.push('/book');
-  };
-
-  // Handler for airport transfer
-  const handleSelectAirportTransfer = () => {
-    resetWizard();
-    updateBookingData({
-      service_type: 'blade_transfer',
-    });
-    router.push('/book');
-  };
 
   if (isLoading) {
     return (
@@ -73,31 +38,36 @@ export default function ServicesPage() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-16">
-        {/* Hero Section */}
+        {/* Hero + Single CTA */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
             Our Luxury Services
           </h1>
-          <p className="text-xl text-navy-700 max-w-3xl mx-auto">
-            From weekend essentials to full seasonal relocations, we provide white-glove service 
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto mb-8">
+            From weekend essentials to full seasonal relocations, we provide white-glove service
             tailored to your Manhattan-to-Hamptons lifestyle.
           </p>
+          <Link href="/book">
+            <Button variant="primary" size="lg">
+              Book Now
+            </Button>
+          </Link>
         </div>
 
-        {/* Mini Moves - Featured Section */}
+        {/* Mini Moves */}
         <section className="mb-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Mini Moves</h2>
             <p className="text-lg text-navy-700 max-w-2xl mx-auto">
-              Complete packages designed for seasonal relocation. Everything you need for your Hamptons move, 
+              Complete packages designed for seasonal relocation. Everything you need for your Hamptons move,
               professionally handled from door to door.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
             {services?.mini_move_packages?.map((pkg) => (
-              <Card 
-                key={pkg.id} 
+              <Card
+                key={pkg.id}
                 variant={pkg.is_most_popular ? "luxury" : "elevated"}
                 className="relative"
               >
@@ -108,7 +78,7 @@ export default function ServicesPage() {
                     </span>
                   </div>
                 )}
-                
+
                 <CardHeader>
                   <div className="text-center">
                     <h3 className="text-2xl font-serif font-bold text-navy-900 mb-2">
@@ -122,49 +92,41 @@ export default function ServicesPage() {
                     )}
                   </div>
                 </CardHeader>
-                
+
                 <CardContent>
                   <p className="text-navy-700 mb-6">{pkg.description}</p>
-                  
-                  <div className="space-y-3 mb-8">
-                    <h4 className="font-medium text-navy-900">What's Included:</h4>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-navy-900">What&apos;s Included:</h4>
                     <ul className="space-y-2">
                       <li className="flex items-center text-sm text-navy-700">
-                        <span className="text-green-500 mr-3">✓</span>
+                        <span className="text-green-500 mr-3">&#10003;</span>
                         Door-to-door pickup and delivery
                       </li>
                       <li className="flex items-center text-sm text-navy-700">
-                        <span className="text-green-500 mr-3">✓</span>
+                        <span className="text-green-500 mr-3">&#10003;</span>
                         Professional handling and care
                       </li>
                       {pkg.protective_wrapping && (
                         <li className="flex items-center text-sm text-navy-700">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Premium protective wrapping
                         </li>
                       )}
                       {pkg.coi_included && (
                         <li className="flex items-center text-sm text-navy-700">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Certificate of Insurance included
                         </li>
                       )}
                       {pkg.priority_scheduling && (
                         <li className="flex items-center text-sm text-navy-700">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Priority scheduling
                         </li>
                       )}
                     </ul>
                   </div>
-                  
-                  <Button
-                    variant={pkg.is_most_popular ? "primary" : "outline"}
-                    className="w-full"
-                    onClick={() => handleSelectPackage(pkg)}
-                  >
-                    Select {pkg.name}
-                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -182,25 +144,25 @@ export default function ServicesPage() {
                 <div>
                   <h4 className="font-medium text-navy-900 mb-3">Professional Packing</h4>
                   <p className="text-navy-700 text-sm mb-4">
-                    Our expert team carefully packs your belongings at your Manhattan location 
+                    Our expert team carefully packs your belongings at your Manhattan location
                     using premium materials and techniques to ensure everything arrives pristine.
                   </p>
                   <ul className="space-y-1 text-sm text-navy-600">
-                    <li>• Premium packing materials included</li>
-                    <li>• Careful handling of delicate items</li>
-                    <li>• Efficient space optimization</li>
+                    <li>Premium packing materials included</li>
+                    <li>Careful handling of delicate items</li>
+                    <li>Efficient space optimization</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-medium text-navy-900 mb-3">Professional Unpacking</h4>
                   <p className="text-navy-700 text-sm mb-4">
-                    Arrive to your Hamptons home with everything unpacked and organized exactly 
+                    Arrive to your Hamptons home with everything unpacked and organized exactly
                     how you want it. We handle the setup so you can start enjoying your retreat.
                   </p>
                   <ul className="space-y-1 text-sm text-navy-600">
-                    <li>• Complete unpacking and setup</li>
-                    <li>• Organized placement of belongings</li>
-                    <li>• Removal of all packing materials</li>
+                    <li>Complete unpacking and setup</li>
+                    <li>Organized placement of belongings</li>
+                    <li>Removal of all packing materials</li>
                   </ul>
                 </div>
               </div>
@@ -227,21 +189,21 @@ export default function ServicesPage() {
                         ${services.standard_delivery.price_per_item_dollars} per item
                       </div>
                       <p className="text-navy-600 mb-4">
-                        Minimum {services.standard_delivery.minimum_items} items • 
+                        Minimum {services.standard_delivery.minimum_items} items &bull;
                         ${services.standard_delivery.minimum_charge_dollars} minimum charge
                       </p>
-                      
+
                       <div className="space-y-3">
                         <h4 className="font-medium text-navy-900">Perfect for:</h4>
                         <ul className="space-y-2 text-sm text-navy-700">
-                          <li>• Individual clothing items</li>
-                          <li>• Documents and files</li>
-                          <li>• Small electronics</li>
-                          <li>• Seasonal items under {services.standard_delivery.max_weight_per_item_lbs} lbs</li>
+                          <li>Individual clothing items</li>
+                          <li>Documents and files</li>
+                          <li>Small electronics</li>
+                          <li>Seasonal items under {services.standard_delivery.max_weight_per_item_lbs} lbs</li>
                         </ul>
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="bg-gold-50 border border-gold-200 rounded-lg p-6">
                         <h4 className="font-medium text-navy-900 mb-3">Same-Day Delivery</h4>
@@ -252,9 +214,9 @@ export default function ServicesPage() {
                           Need it today? We offer same-day delivery for urgent items.
                         </p>
                         <ul className="space-y-1 text-xs text-navy-600">
-                          <li>• Order by 10 AM for same-day delivery</li>
-                          <li>• Available Thursday through Monday</li>
-                          <li>• Subject to availability</li>
+                          <li>Order by 10 AM for same-day delivery</li>
+                          <li>Available Thursday through Monday</li>
+                          <li>Subject to availability</li>
                         </ul>
                       </div>
                     </div>
@@ -284,26 +246,26 @@ export default function ServicesPage() {
                       $75 per bag
                     </div>
                     <p className="text-navy-600 mb-4">
-                      JFK & Newark (EWR) • Terminal-specific pickup & dropoff
+                      JFK & Newark (EWR) &bull; Terminal-specific pickup & dropoff
                     </p>
 
                     <div className="space-y-3">
-                      <h4 className="font-medium text-navy-900">What's Included:</h4>
+                      <h4 className="font-medium text-navy-900">What&apos;s Included:</h4>
                       <ul className="space-y-2 text-sm text-navy-700">
                         <li className="flex items-center">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Door-to-terminal or terminal-to-door service
                         </li>
                         <li className="flex items-center">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Real-time tracking via Onfleet
                         </li>
                         <li className="flex items-center">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Professional handling of all luggage
                         </li>
                         <li className="flex items-center">
-                          <span className="text-green-500 mr-3">✓</span>
+                          <span className="text-green-500 mr-3">&#10003;</span>
                           Timed to your flight schedule
                         </li>
                       </ul>
@@ -313,32 +275,22 @@ export default function ServicesPage() {
                   <div>
                     <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-4">
                       <h4 className="font-medium text-navy-900 mb-3">To Airport</h4>
-                      <p className="text-sm text-navy-700 mb-2">
+                      <p className="text-sm text-navy-700">
                         We pick up your bags and deliver them to your terminal before your departure.
                       </p>
                     </div>
-                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-6">
+                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-4">
                       <h4 className="font-medium text-navy-900 mb-3">From Airport</h4>
-                      <p className="text-sm text-navy-700 mb-2">
+                      <p className="text-sm text-navy-700">
                         We collect your bags at the terminal and deliver them to your door after you land.
                       </p>
                     </div>
                     <div className="bg-navy-50 border border-navy-200 rounded-lg p-4 text-center">
                       <p className="text-xs text-navy-600">
-                        No surcharges — no weekend, geographic, or time window fees.
+                        No surcharges &mdash; no weekend, geographic, or time window fees.
                       </p>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-8 text-center">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    onClick={handleSelectAirportTransfer}
-                  >
-                    Book Airport Transfer
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -351,7 +303,7 @@ export default function ServicesPage() {
             <div className="text-center mb-12">
               <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Specialty Items</h2>
               <p className="text-lg text-navy-700 max-w-2xl mx-auto">
-                Premium handling for your most valuable and unique items. Each specialty item receives 
+                Premium handling for your most valuable and unique items. Each specialty item receives
                 custom care and attention.
               </p>
             </div>
@@ -366,19 +318,11 @@ export default function ServicesPage() {
                         ${item.price_dollars}
                       </div>
                       <p className="text-navy-600 text-sm mb-4">{item.description}</p>
-                      
+
                       {item.special_handling && (
-                        <div className="mb-4">
-                          <span className="inline-block bg-gold-100 text-gold-800 text-xs px-3 py-1 rounded-full">
-                            Special Handling Included
-                          </span>
-                        </div>
-                      )}
-                      
-                      {item.requires_van_schedule && (
-                        <p className="text-xs text-navy-500">
-                          * Requires scheduled van delivery
-                        </p>
+                        <span className="inline-block bg-gold-100 text-gold-800 text-xs px-3 py-1 rounded-full">
+                          Special Handling Included
+                        </span>
                       )}
                     </div>
                   </CardContent>
@@ -399,40 +343,40 @@ export default function ServicesPage() {
                 <div>
                   <h3 className="font-medium text-navy-900 mb-3">Pickup Locations</h3>
                   <ul className="space-y-2 text-navy-700">
-                    <li>• Manhattan (All neighborhoods)</li>
-                    <li>• Brooklyn (Select areas)</li>
-                    <li>• Long Island City</li>
-                    <li>• Hoboken & Jersey City</li>
+                    <li>Manhattan (All neighborhoods)</li>
+                    <li>Brooklyn (Select areas)</li>
+                    <li>Long Island City</li>
+                    <li>Hoboken & Jersey City</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-medium text-navy-900 mb-3">Delivery Destinations</h3>
                   <ul className="space-y-2 text-navy-700">
-                    <li>• East Hampton</li>
-                    <li>• Southampton & Water Mill</li>
-                    <li>• Bridgehampton & Sagaponack</li>
-                    <li>• Westhampton Beach</li>
-                    <li>• Sag Harbor & North Haven</li>
-                    <li>• Montauk</li>
+                    <li>East Hampton</li>
+                    <li>Southampton & Water Mill</li>
+                    <li>Bridgehampton & Sagaponack</li>
+                    <li>Westhampton Beach</li>
+                    <li>Sag Harbor & North Haven</li>
+                    <li>Montauk</li>
                   </ul>
                 </div>
               </div>
               <div className="text-center mt-6">
                 <p className="text-sm text-navy-600">
-                  Don't see your location? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for custom service options.
+                  Don&apos;t see your location? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for custom service options.
                 </p>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        {/* CTA Section */}
+        {/* Bottom CTA */}
         <div className="text-center">
           <h2 className="text-2xl font-serif font-bold text-navy-900 mb-4">
             Ready to Experience White-Glove Service?
           </h2>
           <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
-            Book your luxury move today and discover why discerning clients trust ToteTaxi 
+            Book your luxury move today and discover why discerning clients trust ToteTaxi
             for their Manhattan-to-Hamptons transport needs.
           </p>
           <Link href="/book">

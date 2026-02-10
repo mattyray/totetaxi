@@ -13,10 +13,9 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 interface MainLayoutProps {
   children: React.ReactNode;
   className?: string;
-  onBookNowClick?: () => void;
 }
 
-export function MainLayout({ children, className, onBookNowClick }: MainLayoutProps) {
+export function MainLayout({ children, className }: MainLayoutProps) {
   const { isAuthenticated, user } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -62,6 +61,13 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                 Contact
               </Link>
               
+              {/* Book Now — always visible */}
+              <Link href="/book">
+                <Button variant="primary">
+                  Book Now
+                </Button>
+              </Link>
+
               {/* Auth-Aware Navigation */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4">
@@ -71,24 +77,11 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                   <UserMenu />
                 </div>
               ) : (
-                <div className="flex items-center space-x-4">
-                  <Link href="/login">
-                    <Button variant="ghost">
-                      Sign In
-                    </Button>
-                  </Link>
-                  {onBookNowClick ? (
-                    <Button variant="primary" onClick={onBookNowClick}>
-                      Book Now
-                    </Button>
-                  ) : (
-                    <Link href="/book">
-                      <Button variant="primary">
-                        Book Now
-                      </Button>
-                    </Link>
-                  )}
-                </div>
+                <Link href="/login">
+                  <Button variant="ghost">
+                    Sign In
+                  </Button>
+                </Link>
               )}
             </nav>
 
@@ -154,11 +147,20 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                   Contact
                 </Link>
                 
+                {/* Book Now — always visible */}
+                <div className="pt-4 border-t border-cream-200">
+                  <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="primary" className="w-full">
+                      Book Now
+                    </Button>
+                  </Link>
+                </div>
+
                 {/* Mobile Auth Section */}
                 {isAuthenticated ? (
                   <>
-                    <Link 
-                      href="/dashboard" 
+                    <Link
+                      href="/dashboard"
                       className="text-navy-700 hover:text-navy-900 transition-colors font-medium"
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -167,7 +169,7 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                     <UserMenu variant="mobile" />
                   </>
                 ) : (
-                  <div className="flex flex-col space-y-2 pt-4 border-t border-cream-200">
+                  <div className="flex flex-col space-y-2">
                     <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full justify-start">
                         Sign In
@@ -178,24 +180,6 @@ export function MainLayout({ children, className, onBookNowClick }: MainLayoutPr
                         Create Account
                       </Button>
                     </Link>
-                    {onBookNowClick ? (
-                      <Button 
-                        variant="primary" 
-                        onClick={() => {
-                          onBookNowClick();
-                          setMobileMenuOpen(false);
-                        }}
-                        className="w-full"
-                      >
-                        Book Now
-                      </Button>
-                    ) : (
-                      <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
-                        <Button variant="primary" className="w-full">
-                          Book Now
-                        </Button>
-                      </Link>
-                    )}
                   </div>
                 )}
               </nav>
