@@ -102,7 +102,7 @@ export function MainLayout({ children, className }: MainLayoutProps) {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="lg:hidden mt-4 pb-4 border-t border-cream-200">
+            <div className="lg:hidden mt-4 pb-4 border-t border-cream-200 max-h-[calc(100vh-80px)] overflow-y-auto">
               <nav className="flex flex-col space-y-4 mt-4">
                 <Link 
                   href="/services" 
