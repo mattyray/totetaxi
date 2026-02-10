@@ -23,7 +23,9 @@ export default function ServicesPage() {
     }
   });
 
+  // Handler for selecting a mini move package
   const handleSelectPackage = (pkg: { id: string; package_type: string }) => {
+    console.log('Button clicked! Package:', pkg);
     resetWizard();
     updateBookingData({
       service_type: 'mini_move',
@@ -33,15 +35,21 @@ export default function ServicesPage() {
     router.push('/book');
   };
 
+  // Handler for standard delivery
   const handleSelectStandardDelivery = () => {
     resetWizard();
-    updateBookingData({ service_type: 'standard_delivery' });
+    updateBookingData({
+      service_type: 'standard_delivery',
+    });
     router.push('/book');
   };
 
+  // Handler for airport transfer
   const handleSelectAirportTransfer = () => {
     resetWizard();
-    updateBookingData({ service_type: 'blade_transfer' });
+    updateBookingData({
+      service_type: 'blade_transfer',
+    });
     router.push('/book');
   };
 
@@ -53,7 +61,7 @@ export default function ServicesPage() {
             <div className="h-12 bg-navy-200 rounded w-1/2 mx-auto"></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-48 bg-navy-200 rounded"></div>
+                <div key={i} className="h-64 bg-navy-200 rounded"></div>
               ))}
             </div>
           </div>
@@ -65,246 +73,191 @@ export default function ServicesPage() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-16">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-4">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-navy-900 mb-6">
             Our Luxury Services
           </h1>
-          <p className="text-lg text-navy-700 max-w-3xl mx-auto">
-            White-glove transport tailored to your Manhattan-to-Hamptons lifestyle.
+          <p className="text-xl text-navy-700 max-w-3xl mx-auto">
+            From weekend essentials to full seasonal relocations, we provide white-glove service 
+            tailored to your Manhattan-to-Hamptons lifestyle.
           </p>
         </div>
 
-        {/* ============================================ */}
-        {/* SERVICE OVERVIEW CARDS — quick book + anchor */}
-        {/* ============================================ */}
+        {/* Mini Moves - Featured Section */}
         <section className="mb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Mini Move Cards */}
-            {services?.mini_move_packages?.map((pkg) => (
-              <Card
-                key={pkg.id}
-                variant={pkg.is_most_popular ? 'luxury' : 'elevated'}
-                className="relative flex flex-col"
-              >
-                {pkg.is_most_popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gold-500 text-navy-900 px-3 py-0.5 rounded-full text-xs font-medium">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                <CardContent className="flex flex-col flex-1 pt-6">
-                  <div className="text-center mb-4">
-                    <h3 className="text-lg font-serif font-bold text-navy-900">{pkg.name}</h3>
-                    <div className="text-3xl font-bold text-navy-900 my-1">${pkg.base_price_dollars}</div>
-                    {pkg.max_items && (
-                      <p className="text-sm text-navy-600">Up to {pkg.max_items} items</p>
-                    )}
-                  </div>
-                  <p className="text-sm text-navy-700 mb-4 flex-1">{pkg.description}</p>
-                  <div className="space-y-2">
-                    <Button
-                      variant={pkg.is_most_popular ? 'primary' : 'outline'}
-                      className="w-full"
-                      onClick={() => handleSelectPackage(pkg)}
-                    >
-                      Book Now
-                    </Button>
-                    <a
-                      href="#mini-moves"
-                      className="block text-center text-sm text-navy-600 hover:text-navy-900 hover:underline"
-                    >
-                      Learn more
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Standard Delivery Card */}
-            {services?.standard_delivery && (
-              <Card variant="elevated" className="flex flex-col">
-                <CardContent className="flex flex-col flex-1 pt-6">
-                  <div className="text-center mb-4">
-                    <h3 className="text-lg font-serif font-bold text-navy-900">Standard Delivery</h3>
-                    <div className="text-3xl font-bold text-navy-900 my-1">
-                      ${services.standard_delivery.price_per_item_dollars}
-                      <span className="text-base font-normal text-navy-600">/item</span>
-                    </div>
-                    <p className="text-sm text-navy-600">
-                      Min {services.standard_delivery.minimum_items} items
-                    </p>
-                  </div>
-                  <p className="text-sm text-navy-700 mb-4 flex-1">
-                    Individual item delivery — clothing, documents, electronics, and seasonal essentials.
-                  </p>
-                  <div className="space-y-2">
-                    <Button variant="outline" className="w-full" onClick={handleSelectStandardDelivery}>
-                      Book Now
-                    </Button>
-                    <a
-                      href="#standard-delivery"
-                      className="block text-center text-sm text-navy-600 hover:text-navy-900 hover:underline"
-                    >
-                      Learn more
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Airport Transfer Card */}
-            <Card variant="elevated" className="flex flex-col">
-              <CardContent className="flex flex-col flex-1 pt-6">
-                <div className="text-center mb-4">
-                  <h3 className="text-lg font-serif font-bold text-navy-900">Airport Transfer</h3>
-                  <div className="text-3xl font-bold text-navy-900 my-1">
-                    $75<span className="text-base font-normal text-navy-600">/bag</span>
-                  </div>
-                  <p className="text-sm text-navy-600">JFK & Newark</p>
-                </div>
-                <p className="text-sm text-navy-700 mb-4 flex-1">
-                  Premium luggage transport to or from the airport, timed to your flight.
-                </p>
-                <div className="space-y-2">
-                  <Button variant="outline" className="w-full" onClick={handleSelectAirportTransfer}>
-                    Book Now
-                  </Button>
-                  <a
-                    href="#airport-transfer"
-                    className="block text-center text-sm text-navy-600 hover:text-navy-900 hover:underline"
-                  >
-                    Learn more
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* ============================================ */}
-        {/* DETAIL SECTIONS                              */}
-        {/* ============================================ */}
-
-        {/* Mini Moves Detail */}
-        <section id="mini-moves" className="mb-20 scroll-mt-24">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-3">Mini Moves</h2>
-            <p className="text-navy-700 max-w-2xl mx-auto">
-              Complete packages for seasonal relocation. Everything you need for your Hamptons move,
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Mini Moves</h2>
+            <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+              Complete packages designed for seasonal relocation. Everything you need for your Hamptons move, 
               professionally handled from door to door.
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
             {services?.mini_move_packages?.map((pkg) => (
-              <Card key={pkg.id} variant="default">
-                <CardContent>
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-3 mb-2">
-                        <h3 className="text-xl font-serif font-bold text-navy-900">{pkg.name}</h3>
-                        <span className="text-2xl font-bold text-navy-900">${pkg.base_price_dollars}</span>
-                        {pkg.max_items && (
-                          <span className="text-sm text-navy-600">Up to {pkg.max_items} items</span>
-                        )}
-                      </div>
-                      <p className="text-navy-700 text-sm mb-3">{pkg.description}</p>
-                      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-navy-600">
-                        <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Door-to-door</li>
-                        <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Professional handling</li>
-                        {pkg.protective_wrapping && (
-                          <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Protective wrapping</li>
-                        )}
-                        {pkg.coi_included && (
-                          <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>COI included</li>
-                        )}
-                        {pkg.priority_scheduling && (
-                          <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Priority scheduling</li>
-                        )}
-                      </ul>
-                    </div>
-                    <Button
-                      variant={pkg.is_most_popular ? 'primary' : 'outline'}
-                      className="md:self-center shrink-0"
-                      onClick={() => handleSelectPackage(pkg)}
-                    >
-                      Select {pkg.name}
-                    </Button>
+              <Card 
+                key={pkg.id} 
+                variant={pkg.is_most_popular ? "luxury" : "elevated"}
+                className="relative"
+              >
+                {pkg.is_most_popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gold-500 text-navy-900 px-4 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
                   </div>
+                )}
+                
+                <CardHeader>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-serif font-bold text-navy-900 mb-2">
+                      {pkg.name}
+                    </h3>
+                    <div className="text-4xl font-bold text-navy-900 mb-4">
+                      ${pkg.base_price_dollars}
+                    </div>
+                    {pkg.max_items && (
+                      <p className="text-navy-600">Up to {pkg.max_items} items</p>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <p className="text-navy-700 mb-6">{pkg.description}</p>
+                  
+                  <div className="space-y-3 mb-8">
+                    <h4 className="font-medium text-navy-900">What's Included:</h4>
+                    <ul className="space-y-2">
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-3">✓</span>
+                        Door-to-door pickup and delivery
+                      </li>
+                      <li className="flex items-center text-sm text-navy-700">
+                        <span className="text-green-500 mr-3">✓</span>
+                        Professional handling and care
+                      </li>
+                      {pkg.protective_wrapping && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Premium protective wrapping
+                        </li>
+                      )}
+                      {pkg.coi_included && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Certificate of Insurance included
+                        </li>
+                      )}
+                      {pkg.priority_scheduling && (
+                        <li className="flex items-center text-sm text-navy-700">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Priority scheduling
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <Button
+                    variant={pkg.is_most_popular ? "primary" : "outline"}
+                    className="w-full"
+                    onClick={() => handleSelectPackage(pkg)}
+                  >
+                    Select {pkg.name}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
-
-            {/* Organizing Add-On */}
-            <Card variant="luxury">
-              <CardContent>
-                <h3 className="text-lg font-serif font-bold text-navy-900 text-center mb-4">
-                  Professional Organizing Services
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Professional Packing</h4>
-                    <p className="text-navy-700 text-sm">
-                      Expert packing at your Manhattan location with premium materials.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Professional Unpacking</h4>
-                    <p className="text-navy-700 text-sm">
-                      Arrive to your Hamptons home with everything unpacked and organized.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
+
+          {/* Organizing Services Add-On */}
+          <Card variant="luxury" className="mb-8">
+            <CardHeader>
+              <h3 className="text-xl font-serif font-bold text-navy-900 text-center">
+                Professional Organizing Services
+              </h3>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-3">Professional Packing</h4>
+                  <p className="text-navy-700 text-sm mb-4">
+                    Our expert team carefully packs your belongings at your Manhattan location 
+                    using premium materials and techniques to ensure everything arrives pristine.
+                  </p>
+                  <ul className="space-y-1 text-sm text-navy-600">
+                    <li>• Premium packing materials included</li>
+                    <li>• Careful handling of delicate items</li>
+                    <li>• Efficient space optimization</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-navy-900 mb-3">Professional Unpacking</h4>
+                  <p className="text-navy-700 text-sm mb-4">
+                    Arrive to your Hamptons home with everything unpacked and organized exactly 
+                    how you want it. We handle the setup so you can start enjoying your retreat.
+                  </p>
+                  <ul className="space-y-1 text-sm text-navy-600">
+                    <li>• Complete unpacking and setup</li>
+                    <li>• Organized placement of belongings</li>
+                    <li>• Removal of all packing materials</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
-        {/* Standard Delivery Detail */}
+        {/* Standard Delivery */}
         {services?.standard_delivery && (
-          <section id="standard-delivery" className="mb-20 scroll-mt-24">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-3">Standard Delivery</h2>
-              <p className="text-navy-700 max-w-2xl mx-auto">
+          <section className="mb-20">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Standard Delivery</h2>
+              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
                 Individual item delivery for when you need specific items transported quickly and safely.
               </p>
             </div>
 
             <div className="max-w-4xl mx-auto">
-              <Card variant="default">
+              <Card variant="elevated">
                 <CardContent>
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-2xl font-bold text-navy-900">
-                          ${services.standard_delivery.price_per_item_dollars}/item
-                        </span>
-                        <span className="text-sm text-navy-600">
-                          Min {services.standard_delivery.minimum_items} items &bull;
-                          ${services.standard_delivery.minimum_charge_dollars} minimum
-                        </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <div className="text-3xl font-bold text-navy-900 mb-2">
+                        ${services.standard_delivery.price_per_item_dollars} per item
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-navy-600 mb-3">
-                        <span>Clothing</span>
-                        <span>Documents</span>
-                        <span>Electronics</span>
-                        <span>Seasonal items under {services.standard_delivery.max_weight_per_item_lbs} lbs</span>
-                      </div>
-                      <div className="inline-flex items-baseline gap-2 bg-gold-50 border border-gold-200 rounded px-3 py-1.5">
-                        <span className="text-sm font-medium text-navy-900">Same-Day:</span>
-                        <span className="font-bold text-navy-900">${services.standard_delivery.same_day_flat_rate_dollars}</span>
-                        <span className="text-xs text-navy-600">order by 10 AM</span>
+                      <p className="text-navy-600 mb-4">
+                        Minimum {services.standard_delivery.minimum_items} items • 
+                        ${services.standard_delivery.minimum_charge_dollars} minimum charge
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-navy-900">Perfect for:</h4>
+                        <ul className="space-y-2 text-sm text-navy-700">
+                          <li>• Individual clothing items</li>
+                          <li>• Documents and files</li>
+                          <li>• Small electronics</li>
+                          <li>• Seasonal items under {services.standard_delivery.max_weight_per_item_lbs} lbs</li>
+                        </ul>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      className="md:self-center shrink-0"
-                      onClick={handleSelectStandardDelivery}
-                    >
-                      Book Standard Delivery
-                    </Button>
+                    
+                    <div>
+                      <div className="bg-gold-50 border border-gold-200 rounded-lg p-6">
+                        <h4 className="font-medium text-navy-900 mb-3">Same-Day Delivery</h4>
+                        <div className="text-2xl font-bold text-navy-900 mb-2">
+                          ${services.standard_delivery.same_day_flat_rate_dollars}
+                        </div>
+                        <p className="text-sm text-navy-700 mb-4">
+                          Need it today? We offer same-day delivery for urgent items.
+                        </p>
+                        <ul className="space-y-1 text-xs text-navy-600">
+                          <li>• Order by 10 AM for same-day delivery</li>
+                          <li>• Available Thursday through Monday</li>
+                          <li>• Subject to availability</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -312,45 +265,76 @@ export default function ServicesPage() {
           </section>
         )}
 
-        {/* Airport Transfer Detail */}
-        <section id="airport-transfer" className="mb-20 scroll-mt-24">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-3">Airport Transfer</h2>
-            <p className="text-navy-700 max-w-2xl mx-auto">
+        {/* Airport Transfer */}
+        <section className="mb-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Airport Transfer</h2>
+            <p className="text-lg text-navy-700 max-w-2xl mx-auto">
               Premium luggage transport to and from JFK and Newark airports.
               We handle your bags so you can travel light.
             </p>
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <Card variant="default">
+            <Card variant="elevated">
               <CardContent>
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                  <div className="flex-1">
-                    <div className="flex items-baseline gap-3 mb-3">
-                      <span className="text-2xl font-bold text-navy-900">$75/bag</span>
-                      <span className="text-sm text-navy-600">JFK & Newark (EWR)</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <div className="text-3xl font-bold text-navy-900 mb-2">
+                      $75 per bag
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                      <div className="bg-gold-50 border border-gold-200 rounded px-3 py-2">
-                        <span className="font-medium text-navy-900 text-sm">To Airport</span>
-                        <p className="text-xs text-navy-600">Bags picked up at your door, delivered to your terminal</p>
-                      </div>
-                      <div className="bg-gold-50 border border-gold-200 rounded px-3 py-2">
-                        <span className="font-medium text-navy-900 text-sm">From Airport</span>
-                        <p className="text-xs text-navy-600">Bags collected at terminal, delivered to your door</p>
-                      </div>
+                    <p className="text-navy-600 mb-4">
+                      JFK & Newark (EWR) • Terminal-specific pickup & dropoff
+                    </p>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-navy-900">What's Included:</h4>
+                      <ul className="space-y-2 text-sm text-navy-700">
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Door-to-terminal or terminal-to-door service
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Real-time tracking via Onfleet
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Professional handling of all luggage
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-3">✓</span>
+                          Timed to your flight schedule
+                        </li>
+                      </ul>
                     </div>
-                    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-navy-600">
-                      <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Terminal-specific service</li>
-                      <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Real-time tracking</li>
-                      <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>Timed to your flight</li>
-                      <li className="flex items-center"><span className="text-green-500 mr-1.5">✓</span>No surcharges</li>
-                    </ul>
                   </div>
+
+                  <div>
+                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-4">
+                      <h4 className="font-medium text-navy-900 mb-3">To Airport</h4>
+                      <p className="text-sm text-navy-700 mb-2">
+                        We pick up your bags and deliver them to your terminal before your departure.
+                      </p>
+                    </div>
+                    <div className="bg-gold-50 border border-gold-200 rounded-lg p-6 mb-6">
+                      <h4 className="font-medium text-navy-900 mb-3">From Airport</h4>
+                      <p className="text-sm text-navy-700 mb-2">
+                        We collect your bags at the terminal and deliver them to your door after you land.
+                      </p>
+                    </div>
+                    <div className="bg-navy-50 border border-navy-200 rounded-lg p-4 text-center">
+                      <p className="text-xs text-navy-600">
+                        No surcharges — no weekend, geographic, or time window fees.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center">
                   <Button
-                    variant="outline"
-                    className="md:self-center shrink-0"
+                    variant="primary"
+                    size="lg"
                     onClick={handleSelectAirportTransfer}
                   >
                     Book Airport Transfer
@@ -364,25 +348,37 @@ export default function ServicesPage() {
         {/* Specialty Items */}
         {services?.specialty_items && services.specialty_items.length > 0 && (
           <section className="mb-20">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-3">Specialty Items</h2>
-              <p className="text-navy-700 max-w-2xl mx-auto">
-                Premium handling for your most valuable and unique items.
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-serif font-bold text-navy-900 mb-4">Specialty Items</h2>
+              <p className="text-lg text-navy-700 max-w-2xl mx-auto">
+                Premium handling for your most valuable and unique items. Each specialty item receives 
+                custom care and attention.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {services.specialty_items.map((item) => (
                 <Card key={item.id} variant="default">
                   <CardContent>
                     <div className="text-center">
-                      <h4 className="text-lg font-medium text-navy-900 mb-1">{item.name}</h4>
-                      <div className="text-2xl font-bold text-navy-900 mb-2">${item.price_dollars}</div>
-                      <p className="text-navy-600 text-sm mb-3">{item.description}</p>
+                      <h4 className="text-lg font-medium text-navy-900 mb-2">{item.name}</h4>
+                      <div className="text-2xl font-bold text-navy-900 mb-3">
+                        ${item.price_dollars}
+                      </div>
+                      <p className="text-navy-600 text-sm mb-4">{item.description}</p>
+                      
                       {item.special_handling && (
-                        <span className="inline-block bg-gold-100 text-gold-800 text-xs px-3 py-1 rounded-full">
-                          Special Handling
-                        </span>
+                        <div className="mb-4">
+                          <span className="inline-block bg-gold-100 text-gold-800 text-xs px-3 py-1 rounded-full">
+                            Special Handling Included
+                          </span>
+                        </div>
+                      )}
+                      
+                      {item.requires_van_schedule && (
+                        <p className="text-xs text-navy-500">
+                          * Requires scheduled van delivery
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -403,40 +399,40 @@ export default function ServicesPage() {
                 <div>
                   <h3 className="font-medium text-navy-900 mb-3">Pickup Locations</h3>
                   <ul className="space-y-2 text-navy-700">
-                    <li>Manhattan (All neighborhoods)</li>
-                    <li>Brooklyn (Select areas)</li>
-                    <li>Long Island City</li>
-                    <li>Hoboken & Jersey City</li>
+                    <li>• Manhattan (All neighborhoods)</li>
+                    <li>• Brooklyn (Select areas)</li>
+                    <li>• Long Island City</li>
+                    <li>• Hoboken & Jersey City</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-medium text-navy-900 mb-3">Delivery Destinations</h3>
                   <ul className="space-y-2 text-navy-700">
-                    <li>East Hampton</li>
-                    <li>Southampton & Water Mill</li>
-                    <li>Bridgehampton & Sagaponack</li>
-                    <li>Westhampton Beach</li>
-                    <li>Sag Harbor & North Haven</li>
-                    <li>Montauk</li>
+                    <li>• East Hampton</li>
+                    <li>• Southampton & Water Mill</li>
+                    <li>• Bridgehampton & Sagaponack</li>
+                    <li>• Westhampton Beach</li>
+                    <li>• Sag Harbor & North Haven</li>
+                    <li>• Montauk</li>
                   </ul>
                 </div>
               </div>
               <div className="text-center mt-6">
                 <p className="text-sm text-navy-600">
-                  Don&apos;t see your location? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for custom options.
+                  Don't see your location? <Link href="/contact" className="text-navy-900 hover:underline">Contact us</Link> for custom service options.
                 </p>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        {/* CTA */}
+        {/* CTA Section */}
         <div className="text-center">
           <h2 className="text-2xl font-serif font-bold text-navy-900 mb-4">
             Ready to Experience White-Glove Service?
           </h2>
           <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
-            Book your luxury move today and discover why discerning clients trust ToteTaxi
+            Book your luxury move today and discover why discerning clients trust ToteTaxi 
             for their Manhattan-to-Hamptons transport needs.
           </p>
           <Link href="/book">
