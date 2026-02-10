@@ -8,12 +8,13 @@ Your Tote Taxi booking has been confirmed!
 - Booking Number: {{ booking.booking_number }}
 - Service: {{ booking.get_service_type_display }}
 {% if booking.service_type == 'blade_transfer' %}
-- Airport: {% if booking.blade_airport == 'JFK' %}JFK International Airport{% elif booking.blade_airport == 'EWR' %}Newark Liberty International Airport{% else %}{{ booking.blade_airport }}{% endif %}
+- Direction: {% if booking.transfer_direction == 'from_airport' %}From Airport (Arrival Pickup){% else %}To Airport (Luggage Delivery){% endif %}
+- Airport: {% if booking.blade_airport == 'JFK' %}JFK International Airport{% elif booking.blade_airport == 'EWR' %}Newark Liberty International Airport{% else %}{{ booking.blade_airport }}{% endif %}{% if booking.blade_terminal %} - Terminal {{ booking.blade_terminal }}{% endif %}
 - Flight Date: {% if booking.blade_flight_date %}{{ booking.blade_flight_date|date:"l, F j, Y" }}{% endif %}
-- Flight Departure: {% if booking.blade_flight_time %}{{ booking.blade_flight_time|time:"g:i A" }}{% endif %}
+- {% if booking.transfer_direction == 'from_airport' %}Flight Arrival{% else %}Flight Departure{% endif %}: {% if booking.blade_flight_time %}{{ booking.blade_flight_time|time:"g:i A" }}{% endif %}
 - Number of Bags: {{ booking.blade_bag_count }}
-- Bags Ready By: {% if booking.blade_ready_time %}{{ booking.blade_ready_time|time:"g:i A" }}{% endif %}
-{% else %}
+{% if booking.transfer_direction != 'from_airport' and booking.blade_ready_time %}- Bags Ready By: {{ booking.blade_ready_time|time:"g:i A" }}
+{% endif %}{% else %}
 - Pickup Date: {{ booking.pickup_date|date:"l, F j, Y" }}
 - Pickup Time: {{ booking.get_pickup_time_display }}
 {% endif %}
@@ -24,7 +25,7 @@ Your Tote Taxi booking has been confirmed!
 • Rate: $75 per bag (minimum 2 bags = $150)
 • Weight limit: 50 lbs per bag
 • Overweight bags: $100 additional per bag
-• NYC to airport service
+{% if booking.transfer_direction == 'from_airport' %}• Airport to NYC arrival pickup{% else %}• NYC to airport luggage delivery{% endif %}
 
 {% elif booking.service_type == 'mini_move' %}
 === MINI MOVE DETAILS ===
@@ -64,13 +65,16 @@ Specialty items:
 {% endif %}
 
 === ADDRESSES ===
-Pickup Address:
+{% if booking.service_type == 'blade_transfer' and booking.transfer_direction == 'from_airport' %}Pickup Address (Airport):{% else %}Pickup Address:{% endif %}
 {{ booking.pickup_address.address_line_1 }}
 {% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}
 {{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
 
-{% if booking.service_type != 'blade_transfer' %}
-Delivery Address:
+{% if booking.service_type == 'blade_transfer' and booking.transfer_direction == 'from_airport' %}Delivery Address (Your Location):
+{{ booking.delivery_address.address_line_1 }}
+{% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
+{{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+{% elif booking.service_type != 'blade_transfer' %}Delivery Address:
 {{ booking.delivery_address.address_line_1 }}
 {% if booking.delivery_address.address_line_2 %}{{ booking.delivery_address.address_line_2 }}{% endif %}
 {{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}

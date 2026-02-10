@@ -46,6 +46,7 @@ class BookingAdmin(admin.ModelAdmin):
         'booking_number', 'base_price_cents', 'surcharge_cents',
         'coi_fee_cents', 'organizing_total_cents', 'total_price_cents',
         'discount_amount_cents', 'pre_discount_total_cents',
+        'blade_ready_time',
         'created_at', 'updated_at'
     )
     
@@ -67,6 +68,15 @@ class BookingAdmin(admin.ModelAdmin):
             'fields': ('include_packing', 'include_unpacking'),
             'classes': ('wide',),
             'description': 'Professional packing and unpacking services (Mini Moves only)'
+        }),
+        ('Airport Transfer', {
+            'fields': (
+                'transfer_direction', 'blade_airport', 'blade_terminal',
+                'blade_flight_date', 'blade_flight_time',
+                'blade_bag_count', 'blade_ready_time',
+            ),
+            'classes': ('collapse',),
+            'description': 'Airport transfer details. Ready time auto-calculated for to_airport only.'
         }),
         ('Booking Details', {
             'fields': ('pickup_date', 'pickup_time', 'pickup_address', 'delivery_address')

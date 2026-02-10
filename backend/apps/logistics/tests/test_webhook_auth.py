@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 
 
 WEBHOOK_URL = '/api/staff/logistics/webhook/'
-WEBHOOK_SECRET = 'test-onfleet-webhook-secret-key'
+WEBHOOK_SECRET = 'aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344'
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +27,7 @@ def set_webhook_secret(settings):
 def _sign_payload(payload_bytes, secret=WEBHOOK_SECRET):
     """Compute HMAC-SHA512 signature matching Onfleet's scheme."""
     return hmac.new(
-        secret.encode('utf-8'),
+        bytes.fromhex(secret),
         payload_bytes,
         hashlib.sha512,
     ).hexdigest()

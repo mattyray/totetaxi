@@ -158,8 +158,14 @@ class OnfleetWebhookView(APIView):
             logger.warning("Onfleet webhook missing X-Onfleet-Signature header")
             return False
 
+        try:
+            secret_bytes = bytes.fromhex(secret)
+        except ValueError:
+            logger.error("ONFLEET_WEBHOOK_SECRET is not valid hex")
+            return False
+
         expected = hmac.new(
-            secret.encode('utf-8'),
+            secret_bytes,
             request.body,
             hashlib.sha512,
         ).hexdigest()

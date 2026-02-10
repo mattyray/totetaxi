@@ -408,7 +408,7 @@ class TestWebhookView:
     def test_webhook_post_processes_event(self, test_booking, settings):
         """Test POST webhook processes event"""
         import hmac, hashlib, json
-        settings.ONFLEET_WEBHOOK_SECRET = 'test-webhook-secret'
+        settings.ONFLEET_WEBHOOK_SECRET = 'aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344'
 
         client = APIClient()
 
@@ -427,7 +427,7 @@ class TestWebhookView:
         }
 
         payload_bytes = json.dumps(webhook_data).encode('utf-8')
-        sig = hmac.new(b'test-webhook-secret', payload_bytes, hashlib.sha512).hexdigest()
+        sig = hmac.new(bytes.fromhex('aabbccdd11223344aabbccdd11223344aabbccdd11223344aabbccdd11223344'), payload_bytes, hashlib.sha512).hexdigest()
 
         response = client.post(
             '/api/staff/logistics/webhook/',

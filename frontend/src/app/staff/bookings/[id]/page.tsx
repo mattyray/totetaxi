@@ -70,6 +70,8 @@ interface ServiceDetails {
     bag_count: number;
     ready_time: string;
     per_bag_price: number;
+    transfer_direction?: string;
+    terminal?: string;
   };
 }
 
@@ -455,16 +457,31 @@ export default function BookingDetailPage() {
                   </div>
                 )}
 
-                {/* BLADE Transfer */}
+                {/* Airport Transfer */}
                 {serviceDetails.blade_transfer && (
                   <div className="border-t pt-3 space-y-2 text-sm">
-                    <div className="font-semibold text-navy-900">BLADE Airport Transfer</div>
+                    <div className="font-semibold text-navy-900">Airport Transfer</div>
                     <div className="space-y-1 text-navy-800">
-                      <div>Airport: <strong>{serviceDetails.blade_transfer.airport}</strong></div>
-                      <div>Flight: {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()} at {serviceDetails.blade_transfer.flight_time}</div>
+                      <div>
+                        Direction:{' '}
+                        <strong>
+                          {serviceDetails.blade_transfer.transfer_direction === 'from_airport'
+                            ? 'Airport to NYC (Arrival Pickup)'
+                            : 'NYC to Airport (Departure Drop-off)'}
+                        </strong>
+                      </div>
+                      <div>
+                        Airport: <strong>{serviceDetails.blade_transfer.airport}</strong>
+                        {serviceDetails.blade_transfer.terminal && ` — Terminal ${serviceDetails.blade_transfer.terminal}`}
+                      </div>
+                      <div>Flight Date: {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()}</div>
+                      <div>
+                        {serviceDetails.blade_transfer.transfer_direction === 'from_airport' ? 'Arrival Time' : 'Departure Time'}:{' '}
+                        {serviceDetails.blade_transfer.flight_time}
+                      </div>
                       <div>Bags: {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
-                      {serviceDetails.blade_transfer.ready_time && (
-                        <div>Ready: {serviceDetails.blade_transfer.ready_time}</div>
+                      {serviceDetails.blade_transfer.transfer_direction !== 'from_airport' && serviceDetails.blade_transfer.ready_time && (
+                        <div>Pickup Ready Time: {serviceDetails.blade_transfer.ready_time}</div>
                       )}
                     </div>
                   </div>
@@ -577,11 +594,11 @@ export default function BookingDetailPage() {
                     </>
                   )}
 
-                  {/* BLADE */}
+                  {/* Airport Transfer */}
                   {booking.booking?.service_type === 'blade_transfer' && serviceDetails.blade_transfer && (
                     <div className="flex justify-between">
                       <span className="text-navy-900">
-                        BLADE Transfer ({serviceDetails.blade_transfer.bag_count} bags × $75):
+                        Airport Transfer ({serviceDetails.blade_transfer.bag_count} bags × $75):
                       </span>
                       <span className="text-navy-900 font-medium">${booking.booking?.base_price_dollars || 0}</span>
                     </div>
@@ -668,7 +685,11 @@ export default function BookingDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Pickup Address</h4>
+                    <h4 className="font-medium text-navy-900 mb-2">
+                      {booking.booking?.service_type === 'blade_transfer'
+                        ? serviceDetails.blade_transfer?.transfer_direction === 'from_airport' ? 'Pickup Address (Airport)' : 'Pickup Address (Customer)'
+                        : 'Pickup Address'}
+                    </h4>
                     <div className="text-navy-800 text-sm">
                       <div>{booking.booking?.pickup_address?.address_line_1}</div>
                       {booking.booking?.pickup_address?.address_line_2 && (
@@ -677,11 +698,18 @@ export default function BookingDetailPage() {
                       <div>
                         {booking.booking?.pickup_address?.city}, {booking.booking?.pickup_address?.state} {booking.booking?.pickup_address?.zip_code}
                       </div>
+                      {booking.booking?.service_type === 'blade_transfer' && serviceDetails.blade_transfer?.transfer_direction === 'from_airport' && serviceDetails.blade_transfer?.terminal && (
+                        <div className="text-navy-600 font-medium mt-1">Terminal {serviceDetails.blade_transfer.terminal}</div>
+                      )}
                     </div>
                   </div>
-                  
+
                   <div>
-                    <h4 className="font-medium text-navy-900 mb-2">Delivery Address</h4>
+                    <h4 className="font-medium text-navy-900 mb-2">
+                      {booking.booking?.service_type === 'blade_transfer'
+                        ? serviceDetails.blade_transfer?.transfer_direction === 'from_airport' ? 'Delivery Address (Customer)' : 'Delivery Address (Airport)'
+                        : 'Delivery Address'}
+                    </h4>
                     <div className="text-navy-800 text-sm">
                       <div>{booking.booking?.delivery_address?.address_line_1}</div>
                       {booking.booking?.delivery_address?.address_line_2 && (
@@ -690,6 +718,9 @@ export default function BookingDetailPage() {
                       <div>
                         {booking.booking?.delivery_address?.city}, {booking.booking?.delivery_address?.state} {booking.booking?.delivery_address?.zip_code}
                       </div>
+                      {booking.booking?.service_type === 'blade_transfer' && serviceDetails.blade_transfer?.transfer_direction !== 'from_airport' && serviceDetails.blade_transfer?.terminal && (
+                        <div className="text-navy-600 font-medium mt-1">Terminal {serviceDetails.blade_transfer.terminal}</div>
+                      )}
                     </div>
                   </div>
                 </div>

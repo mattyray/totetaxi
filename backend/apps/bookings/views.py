@@ -143,16 +143,18 @@ class PricingPreviewView(APIView):
             base_price_cents = bag_count * per_bag_price
             base_price_cents = max(base_price_cents, 15000)  # $150 minimum
             
-            # Calculate ready time
+            # Calculate ready time (to_airport only)
+            transfer_direction = serializer.validated_data.get('transfer_direction', 'to_airport')
             flight_time = serializer.validated_data.get('blade_flight_time')
-            if flight_time:
+            if transfer_direction == 'to_airport' and flight_time:
                 if flight_time < dt_time(13, 0):
                     ready_time = dt_time(5, 0)
                 else:
                     ready_time = dt_time(10, 0)
-                
                 details['ready_time'] = ready_time.isoformat()
-            
+
+            details['transfer_direction'] = transfer_direction
+            details['terminal'] = serializer.validated_data.get('blade_terminal')
             details['airport'] = serializer.validated_data.get('blade_airport')
             details['bag_count'] = bag_count
             details['per_bag_price'] = 75

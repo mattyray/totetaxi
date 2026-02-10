@@ -29,7 +29,9 @@ export interface BookingData {
   blade_flight_time?: string;
   blade_bag_count?: number;
   blade_ready_time?: string;
-  
+  transfer_direction?: 'to_airport' | 'from_airport';
+  blade_terminal?: string;
+
   pickup_date?: string;
   pickup_time?: 'morning' | 'morning_specific' | 'no_time_preference';
   specific_pickup_hour?: number;
@@ -110,7 +112,7 @@ const initialBookingData: BookingData = {
   specialty_items: [],
 };
 
-const STORE_VERSION = 6;
+const STORE_VERSION = 7;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(

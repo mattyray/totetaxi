@@ -73,6 +73,8 @@ interface ServiceDetails {
     bag_count: number;
     ready_time: string;
     per_bag_price: number;
+    transfer_direction?: string;
+    terminal?: string;
   };
 }
 
@@ -455,19 +457,31 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                 </Card>
               )}
 
-              {/* BLADE Transfer */}
+              {/* Airport Transfer */}
               {serviceDetails.blade_transfer && (
                 <Card>
                   <CardHeader>
-                    <h4 className="font-medium text-navy-900">BLADE Airport Transfer</h4>
+                    <h4 className="font-medium text-navy-900">Airport Transfer</h4>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><strong>Airport:</strong> {serviceDetails.blade_transfer.airport}</div>
-                    <div><strong>Flight Date:</strong> {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()}</div>
-                    <div><strong>Flight Time:</strong> {serviceDetails.blade_transfer.flight_time}</div>
-                    <div><strong>Bag Count:</strong> {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
-                    {serviceDetails.blade_transfer.ready_time && (
-                      <div><strong>Ready Time:</strong> {serviceDetails.blade_transfer.ready_time}</div>
+                  <CardContent className="space-y-2 text-sm text-navy-800">
+                    <div>
+                      <strong className="text-navy-900">Direction:</strong>{' '}
+                      {serviceDetails.blade_transfer.transfer_direction === 'from_airport'
+                        ? 'Airport to NYC (Arrival Pickup)'
+                        : 'NYC to Airport (Departure Drop-off)'}
+                    </div>
+                    <div>
+                      <strong className="text-navy-900">Airport:</strong> {serviceDetails.blade_transfer.airport}
+                      {serviceDetails.blade_transfer.terminal && ` — Terminal ${serviceDetails.blade_transfer.terminal}`}
+                    </div>
+                    <div><strong className="text-navy-900">Flight Date:</strong> {new Date(serviceDetails.blade_transfer.flight_date + 'T00:00:00').toLocaleDateString()}</div>
+                    <div>
+                      <strong className="text-navy-900">{serviceDetails.blade_transfer.transfer_direction === 'from_airport' ? 'Arrival Time' : 'Departure Time'}:</strong>{' '}
+                      {serviceDetails.blade_transfer.flight_time}
+                    </div>
+                    <div><strong className="text-navy-900">Bag Count:</strong> {serviceDetails.blade_transfer.bag_count} @ ${serviceDetails.blade_transfer.per_bag_price}/bag</div>
+                    {serviceDetails.blade_transfer.transfer_direction !== 'from_airport' && serviceDetails.blade_transfer.ready_time && (
+                      <div><strong className="text-navy-900">Pickup Ready Time:</strong> {serviceDetails.blade_transfer.ready_time}</div>
                     )}
                   </CardContent>
                 </Card>
@@ -479,7 +493,11 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <h3 className="text-lg font-medium text-navy-900">Pickup Address</h3>
+                  <h3 className="text-lg font-medium text-navy-900">
+                    {bookingDetail.booking.service_type === 'blade_transfer'
+                      ? serviceDetails.blade_transfer?.transfer_direction === 'from_airport' ? 'Pickup Address (Airport)' : 'Pickup Address (Customer)'
+                      : 'Pickup Address'}
+                  </h3>
                 </CardHeader>
                 <CardContent>
                   <div className="text-navy-800">
@@ -490,13 +508,20 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                     <div>
                       {bookingDetail.booking.pickup_address.city}, {bookingDetail.booking.pickup_address.state} {bookingDetail.booking.pickup_address.zip_code}
                     </div>
+                    {bookingDetail.booking.service_type === 'blade_transfer' && serviceDetails.blade_transfer?.transfer_direction === 'from_airport' && serviceDetails.blade_transfer?.terminal && (
+                      <div className="text-navy-600 font-medium mt-1">Terminal {serviceDetails.blade_transfer.terminal}</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <h3 className="text-lg font-medium text-navy-900">Delivery Address</h3>
+                  <h3 className="text-lg font-medium text-navy-900">
+                    {bookingDetail.booking.service_type === 'blade_transfer'
+                      ? serviceDetails.blade_transfer?.transfer_direction === 'from_airport' ? 'Delivery Address (Customer)' : 'Delivery Address (Airport)'
+                      : 'Delivery Address'}
+                  </h3>
                 </CardHeader>
                 <CardContent>
                   <div className="text-navy-800">
@@ -507,6 +532,9 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                     <div>
                       {bookingDetail.booking.delivery_address.city}, {bookingDetail.booking.delivery_address.state} {bookingDetail.booking.delivery_address.zip_code}
                     </div>
+                    {bookingDetail.booking.service_type === 'blade_transfer' && serviceDetails.blade_transfer?.transfer_direction !== 'from_airport' && serviceDetails.blade_transfer?.terminal && (
+                      <div className="text-navy-600 font-medium mt-1">Terminal {serviceDetails.blade_transfer.terminal}</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -612,7 +640,7 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                   </div>
 
                   {/* Total */}
-                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2 text-navy-900">
                     <span>Total:</span>
                     <span>${bookingDetail.booking.total_price_dollars}</span>
                   </div>
