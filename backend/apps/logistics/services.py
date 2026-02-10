@@ -217,8 +217,6 @@ class ToteTaxiOnfleetIntegration:
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
 
-        street_number, street_name = parse_street_address(booking.pickup_address.address_line_1)
-
         # Determine pickup recipient based on direction
         is_from_airport = (booking.service_type == 'blade_transfer'
                            and getattr(booking, 'transfer_direction', 'to_airport') == 'from_airport')
@@ -228,12 +226,12 @@ class ToteTaxiOnfleetIntegration:
                 booking.blade_airport, getattr(booking, 'blade_terminal', None))
             recipient_name = f"BLADE Team - {contact_name}"
             recipient_phone = self._format_phone(contact_phone)
+            destination = self._get_airport_destination(booking.blade_airport)
         else:
             recipient_name = booking.get_customer_name()
             recipient_phone = self._format_phone(self._get_customer_phone(booking))
-
-        task_data = {
-            'destination': {
+            street_number, street_name = parse_street_address(booking.pickup_address.address_line_1)
+            destination = {
                 'address': {
                     'number': street_number,
                     'street': street_name,
@@ -243,7 +241,10 @@ class ToteTaxiOnfleetIntegration:
                     'postalCode': booking.pickup_address.zip_code,
                     'country': 'USA'
                 }
-            },
+            }
+
+        task_data = {
+            'destination': destination,
             'recipients': [{
                 'name': recipient_name,
                 'phone': recipient_phone,
@@ -267,10 +268,14 @@ class ToteTaxiOnfleetIntegration:
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
 
-        street_number, street_name = parse_street_address(booking.delivery_address.address_line_1)
-
-        task_data = {
-            'destination': {
+        # To airport: dropoff is at airport; from airport: dropoff is at customer
+        is_to_airport = (booking.service_type == 'blade_transfer'
+                         and getattr(booking, 'transfer_direction', 'to_airport') == 'to_airport')
+        if is_to_airport:
+            destination = self._get_airport_destination(booking.blade_airport)
+        else:
+            street_number, street_name = parse_street_address(booking.delivery_address.address_line_1)
+            destination = {
                 'address': {
                     'number': street_number,
                     'street': street_name,
@@ -280,7 +285,10 @@ class ToteTaxiOnfleetIntegration:
                     'postalCode': booking.delivery_address.zip_code,
                     'country': 'USA'
                 }
-            },
+            }
+
+        task_data = {
+            'destination': destination,
             'recipients': [{
                 'name': self._get_dropoff_recipient_name(booking),
                 'phone': self._format_phone(self._get_dropoff_recipient_phone(booking)),
@@ -366,6 +374,43 @@ class ToteTaxiOnfleetIntegration:
             base_notes += f"Item: {getattr(booking, 'item_description', 'See details')}"
 
         return base_notes
+
+    # Real geocodable addresses + coordinates for airport terminals
+    AIRPORT_DESTINATIONS = {
+        'JFK': {
+            'number': '',
+            'street': 'JFK Access Road',
+            'city': 'Jamaica',
+            'state': 'NY',
+            'postalCode': '11430',
+            'country': 'USA',
+            'location': [-73.7781, 40.6413],  # [lng, lat] per Onfleet spec
+        },
+        'EWR': {
+            'number': '',
+            'street': 'Newark Liberty International Airport',
+            'city': 'Newark',
+            'state': 'NJ',
+            'postalCode': '07114',
+            'country': 'USA',
+            'location': [-74.1745, 40.6895],
+        },
+    }
+
+    def _get_airport_destination(self, airport_code: str) -> dict:
+        """Return an Onfleet-geocodable destination dict for an airport."""
+        addr = self.AIRPORT_DESTINATIONS.get(airport_code, self.AIRPORT_DESTINATIONS['JFK'])
+        return {
+            'address': {
+                'number': addr['number'],
+                'street': addr['street'],
+                'city': addr['city'],
+                'state': addr['state'],
+                'postalCode': addr['postalCode'],
+                'country': addr['country'],
+            },
+            'location': addr['location'],
+        }
 
     def _get_blade_contact(self, airport_code: str, terminal: str = None) -> Tuple[str, str]:
         terminal_str = f" T{terminal}" if terminal else ""
