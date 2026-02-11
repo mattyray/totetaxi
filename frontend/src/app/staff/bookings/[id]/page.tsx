@@ -62,6 +62,7 @@ interface ServiceDetails {
   standard_delivery?: {
     item_count: number;
     is_same_day: boolean;
+    item_description?: string;
   };
   blade_transfer?: {
     airport: string;
@@ -451,6 +452,9 @@ export default function BookingDetailPage() {
                   <div className="border-t pt-3 space-y-2 text-sm">
                     <div className="font-semibold text-navy-900">Standard Delivery</div>
                     <div className="text-navy-800">Item Count: {serviceDetails.standard_delivery.item_count}</div>
+                    {serviceDetails.standard_delivery.item_description && (
+                      <div className="text-navy-800">Items: {serviceDetails.standard_delivery.item_description}</div>
+                    )}
                     {serviceDetails.standard_delivery.is_same_day && (
                       <div className="text-orange-600 font-medium">Same-Day Delivery</div>
                     )}

@@ -675,6 +675,7 @@ class BookingDetailView(APIView):
             details['standard_delivery'] = {
                 'item_count': booking.standard_delivery_item_count or 0,
                 'is_same_day': booking.is_same_day_delivery,
+                'item_description': booking.item_description or '',
             }
             # Include specialty items if any
             if booking.specialty_items.exists():

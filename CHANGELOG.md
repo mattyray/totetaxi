@@ -1,13 +1,95 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** February 7, 2026
+**Last Updated:** February 11, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## February 11, 2026
+
+### Item Description Field for Standard Delivery
+
+Added a required `item_description` field so customers describe what they're sending with standard delivery bookings. The field appears as a textarea in the booking wizard when item count > 0, and is required before proceeding.
+
+**Backend:**
+- `item_description` TextField on Booking model (nullable, blank, max 500 chars)
+- Migration: `0011_booking_item_description`
+- Added to 7 serializers (guest + authenticated flows) with validation: required when `standard_delivery_item_count > 0`
+- Staff API `_get_service_details()` returns item_description in response
+- Django admin: added to Service Selection fieldset + list display
+
+**Frontend:**
+- Conditional textarea in service-selection-step (appears when item count > 0, 500 char limit)
+- `canContinue()` blocks progression when description is blank
+- Sent in pricing preview, payment intent, and booking creation API calls
+- Displayed in customer dashboard booking detail, staff detail page, and staff calendar modal
+
+**Emails:**
+- Confirmation email: shows description under Standard Delivery Details
+- Reminder email: shows description after total price
+
+**Tests:** 266 passed, 0 regressions (2 pre-existing failures)
+
+---
+
+## February 10, 2026
+
+### Post-Launch Bug Fixes
+
+| Bug | Description | Fix | Files Changed |
+|-----|-------------|-----|---------------|
+| Free order flow broken | Frontend checked `=== 'free_order'` but backend returns `'free_order_<UUID>'` after R2 security fix | Changed to `startsWith('free_order_')` + pass actual unique ID | `review-payment-step.tsx` |
+| Onfleet airport geocoding 400 | Onfleet couldn't geocode "JFK International Airport" as a street address | Added `AIRPORT_DESTINATIONS` dict with lat/lng coords for JFK and EWR | `backend/apps/logistics/services.py` |
+| Mobile menu scroll | Sign Out button cut off on small screens | Added `max-h-[calc(100vh-80px)] overflow-y-auto` to mobile nav | `main-layout.tsx` |
+
+### UI Improvements
+
+| Item | Description | Files Changed |
+|------|-------------|---------------|
+| Persistent Book Now button | "Book Now" now always visible in nav (logged in or out, desktop + mobile) | `main-layout.tsx` |
+| Services page cleanup | Removed per-service booking buttons, single "Book Now" CTA, added Airport Transfer section | `services/page.tsx` |
+
+---
+
+## February 9–10, 2026
+
+### Bi-Directional Airport Transfer (PR #11)
+
+Extended airport transfer service to support both to-airport (luggage delivery) and from-airport (arrival pickup) directions.
+
+**Backend:**
+- `transfer_direction` CharField: `to_airport` (default) / `from_airport`
+- `blade_terminal` CharField (max 2 chars, nullable) — JFK terminals: 1,4,5,7,8; EWR: A,B,C
+- Ready-time auto-calc only for to_airport; from_airport skips it
+- Migration: `0010_add_transfer_direction_terminal`
+
+**Frontend:**
+- Direction toggle (radio buttons) in date-time step
+- Terminal selector dropdown (filtered by airport)
+- UI labels change based on direction ("Flight Departure" vs "Flight Arrival")
+- Confirmation email shows direction-specific details
+
+### Security Hardening (PR #10)
+
+7 fixes from the second re-audit round.
+
+| Finding | Severity | Description | Fix |
+|---------|----------|-------------|-----|
+| R2 | HIGH | Free orders all used same `free_order` ID — no reuse prevention | Unique UUIDs (`free_order_<uuid4>`) + C2 reuse prevention applies |
+| R3 | HIGH | Discount code TOCTOU race — usage count checked then updated non-atomically | `select_for_update` in both guest + authenticated serializers |
+| R4 | MEDIUM | After partial refund, no subsequent refunds allowed | New `partially_refunded` status, subsequent refunds enabled |
+| R7 | MEDIUM | Legacy `PaymentConfirmView` still accessible | Removed entirely |
+| R8 | MEDIUM | Authenticated `CreatePaymentIntentView` had no permission class | Added `IsAuthenticated` |
+| R10 | MEDIUM | Payment/Refund list+create views open to any authenticated user | Added `IsStaffMember` permission class |
+| R11 | LOW | Discount validation error messages revealed whether code existed | Uniform 400 response (no enumeration) |
+
+**Tests:** 16 new tests, 254 total passed, 0 regressions
 
 ---
 
@@ -184,7 +266,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Running Totals
 
-### Security Fixes: 29
+### Security Fixes: 36
 - C1: Payment amount verification
 - C2: PaymentIntent reuse prevention + guest Payment record
 - C3: Onfleet webhook HMAC authentication
@@ -211,11 +293,18 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - L18: SECRET_KEY required in production
 - L19: Password reset token invalidation
 - R1: Booking creation atomic transactions
+- R2: Free order unique UUIDs
+- R3: Discount code TOCTOU race fix
+- R4: Partial refund status + subsequent refunds
 - R5: _skip_pricing on final booking save
 - R6: Webhook task graceful retry exhaustion
+- R7: Legacy PaymentConfirmView removed
+- R8: Authenticated PI view requires IsAuthenticated
 - R9: STRIPE_WEBHOOK_SECRET required in production
+- R10: Payment/Refund views require IsStaffMember
+- R11: Discount validation uniform error response
 
-### Bugs Fixed: 8
+### Bugs Fixed: 11
 - Double-click login (CSRF)
 - Calendar not loading
 - Logistics stats empty
@@ -224,26 +313,35 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Surge pricing only charges once
 - Password field not registering
 - Customer profile 500 error
+- Free order flow (startsWith fix)
+- Onfleet airport geocoding (lat/lng coords)
+- Mobile menu scroll (overflow fix)
 
-### Features Built: 1
+### Features Built: 4
 - Reports & Analytics page (full implementation)
+- Discount codes (percentage + fixed, per-customer limits, service restrictions)
+- Bi-directional airport transfer (to/from airport, terminal selection)
+- Item description field for standard delivery
 
 ### Email Features: 2
 - Calendar invite (.ics) in reminder emails
 - Post-delivery review request email
 
-### Content Updates: 4
+### Content Updates: 6
 - Tote Camps footer link
 - Hampton Jitney on partnerships page
 - Hampton Jitney on homepage
 - JFK promo banner/popup
+- Persistent Book Now nav button
+- Services page cleanup
 
-### Infrastructure Fixes: 5
+### Infrastructure Fixes: 6
 - Stripe webhook retry logic
 - Onfleet webhook retry logic
 - Onfleet Trigger 7 handler
 - Celery beat memory scaling
 - Google Places API billing enabled
+- api.totetaxi.com subdomain + SSL
 
 ---
 
@@ -254,7 +352,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 | Feature | Estimate | Priority | Status |
 |---------|----------|----------|--------|
 | Discount Codes | 10-12 hours | HIGH | **DONE** (PR #8) |
-| Item Description Field | 5-6 hours | MEDIUM | Not Started |
+| Item Description Field | 5-6 hours | MEDIUM | **DONE** (Feb 11) |
 | MailChimp Integration | 3-4 hours | LOW | Not Started |
 
 ### Easy Wins
