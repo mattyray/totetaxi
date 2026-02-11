@@ -150,7 +150,7 @@ class ToteTaxiOnfleetIntegration:
             if is_from_airport:
                 contact_name, contact_phone = self._get_blade_contact(
                     booking.blade_airport, getattr(booking, 'blade_terminal', None))
-                pickup_recipient_name = f"BLADE Team - {contact_name}"
+                pickup_recipient_name = f"Airport Transfer - {contact_name}"
                 pickup_recipient_phone = self._format_phone(contact_phone)
             else:
                 pickup_recipient_name = booking.get_customer_name()
@@ -221,10 +221,10 @@ class ToteTaxiOnfleetIntegration:
         is_from_airport = (booking.service_type == 'blade_transfer'
                            and getattr(booking, 'transfer_direction', 'to_airport') == 'from_airport')
         if is_from_airport:
-            # From airport: pickup is at airport, recipient is BLADE team
+            # From airport: pickup is at airport, recipient is airport terminal contact
             contact_name, contact_phone = self._get_blade_contact(
                 booking.blade_airport, getattr(booking, 'blade_terminal', None))
-            recipient_name = f"BLADE Team - {contact_name}"
+            recipient_name = f"Airport Transfer - {contact_name}"
             recipient_phone = self._format_phone(contact_phone)
             destination = self._get_airport_destination(booking.blade_airport)
         else:
@@ -419,7 +419,7 @@ class ToteTaxiOnfleetIntegration:
             'EWR': (f'Newark Terminal{terminal_str}', '+19739876543'),
             'LGA': (f'LaGuardia Terminal{terminal_str}', '+17185551234')
         }
-        return blade_contacts.get(airport_code, ('BLADE Terminal', '+12125551234'))
+        return blade_contacts.get(airport_code, ('Airport Terminal', '+12125551234'))
 
     def _get_customer_phone(self, booking) -> str:
         try:
@@ -463,7 +463,7 @@ class ToteTaxiOnfleetIntegration:
             # To airport: dropoff is at airport
             blade_name, _ = self._get_blade_contact(
                 booking.blade_airport, getattr(booking, 'blade_terminal', None))
-            return f"BLADE Team - {blade_name}"
+            return f"Airport Transfer - {blade_name}"
         return booking.get_customer_name()
 
     def handle_webhook(self, webhook_data: dict) -> bool:

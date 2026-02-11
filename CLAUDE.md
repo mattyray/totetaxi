@@ -155,3 +155,5 @@ The backend API is split by audience (defined in `config/urls.py`):
 - `ignoreBuildErrors: true` means TypeScript errors won't fail the Next.js build — lint separately with `npm run lint`
 - Production docker-compose (`docker-compose.prod.yml`) uses `.env.production`, Redis auth, internal-only networking, and memory limits
 - CORS is configured for `localhost:3000` and `totetaxi.netlify.app` by default
+- `fly ssh console` connects as root, but Python packages are installed under `appuser` — use `su appuser -c "cd /app && python manage.py ..."` to run management commands
+- `BookingData` interface is duplicated in both `frontend/src/types/index.ts` AND `frontend/src/stores/booking-store.ts` — must update both when adding fields

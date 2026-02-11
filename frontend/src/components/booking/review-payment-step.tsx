@@ -157,6 +157,7 @@ const useRecalculatePricing = () => {
           pricingRequest.specific_pickup_hour = data.specific_pickup_hour;
         } else if (data.service_type === 'standard_delivery') {
           pricingRequest.standard_delivery_item_count = data.standard_delivery_item_count;
+          pricingRequest.item_description = data.item_description;
           pricingRequest.is_same_day_delivery = data.is_same_day_delivery;
           pricingRequest.specialty_items = data.specialty_items;
         } else if (data.service_type === 'specialty_item') {
@@ -339,6 +340,7 @@ export function ReviewPaymentStep() {
         paymentRequest.specific_pickup_hour = bookingData.specific_pickup_hour;
       } else if (bookingData.service_type === 'standard_delivery') {
         paymentRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        paymentRequest.item_description = bookingData.item_description;
         paymentRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
         paymentRequest.specialty_items = bookingData.specialty_items;
       } else if (bookingData.service_type === 'specialty_item') {
@@ -422,6 +424,7 @@ export function ReviewPaymentStep() {
         bookingRequest.include_unpacking = bookingData.include_unpacking;
       } else if (bookingData.service_type === 'standard_delivery') {
         bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+        bookingRequest.item_description = bookingData.item_description;
         bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
         bookingRequest.specialty_items = bookingData.specialty_items;
       } else if (bookingData.service_type === 'specialty_item') {

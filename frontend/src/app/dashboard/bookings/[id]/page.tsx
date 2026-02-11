@@ -316,6 +316,13 @@ export default function BookingDetailPage() {
                   </div>
                 </div>
                 
+                {booking.service_type === 'standard_delivery' && booking.item_description && (
+                  <div className="border-t pt-3 space-y-2">
+                    <p className="text-sm font-bold text-navy-900">Item Description</p>
+                    <p className="text-sm text-navy-700">{booking.item_description}</p>
+                  </div>
+                )}
+
                 {booking.service_type === 'blade_transfer' && (
                   <div className="border-t pt-3 space-y-3">
                     <p className="text-sm font-bold text-navy-900">Airport Transfer Details</p>

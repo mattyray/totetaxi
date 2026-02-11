@@ -351,6 +351,11 @@ class Booking(models.Model):
         blank=True,
         help_text="Number of items for standard delivery"
     )
+    item_description = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Customer description of items for standard delivery"
+    )
     is_same_day_delivery = models.BooleanField(
         default=False,
         help_text="Same-day delivery (flat $360 rate)"

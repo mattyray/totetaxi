@@ -85,6 +85,7 @@ export interface BookingData {
   include_packing?: boolean;
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
+  item_description?: string;
   is_same_day_delivery?: boolean;
   specialty_items?: Array<{
   item_id: string;
@@ -196,6 +197,7 @@ export interface BookingWithTracking {
   pricing_breakdown: any;
   payment_status: string;
   can_rebook: boolean;
+  item_description?: string;
   blade_airport?: 'JFK' | 'EWR';
   blade_flight_date?: string;
   blade_flight_time?: string;

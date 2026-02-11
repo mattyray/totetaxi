@@ -44,8 +44,9 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    
+
     # ✅ NEW: Specialty items with quantities
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
@@ -53,7 +54,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         allow_empty=True,
         help_text="List of {item_id: UUID, quantity: int}"
     )
-    
+
     # BLADE fields
     blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
@@ -89,7 +90,7 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
         """Validate specialty items with quantities"""
         if not value:
             return []
-        
+
         for item in value:
             if 'item_id' not in item or 'quantity' not in item:
                 raise serializers.ValidationError(
@@ -97,12 +98,12 @@ class PaymentIntentCreateSerializer(serializers.Serializer):
                 )
             if item['quantity'] < 1:
                 raise serializers.ValidationError("Quantity must be at least 1")
-        
+
         return value
-    
+
     def validate(self, attrs):
         service_type = attrs['service_type']
-        
+
         if service_type == 'blade_transfer':
             if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
                        attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
@@ -320,15 +321,16 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    
+
     # ✅ NEW: Specialty items with quantities
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
         allow_empty=True
     )
-    
+
     # BLADE fields
     blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
@@ -412,14 +414,17 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
             specialty_items = attrs.get('specialty_items', [])
-            
+
             if item_count == 0 and len(specialty_items) == 0:
                 raise serializers.ValidationError("At least one item required")
-        
+
+            if item_count > 0 and not (attrs.get('item_description') or '').strip():
+                raise serializers.ValidationError({'item_description': 'Item description is required when items are included'})
+
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_items'):
                 raise serializers.ValidationError("Specialty items required")
-        
+
         # Address validation
         if not (attrs.get('pickup_address_id') or attrs.get('new_pickup_address')):
             raise serializers.ValidationError("pickup address required")
@@ -481,6 +486,7 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
             include_packing=validated_data.get('include_packing', False),
             include_unpacking=validated_data.get('include_unpacking', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
+            item_description=validated_data.get('item_description', ''),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
             blade_airport=validated_data.get('blade_airport'),
             blade_flight_date=validated_data.get('blade_flight_date'),
@@ -603,15 +609,16 @@ class CustomerBookingDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = (
-            'id', 'booking_number', 'customer_name', 
+            'id', 'booking_number', 'customer_name',
             'service_type', 'pickup_date', 'pickup_time', 'status',
             'pickup_address', 'delivery_address',
             'special_instructions', 'coi_required',
             'blade_airport', 'blade_flight_date', 'blade_flight_time',
             'blade_bag_count', 'blade_ready_time',
             'transfer_direction', 'blade_terminal',
+            'item_description',
             'total_price_dollars', 'pricing_breakdown',
-            'payment_status', 'can_rebook', 
+            'payment_status', 'can_rebook',
             'onfleet_tasks',
             'created_at', 'updated_at'
         )

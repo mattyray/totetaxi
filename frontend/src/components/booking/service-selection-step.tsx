@@ -203,7 +203,8 @@ export function ServiceSelectionStep() {
       
       if (bookingData.service_type === 'standard_delivery') {
         const itemCount = bookingData.standard_delivery_item_count || 0;
-        const hasSpecialtyItems = (bookingData.specialty_items ?? []).some(item => item.quantity > 0); // ✅ FIXED
+        const hasSpecialtyItems = (bookingData.specialty_items ?? []).some(item => item.quantity > 0);
+        if (itemCount > 0 && !(bookingData.item_description || '').trim()) return false;
         return itemCount > 0 || hasSpecialtyItems;
       }
       
@@ -538,11 +539,14 @@ export function ServiceSelectionStep() {
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === '') {
-                    updateBookingData({ standard_delivery_item_count: 0 });
+                    updateBookingData({ standard_delivery_item_count: 0, item_description: '' });
                   } else {
                     const numValue = parseInt(value, 10);
                     if (!isNaN(numValue) && numValue >= 0) {
-                      updateBookingData({ standard_delivery_item_count: numValue });
+                      updateBookingData({
+                        standard_delivery_item_count: numValue,
+                        ...(numValue === 0 ? { item_description: '' } : {}),
+                      });
                     }
                   }
                 }}
@@ -552,10 +556,29 @@ export function ServiceSelectionStep() {
               
               <div className="mt-3 bg-gold-50 border border-gold-200 rounded-lg p-3">
                 <p className="text-sm text-gold-800">
-                  <strong>Note:</strong> Standard pricing applies to items under 50 lbs each. 
+                  <strong>Note:</strong> Standard pricing applies to items under 50 lbs each.
                   Overweight items may incur additional charges.
                 </p>
               </div>
+
+              {(bookingData.standard_delivery_item_count || 0) > 0 && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-navy-900 mb-1">
+                    Describe Your Items <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={bookingData.item_description || ''}
+                    onChange={(e) => updateBookingData({ item_description: e.target.value })}
+                    placeholder="Tell us what you're sending — the more detail, the better"
+                    maxLength={500}
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-navy-900 placeholder:text-gray-400 focus:border-navy-500 focus:outline-none focus:ring-1 focus:ring-navy-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {(bookingData.item_description || '').length}/500 characters
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

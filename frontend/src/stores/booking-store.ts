@@ -17,8 +17,9 @@ export interface BookingData {
   include_packing?: boolean;
   include_unpacking?: boolean;
   standard_delivery_item_count?: number;
+  item_description?: string;
   is_same_day_delivery?: boolean;
-  
+
   specialty_items?: Array<{
     item_id: string;
     quantity: number;

@@ -10,7 +10,9 @@ Booking Details:
 - Pickup Date: {{ booking.pickup_date }}
 - Pickup Time: {{ booking.get_pickup_time_display }}
 - Total: ${{ booking.total_price_dollars }}
-
+{% if booking.service_type == 'standard_delivery' and booking.item_description %}
+Item Description: {{ booking.item_description }}
+{% endif %}
 Pickup Address:
 {{ booking.pickup_address.address_line_1 }}
 {% if booking.pickup_address.address_line_2 %}{{ booking.pickup_address.address_line_2 }}{% endif %}

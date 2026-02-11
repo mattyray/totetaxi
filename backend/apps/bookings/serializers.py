@@ -68,6 +68,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'blade_airport', 'blade_flight_date', 'blade_flight_time',
             'blade_bag_count', 'blade_ready_time',
             'transfer_direction', 'blade_terminal',
+            'item_description',
             'total_price_dollars', 'organizing_total_dollars',
             'pricing_breakdown', 'organizing_services_breakdown', 'created_at'
         )
@@ -144,15 +145,16 @@ class PricingPreviewSerializer(serializers.Serializer):
     
     # Standard Delivery fields
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_same_day_delivery = serializers.BooleanField(required=False, default=False)
-    
+
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
         allow_empty=True,
         help_text="List of {item_id: UUID, quantity: int}"
     )
-    
+
     # BLADE fields
     blade_airport = serializers.ChoiceField(
         choices=[('JFK', 'JFK'), ('EWR', 'EWR')],
@@ -250,15 +252,16 @@ class GuestPaymentIntentSerializer(serializers.Serializer):
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    
+
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
         allow_empty=True,
         help_text="List of {item_id: UUID, quantity: int}"
     )
-    
+
     # BLADE fields
     blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
@@ -536,17 +539,18 @@ class GuestBookingCreateSerializer(serializers.Serializer):
     
     mini_move_package_id = serializers.UUIDField(required=False)
     standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_same_day_delivery = serializers.BooleanField(default=False)
-    
+
     specialty_items = serializers.ListField(
         child=serializers.DictField(),
         required=False,
         allow_empty=True
     )
-    
+
     include_packing = serializers.BooleanField(default=False)
     include_unpacking = serializers.BooleanField(default=False)
-    
+
     # BLADE fields
     blade_airport = serializers.ChoiceField(choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False)
     blade_flight_date = serializers.DateField(required=False)
@@ -571,7 +575,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
 
     pickup_address = serializers.DictField()
     delivery_address = serializers.DictField()
-    
+
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
 
@@ -668,19 +672,22 @@ class GuestBookingCreateSerializer(serializers.Serializer):
         elif service_type == 'standard_delivery':
             item_count = attrs.get('standard_delivery_item_count', 0)
             specialty_items = attrs.get('specialty_items', [])
-            
+
             if item_count == 0 and len(specialty_items) == 0:
                 raise serializers.ValidationError("At least one item required")
-        
+
+            if item_count > 0 and not (attrs.get('item_description') or '').strip():
+                raise serializers.ValidationError({'item_description': 'Item description is required when items are included'})
+
         elif service_type == 'specialty_item':
             if not attrs.get('specialty_items'):
                 raise serializers.ValidationError("Specialty items required")
-        
+
         return attrs
-    
+
     def create(self, validated_data):
         payment_intent_id = validated_data.pop('payment_intent_id')
-        
+
         # Create guest checkout
         guest_checkout = GuestCheckout.objects.create(
             first_name=validated_data['first_name'],
@@ -712,6 +719,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             coi_required=validated_data.get('coi_required', False),
             is_outside_core_area=validated_data.get('is_outside_core_area', False),
             standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
+            item_description=validated_data.get('item_description', ''),
             is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
             include_packing=validated_data.get('include_packing', False),
             include_unpacking=validated_data.get('include_unpacking', False),
@@ -723,7 +731,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
             blade_terminal=validated_data.get('blade_terminal') or None,
             status='pending',
         )
-        
+
         # Handle mini move package
         if validated_data['service_type'] == 'mini_move':
             try:
@@ -731,7 +739,7 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                 booking.mini_move_package = package
             except MiniMovePackage.DoesNotExist:
                 raise serializers.ValidationError("Invalid package")
-        
+
         # ✅ OPTIMIZED: Bulk fetch specialty items (was N+1 query)
         if specialty_items_data:
             booking.save()  # Save first to get ID

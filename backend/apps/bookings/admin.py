@@ -58,9 +58,10 @@ class BookingAdmin(admin.ModelAdmin):
         }),
         ('Service Selection', {
             'fields': (
-                'service_type', 
-                'mini_move_package', 
+                'service_type',
+                'mini_move_package',
                 'standard_delivery_item_count',
+                'item_description',
                 'is_same_day_delivery',
             )
         }),
@@ -121,7 +122,10 @@ class BookingAdmin(admin.ModelAdmin):
         if obj.service_type == 'mini_move' and obj.mini_move_package:
             return obj.mini_move_package.name
         elif obj.service_type == 'standard_delivery' and obj.standard_delivery_item_count:
-            return f"{obj.standard_delivery_item_count} items"
+            desc = f"{obj.standard_delivery_item_count} items"
+            if obj.item_description:
+                desc += f" — {obj.item_description[:50]}"
+            return desc
         elif obj.service_type == 'specialty_item':
             booking_items = obj.bookingspecialtyitem_set.all()
             items_list = [f"{bi.quantity}x {bi.specialty_item.name}" for bi in booking_items[:2]]

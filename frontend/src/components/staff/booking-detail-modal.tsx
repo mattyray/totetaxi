@@ -65,6 +65,7 @@ interface ServiceDetails {
   standard_delivery?: {
     item_count: number;
     is_same_day: boolean;
+    item_description?: string;
   };
   blade_transfer?: {
     airport: string;
@@ -450,6 +451,9 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div><strong>Item Count:</strong> {serviceDetails.standard_delivery.item_count}</div>
+                    {serviceDetails.standard_delivery.item_description && (
+                      <div><strong>Items:</strong> {serviceDetails.standard_delivery.item_description}</div>
+                    )}
                     {serviceDetails.standard_delivery.is_same_day && (
                       <div className="text-orange-600 font-medium">Same-Day Delivery</div>
                     )}
