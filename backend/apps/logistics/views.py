@@ -210,7 +210,7 @@ class OnfleetWebhookView(APIView):
             if success:
                 logger.info(f"✅ Webhook processed successfully - Trigger: {trigger_id}")
             else:
-                logger.warning(f"⚠️  Webhook processing failed but acknowledged - Trigger: {trigger_id}")
+                logger.debug(f"Webhook for non-ToteTaxi task acknowledged - Trigger: {trigger_id}")
             
             return Response(response_data, status=200)  # ✅ Always 200
                 

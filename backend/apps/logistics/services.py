@@ -489,13 +489,13 @@ class ToteTaxiOnfleetIntegration:
                 except OnfleetTask.DoesNotExist:
                     if attempt < max_retries - 1:
                         delay = retry_delays[attempt]
-                        logger.info(
+                        logger.debug(
                             f"Task {task_id} not found in database, "
                             f"retry {attempt + 1}/{max_retries} in {delay}s"
                         )
                         time.sleep(delay)
                     else:
-                        logger.warning(f"Task not found in database after {max_retries} retries: {task_id}")
+                        logger.debug(f"Task not found in database after {max_retries} retries: {task_id} (likely created outside ToteTaxi)")
                         return False
 
             if not onfleet_task:
