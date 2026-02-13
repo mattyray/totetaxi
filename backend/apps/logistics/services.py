@@ -371,7 +371,10 @@ class ToteTaxiOnfleetIntegration:
             base_notes += f"Bags: {booking.blade_bag_count}\n"
             base_notes += f"Flight Date: {booking.blade_flight_date}\n"
         else:
-            base_notes += f"Item: {getattr(booking, 'item_description', 'See details')}"
+            base_notes += f"Item: {getattr(booking, 'item_description', 'See details')}\n"
+
+        if booking.special_instructions:
+            base_notes += f"\nSpecial Instructions: {booking.special_instructions}\n"
 
         return base_notes
 
