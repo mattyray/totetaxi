@@ -8,6 +8,7 @@ ToteTaxi is a booking and logistics platform for moving/transport services. Cust
 - **Backend:** Django 5.2 + Django REST Framework, PostgreSQL 16, Redis 7, Celery + Celery Beat
 - **Frontend:** Next.js 16, React 19, TypeScript 5, Tailwind CSS 3, Zustand, React Query
 - **Payments:** Stripe | **Logistics:** Onfleet | **Email:** Postmark (SMTP) | **Storage:** AWS S3
+- **AI Assistant:** LangGraph + langchain-anthropic (Claude Sonnet) | **Observability:** LangSmith
 - **Monitoring:** Sentry (frontend + backend) | **Rate Limiting:** django-ratelimit
 - **Static Files:** WhiteNoise | **API Docs:** drf-yasg (Swagger)
 
@@ -55,6 +56,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 /api/staff/              — Staff endpoints: booking management, analytics, reports
 /api/staff/logistics/    — Staff logistics: Onfleet integration, delivery tracking
 /api/payments/           — Payment endpoints: Stripe intents, webhooks, refunds
+/api/assistant/          — AI chat agent: SSE streaming chat, health check
 ```
 
 ## Project Structure
@@ -67,11 +69,12 @@ The backend API is split by audience (defined in `config/urls.py`):
 - `apps/logistics/` — Onfleet integration, delivery tracking
 - `apps/payments/` — Stripe processing, webhooks, refunds
 - `apps/services/` — Service definitions
+- `apps/assistant/` — AI chat agent (LangGraph tools, SSE views, system prompt)
 - `scripts/entrypoint.sh` — Auto-runs migrations + collectstatic on container start
 
 ### Frontend (`/frontend/src`)
 - `app/` — Next.js App Router pages
-- `components/` — Organized by domain: `auth/`, `booking/`, `dashboard/`, `staff/`, `marketing/`, `ui/`, `layout/`, `providers/`
+- `components/` — Organized by domain: `auth/`, `booking/`, `chat/`, `dashboard/`, `staff/`, `marketing/`, `ui/`, `layout/`, `providers/`
 - `stores/` — Zustand stores: `auth-store`, `staff-auth-store`, `booking-store`, `ui-store`
 - `hooks/` — Custom React hooks
 - `lib/` — API client (Axios), utilities
@@ -110,7 +113,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 ### Backend — Fly.io
 - App: `totetaxi-backend`, region: `ewr` (Newark)
 - Uses `Dockerfile.prod` (multi-stage, non-root `appuser`)
-- 3 Fly processes: `web` (gunicorn, 4 workers), `worker` (celery), `beat` (celery-beat)
+- 3 Fly processes: `web` (gunicorn, 4 gevent workers, 100 connections), `worker` (celery), `beat` (celery-beat)
 - `release_command` auto-runs migrations on deploy
 - Secrets managed via `fly secrets set`
 
@@ -137,6 +140,9 @@ The backend API is split by audience (defined in `config/urls.py`):
 - `CORS_ALLOWED_ORIGINS` — Allowed frontend origins
 - `RECAPTCHA_SECRET_KEY` — Server-side reCAPTCHA validation
 - `BOOKING_EMAIL_BCC` — BCC list for booking confirmation emails
+- `ANTHROPIC_API_KEY` — Claude API key for AI chat assistant
+- `LANGSMITH_API_KEY` — LangSmith observability (optional)
+- `LANGSMITH_PROJECT` — LangSmith project name (optional)
 
 ## Ports (Local Dev)
 | Service    | Host Port | Internal |

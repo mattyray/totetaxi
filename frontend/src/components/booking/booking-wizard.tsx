@@ -35,6 +35,7 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
     canProceedToStep,
     resetWizard,
     initializeForUser,
+    updateBookingData,
     isGuestMode,
     isBookingComplete,
     completedBookingNumber
@@ -81,6 +82,26 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       initializeForUser('guest', true);
     }
   }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
+
+  // Apply chat agent prefill data after auth step is resolved.
+  // Prefill is stored in localStorage by the chat widget to survive initializeForUser() resets.
+  useEffect(() => {
+    if (currentStep > 0) {
+      const raw = localStorage.getItem('totetaxi-chat-prefill');
+      if (raw) {
+        localStorage.removeItem('totetaxi-chat-prefill');
+        try {
+          const { data, timestamp } = JSON.parse(raw);
+          // Only apply if less than 5 minutes old (prevents stale prefills)
+          if (data && timestamp && Date.now() - timestamp < 5 * 60 * 1000) {
+            updateBookingData(data);
+          }
+        } catch {
+          // Invalid JSON — ignore
+        }
+      }
+    }
+  }, [currentStep, updateBookingData]);
 
   // Step 4 skip for authenticated users is handled in the store's
   // nextStep/previousStep — no useEffect needed (L14 fix).

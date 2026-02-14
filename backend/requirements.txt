@@ -18,7 +18,7 @@ drf-yasg==1.21.7
 
 # Background Jobs - Latest stable versions
 celery==5.5.3
-redis==5.1.1
+redis>=5.2.1
 django-celery-beat==2.8.1
 
 # File Storage
@@ -52,3 +52,11 @@ whitenoise==6.7.0
 # Rate Limiting & Caching
 django-ratelimit==4.1.0
 django-redis==5.4.0
+
+# AI Assistant
+langchain-anthropic>=0.3.0
+langchain-core>=0.3.0
+langgraph>=0.4.0
+langgraph-checkpoint-redis>=0.3.0
+langsmith>=0.3.0
+gevent>=24.0
