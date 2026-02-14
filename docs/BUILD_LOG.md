@@ -168,4 +168,54 @@ The broader design principle: the agent assists, but never commits. It can estim
 
 ---
 
-*Next: Smoke test the full flow, commit, create PR, deploy to Fly.io, verify SSE through production proxy.*
+---
+
+## Feb 14, 2026 — Day 2 Addendum: The Handoff Bug That Wasn't Fixed
+
+### What broke
+
+Day 2's localStorage bridge pattern for the booking handoff didn't actually work. The symptom: user chats with the agent, clicks "Start Booking," lands on the auth step (step 0), chooses guest or is auto-advanced as a logged-in user — and the wizard is empty. None of the prefill data persists.
+
+### Why the useEffect approach failed
+
+The original fix stored prefill data in `localStorage` and read it in a `useEffect` that watched `currentStep`. The idea: when `currentStep` goes from 0 → 1 (after auth resolves), the effect fires and applies the prefill.
+
+The problem is how React batches Zustand state updates within a single effect. For a logged-in user, `AuthChoiceStep`'s effect runs:
+
+```typescript
+initializeForUser(userId, false);  // Zustand: currentStep → 0 (reset)
+setCurrentStep(1);                 // Zustand: currentStep → 1
+```
+
+Both calls happen synchronously inside one effect. Zustand applies each immediately, but React batches the re-render. React sees the *final* value of `currentStep` (1), compares it to the *previous render's* value — which was also 1 if the store had hydrated from a previous session. No change detected. The `useEffect` never fires. The prefill data sits in `localStorage` unread.
+
+This is a general lesson about React effects: **you can't rely on a useEffect to detect a state change if the change is collapsed by batching**. Setting a value to X, then to Y, then back to X within one effect means React never sees X — it only sees the starting and ending values.
+
+### The fix: move prefill into the store itself
+
+Instead of a fragile React effect, the prefill now happens inside `initializeForUser()` in the Zustand store. A `getChatPrefill()` helper reads from `localStorage` and returns the data (or null if absent/expired). Every code path in `initializeForUser` — full reset, rapid-init guard, timestamp-only update — calls this helper and merges the prefill into `bookingData`.
+
+```typescript
+// During a full reset
+const chatPrefill = getChatPrefill();
+set({
+  bookingData: chatPrefill
+    ? { ...initialBookingData, ...chatPrefill }
+    : { ...initialBookingData },
+  // ... reset fields
+});
+```
+
+No React timing dependency. No effect ordering. The merge happens synchronously inside the store action that was causing the wipe in the first place. The `localStorage` key is cleaned up by a simple effect when the user reaches step 2.
+
+### The takeaway
+
+When two systems fight over the same state (React effects vs. Zustand store initialization), don't referee from the outside. Put the logic where the conflict lives. The store resets the data? The store should also preserve the prefill during that reset. One function, one responsibility, zero race conditions.
+
+### Files changed
+- `frontend/src/stores/booking-store.ts` — `getChatPrefill()` helper + merged into all `initializeForUser` paths
+- `frontend/src/components/booking/booking-wizard.tsx` — replaced prefill `useEffect` with cleanup-only effect
+
+---
+
+*Next: Smoke test the full flow, create PR, deploy to Fly.io, verify SSE through production proxy.*
