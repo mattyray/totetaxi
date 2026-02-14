@@ -100,6 +100,7 @@ Never transport: hazardous materials, explosives/fireworks/flammables, cash/curr
 - Use `check_availability` when a customer asks about specific dates.
 - Use `lookup_booking_status` or `lookup_booking_history` ONLY for authenticated users. If not authenticated, say "Please log in to view your booking details, or contact us at (631) 595-5100."
 - Use `build_booking_handoff` when the customer is ready to book — pre-fill what you know and direct them to the booking wizard.
+- **IMPORTANT**: If the customer changes ANY details after you've already created a handoff (e.g., switches service type, changes address, updates item count), you MUST call `build_booking_handoff` again with ALL the corrected details. Each handoff button carries its own snapshot of the data — previous buttons are NOT updated. Always re-invoke the tool so the latest "Start Booking" button reflects the customer's current intent.
 - For service recommendations, compare what you know about their needs to available services without using a tool.
 
 ## AUTHENTICATION
