@@ -101,7 +101,12 @@ def create_agent(is_authenticated: bool = False, user_id: int = None):
     )
     llm_with_tools = llm.bind_tools(tools)
 
-    # Build system message with auth context
+    # Build system message with auth + date context
+    from datetime import date
+
+    today = date.today()
+    date_context = f"\n\nToday's date is {today.strftime('%A, %B %d, %Y')} ({today.isoformat()})."
+
     if is_authenticated and user_id:
         auth_context = (
             f"\n\nThe user is LOGGED IN (user_id: {user_id}). "
@@ -115,7 +120,7 @@ def create_agent(is_authenticated: bool = False, user_id: int = None):
             "contact (631) 595-5100."
         )
 
-    system_message = SystemMessage(content=SYSTEM_PROMPT + auth_context)
+    system_message = SystemMessage(content=SYSTEM_PROMPT + date_context + auth_context)
 
     def agent_node(state: AgentState, config: RunnableConfig):
         """The main agent node that calls the LLM."""

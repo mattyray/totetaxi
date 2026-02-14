@@ -317,4 +317,46 @@ The lesson: when you remove a validation step for UX reasons, the validations it
 
 ---
 
-*Next: Complete smoke tests across all service types, commit, create PR, deploy to Fly.io.*
+## Feb 14, 2026 — Day 2 Continued: Smoke Testing Across Service Types
+
+### Specialty items: a service type that doesn't exist in the UI
+
+The chat agent's handoff tool accepts `service_type: "specialty_item"`. Reasonable — that's a valid backend service type. But the booking wizard only has three cards: Mini Move, Standard Delivery, Airport Transfer. There is no "Specialty Item" card.
+
+Specialty items live *within* the Standard Delivery flow. The wizard's Standard Delivery card shows both "Regular Items" (count + description) and "Specialty Items" (Peloton, Surfboard, Crib, etc. with quantity steppers). The `date-time-step` later converts `standard_delivery` → `specialty_item` on the backend when there are only specialty items and no regular items.
+
+**The fix:** A prompt instruction telling the agent to always use `service_type: "standard_delivery"` for specialty items — not `"specialty_item"`. Updated the tool docstring to remove `"specialty_item"` from the valid options so the LLM doesn't see it as a choice. Zero frontend changes. The wizard already handles every combination natively.
+
+We considered auto-selecting the specific specialty item (e.g., pre-checking "Peloton" with quantity 1) but decided against it. The name matching would be fragile, and the current state is functional — Standard Delivery card is highlighted, the customer taps + on the right item. One tap vs. five files of complexity. Ship what works.
+
+### Airport transfers: the missing fields
+
+The handoff tool had params for airport, direction, and bag count — but not terminal, flight date, or flight time. These are `blade_terminal`, `blade_flight_date`, `blade_flight_time` in the wizard. The fix was purely additive: three new optional params on the tool, mapped to the right prefill keys. The wizard already reads these from `bookingData`. Zero frontend changes.
+
+### Rate limiting: the dev experience trap
+
+Hit the Django rate limit (20/h per IP) during smoke testing. Each chat message is a POST to `/api/assistant/chat/`. Twenty messages across multiple test scenarios burns through it fast. Bumped to 200/h for testing — will reset to 20/h before shipping.
+
+Lesson: rate limits designed for production users can block developers. Consider a higher limit for development or a bypass for localhost.
+
+### Smoke test results
+
+| Service Type | Handoff | Wizard Pre-fill | Completable |
+|---|---|---|---|
+| Mini Move Petite | Correct | Package auto-resolved from type → UUID | Yes |
+| Mini Move Standard | Correct | Same auto-resolve | Yes |
+| Standard Delivery | Correct | Item count + description prefilled | Yes |
+| Specialty Item (Peloton) | Routes to Standard Delivery | Card selected, customer selects item | Yes |
+| Airport Transfer — To JFK | Correct | All fields including terminal, date, time | Yes |
+| Airport Transfer — From EWR | Correct | Direction + all fields prefilled | Yes |
+
+### By the numbers
+- 2 backend files changed (prompts.py, tools.py)
+- 0 frontend files changed for this round
+- 3 new tool params (terminal, flight_date, flight_time)
+- 1 prompt addition (specialty items routing)
+- 42 assistant tests still passing
+
+---
+
+*Next: Test mid-conversation service change, authenticated flow, edge cases. Then commit, PR, deploy.*

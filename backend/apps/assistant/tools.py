@@ -65,7 +65,7 @@ def get_pricing_estimate(
     """Get a pricing estimate for a Tote Taxi service.
 
     Args:
-        service_type: One of 'mini_move', 'standard_delivery', 'specialty_item', 'blade_transfer'
+        service_type: One of 'mini_move', 'standard_delivery', 'specialty_item', 'blade_transfer'. For specialty items, use 'standard_delivery'.
         pickup_zip: Pickup ZIP code (for geographic surcharge calculation)
         delivery_zip: Delivery ZIP code (for geographic surcharge calculation)
         mini_move_tier: For mini moves: 'petite', 'standard', or 'full'
@@ -353,6 +353,9 @@ def build_booking_handoff(
     bag_count: Optional[int] = None,
     transfer_direction: Optional[str] = None,
     airport: Optional[str] = None,
+    terminal: Optional[str] = None,
+    flight_date: Optional[str] = None,
+    flight_time: Optional[str] = None,
     pickup_address_line_1: Optional[str] = None,
     pickup_city: Optional[str] = None,
     pickup_state: Optional[str] = None,
@@ -372,13 +375,16 @@ def build_booking_handoff(
     Fill in ALL fields the customer has mentioned during the conversation.
 
     Args:
-        service_type: One of 'mini_move', 'standard_delivery', 'specialty_item', 'blade_transfer'
+        service_type: One of 'mini_move', 'standard_delivery', 'blade_transfer'. For specialty items, use 'standard_delivery' with item_count=0.
         mini_move_tier: For mini moves: 'petite', 'standard', or 'full'
         item_count: Number of items (for standard delivery)
         item_description: Description of items being delivered
         bag_count: Number of bags (for airport transfer)
         transfer_direction: 'to_airport' or 'from_airport'
         airport: 'JFK' or 'EWR'
+        terminal: Airport terminal (JFK: '1','4','5','7','8'; EWR: 'A','B','C')
+        flight_date: Flight date in YYYY-MM-DD format (for airport transfers)
+        flight_time: Flight departure/arrival time in HH:MM format, 24-hour (e.g. '14:00' for 2 PM)
         pickup_address_line_1: Pickup street address (e.g. '12 Main St')
         pickup_city: Pickup city (e.g. 'New York')
         pickup_state: Pickup state - must be 'NY', 'CT', or 'NJ'
@@ -408,6 +414,12 @@ def build_booking_handoff(
         prefill["transfer_direction"] = transfer_direction
     if airport:
         prefill["blade_airport"] = airport
+    if terminal:
+        prefill["blade_terminal"] = terminal
+    if flight_date:
+        prefill["blade_flight_date"] = flight_date
+    if flight_time:
+        prefill["blade_flight_time"] = flight_time
     if pickup_date:
         prefill["pickup_date"] = pickup_date
     if include_packing is not None:
