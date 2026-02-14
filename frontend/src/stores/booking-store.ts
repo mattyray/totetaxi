@@ -115,6 +115,30 @@ const initialBookingData: BookingData = {
 
 const STORE_VERSION = 7;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
+const CHAT_PREFILL_KEY = 'totetaxi-chat-prefill';
+const CHAT_PREFILL_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Read chat agent prefill data from localStorage.
+ * Returns the prefill data if valid and fresh (<5 min), null otherwise.
+ * Cleans up expired entries automatically.
+ */
+function getChatPrefill(): Partial<BookingData> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CHAT_PREFILL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.data && parsed?.timestamp && Date.now() - parsed.timestamp < CHAT_PREFILL_TTL_MS) {
+      return parsed.data as Partial<BookingData>;
+    }
+    // Expired — clean up
+    localStorage.removeItem(CHAT_PREFILL_KEY);
+  } catch {
+    try { localStorage.removeItem(CHAT_PREFILL_KEY); } catch {}
+  }
+  return null;
+}
 
 export const useBookingWizard = create<BookingWizardState & BookingWizardActions>()(
   persist(
@@ -257,37 +281,48 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       initializeForUser: (providedUserId?, isGuest?) => {
         const userId = providedUserId || 'guest';
         const guestMode = isGuest !== undefined ? isGuest : (userId === 'guest');
-        
+
         const state = get();
-        
-        console.log('Initializing booking wizard', { 
-          userId, 
-          guestMode, 
+
+        console.log('Initializing booking wizard', {
+          userId,
+          guestMode,
           currentUserId: state.userId,
-          currentGuestMode: state.isGuestMode 
+          currentGuestMode: state.isGuestMode
         });
-        
-        const timeSinceLastReset = state.lastResetTimestamp ? 
+
+        const timeSinceLastReset = state.lastResetTimestamp ?
           Date.now() - state.lastResetTimestamp : Infinity;
-        
+
         // ✅ Allow update if guest mode changed
         if (timeSinceLastReset < 1000 && state.isGuestMode === guestMode) {
-          console.warn('Ignoring rapid user initialization (same state)');
+          // Still apply chat prefill if available (handles race where prefill
+          // was set after the previous initializeForUser call)
+          const chatPrefill = getChatPrefill();
+          if (chatPrefill) {
+            set((state) => ({
+              bookingData: { ...state.bookingData, ...chatPrefill }
+            }));
+          }
           return;
         }
-        
-        const isStale = state.lastResetTimestamp && 
+
+        const isStale = state.lastResetTimestamp &&
           (Date.now() - state.lastResetTimestamp > MAX_SESSION_AGE_MS);
-        
+
         if (
           (state.userId && state.userId !== userId && state.userId !== 'guest') ||
           isStale ||
           state.isBookingComplete ||
           state.isGuestMode !== guestMode  // ✅ Also reset if guest mode changes
         ) {
-          console.log('Resetting wizard - user/state change detected');
+          // Merge chat prefill into the reset so it survives the wipe
+          const chatPrefill = getChatPrefill();
+          console.log('Resetting wizard - user/state change detected', chatPrefill ? '(with chat prefill)' : '');
           set({
-            bookingData: { ...initialBookingData },
+            bookingData: chatPrefill
+              ? { ...initialBookingData, ...chatPrefill }
+              : { ...initialBookingData },
             errors: {},
             isBookingComplete: false,
             completedBookingNumber: undefined,
@@ -298,12 +333,23 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           });
         } else {
           // ✅ Always update both userId and guestMode together
-          console.log('Updating user state without reset');
-          set({ 
-            userId: userId,
-            isGuestMode: guestMode,
-            lastResetTimestamp: Date.now()
-          });
+          const chatPrefill = getChatPrefill();
+          if (chatPrefill) {
+            console.log('Updating user state with chat prefill');
+            set((state) => ({
+              bookingData: { ...state.bookingData, ...chatPrefill },
+              userId: userId,
+              isGuestMode: guestMode,
+              lastResetTimestamp: Date.now()
+            }));
+          } else {
+            console.log('Updating user state without reset');
+            set({
+              userId: userId,
+              isGuestMode: guestMode,
+              lastResetTimestamp: Date.now()
+            });
+          }
         }
       },
       
