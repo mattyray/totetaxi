@@ -100,6 +100,7 @@ class ChatView(APIView):
                 }
 
                 full_response = ""
+                in_tool_call = False
 
                 for event in agent.stream(
                     input_messages, config=config, stream_mode="messages"
@@ -111,6 +112,7 @@ class ChatView(APIView):
                     if msg_type in ("ai", "AIMessageChunk"):
                         tool_calls = getattr(msg, "tool_calls", None)
                         if tool_calls:
+                            in_tool_call = True
                             for tc in tool_calls:
                                 tool_name = tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "")
                                 if tool_name:  # Skip partial/empty streaming chunks
@@ -120,7 +122,7 @@ class ChatView(APIView):
                                             "tool": tool_name,
                                         },
                                     )
-                        elif msg.content:
+                        elif msg.content and not in_tool_call:
                             # Content can be a string or a list of content blocks
                             content = msg.content
                             if isinstance(content, list):
@@ -129,12 +131,19 @@ class ChatView(APIView):
                                     for block in content
                                 ]
                                 content = "".join(text_parts)
+                            # Strip tool-call XML that may leak into content
+                            for tag in ("<invoke", "<tool_use"):
+                                idx = content.find(tag)
+                                if idx != -1:
+                                    content = content[:idx]
+                            content = content.rstrip()
                             if content:
                                 full_response += content
                                 yield sse_event("token", {"content": content})
 
                     # Tool results
                     elif msg_type == "tool":
+                        in_tool_call = False
                         try:
                             result = (
                                 json.loads(msg.content)
