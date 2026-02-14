@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { ChatBubbleLeftRightIcon, XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { useChatStream, type ChatMessage } from '@/hooks/use-chat-stream';
 import { useClickAway } from '@/hooks/use-click-away';
@@ -19,7 +19,6 @@ const MAX_CHARS = 500;
 
 export function ChatWidget() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,8 +52,10 @@ export function ChatWidget() {
     // This avoids the race condition where initializeForUser() wipes Zustand state.
     const prefillPayload = { data: handoff.prefill_data, timestamp: Date.now() };
     localStorage.setItem('totetaxi-chat-prefill', JSON.stringify(prefillPayload));
-    router.push('/book');
     setIsOpen(false);
+    // Full page navigation — Next.js router.push fails when called alongside
+    // React state updates (fetchServerResponse throws "Failed to fetch").
+    window.location.href = '/book';
   };
 
   const handleToggle = () => {

@@ -285,4 +285,36 @@ Claude is on both sides. It's the model inside the ToteTaxi chat agent (via `lan
 
 ---
 
-*Next: Smoke test the full flow, create PR, deploy to Fly.io, verify SSE through production proxy.*
+## Feb 14, 2026 — Day 2 Continued: Smoke Testing the Handoff
+
+### The gap between "tool works" and "wizard works"
+
+The booking handoff tool produces correct data. The booking wizard consumes that data. They don't speak the same language.
+
+**Problem 1: Package type vs. package ID.** The agent knows `package_type: "petite"` — a human-readable string. The wizard's service-selection step needs `mini_move_package_id` — a UUID from the database API. The agent can't know the UUID (it's dynamic, fetched from `/api/public/services/`). So the handoff passes `package_type` but not `mini_move_package_id`. The wizard sees a service type with no package selected. The user sees an empty form.
+
+**The fix:** A `useEffect` in `service-selection-step.tsx` that auto-resolves the mapping. When `package_type` is set but `mini_move_package_id` isn't, it finds the matching package from the fetched services data and fills in the UUID. One-shot resolution — only fires when there's a gap to bridge. Normal flow (user clicks a package card) sets the UUID directly and never triggers this effect.
+
+This is a general integration pattern: when two systems use different identifiers for the same concept, the bridge belongs at the consumer, not the producer. The agent shouldn't need to know about database UUIDs. The wizard should handle the translation.
+
+**Problem 2: Date validation after removing the safety net.** The agent originally used `check_availability` to validate dates before building handoffs. During prompt tuning, we told the agent to skip this step (dates are almost never blocked — only same-day and after-6pm-for-next-day). This removed a conversational round-trip but also removed the only date validation gate.
+
+Result: the agent happily passed past dates and today's date through to the handoff. The booking wizard's calendar disables past dates *on click* — but prefilled dates from a handoff bypass the click handler entirely. The `selectedDate` state initializes from the store, `canContinue` checks for truthiness, and the user proceeds through the wizard with an impossible date.
+
+**The fix (two layers):**
+
+1. *Agent-side:* Updated the system prompt with explicit date validation rules. The agent must reject past dates and same-day bookings before building the handoff, directing customers to call (631) 595-5100.
+
+2. *Frontend-side (defense in depth):* A mount `useEffect` on `DateTimeStep` that validates any prefilled date. Past dates are silently cleared. Same-day dates show a restriction modal with the phone number. The calendar's month navigation also checks: only jump to the prefilled date's month if the date is strictly in the future.
+
+The lesson: when you remove a validation step for UX reasons, the validations it was performing don't disappear — they need to move somewhere else. We moved them to two places (prompt + frontend) so neither is a single point of failure.
+
+### By the numbers
+- 2 wizard fixes (package ID mapping + date validation)
+- 2 prompt additions (date validation rules + availability tool guidance)
+- 308 backend tests still passing (2 pre-existing failures)
+- Calendar rendering: zero lines changed (the bug was in state initialization, not rendering)
+
+---
+
+*Next: Complete smoke tests across all service types, commit, create PR, deploy to Fly.io.*

@@ -51,7 +51,17 @@ export function DateTimeStep() {
   const [selectedDate, setSelectedDate] = useState<string>(bookingData.pickup_date || '');
   const [selectedTime, setSelectedTime] = useState<PickupTime>(bookingData.pickup_time || 'morning');
   const [specificHour, setSpecificHour] = useState<number>(8);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (bookingData.pickup_date) {
+      const d = new Date(bookingData.pickup_date + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (d > today) {
+        return new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+    }
+    return new Date();
+  });
   
   // ========== NEW: Same-Day Restriction State ==========
   const [showRestrictionModal, setShowRestrictionModal] = useState(false);
@@ -142,6 +152,29 @@ export function DateTimeStep() {
     return false;
   };
   // ========== END NEW FUNCTION ==========
+
+  // Validate prefilled date on mount — clear past dates and same-day restrictions
+  // (handles chat handoff passing invalid dates since check_availability is skipped)
+  useEffect(() => {
+    if (selectedDate) {
+      const dateObj = new Date(selectedDate + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dateObj < today) {
+        setSelectedDate('');
+        updateBookingData({ pickup_date: '' });
+        return;
+      }
+
+      if (checkSameDayRestriction(dateObj)) {
+        setShowRestrictionModal(true);
+        setSelectedDate('');
+        updateBookingData({ pickup_date: '' });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (bookingData.service_type === 'blade_transfer') {

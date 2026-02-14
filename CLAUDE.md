@@ -152,6 +152,9 @@ The backend API is split by audience (defined in `config/urls.py`):
 | PostgreSQL | 5435      | 5432     |
 | Redis      | 6382      | 6379     |
 
+## MCP Servers (Claude Code)
+- **LangSmith:** `langsmith-mcp-server` is configured in `~/.claude.json`. Provides inline access to LangSmith traces, runs, and projects for the `totetaxi-assistant` project. Use `mcp__langsmith__fetch_runs`, `mcp__langsmith__list_projects`, etc. to inspect chat agent behavior, tool calls, token usage, and latency without leaving the terminal.
+
 ## Important Gotchas
 - Backend `.env` is required locally — Docker won't start without it (see `.env.example`)
 - Fly.io uses real env vars (secrets), not `.env` files — settings.py detects `FLY_APP_NAME` to skip `.env` loading
