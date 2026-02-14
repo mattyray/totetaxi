@@ -4,8 +4,12 @@ primary_region = 'ewr'
 [build]
   dockerfile = 'Dockerfile.prod'
 
-[deploy]
-  release_command = "python manage.py migrate --noinput"
+# NOTE: release_command disabled — the temporary machine Fly.io creates
+# for it only gets ~256MB, but Django + langchain packages need ~190MB
+# just to import, leaving no headroom. Run migrations manually before
+# deploying: fly ssh console -C "su appuser -c 'cd /app && python manage.py migrate'"
+# [deploy]
+#   release_command = "python manage.py migrate --noinput"
 
 [env]
   DEBUG = "False"
