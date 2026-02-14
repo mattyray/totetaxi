@@ -1,18 +1,37 @@
 """Custom middleware for ToteTaxi."""
 import _thread
 
-from django.db import connections
+from django.core.signals import request_finished, request_started
+from django.db import close_old_connections, connections
+
+
+def _safe_close_old_connections(**kwargs):
+    """Reset DB thread idents before closing stale connections.
+
+    Django's close_old_connections fires on request_started/request_finished
+    signals — BEFORE middleware runs. With gevent, each greenlet has a unique
+    _thread.get_ident(), so connections created by one greenlet fail
+    validate_thread_sharing() when another greenlet tries to close them.
+    This wrapper resets the ident first.
+    """
+    for conn in connections.all():
+        conn._thread_ident = _thread.get_ident()
+    close_old_connections(**kwargs)
+
+
+# Replace Django's default signal handlers (runs once at import time)
+request_started.disconnect(close_old_connections)
+request_started.connect(_safe_close_old_connections)
+request_finished.disconnect(close_old_connections)
+request_finished.connect(_safe_close_old_connections)
 
 
 class GeventConnectionMiddleware:
     """
     Reset DB connection thread ident for gevent compatibility.
 
-    Django's DatabaseWrapper stores the thread ID of the greenlet that
-    created it. With gevent workers, each request runs in a different
-    greenlet with a different ID, causing validate_thread_sharing() to
-    fail. This middleware closes stale connections and updates the
-    thread ident at the start of each request.
+    Belt-and-suspenders: the signal patch above handles close_old_connections,
+    and this middleware handles any DB access during the request itself.
     """
 
     def __init__(self, get_response):
