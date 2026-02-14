@@ -12,8 +12,6 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .graph import create_agent
-
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGE_LENGTH = 500
@@ -65,7 +63,9 @@ class ChatView(APIView):
         )
         user_id = request.user.id if is_authenticated else None
 
-        # Create the agent
+        # Create the agent (lazy import to avoid loading langchain during migrations)
+        from .graph import create_agent
+
         try:
             agent = create_agent(
                 is_authenticated=is_authenticated,
