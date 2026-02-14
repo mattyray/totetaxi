@@ -160,7 +160,7 @@ if database_url:
     import dj_database_url
     DATABASES['default'] = dj_database_url.config(
         default=database_url,
-        conn_max_age=600,
+        conn_max_age=0,  # Must be 0 with gevent workers (greenlets have different thread IDs)
         conn_health_checks=True,
     )
 
