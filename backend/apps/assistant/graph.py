@@ -4,10 +4,8 @@ Uses a ReAct-style agent with tool calling.
 """
 import json
 import logging
-import os
 from typing import Annotated, Sequence, TypedDict
 
-from django.conf import settings
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -49,35 +47,6 @@ class AgentState(TypedDict):
     """State schema for the LangGraph agent."""
 
     messages: Annotated[Sequence[BaseMessage], add_messages]
-
-
-def _get_checkpointer():
-    """Get Redis checkpointer for conversation persistence."""
-    from langgraph.checkpoint.redis import RedisSaver
-
-    redis_url = getattr(settings, "REDIS_URL", os.environ.get("REDIS_URL", "redis://redis:6379/0"))
-    # Use DB 3 for assistant (DB 0=Celery, 1=cache, 2=tests)
-    base = redis_url.rsplit("/", 1)[0]
-    assistant_url = f"{base}/3"
-
-    checkpointer = RedisSaver(redis_url=assistant_url)
-    return checkpointer
-
-
-# Module-level cached checkpointer
-_checkpointer = None
-
-
-def get_checkpointer():
-    """Get or create the cached Redis checkpointer."""
-    global _checkpointer
-    if _checkpointer is None:
-        try:
-            _checkpointer = _get_checkpointer()
-        except Exception as e:
-            logger.warning(f"Redis checkpointer unavailable: {e}. Running without persistence.")
-            return None
-    return _checkpointer
 
 
 def create_agent(is_authenticated: bool = False, user_id: int = None):
@@ -136,7 +105,12 @@ def create_agent(is_authenticated: bool = False, user_id: int = None):
             tool_name = tool_call["name"]
             if tool_name in tools_by_name:
                 try:
-                    result = tools_by_name[tool_name].invoke(tool_call["args"])
+                    args = tool_call["args"].copy()
+                    # Hard-bind user_id for booking lookup tools (C1 fix)
+                    # Prevents IDOR via LLM-controlled arguments
+                    if tool_name in ("lookup_booking_status", "lookup_booking_history"):
+                        args["user_id"] = user_id
+                    result = tools_by_name[tool_name].invoke(args)
                     content = json.dumps(result) if isinstance(result, dict) else str(result)
                 except Exception as e:
                     logger.error(f"Tool {tool_name} failed: {e}")

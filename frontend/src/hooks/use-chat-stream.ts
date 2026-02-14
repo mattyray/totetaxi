@@ -26,6 +26,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8005';
 export function useChatStream(): UseChatStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const isStreamingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [threadId] = useState(() => crypto.randomUUID());
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -33,9 +34,10 @@ export function useChatStream(): UseChatStreamReturn {
   messagesRef.current = messages;
 
   const sendMessage = useCallback(async (message: string) => {
-    if (isStreaming) return;
+    if (isStreamingRef.current) return;
 
     setError(null);
+    isStreamingRef.current = true;
     setIsStreaming(true);
 
     // Add user message
@@ -145,10 +147,11 @@ export function useChatStream(): UseChatStreamReturn {
         )
       );
     } finally {
+      isStreamingRef.current = false;
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [isStreaming, threadId]);
+  }, [threadId]);
 
   const handleSSEEvent = useCallback((assistantId: string, eventType: string, data: Record<string, unknown>) => {
     switch (eventType) {

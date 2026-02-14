@@ -22,7 +22,7 @@ class TestHealthCheckView(TestCase):
             response = self.client.get("/api/assistant/health/")
         assert response.status_code == 200
         assert response.data["status"] == "ok"
-        assert response.data["api_key_configured"] is True
+        assert "api_key_configured" not in response.data
 
     def test_health_check_without_key(self):
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": ""}, clear=False):

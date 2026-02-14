@@ -17,6 +17,7 @@ from .graph import create_agent
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGE_LENGTH = 500
+MAX_HISTORY_MSG_LENGTH = 1000
 
 
 def sse_event(event_type: str, data: dict) -> str:
@@ -91,7 +92,7 @@ class ChatView(APIView):
                     role = msg.get("role", "")
                     content = msg.get("content", "")
                     if role in ("user", "assistant") and content:
-                        messages_list.append((role, content))
+                        messages_list.append((role, content[:MAX_HISTORY_MSG_LENGTH]))
                 messages_list.append(("user", message))
 
                 input_messages = {
@@ -199,6 +200,5 @@ class HealthCheckView(APIView):
         return Response(
             {
                 "status": "ok" if has_api_key else "degraded",
-                "api_key_configured": has_api_key,
             }
         )

@@ -251,10 +251,11 @@ def check_availability(start_date: str, num_days: int = 14) -> dict:
         day_blocked, day_msg = check_same_day_restriction(current)
         surcharges = [r.name for r in surcharge_rules if r.applies_to_date(current)]
 
+        booking_count = counts.get(current, 0)
         dates.append(
             {
                 "date": current.isoformat(),
-                "booking_count": counts.get(current, 0),
+                "availability": "busy" if booking_count >= 8 else "available",
                 "is_weekend": current.weekday() >= 5,
                 "surcharges": surcharges if surcharges else None,
                 "blocked": day_blocked,
@@ -404,7 +405,7 @@ def build_booking_handoff(
         prefill["service_type"] = service_type
     if mini_move_tier:
         prefill["package_type"] = mini_move_tier
-    if item_count:
+    if item_count is not None:
         prefill["standard_delivery_item_count"] = item_count
     if item_description:
         prefill["item_description"] = item_description
@@ -429,7 +430,7 @@ def build_booking_handoff(
     if coi_required is not None:
         prefill["coi_required"] = coi_required
     if special_instructions:
-        prefill["special_instructions"] = special_instructions
+        prefill["special_instructions"] = special_instructions[:500]
 
     # Build pickup address if any fields provided
     if any([pickup_address_line_1, pickup_city, pickup_state, pickup_zip]):
