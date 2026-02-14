@@ -47,11 +47,16 @@ export function ChatWidget() {
   };
 
   const handleBookingHandoff = (handoff: ChatMessage['bookingHandoff']) => {
-    if (!handoff?.prefill_data) return;
+    console.log('handleBookingHandoff called with:', handoff);
+    if (!handoff?.prefill_data) {
+      console.warn('No prefill_data in handoff, aborting');
+      return;
+    }
     // Store prefill in localStorage with timestamp — the booking wizard applies it after auth step.
     // This avoids the race condition where initializeForUser() wipes Zustand state.
     const prefillPayload = { data: handoff.prefill_data, timestamp: Date.now() };
     localStorage.setItem('totetaxi-chat-prefill', JSON.stringify(prefillPayload));
+    console.log('Stored chat prefill:', JSON.stringify(prefillPayload).slice(0, 200));
     setIsOpen(false);
     // Full page navigation — Next.js router.push fails when called alongside
     // React state updates (fetchServerResponse throws "Failed to fetch").

@@ -127,14 +127,20 @@ function getChatPrefill(): Partial<BookingData> | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CHAT_PREFILL_KEY);
+    console.log('getChatPrefill raw:', raw?.slice(0, 200));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed?.data && parsed?.timestamp && Date.now() - parsed.timestamp < CHAT_PREFILL_TTL_MS) {
+    const age = Date.now() - (parsed?.timestamp || 0);
+    console.log('getChatPrefill age:', age, 'ms, TTL:', CHAT_PREFILL_TTL_MS, 'ms');
+    if (parsed?.data && parsed?.timestamp && age < CHAT_PREFILL_TTL_MS) {
+      console.log('getChatPrefill returning data:', Object.keys(parsed.data));
       return parsed.data as Partial<BookingData>;
     }
     // Expired — clean up
+    console.log('getChatPrefill expired or invalid, cleaning up');
     localStorage.removeItem(CHAT_PREFILL_KEY);
-  } catch {
+  } catch (e) {
+    console.error('getChatPrefill error:', e);
     try { localStorage.removeItem(CHAT_PREFILL_KEY); } catch {}
   }
   return null;
