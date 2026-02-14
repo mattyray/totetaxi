@@ -552,3 +552,102 @@ docs/BUILD_LOG.md — This writeup
 ---
 
 *Next: Fix the critical and high findings from the audit. Then: mid-conversation service change test, edge cases, commit, PR, deploy.*
+
+---
+
+## Feb 14, 2026 — Day 2 Final: Three Gevent Bugs That Only Exist in Production
+
+### The pattern
+
+Three bugs surfaced during production smoke testing. All three worked flawlessly in development. All three were caused by the same root: **gevent's cooperative multitasking changes the timing and chunking of everything**. Django's dev server is synchronous and single-threaded. Gunicorn with `--worker-class gevent` is none of those things. The code doesn't change. The execution model does.
+
+### Bug 1: XML tool-call markup leaking into the chat UI
+
+**Symptom:** Users see raw XML in chat responses — `<invoke name="get_pricing_estimate">`, `<parameter>service_type</parameter>`, the full internal tool-calling protocol.
+
+**Root cause:** When LangChain streams AI responses under gevent, message chunks arrive in different split patterns than under the sync dev server. Some chunks arrive with `tool_calls=[]` (falsy empty list) but `content` containing the XML tool-call markup. The view's `elif msg.content and not tool_calls:` branch fires because the empty list is falsy, and the XML markup gets emitted as a `token` SSE event.
+
+**Fix:** Two layers:
+1. An `in_tool_call` state flag that suppresses content emission between `tool_call` and `tool_result` events
+2. A content filter that strips `<invoke` and `<tool_use` XML tags from any content that does get through
+
+The flag handles the timing. The filter handles edge cases. Belt and suspenders.
+
+### Bug 2: Database thread sharing errors (intermittent 500s)
+
+**Symptom:** Intermittent CORS errors. `curl` tests pass 1 out of 3 times. The other 2 return HTTP 500 with a Django `DatabaseError: DatabaseWrapper objects created in a thread can only be used in that same thread`.
+
+**Root cause:** Gevent patches `_thread.get_ident()` to return greenlet IDs instead of OS thread IDs. Django's `close_old_connections` signal handler fires on `request_started` — *before* any middleware runs. When greenlet A creates a DB connection and greenlet B tries to close it via `close_old_connections`, Django's `validate_thread_sharing()` sees different thread idents and raises.
+
+We'd already added a `GeventConnectionMiddleware` that resets `_thread_ident` on each request. But middleware runs *after* signals. The signal handler was failing before our middleware ever got a chance.
+
+**Fix:** Replace Django's default `close_old_connections` signal handler at import time:
+
+```python
+def _safe_close_old_connections(**kwargs):
+    for conn in connections.all():
+        conn._thread_ident = _thread.get_ident()
+    close_old_connections(**kwargs)
+
+request_started.disconnect(close_old_connections)
+request_started.connect(_safe_close_old_connections)
+```
+
+Kept the middleware as belt-and-suspenders for any DB access during the request itself. The signal fix handles the gap between signal dispatch and middleware execution.
+
+### Bug 3: Booking handoff data silently dropped
+
+**Symptom:** Chat agent builds a booking handoff with full prefill data (service type, addresses, dates — confirmed correct in LangSmith traces). User clicks "Start Booking." Wizard opens. Every field is empty. `localStorage` contains `{"data":{},"timestamp":...}`.
+
+**Root cause:** A variable scoping bug in the frontend SSE parser. The `eventType` variable was declared *inside* the `while (true)` reader loop:
+
+```typescript
+while (true) {
+    const { done, value } = await reader.read();
+    // ...
+    let eventType = '';  // Reset on every read!
+    for (const line of lines) { ... }
+}
+```
+
+Under Django's dev server, SSE events buffer and arrive in large chunks. The `event: tool_result` and `data: {...}` lines almost always land in the same `reader.read()` call. Under gevent, chunks are smaller. When `event: tool_result` arrives in one read and `data: {...}` arrives in the next, `eventType` resets to `''` and the data line is silently skipped. The entire tool result — with all the booking prefill data — vanishes.
+
+No error. No fallback. The `catch` block swallows malformed JSON, and a missing event type means the line is simply not processed. The "Start Booking" button still appeared (from the `tool_call` event), but the data it carried was empty because the `tool_result` event was dropped.
+
+**Fix:** Move `let eventType = ''` outside the `while` loop. One line, moved up three lines.
+
+```typescript
+let eventType = '';
+while (true) {
+    const { done, value } = await reader.read();
+    // eventType persists across reads
+}
+```
+
+### What all three bugs have in common
+
+| Property | Dev Server | Gevent Production |
+|---|---|---|
+| Concurrency | Single-threaded, synchronous | Greenlet-based cooperative multitasking |
+| SSE chunk size | Large, infrequent flushes | Small, frequent flushes |
+| Thread identity | Stable OS thread ID | Greenlet ID, changes per request |
+| Timing | Predictable, sequential | Non-deterministic, interleaved |
+
+Every bug passed all 308 backend tests. Every bug worked in local development. Every bug only manifested under gevent's execution model — which is the only model that matters, because it's the only model that runs in production.
+
+The lesson: **if your production server uses a different concurrency model than your dev server, your dev environment is lying to you.** Tests mock the streaming. The dev server serializes the concurrency. The only way to find these bugs is to run the production stack — or to understand the concurrency model deeply enough to reason about the edge cases before they bite.
+
+### The deeper lesson about SSE parsers
+
+The `eventType` scope bug is a general pitfall of streaming protocol parsers. SSE is a line-oriented protocol where related lines (`event:` and `data:`) must be associated across arbitrary byte boundaries. Any parser that assumes related lines arrive in the same read is fragile. The fix — persisting state across reads — is SSE Parsing 101, but it's easy to get wrong when the happy path (large chunks) always works during development.
+
+### By the numbers
+- 3 production-only bugs, 0 test failures
+- 3 commits to main, 3 deploys to Fly.io/Netlify
+- Root cause for all three: gevent's concurrency model
+- Fix sizes: 10 lines (XML filter), 8 lines (signal handler), 1 line moved (eventType scope)
+- Time from symptom to fix: ~20 minutes per bug (once the concurrency model clicked)
+
+---
+
+*Next: Adversarial testing, edge cases, commit chat agent branch, PR, deploy.*
