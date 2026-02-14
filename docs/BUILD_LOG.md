@@ -218,4 +218,71 @@ When two systems fight over the same state (React effects vs. Zustand store init
 
 ---
 
+## Feb 14, 2026 — Day 2 Continued: Prompt Engineering and Observability
+
+### The bug that wasn't a code bug
+
+User says "I want a standard delivery." Agent builds a handoff, pre-fills the wizard. User says "actually, make that a full move." Agent responds: "Sure, a full move is a great choice!" The user clicks "Start Booking" — and the wizard is pre-filled with... standard delivery.
+
+The agent acknowledged the change in natural language but never re-invoked the `build_booking_handoff` tool. The old button still carried its original snapshot. This is the category of bug that no amount of unit testing catches — the code is correct, the tool works, the handoff works. The LLM just didn't call it again.
+
+**The fix was one line in the system prompt:**
+
+```
+If the customer changes ANY details after you've already created a handoff,
+you MUST call build_booking_handoff again with ALL the corrected details.
+Each handoff button carries its own snapshot — previous buttons are NOT updated.
+```
+
+This is why prompt engineering matters as much as code engineering when you're building agentic systems. The agent's behavior isn't defined by code alone — it's defined by instructions. And instructions have bugs just like code does. The difference is you can't write a test for "the LLM should call this tool in this conversational context." You discover it by using the product.
+
+### LangSmith: seeing inside the agent's head
+
+Debugging that prompt issue by reading code was possible but slow. The real question was: "Did the agent call the tool or not?" We needed observability.
+
+**LangSmith** was already wired into the stack — LangGraph auto-traces when it detects `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_API_KEY` in the environment. Every agent invocation produces a trace showing:
+
+- The full message chain (system prompt + conversation history + user message)
+- Each LLM call and what it returned (text response vs. tool calls)
+- Tool arguments and results
+- Token counts and latency per step
+
+One setting in `settings.py` enables it. Zero code changes in the agent. That's the benefit of building on LangGraph — observability comes free because the framework owns the execution loop.
+
+**Then we connected LangSmith to Claude Code via MCP.**
+
+Model Context Protocol (MCP) servers expose tools that AI assistants can call directly. LangChain publishes an official `langsmith-mcp-server` that wraps the LangSmith API. One config entry:
+
+```json
+{
+  "langsmith": {
+    "command": "uvx",
+    "args": ["langsmith-mcp-server"],
+    "env": { "LANGSMITH_API_KEY": "..." }
+  }
+}
+```
+
+Now Claude Code can query traces inline — `fetch_runs` to list recent agent invocations, drill into specific runs to see tool calls and arguments. No copy-pasting from a dashboard, no context switching. The dev tool (Claude Code) can inspect the production tool (ToteTaxi's chat agent) through the observability tool (LangSmith), all via MCP.
+
+### The emerging stack pattern
+
+What's interesting is the layering:
+
+1. **LangGraph** — agent execution framework (tools, state, streaming)
+2. **LangSmith** — observability (traces, metrics, debugging)
+3. **MCP** — tool protocol connecting AI assistants to external services
+4. **Claude** — the LLM powering both the customer-facing agent AND the development assistant
+
+Claude is on both sides. It's the model inside the ToteTaxi chat agent (via `langchain-anthropic`), and it's the model inside Claude Code debugging that agent (via MCP + LangSmith). When Claude Code reads a LangSmith trace, it's looking at another Claude's reasoning. That's a genuinely new development workflow.
+
+### By the numbers
+- 1 line added to system prompt (the re-invocation instruction)
+- 0 code changes needed
+- LangSmith: already wired, just needed API key in `.env`
+- MCP server: 6-line JSON config, zero dependencies to install (`uvx` handles it)
+- Time from "it's broken" to "it's fixed": ~5 minutes (once we knew where to look)
+
+---
+
 *Next: Smoke test the full flow, create PR, deploy to Fly.io, verify SSE through production proxy.*
