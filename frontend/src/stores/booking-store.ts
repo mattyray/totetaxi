@@ -127,20 +127,15 @@ function getChatPrefill(): Partial<BookingData> | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CHAT_PREFILL_KEY);
-    console.log('getChatPrefill raw:', raw?.slice(0, 200));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const age = Date.now() - (parsed?.timestamp || 0);
-    console.log('getChatPrefill age:', age, 'ms, TTL:', CHAT_PREFILL_TTL_MS, 'ms');
     if (parsed?.data && parsed?.timestamp && age < CHAT_PREFILL_TTL_MS) {
-      console.log('getChatPrefill returning data:', Object.keys(parsed.data));
       return parsed.data as Partial<BookingData>;
     }
     // Expired — clean up
-    console.log('getChatPrefill expired or invalid, cleaning up');
     localStorage.removeItem(CHAT_PREFILL_KEY);
-  } catch (e) {
-    console.error('getChatPrefill error:', e);
+  } catch {
     try { localStorage.removeItem(CHAT_PREFILL_KEY); } catch {}
   }
   return null;
@@ -290,13 +285,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
 
         const state = get();
 
-        console.log('Initializing booking wizard', {
-          userId,
-          guestMode,
-          currentUserId: state.userId,
-          currentGuestMode: state.isGuestMode
-        });
-
         const timeSinceLastReset = state.lastResetTimestamp ?
           Date.now() - state.lastResetTimestamp : Infinity;
 
@@ -324,7 +312,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         ) {
           // Merge chat prefill into the reset so it survives the wipe
           const chatPrefill = getChatPrefill();
-          console.log('Resetting wizard - user/state change detected', chatPrefill ? '(with chat prefill)' : '');
           set({
             bookingData: chatPrefill
               ? { ...initialBookingData, ...chatPrefill }
@@ -341,7 +328,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           // ✅ Always update both userId and guestMode together
           const chatPrefill = getChatPrefill();
           if (chatPrefill) {
-            console.log('Updating user state with chat prefill');
             set((state) => ({
               bookingData: { ...state.bookingData, ...chatPrefill },
               userId: userId,
@@ -349,7 +335,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
               lastResetTimestamp: Date.now()
             }));
           } else {
-            console.log('Updating user state without reset');
             set({
               userId: userId,
               isGuestMode: guestMode,
@@ -361,19 +346,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       
       // ✅ FIX: Calculate guest mode correctly based on userId
       resetWizard: () => {
-        console.log('Resetting booking wizard completely');
-        
         const state = get();
         
         // ✅ FIX: Calculate guest mode from userId, don't preserve old value
         const preservedUserId = state.userId !== 'guest' ? state.userId : 'guest';
         const calculatedGuestMode = preservedUserId === 'guest';
-        
-        console.log('Reset wizard with:', {
-          preservedUserId,
-          calculatedGuestMode,
-          oldGuestMode: state.isGuestMode
-        });
         
         const newState = {
           currentStep: 0,
@@ -392,27 +369,21 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('totetaxi-booking-wizard');
-            console.log('Cleared booking wizard from localStorage');
-          } catch (e) {
-            console.warn('Could not clear localStorage:', e);
+          } catch {
+            // localStorage may be unavailable
           }
         }
       },
       
       secureReset: () => {
-        console.log('SECURITY: Performing secure reset of booking wizard');
-        
         if (typeof window !== 'undefined') {
           try {
             const allKeys = Object.keys(localStorage);
             allKeys
               .filter(key => key.startsWith('totetaxi-booking'))
-              .forEach(key => {
-                localStorage.removeItem(key);
-                console.log(`SECURITY: Cleared ${key}`);
-              });
-          } catch (e) {
-            console.warn('Could not perform secure localStorage clear:', e);
+              .forEach(key => localStorage.removeItem(key));
+          } catch {
+            // localStorage may be unavailable
           }
         }
         
@@ -473,7 +444,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       version: STORE_VERSION,
       migrate: (persistedState: any, version: number) => {
         if (version !== STORE_VERSION) {
-          console.log(`Store version mismatch (${version} !== ${STORE_VERSION}), resetting to defaults`);
           return {
             currentStep: 0,
             isLoading: false,
@@ -490,7 +460,6 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         if (persistedState?.lastResetTimestamp) {
           const age = Date.now() - persistedState.lastResetTimestamp;
           if (age > MAX_SESSION_AGE_MS) {
-            console.log('Persisted state is stale (>24h), resetting');
             return {
               currentStep: 0,
               isLoading: false,
