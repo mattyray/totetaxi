@@ -110,6 +110,7 @@ LOCAL_APPS = [
     'apps.payments',
     'apps.logistics',
     'apps.customers',
+    'apps.assistant',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -265,8 +266,10 @@ RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY') or env('RECAPTCHA_
 
 FRONTEND_URL = env('FRONTEND_URL', default='https://totetaxi.netlify.app')
 
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
+REDIS_URL = env('REDIS_URL', default='redis://redis:6379/0')
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -295,8 +298,22 @@ LOGGING = {
         'django': {'handlers': ['console'], 'level': env('DJANGO_LOG_LEVEL', default='INFO'), 'propagate': False},
         'django.request': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
         'django_ratelimit': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'apps.assistant': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
     },
 }
+
+# AI Assistant
+ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
+if ANTHROPIC_API_KEY:
+    os.environ.setdefault('ANTHROPIC_API_KEY', ANTHROPIC_API_KEY)
+
+# LangSmith Observability (only when configured and not testing)
+LANGSMITH_API_KEY = env('LANGSMITH_API_KEY', default='')
+LANGSMITH_PROJECT = env('LANGSMITH_PROJECT', default='totetaxi-assistant')
+if LANGSMITH_API_KEY and not TESTING:
+    os.environ.setdefault('LANGCHAIN_TRACING_V2', 'true')
+    os.environ.setdefault('LANGCHAIN_API_KEY', LANGSMITH_API_KEY)
+    os.environ.setdefault('LANGCHAIN_PROJECT', LANGSMITH_PROJECT)
 
 # Stripe
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')

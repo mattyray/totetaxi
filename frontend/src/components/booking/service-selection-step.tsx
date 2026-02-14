@@ -1,7 +1,7 @@
 // frontend/src/components/booking/service-selection-step.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
@@ -86,11 +86,6 @@ export function ServiceSelectionStep() {
   const [dateError, setDateError] = useState<string>('');
   const [timeError, setTimeError] = useState<string>('');
 
-  console.log('SERVICE STEP - Current booking data:', bookingData);
-  console.log('mini_move_package_id:', bookingData.mini_move_package_id);
-  console.log('service_type:', bookingData.service_type);
-  console.log('specialty_items:', bookingData.specialty_items);
-
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
@@ -98,6 +93,23 @@ export function ServiceSelectionStep() {
       return response.data;
     }
   });
+
+  // Auto-resolve package_type (from chat handoff) to mini_move_package_id (DB UUID)
+  useEffect(() => {
+    if (
+      bookingData.service_type === 'mini_move' &&
+      bookingData.package_type &&
+      !bookingData.mini_move_package_id &&
+      services?.mini_move_packages
+    ) {
+      const match = services.mini_move_packages.find(
+        pkg => pkg.package_type === bookingData.package_type
+      );
+      if (match) {
+        updateBookingData({ mini_move_package_id: match.id });
+      }
+    }
+  }, [bookingData.service_type, bookingData.package_type, bookingData.mini_move_package_id, services, updateBookingData]);
 
   const validateBladeData = () => {
     setDateError('');

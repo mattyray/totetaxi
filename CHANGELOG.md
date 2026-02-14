@@ -1,13 +1,49 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** February 11, 2026
+**Last Updated:** February 13, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## February 13, 2026
+
+### AI Chat Assistant
+
+Customer-facing AI chat agent available on all public pages as a floating chat bubble. Answers questions about services, pricing, coverage areas, and availability in natural conversation. Authenticated customers can also check booking status and history. When a customer is ready to book, the agent pre-fills the booking wizard with discussed details and hands off seamlessly.
+
+**Backend — LangGraph Agent (`apps/assistant/`):**
+- LangGraph ReAct agent with Claude Sonnet, `temperature=0.3`
+- 6 read-only tools: `check_zip_coverage`, `get_pricing_estimate`, `check_availability`, `lookup_booking_status`, `lookup_booking_history`, `build_booking_handoff`
+- Auth-aware: anonymous users get public tools; authenticated users also get booking lookup tools
+- SSE streaming via `StreamingHttpResponse` with 5 event types: `token`, `tool_call`, `tool_result`, `done`, `error`
+- Conversation memory: frontend sends full chat history with each request (max 30 messages); backend rebuilds conversation context
+- ~3k token system prompt with all business knowledge (no RAG needed)
+- Rate limited: 20 requests/hour per IP
+- Health check endpoint: `GET /api/assistant/health/`
+- Booking handoff pre-fills 21 fields: service type, tier, item count/description, bag count, transfer direction, airport, pickup/delivery addresses, date, packing/unpacking, COI, special instructions
+
+**Frontend — Chat Widget (`components/chat/`):**
+- Floating bubble (bottom-right, navy-900) on all customer-facing pages; hidden on `/staff/*`
+- Custom `useChatStream` hook with native `fetch()` + `ReadableStream` for SSE parsing
+- Auth headers: cookies, CSRF token, X-Session-Id (mobile fallback)
+- Markdown rendering (bold, lists, spacing), typing indicator, tool activity labels
+- Booking handoff: "Start Booking" button pre-fills wizard via `updateBookingData()` and navigates to `/book`
+- "AI-powered" disclosure in chat header (FTC compliance)
+- 500-char input limit, disabled during streaming, auto-scroll on new messages
+
+**Deployment:**
+- Gunicorn switched from sync to gevent workers (`--worker-class gevent --worker-connections 100`)
+- Gevent enables hundreds of concurrent SSE streams on 4 workers (sync = max 4 concurrent chats)
+- Requires `ANTHROPIC_API_KEY` Fly.io secret
+
+**New files:** `backend/apps/assistant/` (12 files), `frontend/src/hooks/use-chat-stream.ts`, `frontend/src/components/chat/` (2 files), `docs/BUILD_LOG.md`
+**Tests:** 42 new backend tests (27 tool + 15 view), 307 total passed, 0 regressions
 
 ---
 
@@ -317,11 +353,12 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Onfleet airport geocoding (lat/lng coords)
 - Mobile menu scroll (overflow fix)
 
-### Features Built: 4
+### Features Built: 5
 - Reports & Analytics page (full implementation)
 - Discount codes (percentage + fixed, per-customer limits, service restrictions)
 - Bi-directional airport transfer (to/from airport, terminal selection)
 - Item description field for standard delivery
+- AI chat assistant (LangGraph + Claude, SSE streaming, 6 tools, booking handoff)
 
 ### Email Features: 2
 - Calendar invite (.ics) in reminder emails

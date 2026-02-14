@@ -5,6 +5,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { useEffect } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useStaffAuthStore } from '@/stores/staff-auth-store';
+import { ChatWidget } from '@/components/chat';
 
 // Component to handle session validation
 function SessionValidator() {
@@ -56,6 +57,7 @@ export function ClientProviders({ children }: ClientProvidersProps) {
     <QueryProvider>
       <SessionValidator />
       {children}
+      <ChatWidget />
     </QueryProvider>
   );
 }

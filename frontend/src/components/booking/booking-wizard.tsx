@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useBookingWizard } from '@/stores/booking-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
@@ -81,6 +80,15 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
       initializeForUser('guest', true);
     }
   }, [mounted, isAuthenticated, user, initializeForUser, isBookingComplete, completedBookingNumber]);
+
+  // Clean up chat agent prefill from localStorage once the user has progressed
+  // past service selection (step 2+). The actual prefill application happens inside
+  // initializeForUser() in the booking store — this just handles cleanup.
+  useEffect(() => {
+    if (currentStep >= 2) {
+      localStorage.removeItem('totetaxi-chat-prefill');
+    }
+  }, [currentStep]);
 
   // Step 4 skip for authenticated users is handled in the store's
   // nextStep/previousStep — no useEffect needed (L14 fix).

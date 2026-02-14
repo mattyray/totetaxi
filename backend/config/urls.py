@@ -14,4 +14,7 @@ urlpatterns = [
     # Staff
     path('api/staff/', include('apps.accounts.urls')),
     path('api/staff/logistics/', include('apps.logistics.urls')),
+
+    # AI Assistant
+    path('api/assistant/', include('apps.assistant.urls')),
 ]
