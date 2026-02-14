@@ -20,7 +20,6 @@ class GeventConnectionMiddleware:
 
     def __call__(self, request):
         for conn in connections.all():
-            conn.close()
             conn._thread_ident = _thread.get_ident()
         response = self.get_response(request)
         return response
