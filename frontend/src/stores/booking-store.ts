@@ -127,9 +127,11 @@ function getChatPrefill(): Partial<BookingData> | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CHAT_PREFILL_KEY);
+    console.log('[HANDOFF DEBUG 6] getChatPrefill raw:', raw?.slice(0, 500) || 'NULL');
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const age = Date.now() - (parsed?.timestamp || 0);
+    console.log('[HANDOFF DEBUG 7] getChatPrefill parsed:', { hasData: !!parsed?.data, dataKeys: parsed?.data ? Object.keys(parsed.data) : 'none', ageMs: age, expired: age >= CHAT_PREFILL_TTL_MS });
     if (parsed?.data && parsed?.timestamp && age < CHAT_PREFILL_TTL_MS) {
       return parsed.data as Partial<BookingData>;
     }
@@ -288,11 +290,15 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         const timeSinceLastReset = state.lastResetTimestamp ?
           Date.now() - state.lastResetTimestamp : Infinity;
 
+        console.log('[HANDOFF DEBUG 8] initializeForUser called:', { userId, guestMode, currentStep: state.currentStep, timeSinceLastReset, stateUserId: state.userId, stateGuestMode: state.isGuestMode, stateServiceType: state.bookingData.service_type });
+
         // ✅ Allow update if guest mode changed
         if (timeSinceLastReset < 1000 && state.isGuestMode === guestMode) {
+          console.log('[HANDOFF DEBUG 10] Rapid-init guard hit');
           // Still apply chat prefill if available (handles race where prefill
           // was set after the previous initializeForUser call)
           const chatPrefill = getChatPrefill();
+          console.log('[HANDOFF DEBUG 11] Rapid-init prefill:', chatPrefill ? Object.keys(chatPrefill) : 'null');
           if (chatPrefill) {
             set((state) => ({
               bookingData: { ...state.bookingData, ...chatPrefill }
@@ -310,8 +316,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           state.isBookingComplete ||
           state.isGuestMode !== guestMode  // ✅ Also reset if guest mode changes
         ) {
+          console.log('[HANDOFF DEBUG 12] Full reset path triggered');
           // Merge chat prefill into the reset so it survives the wipe
           const chatPrefill = getChatPrefill();
+          console.log('[HANDOFF DEBUG 13] Full reset prefill:', chatPrefill ? Object.keys(chatPrefill) : 'null');
           set({
             bookingData: chatPrefill
               ? { ...initialBookingData, ...chatPrefill }
@@ -325,8 +333,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             lastResetTimestamp: Date.now()
           });
         } else {
+          console.log('[HANDOFF DEBUG 14] Else path (no reset needed)');
           // ✅ Always update both userId and guestMode together
           const chatPrefill = getChatPrefill();
+          console.log('[HANDOFF DEBUG 15] Else path prefill:', chatPrefill ? Object.keys(chatPrefill) : 'null');
           if (chatPrefill) {
             set((state) => ({
               bookingData: { ...state.bookingData, ...chatPrefill },

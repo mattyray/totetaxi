@@ -47,14 +47,18 @@ export function ChatWidget() {
   };
 
   const handleBookingHandoff = (handoff: ChatMessage['bookingHandoff']) => {
-    if (!handoff?.prefill_data) return;
-    // Store prefill in localStorage with timestamp — the booking wizard applies it after auth step.
-    // This avoids the race condition where initializeForUser() wipes Zustand state.
+    console.log('[HANDOFF DEBUG 3] Button clicked, handoff object:', JSON.stringify(handoff).slice(0, 500));
+    if (!handoff?.prefill_data) {
+      console.log('[HANDOFF DEBUG 3] BAIL: no prefill_data on handoff');
+      return;
+    }
     const prefillPayload = { data: handoff.prefill_data, timestamp: Date.now() };
+    console.log('[HANDOFF DEBUG 4] Writing to localStorage:', JSON.stringify(prefillPayload).slice(0, 500));
     localStorage.setItem('totetaxi-chat-prefill', JSON.stringify(prefillPayload));
+    // Verify the write
+    const verify = localStorage.getItem('totetaxi-chat-prefill');
+    console.log('[HANDOFF DEBUG 5] localStorage verification:', verify?.slice(0, 500));
     setIsOpen(false);
-    // Full page navigation — Next.js router.push fails when called alongside
-    // React state updates (fetchServerResponse throws "Failed to fetch").
     window.location.href = '/book';
   };
 
