@@ -85,7 +85,6 @@ export function BookingWizard({ onComplete }: BookingWizardProps) {
   // past service selection (step 2+). The actual prefill application happens inside
   // initializeForUser() in the booking store — this just handles cleanup.
   useEffect(() => {
-    console.warn('[HANDOFF DEBUG 9] Cleanup effect, currentStep:', currentStep, 'willDelete:', currentStep >= 2);
     if (currentStep >= 2) {
       localStorage.removeItem('totetaxi-chat-prefill');
     }

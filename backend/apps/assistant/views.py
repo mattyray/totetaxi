@@ -100,73 +100,65 @@ class ChatView(APIView):
                 }
 
                 full_response = ""
-                in_tool_call = False
 
+                # Use stream_mode="updates" instead of "messages".
+                # "messages" intercepts the LLM invoke() and converts it to
+                # streaming, which causes tool_call args to be empty ({})
+                # in the state when tool_node runs. "updates" does not
+                # intercept — the LLM runs normally and tool_node gets
+                # complete args. Trade-off: AI text arrives all at once
+                # instead of token-by-token, but tool results are correct.
                 for event in agent.stream(
-                    input_messages, config=config, stream_mode="messages"
+                    input_messages, config=config, stream_mode="updates"
                 ):
-                    msg, metadata = event
-                    msg_type = getattr(msg, "type", "unknown")
+                    for node_name, node_output in event.items():
+                        messages = node_output.get("messages", [])
 
-                    # Stream AI tokens (AIMessage or AIMessageChunk)
-                    if msg_type in ("ai", "AIMessageChunk"):
-                        tool_calls = getattr(msg, "tool_calls", None)
-                        if tool_calls:
-                            in_tool_call = True
-                            for tc in tool_calls:
-                                tool_name = tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "")
-                                if tool_name:  # Skip partial/empty streaming chunks
-                                    yield sse_event(
-                                        "tool_call",
-                                        {
-                                            "tool": tool_name,
-                                        },
+                        if node_name == "agent":
+                            for msg in messages:
+                                tool_calls = getattr(msg, "tool_calls", None)
+
+                                # Emit text content
+                                content = getattr(msg, "content", "")
+                                if content and not tool_calls:
+                                    if isinstance(content, list):
+                                        text_parts = [
+                                            block.get("text", "") if isinstance(block, dict) else str(block)
+                                            for block in content
+                                        ]
+                                        content = "".join(text_parts)
+                                    if content:
+                                        full_response += content
+                                        yield sse_event("token", {"content": content})
+
+                                # Emit tool call notifications
+                                if tool_calls:
+                                    for tc in tool_calls:
+                                        tool_name = tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "")
+                                        if tool_name:
+                                            yield sse_event(
+                                                "tool_call",
+                                                {"tool": tool_name},
+                                            )
+
+                        elif node_name == "tools":
+                            for msg in messages:
+                                try:
+                                    result = (
+                                        json.loads(msg.content)
+                                        if isinstance(msg.content, str)
+                                        else msg.content
                                     )
-                        elif msg.content and not in_tool_call:
-                            # Content can be a string or a list of content blocks
-                            content = msg.content
-                            if isinstance(content, list):
-                                text_parts = [
-                                    block.get("text", "") if isinstance(block, dict) else str(block)
-                                    for block in content
-                                ]
-                                content = "".join(text_parts)
-                            # Strip tool-call XML that may leak into content
-                            for tag in ("<invoke", "<tool_use"):
-                                idx = content.find(tag)
-                                if idx != -1:
-                                    content = content[:idx]
-                            content = content.rstrip()
-                            if content:
-                                full_response += content
-                                yield sse_event("token", {"content": content})
+                                except (json.JSONDecodeError, TypeError):
+                                    result = {"raw": str(msg.content)}
 
-                    # Tool results
-                    elif msg_type == "tool":
-                        in_tool_call = False
-                        try:
-                            result = (
-                                json.loads(msg.content)
-                                if isinstance(msg.content, str)
-                                else msg.content
-                            )
-                        except (json.JSONDecodeError, TypeError):
-                            result = {"raw": str(msg.content)}
-
-                        yield sse_event(
-                            "tool_result",
-                            {
-                                "tool": msg.name,
-                                "result": result,
-                            },
-                        )
-
-                    else:
-                        logger.debug(
-                            f"Unhandled message type: {msg_type}, "
-                            f"class: {type(msg).__name__}, "
-                            f"content: {getattr(msg, 'content', '')[:100]}"
-                        )
+                                yield sse_event(
+                                    "tool_result",
+                                    {
+                                        "tool": getattr(msg, "name", "unknown"),
+                                        "result": result,
+                                    },
+                                )
 
                 yield sse_event(
                     "done",
