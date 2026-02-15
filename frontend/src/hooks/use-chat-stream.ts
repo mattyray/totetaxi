@@ -177,7 +177,7 @@ export function useChatStream(): UseChatStreamReturn {
 
       case 'tool_result': {
         const result = data.result as Record<string, unknown>;
-        console.log('[HANDOFF DEBUG 1] tool_result received:', { tool: data.tool, resultKeys: result ? Object.keys(result) : 'null', hasAction: result?.action, hasPrefill: !!(result as any)?.prefill_data, prefillKeys: (result as any)?.prefill_data ? Object.keys((result as any).prefill_data) : 'none' });
+        console.warn('[HANDOFF DEBUG 1] tool_result received:', { tool: data.tool, resultKeys: result ? Object.keys(result) : 'null', hasAction: result?.action, hasPrefill: !!(result as any)?.prefill_data, prefillKeys: (result as any)?.prefill_data ? Object.keys((result as any).prefill_data) : 'none' });
         setMessages(prev =>
           prev.map(m => {
             if (m.id !== assistantId) return m;
@@ -188,7 +188,7 @@ export function useChatStream(): UseChatStreamReturn {
             // Detect booking handoff
             if (result && typeof result === 'object' && 'action' in result && result.action === 'open_booking_wizard') {
               updated.bookingHandoff = result as ChatMessage['bookingHandoff'];
-              console.log('[HANDOFF DEBUG 2] bookingHandoff SET on message:', JSON.stringify(result).slice(0, 500));
+              console.warn('[HANDOFF DEBUG 2] bookingHandoff SET on message:', JSON.stringify(result).slice(0, 500));
             }
             return updated;
           })

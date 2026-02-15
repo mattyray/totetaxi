@@ -47,17 +47,17 @@ export function ChatWidget() {
   };
 
   const handleBookingHandoff = (handoff: ChatMessage['bookingHandoff']) => {
-    console.log('[HANDOFF DEBUG 3] Button clicked, handoff object:', JSON.stringify(handoff).slice(0, 500));
+    console.warn('[HANDOFF DEBUG 3] Button clicked, handoff object:', JSON.stringify(handoff).slice(0, 500));
     if (!handoff?.prefill_data) {
-      console.log('[HANDOFF DEBUG 3] BAIL: no prefill_data on handoff');
+      console.warn('[HANDOFF DEBUG 3] BAIL: no prefill_data on handoff');
       return;
     }
     const prefillPayload = { data: handoff.prefill_data, timestamp: Date.now() };
-    console.log('[HANDOFF DEBUG 4] Writing to localStorage:', JSON.stringify(prefillPayload).slice(0, 500));
+    console.warn('[HANDOFF DEBUG 4] Writing to localStorage:', JSON.stringify(prefillPayload).slice(0, 500));
     localStorage.setItem('totetaxi-chat-prefill', JSON.stringify(prefillPayload));
     // Verify the write
     const verify = localStorage.getItem('totetaxi-chat-prefill');
-    console.log('[HANDOFF DEBUG 5] localStorage verification:', verify?.slice(0, 500));
+    console.warn('[HANDOFF DEBUG 5] localStorage verification:', verify?.slice(0, 500));
     setIsOpen(false);
     window.location.href = '/book';
   };
