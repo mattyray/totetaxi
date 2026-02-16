@@ -376,7 +376,7 @@ export default function ServicesPage() {
             Ready to Experience White-Glove Service?
           </h2>
           <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
-            Book your luxury move today and discover why discerning clients trust ToteTaxi
+            Book your luxury move today and discover why discerning clients trust Tote Taxi
             for their Manhattan-to-Hamptons transport needs.
           </p>
           <Link href="/book">

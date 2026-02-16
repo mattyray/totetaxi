@@ -120,7 +120,7 @@ function SidebarContent({ navigation, pathname }: {
   return (
     <div className="flex flex-1 flex-col min-h-0">
       <div className="flex items-center h-16 flex-shrink-0 px-4 bg-navy-800">
-        <h1 className="text-lg font-bold text-white">ToteTaxi Operations</h1>
+        <h1 className="text-lg font-bold text-white">Tote Taxi Operations</h1>
       </div>
       <div className="flex-1 flex flex-col overflow-y-auto">
         <nav className="flex-1 px-2 py-4 space-y-1">

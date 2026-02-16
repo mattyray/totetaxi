@@ -98,7 +98,7 @@ export function StaffLoginForm() {
             Staff Login
           </h2>
           <p className="mt-2 text-sm text-navy-600">
-            ToteTaxi Operations Dashboard
+            Tote Taxi Operations Dashboard
           </p>
         </div>
 

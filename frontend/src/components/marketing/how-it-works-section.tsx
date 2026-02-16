@@ -14,7 +14,7 @@ export function HowItWorksSection() {
             <div className="mb-6 flex justify-center h-32 items-center">
               <Image
                 src="/assets/images/ToteTaxiVanBlue.jpg"
-                alt="ToteTaxi Van"
+                alt="Tote Taxi Van"
                 width={120}
                 height={120}
                 className="object-contain w-auto h-auto max-h-28"

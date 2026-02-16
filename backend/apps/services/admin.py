@@ -204,6 +204,6 @@ class SurchargeRuleAdmin(admin.ModelAdmin):
     get_applies_to.short_description = 'Applies To'
 
 
-admin.site.site_header = "ToteTaxi Admin"
-admin.site.site_title = "ToteTaxi Admin Portal"
-admin.site.index_title = "Welcome to ToteTaxi Administration"
+admin.site.site_header = "Tote Taxi Admin"
+admin.site.site_title = "Tote Taxi Admin Portal"
+admin.site.index_title = "Welcome to Tote Taxi Administration"

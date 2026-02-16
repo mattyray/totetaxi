@@ -147,7 +147,7 @@ export function BookingHistory() {
             <div className="text-6xl mb-4">📦</div>
             <h3 className="text-lg font-medium text-navy-900 mb-2">No bookings yet</h3>
             <p className="text-navy-600 mb-4">
-              Start your ToteTaxi experience by booking your first move
+              Start your Tote Taxi experience by booking your first move
             </p>
             <Button 
               variant="primary"

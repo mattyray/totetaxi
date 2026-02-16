@@ -40,7 +40,7 @@ function DashboardContent() {
             <Card variant="luxury" className="mb-8 border-gold-200 bg-gradient-to-r from-gold-50 to-cream-50">
               <CardContent className="p-8 text-center">
                 <h2 className="text-2xl font-serif font-bold text-navy-900 mb-3">
-                  Welcome to ToteTaxi, {user.first_name}! 🎉
+                  Welcome to Tote Taxi, {user.first_name}! 🎉
                 </h2>
                 <p className="text-navy-700 mb-6 max-w-2xl mx-auto">
                   Your account is ready. Experience white-glove moving and delivery service.
@@ -62,7 +62,7 @@ function DashboardContent() {
               Welcome back, {user.first_name}!
             </h1>
             <p className="text-navy-600">
-              Your ToteTaxi dashboard
+              Your Tote Taxi dashboard
             </p>
           </div>
 

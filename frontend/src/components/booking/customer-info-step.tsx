@@ -160,7 +160,7 @@ export function CustomerInfoStep() {
             <div>
               <h4 className="font-medium text-navy-900 mb-1">Privacy & Security</h4>
               <p className="text-sm text-navy-700">
-                Your information is encrypted and secure. We'll only use it to provide your ToteTaxi service 
+                Your information is encrypted and secure. We'll only use it to provide your Tote Taxi service 
                 and send important updates about your booking. We never sell or share your personal data.
               </p>
             </div>

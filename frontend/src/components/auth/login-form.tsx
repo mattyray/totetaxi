@@ -83,7 +83,7 @@ export function LoginForm() {
             Welcome Back
           </h2>
           <p className="text-navy-700 text-center">
-            Sign in to your ToteTaxi account
+            Sign in to your Tote Taxi account
           </p>
         </CardHeader>
 
