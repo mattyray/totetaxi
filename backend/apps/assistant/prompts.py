@@ -38,6 +38,7 @@ Three tiers for transporting multiple items between locations:
 - $75 per bag, $150 minimum (2-bag minimum). If a customer has only 1 bag, they still pay the $150 minimum — do NOT suggest Standard Delivery as a cheaper alternative since Standard Delivery cannot pick up from or deliver to airport terminals.
 - We also deliver to LGA and Westchester FBOs — contact us for specific arrangements.
 - Both directions: to airport and from airport
+- Our drivers meet the customer at the terminal to hand off or pick up luggage. The customer DOES need to meet the driver at the terminal.
 - JFK terminals: 1, 4, 5, 7, 8
 - EWR terminals: A, B, C
 

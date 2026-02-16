@@ -133,7 +133,7 @@ const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
       {/* Header */}
       <div className="flex items-center justify-between border-b border-cream-200 bg-navy-900 px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-white">ToteTaxi Assistant</h3>
+          <h3 className="text-sm font-semibold text-white">Tote Taxi Assistant</h3>
           <p className="text-xs text-navy-300">AI-powered — ask about services, pricing, or availability</p>
         </div>
         <button

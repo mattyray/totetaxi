@@ -257,7 +257,7 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS = (os.environ.get('EMAIL_USE_TLS', '') or '').lower() in ('true', '1', 'yes') if os.environ.get('EMAIL_USE_TLS') else env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER') or env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD') or env('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_EMAIL', default='ToteTaxi <noreply@totetaxi.com>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or env('DEFAULT_FROM_EMAIL', default='Tote Taxi <noreply@totetaxi.com>')
 
 # ⬇️ NEW: BCC list for booking confirmations (comma-separated env)
 BOOKING_EMAIL_BCC = env.list('BOOKING_EMAIL_BCC', default=[])
