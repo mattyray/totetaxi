@@ -129,15 +129,15 @@ class TestLogisticsSummaryView:
         assert 'data' in response.data
         assert 'timestamp' in response.data
     
-    def test_summary_includes_totetaxi_stats(self, staff_client):
-        """Test summary includes ToteTaxi booking stats"""
+    def test_summary_includes_booking_stats(self, staff_client):
+        """Test summary includes booking stats"""
         response = staff_client.get('/api/staff/logistics/summary/')
-        
+
         data = response.data['data']
-        assert 'totetaxi_stats' in data
-        assert 'total_bookings' in data['totetaxi_stats']
-        assert 'confirmed_bookings' in data['totetaxi_stats']
-        assert 'completed_bookings' in data['totetaxi_stats']
+        assert 'active_tasks' in data
+        assert 'tasks_today' in data
+        assert 'completed_today' in data
+        assert 'completion_rate' in data
     
     def test_summary_includes_onfleet_stats(self, staff_client):
         """Test summary includes Onfleet stats"""

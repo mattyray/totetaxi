@@ -651,3 +651,134 @@ The `eventType` scope bug is a general pitfall of streaming protocol parsers. SS
 ---
 
 *Next: Adversarial testing, edge cases, commit chat agent branch, PR, deploy.*
+
+---
+
+## Feb 15, 2026 — Day 3: Three Production Bugs, One Root Cause
+
+### What broke
+
+The chat agent shipped on Day 2. By Day 3, three things didn't work in production:
+
+1. **Booking handoff prefill was empty** — the agent built correct handoff data (confirmed in LangSmith traces), but the wizard opened with every field blank.
+2. **Onfleet task creation failed** — "maximum recursion depth exceeded" in `requests.post()` when Django's post_save signal tried to create delivery tasks.
+3. **LangSmith traces disappeared** — some agent invocations never appeared in the LangSmith dashboard.
+
+All three had the same root cause. It took two wrong hypotheses to find it.
+
+### Bug 1: stream_mode="messages" vs. stream_mode="updates"
+
+**Symptom:** Agent streams a complete response including "Start Booking" button. User clicks it. Wizard opens empty. `localStorage` contains `{"data":{},"timestamp":...}`.
+
+**Root cause:** `stream_mode="messages"` in the LangGraph `.stream()` call.
+
+When LangGraph streams in `"messages"` mode, it intercepts the LLM's `invoke()` call to stream individual tokens. But this interception happens *during* the LLM call — the tool_call arguments are still being generated. The streaming hook receives tool_call chunks with partial or empty `args`. By the time the tool actually executes, the stream has already emitted a `tool_call` event with `args: {}`. The `tool_result` event carries the correct data, but the frontend's `handleBookingHandoff` had already processed the empty args from the `tool_call` event.
+
+`stream_mode="updates"` works differently. It doesn't intercept the LLM invoke. Instead, it streams complete node outputs — the agent node's full response (with complete tool_call args) and the tools node's full results. No partial chunks. No empty args.
+
+**The fix:** One line change in `views.py`:
+
+```python
+# Before
+for event in agent.stream(input_messages, config=config, stream_mode="messages"):
+# After
+for event in agent.stream(input_messages, config=config, stream_mode="updates"):
+```
+
+Plus a complete rewrite of the event loop, because the data shape changes entirely. `"messages"` yields `(msg_chunk, metadata)` tuples. `"updates"` yields `{node_name: {"messages": [Message, ...]}}` dicts.
+
+**The lesson:** LangGraph's `stream_mode` doesn't just change the granularity of streaming — it changes the timing of tool execution. `"messages"` mode is for streaming text to users. `"updates"` mode is for when you need tool call results to be complete and correct. If your agent uses tools whose output drives downstream behavior (like a booking handoff), use `"updates"`.
+
+### Bug 2 & 3: The infinite SSL recursion
+
+**Symptom (Onfleet):** Booking TT-000053 created successfully, payment processed, but Fly.io logs showed:
+
+```
+Failed to create Onfleet tasks: maximum recursion depth exceeded while calling a Python object
+```
+
+The traceback pointed to `requests.post()` in the Onfleet API call.
+
+**Symptom (LangSmith):** Some agent traces from phone testing never appeared in the dashboard. Same recursion error in the LangSmith HTTP upload.
+
+**First hypothesis: recursion limit too low.** Default Python limit is 1000. Gevent greenlets have deeper stacks. We bumped `sys.setrecursionlimit` from 1000 to 3000. LangSmith traces from desktop testing started working. Deployed.
+
+**Second hypothesis: still not high enough.** TT-000055 failed with the same error even at 3000. Bumped to 10000. Deployed. Still failed.
+
+**The realization:** You can't fix *infinite* recursion by raising the limit.
+
+**The real root cause: `preload_app = True` in `gunicorn.conf.py`.**
+
+When `preload_app` is `True`, gunicorn's master process imports the Django application before forking workers. This import loads everything — Django, DRF, and critically, `requests`, `urllib3`, and `botocore`, all of which import Python's `ssl` module.
+
+Then workers fork. Then `gevent.monkey.patch_all()` runs in each worker (via the `--worker-class gevent` entrypoint). But `ssl` was already imported in the master process before the fork. Monkey-patching wraps the already-imported ssl functions with gevent-aware versions, but the wrapped functions call the originals — which are the same wrapped functions. Infinite recursion.
+
+Every outbound HTTPS call was affected: Onfleet API, LangSmith trace uploads, and potentially Stripe (though Stripe calls happen through Celery workers, which have their own process model).
+
+**The fix:**
+
+```python
+# gunicorn.conf.py
+preload_app = False
+```
+
+With `preload_app = False`, each worker imports the application *after* `monkey.patch_all()` runs. SSL is imported into an already-patched environment. No double-wrapping. No recursion.
+
+Trade-off: slightly more memory per worker (no copy-on-write sharing of the application import). For 4 workers on a 512MB Fly.io machine, this is negligible.
+
+We kept `sys.setrecursionlimit(3000)` as a safety net for legitimately deep (but finite) gevent greenlet stacks. The real fix is import ordering, not limit bumping.
+
+### The debugging journey
+
+| Hypothesis | Action | Result |
+|---|---|---|
+| Recursion limit too low (1000) | Set to 3000 | LangSmith traces worked (desktop). Onfleet still failed. |
+| Still too low | Set to 10000 | Still failed. Proved it's infinite, not deep. |
+| `preload_app` imports ssl before monkey-patch | Set `preload_app = False` | All HTTPS calls work. SSL warnings gone from logs. |
+
+The 3000 limit "working" for LangSmith was a red herring — those desktop test traces likely uploaded before the recursion manifested, or the LangSmith SDK has a different code path that happened to work at 3000 depth. The Onfleet API call always hit infinite recursion because it goes through `requests.post()` → `urllib3` → `ssl` on every invocation.
+
+### Why this only showed up now
+
+The chat agent was the first feature requiring gevent. Before Day 2, production ran `--worker-class sync` (standard gunicorn). Sync workers don't call `monkey.patch_all()`, so `preload_app = True` was harmless. When we switched to gevent for concurrent SSE streaming, the import ordering bug activated.
+
+The Onfleet and LangSmith HTTPS calls existed before gevent. They worked fine under sync workers. The bug isn't in Onfleet, LangSmith, or our code — it's in the interaction between gunicorn's preload strategy and gevent's monkey-patching.
+
+### The pattern across Day 2 and Day 3
+
+| Bug | Worked in dev | Worked in tests | Broke in production | Root cause |
+|---|---|---|---|---|
+| XML in chat UI | Yes | Yes | No | Gevent chunk timing |
+| DB thread sharing | Yes | Yes | No | Gevent greenlet IDs |
+| SSE parser dropping events | Yes | Yes | No | Gevent chunk boundaries |
+| Empty handoff data | Yes | Yes | No | stream_mode behavior |
+| Onfleet recursion | Yes | Yes | No | Gevent + preload_app + ssl |
+| LangSmith recursion | Yes | Yes | No | Same |
+
+Six production bugs across two days. All passed all 308 backend tests. All worked in local development. All were caused by the gap between Django's dev server (synchronous, single-threaded) and gunicorn+gevent (cooperative multitasking, monkey-patched stdlib).
+
+The lesson is now deeply confirmed: **if your production server uses gevent, your dev environment is lying to you about concurrency, chunking, thread identity, and import ordering.** Tests and local dev only validate business logic. Production validates the execution model.
+
+### By the numbers
+- 3 production bugs, 1 shared root cause (preload_app + gevent + ssl)
+- 2 wrong hypotheses before the correct fix
+- 3 commits, 3 deploys to Fly.io
+- 1 frontend deploy to Netlify (debug logging cleanup)
+- `sys.setrecursionlimit`: 1000 → 3000 → 10000 → 3000 (safety net only)
+- `preload_app`: True → False (the actual fix)
+- 2 bookings (TT-000053, TT-000055) had failed Onfleet tasks during debugging
+
+### Files changed
+```
+backend/apps/assistant/views.py    — stream_mode="messages" → "updates", rewrote event loop
+backend/config/wsgi.py             — sys.setrecursionlimit(3000) as safety net
+backend/gunicorn.conf.py           — preload_app = True → False
+frontend/src/hooks/use-chat-stream.ts          — Removed debug logging
+frontend/src/components/chat/chat-widget.tsx    — Removed debug logging
+frontend/src/stores/booking-store.ts           — Removed debug logging
+frontend/src/components/booking/booking-wizard.tsx — Removed debug logging
+```
+
+---
+
+*The chat agent is now stable in production. SSE streaming, booking handoffs, Onfleet dispatch, and LangSmith tracing all working under gevent.*
