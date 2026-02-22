@@ -1,5 +1,15 @@
 import { useState, useCallback, useRef } from 'react';
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -28,7 +38,7 @@ export function useChatStream(): UseChatStreamReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [threadId] = useState(() => crypto.randomUUID());
+  const [threadId] = useState(() => generateId());
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
@@ -42,14 +52,14 @@ export function useChatStream(): UseChatStreamReturn {
 
     // Add user message
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: 'user',
       content: message,
     };
     setMessages(prev => [...prev, userMsg]);
 
     // Create assistant message placeholder
-    const assistantId = crypto.randomUUID();
+    const assistantId = generateId();
     const assistantMsg: ChatMessage = {
       id: assistantId,
       role: 'assistant',
