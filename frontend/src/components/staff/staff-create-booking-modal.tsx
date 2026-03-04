@@ -36,7 +36,6 @@ interface ServiceCatalog {
 const SERVICE_TYPE_OPTIONS = [
   { value: 'mini_move', label: 'Mini Move' },
   { value: 'standard_delivery', label: 'Standard Delivery' },
-  { value: 'specialty_item', label: 'Specialty Item' },
   { value: 'blade_transfer', label: 'Airport Transfer' },
 ];
 
@@ -202,9 +201,6 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
       if (selectedSpecialtyItems.length > 0) {
         data.specialty_items = selectedSpecialtyItems;
       }
-    } else if (serviceType === 'specialty_item') {
-      data.specialty_items = selectedSpecialtyItems;
-      data.is_same_day_delivery = isSameDayDelivery;
     } else if (serviceType === 'blade_transfer') {
       data.blade_airport = bladeAirport;
       data.blade_flight_date = bladeFlightDate;
@@ -411,43 +407,6 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                   </div>
                 )}
 
-                {/* Specialty Item fields */}
-                {serviceType === 'specialty_item' && catalog?.specialty_items && (
-                  <div className="mt-4 space-y-3">
-                    <p className="text-sm text-navy-600">Select specialty items:</p>
-                    {catalog.specialty_items.map(item => {
-                      const existing = selectedSpecialtyItems.find(s => s.item_id === item.id);
-                      return (
-                        <div key={item.id} className="flex items-center justify-between bg-cream-50 rounded-lg p-3">
-                          <div>
-                            <span className="font-medium text-sm">{item.name}</span>
-                            <span className="text-navy-500 text-sm ml-2">${item.price_dollars}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={existing?.quantity || 0}
-                              onChange={(e) => {
-                                const qty = parseInt(e.target.value) || 0;
-                                setSelectedSpecialtyItems(prev => {
-                                  const filtered = prev.filter(s => s.item_id !== item.id);
-                                  if (qty > 0) filtered.push({ item_id: item.id, quantity: qty });
-                                  return filtered;
-                                });
-                              }}
-                              className="w-20"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" checked={isSameDayDelivery} onChange={(e) => setIsSameDayDelivery(e.target.checked)} className="rounded" />
-                      <span className="text-sm text-gray-900">Same-day delivery (+$360)</span>
-                    </label>
-                  </div>
-                )}
 
                 {/* Airport Transfer fields */}
                 {serviceType === 'blade_transfer' && (
