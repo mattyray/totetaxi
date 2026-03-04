@@ -43,6 +43,11 @@ function ConfirmationContent() {
             <p className="text-navy-600 mb-6">
               Thank you! Your payment has been received. You will receive a confirmation email shortly.
             </p>
+            <p className="text-sm text-navy-500">
+              If you have any questions, contact us at{' '}
+              <a href="mailto:info@totetaxi.com" className="text-navy-700 underline">info@totetaxi.com</a>
+              {' '}or call <a href="tel:6315955100" className="text-navy-700 underline">(631) 595-5100</a>.
+            </p>
           </>
         ) : (
           <>
