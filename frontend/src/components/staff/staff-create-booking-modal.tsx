@@ -62,6 +62,37 @@ function unformatPhone(value: string): string {
   return value.replace(/\D/g, '');
 }
 
+const AIRPORT_ADDRESSES: Record<string, typeof emptyAddress> = {
+  JFK: {
+    address_line_1: 'JFK International Airport',
+    address_line_2: '',
+    city: 'Jamaica',
+    state: 'NY',
+    zip_code: '11430',
+  },
+  EWR: {
+    address_line_1: 'Newark Liberty International Airport',
+    address_line_2: '',
+    city: 'Newark',
+    state: 'NJ',
+    zip_code: '07114',
+  },
+};
+
+const JFK_TERMINALS = [
+  { value: '1', label: 'Terminal 1' },
+  { value: '4', label: 'Terminal 4' },
+  { value: '5', label: 'Terminal 5' },
+  { value: '7', label: 'Terminal 7' },
+  { value: '8', label: 'Terminal 8' },
+];
+
+const EWR_TERMINALS = [
+  { value: 'A', label: 'Terminal A' },
+  { value: 'B', label: 'Terminal B' },
+  { value: 'C', label: 'Terminal C' },
+];
+
 const emptyAddress = {
   address_line_1: '',
   address_line_2: '',
@@ -136,6 +167,26 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
     },
   });
 
+  // Auto-fill airport address when airport/direction changes
+  // Also reset the customer side so the old airport address doesn't linger
+  useEffect(() => {
+    if (serviceType === 'blade_transfer') {
+      const airportAddr = AIRPORT_ADDRESSES[bladeAirport];
+      if (transferDirection === 'from_airport') {
+        setPickupAddress({ ...airportAddr });
+        setDeliveryAddress({ ...emptyAddress });
+      } else {
+        setDeliveryAddress({ ...airportAddr });
+        setPickupAddress({ ...emptyAddress });
+      }
+    }
+  }, [serviceType, bladeAirport, transferDirection]);
+
+  // Clear terminal when airport changes (different terminal lists)
+  useEffect(() => {
+    setBladeTerminal('');
+  }, [bladeAirport]);
+
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -181,7 +232,7 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
       email,
       phone,
       service_type: serviceType as StaffCreateBookingRequest['service_type'],
-      pickup_date: pickupDate,
+      pickup_date: serviceType === 'blade_transfer' ? bladeFlightDate : pickupDate,
       pickup_time: pickupTime as StaffCreateBookingRequest['pickup_time'],
       pickup_address: pickupAddress,
       delivery_address: deliveryAddress,
@@ -445,7 +496,12 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-navy-700 mb-1">Terminal (optional)</label>
-                      <Input value={bladeTerminal} onChange={(e) => setBladeTerminal(e.target.value)} placeholder="e.g., 1, 4, B" />
+                      <Select
+                        options={bladeAirport === 'JFK' ? JFK_TERMINALS : EWR_TERMINALS}
+                        value={bladeTerminal}
+                        onChange={(e) => setBladeTerminal(e.target.value)}
+                        placeholder="Select terminal"
+                      />
                     </div>
                   </div>
                 )}
@@ -482,71 +538,158 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                 </section>
               )}
 
-              {/* For blade_transfer, use flight date as pickup date */}
-              {serviceType === 'blade_transfer' && (
-                <input type="hidden" value={bladeFlightDate} />
-              )}
-
               {/* Addresses */}
               <section>
                 <h3 className="text-lg font-semibold text-navy-900 mb-3">Addresses</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Pickup Address */}
-                  <div className="space-y-2">
-                    <GoogleAddressInput
-                      label="Pickup Address"
-                      value={pickupAddress.address_line_1}
-                      onChange={(val) => setPickupAddress(prev => ({ ...prev, address_line_1: val }))}
-                      onPlaceSelected={(place) => {
-                        const parsed = parseGooglePlace(place);
-                        if (parsed) {
-                          setPickupAddress(prev => ({
-                            ...prev,
-                            address_line_1: parsed.address_line_1 || prev.address_line_1,
-                            city: parsed.city || prev.city,
-                            state: parsed.state || prev.state,
-                            zip_code: parsed.zip_code || prev.zip_code,
-                          }));
-                        }
-                      }}
-                      placeholder="Start typing an address..."
-                    />
-                    <Input placeholder="Address line 2 (optional)" value={pickupAddress.address_line_2} onChange={(e) => setPickupAddress(prev => ({ ...prev, address_line_2: e.target.value }))} />
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input placeholder="City" value={pickupAddress.city} onChange={(e) => setPickupAddress(prev => ({ ...prev, city: e.target.value }))} />
-                      <Select options={STATE_OPTIONS} value={pickupAddress.state} onChange={(e) => setPickupAddress(prev => ({ ...prev, state: e.target.value }))} />
-                      <Input placeholder="ZIP" value={pickupAddress.zip_code} onChange={(e) => setPickupAddress(prev => ({ ...prev, zip_code: e.target.value }))} />
+                {serviceType === 'blade_transfer' ? (
+                  <div className="space-y-4">
+                    {/* Airport address (read-only) */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs font-medium text-navy-500 mb-1">
+                        {transferDirection === 'from_airport' ? 'Pickup' : 'Delivery'} — Airport (auto-set)
+                      </p>
+                      <p className="text-sm text-navy-800">
+                        {AIRPORT_ADDRESSES[bladeAirport].address_line_1}, {AIRPORT_ADDRESSES[bladeAirport].city}, {AIRPORT_ADDRESSES[bladeAirport].state} {AIRPORT_ADDRESSES[bladeAirport].zip_code}
+                      </p>
+                    </div>
+                    {/* Customer address (editable) */}
+                    <div className="space-y-2">
+                      <GoogleAddressInput
+                        label={transferDirection === 'from_airport' ? 'Delivery Address (Customer)' : 'Pickup Address (Customer)'}
+                        value={transferDirection === 'from_airport' ? deliveryAddress.address_line_1 : pickupAddress.address_line_1}
+                        onChange={(val) => {
+                          if (transferDirection === 'from_airport') {
+                            setDeliveryAddress(prev => ({ ...prev, address_line_1: val }));
+                          } else {
+                            setPickupAddress(prev => ({ ...prev, address_line_1: val }));
+                          }
+                        }}
+                        onPlaceSelected={(place) => {
+                          const parsed = parseGooglePlace(place);
+                          if (parsed) {
+                            const update = (prev: typeof emptyAddress) => ({
+                              ...prev,
+                              address_line_1: parsed.address_line_1 || prev.address_line_1,
+                              city: parsed.city || prev.city,
+                              state: parsed.state || prev.state,
+                              zip_code: parsed.zip_code || prev.zip_code,
+                            });
+                            if (transferDirection === 'from_airport') {
+                              setDeliveryAddress(update);
+                            } else {
+                              setPickupAddress(update);
+                            }
+                          }
+                        }}
+                        placeholder="Start typing an address..."
+                      />
+                      <Input
+                        placeholder="Address line 2 (optional)"
+                        value={transferDirection === 'from_airport' ? deliveryAddress.address_line_2 : pickupAddress.address_line_2}
+                        onChange={(e) => {
+                          if (transferDirection === 'from_airport') {
+                            setDeliveryAddress(prev => ({ ...prev, address_line_2: e.target.value }));
+                          } else {
+                            setPickupAddress(prev => ({ ...prev, address_line_2: e.target.value }));
+                          }
+                        }}
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          placeholder="City"
+                          value={transferDirection === 'from_airport' ? deliveryAddress.city : pickupAddress.city}
+                          onChange={(e) => {
+                            if (transferDirection === 'from_airport') {
+                              setDeliveryAddress(prev => ({ ...prev, city: e.target.value }));
+                            } else {
+                              setPickupAddress(prev => ({ ...prev, city: e.target.value }));
+                            }
+                          }}
+                        />
+                        <Select
+                          options={STATE_OPTIONS}
+                          value={transferDirection === 'from_airport' ? deliveryAddress.state : pickupAddress.state}
+                          onChange={(e) => {
+                            if (transferDirection === 'from_airport') {
+                              setDeliveryAddress(prev => ({ ...prev, state: e.target.value }));
+                            } else {
+                              setPickupAddress(prev => ({ ...prev, state: e.target.value }));
+                            }
+                          }}
+                        />
+                        <Input
+                          placeholder="ZIP"
+                          value={transferDirection === 'from_airport' ? deliveryAddress.zip_code : pickupAddress.zip_code}
+                          onChange={(e) => {
+                            if (transferDirection === 'from_airport') {
+                              setDeliveryAddress(prev => ({ ...prev, zip_code: e.target.value }));
+                            } else {
+                              setPickupAddress(prev => ({ ...prev, zip_code: e.target.value }));
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Pickup Address */}
+                    <div className="space-y-2">
+                      <GoogleAddressInput
+                        label="Pickup Address"
+                        value={pickupAddress.address_line_1}
+                        onChange={(val) => setPickupAddress(prev => ({ ...prev, address_line_1: val }))}
+                        onPlaceSelected={(place) => {
+                          const parsed = parseGooglePlace(place);
+                          if (parsed) {
+                            setPickupAddress(prev => ({
+                              ...prev,
+                              address_line_1: parsed.address_line_1 || prev.address_line_1,
+                              city: parsed.city || prev.city,
+                              state: parsed.state || prev.state,
+                              zip_code: parsed.zip_code || prev.zip_code,
+                            }));
+                          }
+                        }}
+                        placeholder="Start typing an address..."
+                      />
+                      <Input placeholder="Address line 2 (optional)" value={pickupAddress.address_line_2} onChange={(e) => setPickupAddress(prev => ({ ...prev, address_line_2: e.target.value }))} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input placeholder="City" value={pickupAddress.city} onChange={(e) => setPickupAddress(prev => ({ ...prev, city: e.target.value }))} />
+                        <Select options={STATE_OPTIONS} value={pickupAddress.state} onChange={(e) => setPickupAddress(prev => ({ ...prev, state: e.target.value }))} />
+                        <Input placeholder="ZIP" value={pickupAddress.zip_code} onChange={(e) => setPickupAddress(prev => ({ ...prev, zip_code: e.target.value }))} />
+                      </div>
+                    </div>
 
-                  {/* Delivery Address */}
-                  <div className="space-y-2">
-                    <GoogleAddressInput
-                      label="Delivery Address"
-                      value={deliveryAddress.address_line_1}
-                      onChange={(val) => setDeliveryAddress(prev => ({ ...prev, address_line_1: val }))}
-                      onPlaceSelected={(place) => {
-                        const parsed = parseGooglePlace(place);
-                        if (parsed) {
-                          setDeliveryAddress(prev => ({
-                            ...prev,
-                            address_line_1: parsed.address_line_1 || prev.address_line_1,
-                            city: parsed.city || prev.city,
-                            state: parsed.state || prev.state,
-                            zip_code: parsed.zip_code || prev.zip_code,
-                          }));
-                        }
-                      }}
-                      placeholder="Start typing an address..."
-                    />
-                    <Input placeholder="Address line 2 (optional)" value={deliveryAddress.address_line_2} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, address_line_2: e.target.value }))} />
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input placeholder="City" value={deliveryAddress.city} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))} />
-                      <Select options={STATE_OPTIONS} value={deliveryAddress.state} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, state: e.target.value }))} />
-                      <Input placeholder="ZIP" value={deliveryAddress.zip_code} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, zip_code: e.target.value }))} />
+                    {/* Delivery Address */}
+                    <div className="space-y-2">
+                      <GoogleAddressInput
+                        label="Delivery Address"
+                        value={deliveryAddress.address_line_1}
+                        onChange={(val) => setDeliveryAddress(prev => ({ ...prev, address_line_1: val }))}
+                        onPlaceSelected={(place) => {
+                          const parsed = parseGooglePlace(place);
+                          if (parsed) {
+                            setDeliveryAddress(prev => ({
+                              ...prev,
+                              address_line_1: parsed.address_line_1 || prev.address_line_1,
+                              city: parsed.city || prev.city,
+                              state: parsed.state || prev.state,
+                              zip_code: parsed.zip_code || prev.zip_code,
+                            }));
+                          }
+                        }}
+                        placeholder="Start typing an address..."
+                      />
+                      <Input placeholder="Address line 2 (optional)" value={deliveryAddress.address_line_2} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, address_line_2: e.target.value }))} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input placeholder="City" value={deliveryAddress.city} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))} />
+                        <Select options={STATE_OPTIONS} value={deliveryAddress.state} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, state: e.target.value }))} />
+                        <Input placeholder="ZIP" value={deliveryAddress.zip_code} onChange={(e) => setDeliveryAddress(prev => ({ ...prev, zip_code: e.target.value }))} />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </section>
 
               {/* Options */}
@@ -606,7 +749,7 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
               <Button variant="outline" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={handleSubmit}
-                disabled={createBookingMutation.isPending || !serviceType || !firstName || !email || !pickupDate}
+                disabled={createBookingMutation.isPending || !serviceType || !firstName || !email || !(serviceType === 'blade_transfer' ? bladeFlightDate : pickupDate)}
               >
                 {createBookingMutation.isPending ? 'Creating...' : 'Create Booking & Send Payment Link'}
               </Button>
