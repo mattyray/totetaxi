@@ -142,6 +142,16 @@ export default function BookingDetailPage() {
     enabled: !!bookingId && isAuthenticated && !!booking?.payment
   });
 
+  const resendPaymentLinkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post(`/api/staff/bookings/${bookingId}/resend-payment-link/`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'booking', bookingId] });
+    }
+  });
+
   const updateBookingMutation = useMutation({
     mutationFn: async (updates: Partial<BookingFormData>) => {
       const response = await apiClient.patch(`/api/staff/bookings/${bookingId}/`, updates);
@@ -265,9 +275,39 @@ export default function BookingDetailPage() {
                 {booking?.booking?.service_type_display} • ${booking?.booking?.total_price_dollars}
               </span>
             </div>
+            {booking?.booking?.checkout_url && booking?.booking?.status === 'pending' && (
+              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2 mt-3">
+                <span className="text-xs font-medium text-navy-700 shrink-0">Payment Link:</span>
+                <input
+                  readOnly
+                  value={booking.booking.checkout_url}
+                  className="flex-1 text-xs text-gray-500 bg-transparent border-none truncate p-0 focus:ring-0"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  className="text-xs text-navy-600 hover:text-navy-800 font-medium shrink-0"
+                  onClick={() => navigator.clipboard.writeText(booking.booking.checkout_url)}
+                >
+                  Copy
+                </button>
+              </div>
+            )}
           </div>
-          
+
           <div className="flex items-center space-x-3">
+            {booking?.booking?.status === 'pending' && booking?.booking?.is_staff_created && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (confirm('Resend payment link to customer? The previous link will be invalidated.')) {
+                    resendPaymentLinkMutation.mutate();
+                  }
+                }}
+                disabled={resendPaymentLinkMutation.isPending}
+              >
+                {resendPaymentLinkMutation.isPending ? 'Sending...' : 'Resend Payment Link'}
+              </Button>
+            )}
             {!isEditing ? (
               <Button variant="primary" onClick={() => setIsEditing(true)}>
                 Edit Booking
