@@ -140,7 +140,7 @@ class StripePaymentService:
                     'booking_number': booking.booking_number,
                 },
                 success_url=success_url or f'{frontend_url}/booking/confirmation?booking_id={booking.id}',
-                cancel_url=cancel_url or f'{frontend_url}/booking/payment-cancelled?booking_id={booking.id}',
+                cancel_url=cancel_url or frontend_url,
             )
 
             # Stripe Checkout creates a PaymentIntent lazily — it may be None
