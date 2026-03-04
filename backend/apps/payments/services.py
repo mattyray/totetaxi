@@ -153,6 +153,7 @@ class StripePaymentService:
                 customer=booking.customer if booking.customer else None,
                 amount_cents=booking.total_price_cents,
                 stripe_payment_intent_id=payment_intent_id,
+                stripe_checkout_url=session.url or '',
                 status='pending'
             )
 

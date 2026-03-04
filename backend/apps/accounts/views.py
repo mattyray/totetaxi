@@ -515,8 +515,14 @@ class BookingDetailView(APIView):
                 'amount_dollars': payment.amount_dollars,
                 'stripe_payment_intent_id': payment.stripe_payment_intent_id,
                 'processed_at': payment.processed_at,
-                'failure_reason': payment.failure_reason
+                'failure_reason': payment.failure_reason,
             }
+
+        # Get the latest checkout URL (from the most recent pending payment)
+        latest_checkout_payment = booking.payments.filter(
+            stripe_checkout_url__gt='',
+        ).order_by('-created_at').first()
+        checkout_url = latest_checkout_payment.stripe_checkout_url if latest_checkout_payment else None
         
         # Get refund information
         refunds_data = []
@@ -592,6 +598,7 @@ class BookingDetailView(APIView):
                 'updated_at': booking.updated_at,
                 'is_staff_created': booking.created_by_staff is not None,
                 'created_by_staff_name': booking.created_by_staff.get_full_name() if booking.created_by_staff else None,
+                'checkout_url': checkout_url,
             },
             'customer': customer_data,
             'guest_checkout': {

@@ -259,6 +259,27 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                 <div className="font-medium text-navy-900 capitalize">{createdBooking.status}</div>
               </div>
             </div>
+            {createdBooking.checkout_url && (
+              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 text-left">
+                <div className="text-sm font-medium text-navy-900 mb-2">Payment Link</div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    readOnly
+                    value={createdBooking.checkout_url}
+                    className="flex-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-3 py-2 truncate"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdBooking.checkout_url!);
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex justify-center space-x-3">
               <Button variant="outline" onClick={() => { onClose(); onSuccess?.(createdBooking); }}>
                 Close

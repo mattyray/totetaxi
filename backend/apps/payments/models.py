@@ -40,6 +40,7 @@ class Payment(models.Model):
     # Stripe integration
     stripe_payment_intent_id = models.CharField(max_length=200, blank=True)
     stripe_charge_id = models.CharField(max_length=200, blank=True)
+    stripe_checkout_url = models.URLField(max_length=500, blank=True, default='')
     
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

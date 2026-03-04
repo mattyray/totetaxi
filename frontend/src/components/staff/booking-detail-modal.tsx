@@ -121,6 +121,7 @@ interface BookingDetail {
     service_details: ServiceDetails;
     is_staff_created: boolean;
     created_by_staff_name: string | null;
+    checkout_url: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -276,6 +277,23 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
             {bookingDetail.booking.created_by_staff_name && (
               <span className="text-xs text-navy-500">by {bookingDetail.booking.created_by_staff_name}</span>
             )}
+          </div>
+        )}
+        {bookingDetail.booking.checkout_url && bookingDetail.booking.status === 'pending' && (
+          <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+            <span className="text-xs font-medium text-navy-700 shrink-0">Payment Link:</span>
+            <input
+              readOnly
+              value={bookingDetail.booking.checkout_url}
+              className="flex-1 text-xs text-gray-500 bg-transparent border-none truncate p-0 focus:ring-0"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+            />
+            <button
+              className="text-xs text-navy-600 hover:text-navy-800 font-medium shrink-0"
+              onClick={() => navigator.clipboard.writeText(bookingDetail.booking.checkout_url!)}
+            >
+              Copy
+            </button>
           </div>
         )}
         {/* Tabs */}
