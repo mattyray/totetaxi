@@ -351,22 +351,59 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
 
                 {/* Standard Delivery fields */}
                 {serviceType === 'standard_delivery' && (
-                  <div className="mt-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-navy-700 mb-1">Item count</label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={standardDeliveryItemCount}
-                          onChange={(e) => setStandardDeliveryItemCount(parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-navy-700 mb-1">Item description</label>
-                        <Input value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} placeholder="e.g., Boxes, furniture" />
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-navy-700 mb-2">Regular Items (optional)</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-navy-700 mb-1">Item count</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={standardDeliveryItemCount}
+                            onChange={(e) => setStandardDeliveryItemCount(parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-navy-700 mb-1">Item description</label>
+                          <Input value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} placeholder="e.g., Boxes, furniture" />
+                        </div>
                       </div>
                     </div>
+                    {catalog?.specialty_items && catalog.specialty_items.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-navy-700 mb-2">Specialty Items (optional)</p>
+                        <div className="space-y-2">
+                          {catalog.specialty_items.map(item => {
+                            const existing = selectedSpecialtyItems.find(s => s.item_id === item.id);
+                            return (
+                              <div key={item.id} className="flex items-center justify-between bg-cream-50 rounded-lg p-3">
+                                <div>
+                                  <span className="font-medium text-sm text-gray-900">{item.name}</span>
+                                  <span className="text-navy-500 text-sm ml-2">${item.price_dollars}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={existing?.quantity || 0}
+                                    onChange={(e) => {
+                                      const qty = parseInt(e.target.value) || 0;
+                                      setSelectedSpecialtyItems(prev => {
+                                        const filtered = prev.filter(s => s.item_id !== item.id);
+                                        if (qty > 0) filtered.push({ item_id: item.id, quantity: qty });
+                                        return filtered;
+                                      });
+                                    }}
+                                    className="w-20"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <label className="flex items-center space-x-2">
                       <input type="checkbox" checked={isSameDayDelivery} onChange={(e) => setIsSameDayDelivery(e.target.checked)} className="rounded" />
                       <span className="text-sm text-gray-900">Same-day delivery (+$360)</span>
