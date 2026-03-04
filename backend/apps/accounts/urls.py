@@ -12,7 +12,9 @@ urlpatterns = [
     # Dashboard and operations
     path('dashboard/', views.StaffDashboardView.as_view(), name='staff-dashboard'),
     path('bookings/', views.BookingManagementView.as_view(), name='staff-bookings'),
+    path('bookings/create/', views.StaffBookingCreateView.as_view(), name='staff-booking-create'),
     path('bookings/<uuid:booking_id>/', views.BookingDetailView.as_view(), name='staff-booking-detail'),
+    path('bookings/<uuid:booking_id>/resend-payment-link/', views.StaffResendPaymentLinkView.as_view(), name='staff-resend-payment-link'),
     
     # Customer management
     path('customers/', views.CustomerManagementView.as_view(), name='staff-customers'),

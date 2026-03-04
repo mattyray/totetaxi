@@ -21,14 +21,33 @@ def process_payment_succeeded(self, event_data):
     payment_intent_id = payment_intent['id']
     event_id = event_data['id']
 
+    payment = None
     try:
         payment = Payment.objects.select_related('booking').get(
             stripe_payment_intent_id=payment_intent_id
         )
     except Payment.DoesNotExist:
+        # Checkout Sessions create PI lazily — Payment may have empty PI.
+        # Fall back to finding the pending Payment via booking_id metadata.
+        metadata = payment_intent.get('metadata', {})
+        booking_id = metadata.get('booking_id')
+        if booking_id:
+            try:
+                payment = Payment.objects.select_related('booking').get(
+                    booking_id=booking_id,
+                    status='pending',
+                    stripe_payment_intent_id='',
+                )
+                payment.stripe_payment_intent_id = payment_intent_id
+                payment.save(update_fields=['stripe_payment_intent_id'])
+                logger.info(
+                    f"Backfilled PI {payment_intent_id} on Payment for booking {booking_id}"
+                )
+            except Payment.DoesNotExist:
+                pass
+
+    if payment is None:
         if self.request.retries >= self.max_retries:
-            # Exhausted all retries — customer was charged but no booking was created.
-            # Log critical details for manual follow-up (refund via Stripe dashboard).
             metadata = payment_intent.get('metadata', {})
             amount_dollars = payment_intent.get('amount', 0) / 100
             logger.critical(

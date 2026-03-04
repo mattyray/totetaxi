@@ -209,3 +209,47 @@ export interface BookingWithTracking {
   created_at: string;
   updated_at: string;
 }
+
+// Staff-created booking types
+export interface StaffCreateBookingRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  service_type: 'mini_move' | 'standard_delivery' | 'specialty_item' | 'blade_transfer';
+  mini_move_package_id?: string;
+  include_packing?: boolean;
+  include_unpacking?: boolean;
+  standard_delivery_item_count?: number;
+  item_description?: string;
+  is_same_day_delivery?: boolean;
+  specialty_items?: Array<{ item_id: string; quantity: number }>;
+  blade_airport?: 'JFK' | 'EWR';
+  blade_flight_date?: string;
+  blade_flight_time?: string;
+  blade_bag_count?: number;
+  transfer_direction?: 'to_airport' | 'from_airport';
+  blade_terminal?: string;
+  pickup_date: string;
+  pickup_time: 'morning' | 'morning_specific' | 'no_time_preference';
+  specific_pickup_hour?: number;
+  pickup_address: BookingAddress;
+  delivery_address: BookingAddress;
+  special_instructions?: string;
+  coi_required?: boolean;
+  custom_total_override_cents?: number | null;
+}
+
+export interface StaffCreateBookingResponse {
+  message: string;
+  booking: {
+    id: string;
+    booking_number: string;
+    customer_name: string;
+    customer_email: string;
+    service_type: string;
+    total_price_dollars: number;
+    status: string;
+    checkout_url: string;
+  };
+}

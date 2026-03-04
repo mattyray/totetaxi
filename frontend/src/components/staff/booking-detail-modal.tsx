@@ -119,6 +119,8 @@ interface BookingDetail {
     discount_description: string | null;
     pricing_breakdown: any;
     service_details: ServiceDetails;
+    is_staff_created: boolean;
+    created_by_staff_name: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -175,6 +177,16 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
       return response.data;
     },
     enabled: isOpen && !!bookingId,
+  });
+
+  const resendPaymentLinkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post(`/api/staff/bookings/${bookingId}/resend-payment-link/`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'booking', bookingId] });
+    },
   });
 
   const updateBookingMutation = useMutation({
@@ -256,6 +268,16 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
       description={`${bookingDetail.booking.service_type_display} • ${bookingDetail.customer?.name || 'Guest'}`}
     >
       <div className="space-y-6">
+        {bookingDetail.booking.is_staff_created && (
+          <div className="flex items-center space-x-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+              Staff Created
+            </span>
+            {bookingDetail.booking.created_by_staff_name && (
+              <span className="text-xs text-navy-500">by {bookingDetail.booking.created_by_staff_name}</span>
+            )}
+          </div>
+        )}
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex space-x-8">
@@ -660,17 +682,40 @@ export function BookingDetailModal({ bookingId, isOpen, onClose }: BookingDetail
         </div>
 
         {/* Footer Actions */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
+        <div className="flex justify-between pt-4 border-t">
+          <div>
+            {bookingDetail.booking.is_staff_created && bookingDetail.booking.status === 'pending' && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (confirm('Resend payment link to customer? The previous link will be invalidated.')) {
+                    resendPaymentLinkMutation.mutate();
+                  }
+                }}
+                disabled={resendPaymentLinkMutation.isPending}
+              >
+                {resendPaymentLinkMutation.isPending ? 'Sending...' : 'Resend Payment Link'}
+              </Button>
+            )}
+            {resendPaymentLinkMutation.isSuccess && (
+              <span className="ml-2 text-sm text-green-600">Payment link sent!</span>
+            )}
+            {resendPaymentLinkMutation.isError && (
+              <span className="ml-2 text-sm text-red-600">Failed to send link</span>
+            )}
+          </div>
+          <div className="flex space-x-3">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
-            variant="primary" 
+          <Button
+            variant="primary"
             onClick={handleSave}
             disabled={updateBookingMutation.isPending}
           >
             {updateBookingMutation.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
+          </div>
         </div>
       </div>
     </Modal>

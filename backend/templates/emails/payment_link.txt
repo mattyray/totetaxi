@@ -1,0 +1,43 @@
+Complete Your Tote Taxi Booking - {{ booking.booking_number }}
+
+Hi {{ customer_name }},
+
+{% if is_resend %}This is a reminder to complete your payment for the booking below.{% else %}A booking has been created for you by the Tote Taxi team. Please complete your payment to confirm.{% endif %}
+
+=== BOOKING DETAILS ===
+- Booking Number: {{ booking.booking_number }}
+- Service: {{ booking.get_service_type_display }}
+{% if booking.service_type == 'blade_transfer' %}
+- Direction: {% if booking.transfer_direction == 'from_airport' %}From Airport (Arrival Pickup){% else %}To Airport (Luggage Delivery){% endif %}
+- Airport: {% if booking.blade_airport == 'JFK' %}JFK International Airport{% elif booking.blade_airport == 'EWR' %}Newark Liberty International Airport{% else %}{{ booking.blade_airport }}{% endif %}{% if booking.blade_terminal %} - Terminal {{ booking.blade_terminal }}{% endif %}
+- Flight Date: {% if booking.blade_flight_date %}{{ booking.blade_flight_date|date:"l, F j, Y" }}{% endif %}
+- Number of Bags: {{ booking.blade_bag_count }}
+{% else %}
+- Pickup Date: {{ booking.pickup_date|date:"l, F j, Y" }}
+- Pickup Time: {{ booking.get_pickup_time_display }}
+{% endif %}
+
+=== ADDRESSES ===
+Pickup: {{ booking.pickup_address.address_line_1 }}, {{ booking.pickup_address.city }}, {{ booking.pickup_address.state }} {{ booking.pickup_address.zip_code }}
+Delivery: {{ booking.delivery_address.address_line_1 }}, {{ booking.delivery_address.city }}, {{ booking.delivery_address.state }} {{ booking.delivery_address.zip_code }}
+
+{% if booking.special_instructions %}
+Special Instructions:
+{{ booking.special_instructions }}
+{% endif %}
+
+=== TOTAL ===
+${{ booking.total_price_dollars }}
+
+=== PAY NOW ===
+{{ checkout_url }}
+
+This payment link will expire in 72 hours. If it has expired, please contact us and we will send a new one.
+
+Questions? Contact us at info@totetaxi.com or call (631) 595-5100
+
+Best regards,
+The Tote Taxi Team
+
+---
+This is an automated message. Please do not reply to this email.

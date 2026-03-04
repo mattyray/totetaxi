@@ -786,3 +786,227 @@ class GuestBookingCreateSerializer(serializers.Serializer):
                 pass
 
         return booking
+
+
+class StaffBookingCreateSerializer(serializers.Serializer):
+    """
+    Create booking on behalf of a customer (staff-initiated).
+    Similar to GuestBookingCreateSerializer but:
+    - No payment_intent_id (payment link sent after creation)
+    - No ZIP code validation (staff can override)
+    - No same-day restriction
+    - Accepts optional custom_total_override_cents for staff quotes
+    """
+
+    # Customer info
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=20)
+
+    # Service selection
+    service_type = serializers.ChoiceField(choices=[
+        ('mini_move', 'Mini Move'),
+        ('standard_delivery', 'Standard Delivery'),
+        ('specialty_item', 'Specialty Item'),
+        ('blade_transfer', 'BLADE Airport Transfer'),
+    ])
+
+    # Mini Move fields
+    mini_move_package_id = serializers.UUIDField(required=False, allow_null=True)
+    include_packing = serializers.BooleanField(default=False)
+    include_unpacking = serializers.BooleanField(default=False)
+
+    # Standard Delivery fields
+    standard_delivery_item_count = serializers.IntegerField(required=False, min_value=0)
+    item_description = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    is_same_day_delivery = serializers.BooleanField(default=False)
+
+    # Specialty items
+    specialty_items = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+    )
+
+    # BLADE fields
+    blade_airport = serializers.ChoiceField(
+        choices=[('JFK', 'JFK'), ('EWR', 'EWR')], required=False
+    )
+    blade_flight_date = serializers.DateField(required=False)
+    blade_flight_time = serializers.TimeField(required=False)
+    blade_bag_count = serializers.IntegerField(required=False, min_value=2)
+    transfer_direction = serializers.ChoiceField(
+        choices=[('to_airport', 'To Airport'), ('from_airport', 'From Airport')],
+        required=False,
+        default='to_airport'
+    )
+    blade_terminal = serializers.CharField(required=False, max_length=2, allow_blank=True)
+
+    # Scheduling
+    pickup_date = serializers.DateField()
+    pickup_time = serializers.ChoiceField(choices=[
+        ('morning', '8 AM - 11 AM'),
+        ('morning_specific', 'Specific 1-hour window'),
+        ('no_time_preference', 'No time preference'),
+    ], default='morning')
+    specific_pickup_hour = serializers.IntegerField(
+        required=False, min_value=8, max_value=10
+    )
+
+    # Addresses
+    pickup_address = serializers.DictField()
+    delivery_address = serializers.DictField()
+
+    # Options
+    special_instructions = serializers.CharField(required=False, allow_blank=True)
+    coi_required = serializers.BooleanField(default=False)
+
+    # Staff price override (in cents). null = use auto-calculated price
+    custom_total_override_cents = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0
+    )
+
+    def validate_pickup_address(self, value):
+        required_fields = ['address_line_1', 'city', 'state', 'zip_code']
+        for field in required_fields:
+            if field not in value:
+                raise serializers.ValidationError(f"Missing: {field}")
+        return value
+
+    def validate_delivery_address(self, value):
+        required_fields = ['address_line_1', 'city', 'state', 'zip_code']
+        for field in required_fields:
+            if field not in value:
+                raise serializers.ValidationError(f"Missing: {field}")
+        return value
+
+    def validate_specialty_items(self, value):
+        if not value:
+            return []
+        for item in value:
+            if 'item_id' not in item or 'quantity' not in item:
+                raise serializers.ValidationError(
+                    "Each item needs 'item_id' and 'quantity'"
+                )
+            if item['quantity'] < 1:
+                raise serializers.ValidationError("Quantity must be >= 1")
+        return value
+
+    def validate(self, attrs):
+        service_type = attrs['service_type']
+        pickup_time = attrs.get('pickup_time', 'morning')
+
+        if pickup_time == 'morning_specific' and not attrs.get('specific_pickup_hour'):
+            raise serializers.ValidationError("specific_pickup_hour required for 1-hour window")
+
+        if service_type == 'blade_transfer':
+            if not all([attrs.get('blade_airport'), attrs.get('blade_flight_date'),
+                       attrs.get('blade_flight_time'), attrs.get('blade_bag_count')]):
+                raise serializers.ValidationError("All BLADE fields required")
+            if attrs.get('blade_bag_count', 0) < 2:
+                raise serializers.ValidationError("Minimum 2 bags")
+            terminal = (attrs.get('blade_terminal') or '').strip()
+            if terminal:
+                airport = attrs['blade_airport']
+                if not validate_blade_terminal(airport, terminal):
+                    valid = ', '.join(Booking.VALID_TERMINALS[airport])
+                    raise serializers.ValidationError(
+                        f'Invalid terminal for {airport}. Valid: {valid}'
+                    )
+
+        elif service_type == 'mini_move':
+            if not attrs.get('mini_move_package_id'):
+                raise serializers.ValidationError("Package ID required")
+
+        elif service_type == 'standard_delivery':
+            item_count = attrs.get('standard_delivery_item_count', 0)
+            specialty_items = attrs.get('specialty_items', [])
+            if item_count == 0 and len(specialty_items) == 0:
+                raise serializers.ValidationError("At least one item required")
+
+        elif service_type == 'specialty_item':
+            if not attrs.get('specialty_items'):
+                raise serializers.ValidationError("Specialty items required")
+
+        return attrs
+
+    def create(self, validated_data):
+        """Create booking with GuestCheckout + Addresses. No payment yet."""
+        staff_user = self.context.get('staff_user')
+        custom_total = validated_data.pop('custom_total_override_cents', None)
+
+        # Create guest checkout
+        guest_checkout = GuestCheckout.objects.create(
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            email=validated_data['email'],
+            phone=validated_data['phone'],
+        )
+
+        # Create addresses
+        pickup_address_data = validated_data.pop('pickup_address')
+        pickup_address = Address.objects.create(**pickup_address_data)
+
+        delivery_address_data = validated_data.pop('delivery_address')
+        delivery_address = Address.objects.create(**delivery_address_data)
+
+        # Extract specialty items before creating booking
+        specialty_items_data = validated_data.pop('specialty_items', [])
+
+        # Create booking
+        booking = Booking(
+            guest_checkout=guest_checkout,
+            service_type=validated_data['service_type'],
+            pickup_date=validated_data['pickup_date'],
+            pickup_time=validated_data['pickup_time'],
+            specific_pickup_hour=validated_data.get('specific_pickup_hour'),
+            pickup_address=pickup_address,
+            delivery_address=delivery_address,
+            special_instructions=validated_data.get('special_instructions', ''),
+            coi_required=validated_data.get('coi_required', False),
+            standard_delivery_item_count=validated_data.get('standard_delivery_item_count'),
+            item_description=validated_data.get('item_description', ''),
+            is_same_day_delivery=validated_data.get('is_same_day_delivery', False),
+            include_packing=validated_data.get('include_packing', False),
+            include_unpacking=validated_data.get('include_unpacking', False),
+            blade_airport=validated_data.get('blade_airport'),
+            blade_flight_date=validated_data.get('blade_flight_date'),
+            blade_flight_time=validated_data.get('blade_flight_time'),
+            blade_bag_count=validated_data.get('blade_bag_count'),
+            transfer_direction=validated_data.get('transfer_direction', 'to_airport'),
+            blade_terminal=validated_data.get('blade_terminal') or None,
+            created_by_staff=staff_user,
+            custom_total_override_cents=custom_total,
+            status='pending',
+        )
+
+        # Handle mini move package
+        if validated_data['service_type'] == 'mini_move':
+            try:
+                package = MiniMovePackage.objects.get(id=validated_data['mini_move_package_id'])
+                booking.mini_move_package = package
+            except MiniMovePackage.DoesNotExist:
+                raise serializers.ValidationError("Invalid package")
+
+        booking.save()  # Triggers calculate_pricing() + booking_number generation
+
+        # Create specialty item associations
+        if specialty_items_data:
+            item_ids = [d['item_id'] for d in specialty_items_data]
+            items_dict = {
+                str(item.id): item
+                for item in SpecialtyItem.objects.filter(id__in=item_ids, is_active=True)
+            }
+            for item_data in specialty_items_data:
+                item_id = str(item_data['item_id'])
+                if item_id in items_dict:
+                    BookingSpecialtyItem.objects.create(
+                        booking=booking,
+                        specialty_item=items_dict[item_id],
+                        quantity=item_data['quantity']
+                    )
+            # Re-save to recalculate pricing with specialty items
+            booking.save()
+
+        return booking
