@@ -487,7 +487,19 @@ class Booking(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     reminder_sent_at = models.DateTimeField(null=True, blank=True, help_text='When 24hr reminder email was sent')
 
-    
+    # Staff-created booking fields
+    created_by_staff = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='staff_created_bookings',
+        help_text='Staff member who created this booking on behalf of a customer'
+    )
+    custom_total_override_cents = models.PositiveBigIntegerField(
+        null=True, blank=True,
+        help_text='Staff-set custom price override (in cents). Replaces auto-calculated total.'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -868,6 +880,10 @@ class Booking(models.Model):
             self.total_price_cents = max(0, pre_discount - self.discount_amount_cents)
         else:
             self.total_price_cents = pre_discount
+
+        # Staff custom price override takes precedence over auto-calculated total
+        if self.custom_total_override_cents is not None:
+            self.total_price_cents = self.custom_total_override_cents
     
     def get_pricing_breakdown(self):
         """Return detailed pricing breakdown for display"""

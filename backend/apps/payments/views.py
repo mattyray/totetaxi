@@ -190,6 +190,8 @@ class StripeWebhookView(APIView):
             return self._handle_payment_succeeded(event)
         elif event_type == 'payment_intent.payment_failed':
             return self._handle_payment_failed(event)
+        elif event_type == 'checkout.session.expired':
+            return self._handle_checkout_expired(event)
         else:
             logger.info(f"Webhook: Unhandled event type {event_type}")
             return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
@@ -215,6 +217,29 @@ class StripeWebhookView(APIView):
         except Exception:
             logger.exception("Failed to dispatch payment failed task")
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
+
+    def _handle_checkout_expired(self, event):
+        """Handle expired Checkout Sessions — mark pending Payment as expired."""
+        session = event['data']['object']
+        payment_intent_id = session.get('payment_intent')
+
+        if payment_intent_id:
+            try:
+                payment = Payment.objects.get(
+                    stripe_payment_intent_id=payment_intent_id,
+                    status='pending'
+                )
+                payment.status = 'failed'
+                payment.failure_reason = 'Checkout session expired'
+                payment.save()
+                logger.info(
+                    f"Checkout session expired for booking "
+                    f"{payment.booking.booking_number}"
+                )
+            except Payment.DoesNotExist:
+                logger.info(f"No pending payment found for expired PI {payment_intent_id}")
+
+        return Response({'status': 'processed'}, status=status.HTTP_200_OK)
 
 
 class MockPaymentConfirmView(APIView):

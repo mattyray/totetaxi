@@ -105,6 +105,81 @@ class StripePaymentService:
             raise Exception(f"Stripe error: {str(e)}")
     
     @staticmethod
+    def create_checkout_session(booking, customer_email, success_url=None, cancel_url=None):
+        """
+        Create a Stripe Checkout Session for staff-created bookings.
+        Returns the Checkout Session URL for the customer to pay.
+        Creates a Payment record linked to the underlying PaymentIntent.
+        """
+        try:
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+
+            session = stripe.checkout.Session.create(
+                mode='payment',
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': f'Tote Taxi - {booking.get_service_type_display()}',
+                            'description': f'Booking #{booking.booking_number}',
+                        },
+                        'unit_amount': int(booking.total_price_cents),
+                    },
+                    'quantity': 1,
+                }],
+                customer_email=customer_email,
+                payment_intent_data={
+                    'metadata': {
+                        'booking_id': str(booking.id),
+                        'booking_number': booking.booking_number,
+                    },
+                },
+                metadata={
+                    'booking_id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                },
+                success_url=success_url or f'{frontend_url}/booking/confirmation?booking_id={booking.id}',
+                cancel_url=cancel_url or frontend_url,
+            )
+
+            # Stripe Checkout creates a PaymentIntent lazily — it may be None
+            # until the customer enters payment details. Store session ID as
+            # fallback; the webhook will match via booking metadata.
+            payment_intent_id = session.payment_intent or ''
+
+            payment = Payment.objects.create(
+                booking=booking,
+                customer=booking.customer if booking.customer else None,
+                amount_cents=booking.total_price_cents,
+                stripe_payment_intent_id=payment_intent_id,
+                stripe_checkout_url=session.url or '',
+                status='pending'
+            )
+
+            PaymentAudit.log(
+                action='payment_created',
+                description=(
+                    f'Checkout Session created for staff-created booking '
+                    f'{booking.booking_number}. Session: {session.id}'
+                ),
+                payment=payment,
+                user=None
+            )
+
+            return {
+                'payment': payment,
+                'checkout_url': session.url,
+                'checkout_session_id': session.id,
+                'payment_intent_id': payment_intent_id,
+            }
+
+        except stripe.error.StripeError as e:
+            raise Exception(f"Stripe Checkout error: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Failed to create Checkout Session: {str(e)}")
+
+    @staticmethod
     def create_refund(payment, amount_cents, reason, requested_by_user):
         """Create refund for a payment"""
         from .models import Refund

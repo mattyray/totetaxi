@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
+import { StaffCreateBookingModal } from './staff-create-booking-modal';
 
 interface BookingListItem {
   id: string;
@@ -36,6 +37,7 @@ export function BookingManagement() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<BookingFilters>({});
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const debouncedSearch = useDebounce(filters.search, 300);
 
   const { data: bookingData, isLoading, error } = useQuery({
@@ -111,9 +113,14 @@ export function BookingManagement() {
         <h1 className="text-2xl font-serif font-bold text-navy-900">
           Booking Management
         </h1>
-        <p className="text-navy-600">
-          {bookingData?.total_count || 0} total bookings
-        </p>
+        <div className="flex items-center space-x-4">
+          <p className="text-navy-600">
+            {bookingData?.total_count || 0} total bookings
+          </p>
+          <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+            + New Booking
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -240,6 +247,16 @@ export function BookingManagement() {
           </CardContent>
         </Card>
       )}
+
+      <StaffCreateBookingModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          queryClient.invalidateQueries({ queryKey: ['staff', 'bookings'] });
+          queryClient.invalidateQueries({ queryKey: ['staff', 'dashboard'] });
+        }}
+      />
     </div>
   );
 }

@@ -19,10 +19,17 @@ from .serializers import (
     StaffUserSerializer,
     StaffActionSerializer
 )
+from django.db import transaction
 from apps.bookings.models import Booking
+from apps.bookings.serializers import StaffBookingCreateSerializer
 from apps.customers.models import CustomerProfile
+from apps.customers.emails import send_payment_link_email
 from apps.payments.models import Payment, Refund
+from apps.payments.services import StripePaymentService
 from apps.payments.serializers import RefundSerializer
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
@@ -508,8 +515,14 @@ class BookingDetailView(APIView):
                 'amount_dollars': payment.amount_dollars,
                 'stripe_payment_intent_id': payment.stripe_payment_intent_id,
                 'processed_at': payment.processed_at,
-                'failure_reason': payment.failure_reason
+                'failure_reason': payment.failure_reason,
             }
+
+        # Get the latest checkout URL (from the most recent pending payment)
+        latest_checkout_payment = booking.payments.filter(
+            stripe_checkout_url__gt='',
+        ).order_by('-created_at').first()
+        checkout_url = latest_checkout_payment.stripe_checkout_url if latest_checkout_payment else None
         
         # Get refund information
         refunds_data = []
@@ -582,7 +595,10 @@ class BookingDetailView(APIView):
                 'pricing_breakdown': booking.get_pricing_breakdown(),
                 'service_details': service_details,
                 'created_at': booking.created_at,
-                'updated_at': booking.updated_at
+                'updated_at': booking.updated_at,
+                'is_staff_created': booking.created_by_staff is not None,
+                'created_by_staff_name': booking.created_by_staff.get_full_name() if booking.created_by_staff else None,
+                'checkout_url': checkout_url,
             },
             'customer': customer_data,
             'guest_checkout': {
@@ -922,3 +938,146 @@ class StaffReportsView(APIView):
             },
             'generated_at': timezone.now().isoformat(),
         })
+
+
+@method_decorator(ratelimit(key='user', rate='10/m', method='POST', block=True), name='post')
+class StaffBookingCreateView(APIView):
+    """Staff creates a booking on behalf of a customer, generates payment link, emails it."""
+    permission_classes = [IsStaffMember]
+
+    def post(self, request):
+        serializer = StaffBookingCreateSerializer(
+            data=request.data,
+            context={'staff_user': request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            with transaction.atomic():
+                booking = serializer.save()
+
+                # Create Stripe Checkout Session
+                customer_email = booking.get_customer_email()
+                checkout_data = StripePaymentService.create_checkout_session(
+                    booking=booking,
+                    customer_email=customer_email,
+                )
+
+                # Send payment link email
+                send_payment_link_email(
+                    booking=booking,
+                    checkout_url=checkout_data['checkout_url'],
+                    is_resend=False,
+                )
+
+            # Log staff action
+            StaffAction.log_action(
+                staff_user=request.user,
+                action_type='modify_booking',
+                description=(
+                    f'Created booking {booking.booking_number} on behalf of '
+                    f'{booking.get_customer_name()} ({customer_email}). '
+                    f'Total: ${booking.total_price_dollars}. Payment link sent.'
+                ),
+                request=request,
+                booking_id=booking.id,
+            )
+
+            return Response({
+                'message': 'Booking created and payment link sent',
+                'booking': {
+                    'id': str(booking.id),
+                    'booking_number': booking.booking_number,
+                    'customer_name': booking.get_customer_name(),
+                    'customer_email': customer_email,
+                    'service_type': booking.get_service_type_display(),
+                    'total_price_dollars': booking.total_price_dollars,
+                    'status': booking.status,
+                    'checkout_url': checkout_data['checkout_url'],
+                },
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Staff booking creation failed: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to create booking: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+@method_decorator(ratelimit(key='user', rate='5/m', method='POST', block=True), name='post')
+class StaffResendPaymentLinkView(APIView):
+    """Resend payment link for a pending booking. Creates a new Checkout Session."""
+    permission_classes = [IsStaffMember]
+
+    def post(self, request, booking_id):
+        try:
+            booking = Booking.objects.select_related(
+                'guest_checkout', 'customer'
+            ).get(id=booking_id, deleted_at__isnull=True)
+        except Booking.DoesNotExist:
+            return Response(
+                {'error': 'Booking not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if booking.status != 'pending':
+            return Response(
+                {'error': f'Cannot send payment link for booking with status: {booking.status}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if already paid
+        existing_payment = Payment.objects.filter(
+            booking=booking, status='succeeded'
+        ).first()
+        if existing_payment:
+            return Response(
+                {'error': 'Booking is already paid'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            customer_email = booking.get_customer_email()
+
+            # Mark any existing pending payments as failed (old checkout sessions)
+            Payment.objects.filter(
+                booking=booking, status='pending'
+            ).update(status='failed', failure_reason='Superseded by new payment link')
+
+            # Create new Checkout Session
+            checkout_data = StripePaymentService.create_checkout_session(
+                booking=booking,
+                customer_email=customer_email,
+            )
+
+            # Send email
+            send_payment_link_email(
+                booking=booking,
+                checkout_url=checkout_data['checkout_url'],
+                is_resend=True,
+            )
+
+            # Log staff action
+            StaffAction.log_action(
+                staff_user=request.user,
+                action_type='send_notification',
+                description=(
+                    f'Resent payment link for booking {booking.booking_number} '
+                    f'to {customer_email}'
+                ),
+                request=request,
+                booking_id=booking.id,
+            )
+
+            return Response({
+                'message': 'Payment link resent successfully',
+                'checkout_url': checkout_data['checkout_url'],
+            })
+
+        except Exception as e:
+            logger.error(f"Resend payment link failed: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Failed to resend payment link'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

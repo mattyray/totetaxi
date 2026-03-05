@@ -303,6 +303,48 @@ def send_booking_reminder_email(booking):
         return False
 
 
+def send_payment_link_email(booking, checkout_url, is_resend=False):
+    """
+    Send payment link email to customer for a staff-created booking.
+    Includes booking summary and a 'Pay Now' link to Stripe Checkout.
+    """
+    try:
+        subject_prefix = 'Reminder: ' if is_resend else ''
+        subject = f'{subject_prefix}Complete Your Tote Taxi Booking - {booking.booking_number}'
+        context = {
+            'booking': booking,
+            'customer_name': booking.get_customer_name(),
+            'checkout_url': checkout_url,
+            'is_resend': is_resend,
+        }
+        message = render_to_string('emails/payment_link.txt', context)
+
+        to_addr = [booking.get_customer_email()]
+        bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', [])
+
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=to_addr,
+            bcc=bcc_list,
+        )
+        email.content_subtype = 'plain'
+        email.send(fail_silently=False)
+
+        logger.info(
+            f'Payment link email {"(resend) " if is_resend else ""}sent for '
+            f'{booking.booking_number} to {to_addr[0]}'
+        )
+        return True
+    except Exception as e:
+        logger.error(
+            f'Failed to send payment link email for {booking.booking_number}: {str(e)}',
+            exc_info=True
+        )
+        return False
+
+
 def send_review_request_email(booking):
     """Send post-delivery email requesting Google review"""
     try:
