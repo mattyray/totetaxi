@@ -123,7 +123,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           }
         } catch (error: any) {
           set({ isLoading: false });
-          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          const errorMessage = error.response?.data?.error
+            || error.response?.data?.non_field_errors?.[0]
+            || 'Network error. Please try again.';
           return { success: false, error: errorMessage };
         }
       },
@@ -146,7 +148,9 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           }
         } catch (error: any) {
           set({ isLoading: false });
-          const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
+          const errorMessage = error.response?.data?.error
+            || error.response?.data?.non_field_errors?.[0]
+            || 'Network error. Please try again.';
           return { success: false, error: errorMessage };
         }
       },
