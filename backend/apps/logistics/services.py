@@ -253,7 +253,6 @@ class ToteTaxiOnfleetIntegration:
             'completeAfter': int(window_start.timestamp() * 1000),
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': True,
-            'autoAssign': {'mode': 'off'},
             'notes': self._format_task_notes(booking, 'pickup'),
             'metadata': [
                 {'name': 'booking_number', 'type': 'string', 'value': booking.booking_number},
@@ -298,7 +297,6 @@ class ToteTaxiOnfleetIntegration:
             'completeBefore': int(window_end.timestamp() * 1000),
             'pickupTask': False,
             'dependencies': [depends_on],
-            'autoAssign': {'mode': 'off'},
             'notes': self._format_task_notes(booking, 'dropoff'),
             'metadata': [
                 {'name': 'booking_number', 'type': 'string', 'value': booking.booking_number},
