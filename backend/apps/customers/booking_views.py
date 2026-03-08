@@ -57,7 +57,22 @@ class CreatePaymentIntentView(APIView):
         validated_data = serializer.validated_data
         amount_cents = validated_data['calculated_total_cents']
         customer_email = validated_data.get('customer_email')
-        
+
+        # Same-day restriction check BEFORE creating payment intent
+        pickup_date = validated_data.get('pickup_date')
+        if pickup_date:
+            is_blocked, error_message = check_same_day_restriction(pickup_date)
+            if is_blocked:
+                logger.error(
+                    f"Same-day restriction blocked customer payment intent: "
+                    f"user={request.user.id}, pickup_date={pickup_date}, reason={error_message}"
+                )
+                return Response({
+                    'error': 'same_day_restriction',
+                    'message': error_message,
+                    'contact_phone': '(631) 595-5100'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         # Handle free orders (100% discount)
         if amount_cents == 0:
             free_order_id = f'free_order_{_uuid_mod.uuid4()}'
@@ -176,6 +191,11 @@ class CustomerBookingCreateView(APIView):
         if pickup_date:
             is_blocked, error_message = check_same_day_restriction(pickup_date)
             if is_blocked:
+                logger.error(
+                    f"CRITICAL: Same-day restriction blocked customer booking AFTER payment: "
+                    f"user={request.user.id}, pickup_date={pickup_date}, "
+                    f"payment_intent={serializer.validated_data.get('payment_intent_id')}, reason={error_message}"
+                )
                 return Response({
                     'error': 'same_day_restriction',
                     'message': error_message,

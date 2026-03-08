@@ -112,6 +112,10 @@ class PricingPreviewView(APIView):
         if pickup_date:
             is_blocked, error_message = check_same_day_restriction(pickup_date)
             if is_blocked:
+                logger.error(
+                    f"CRITICAL: Same-day restriction blocked booking AFTER payment: "
+                    f"service={service_type}, pickup_date={pickup_date}, reason={error_message}"
+                )
                 return Response({
                     'error': 'same_day_restriction',
                     'message': error_message,
@@ -119,7 +123,7 @@ class PricingPreviewView(APIView):
                     'pickup_date': str(pickup_date)
                 }, status=status.HTTP_400_BAD_REQUEST)
         # ========== END RESTRICTION CHECK ==========
-        
+
         base_price_cents = 0
         surcharge_cents = 0
         coi_fee_cents = 0
@@ -572,7 +576,22 @@ class CreateGuestPaymentIntentView(APIView):
         validated_data = serializer.validated_data
         amount_cents = validated_data['calculated_total_cents']
         customer_email = validated_data.get('email')
-        
+
+        # Same-day restriction check BEFORE creating payment intent
+        pickup_date = validated_data.get('pickup_date')
+        if pickup_date:
+            is_blocked, error_message = check_same_day_restriction(pickup_date)
+            if is_blocked:
+                logger.error(
+                    f"Same-day restriction blocked guest payment intent: "
+                    f"email={customer_email}, pickup_date={pickup_date}, reason={error_message}"
+                )
+                return Response({
+                    'error': 'same_day_restriction',
+                    'message': error_message,
+                    'contact_phone': '(631) 595-5100'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         # Handle free orders (100% discount)
         if amount_cents == 0:
             free_order_id = f'free_order_{_uuid_mod.uuid4()}'
@@ -678,6 +697,11 @@ class GuestBookingCreateView(generics.CreateAPIView):
         if pickup_date:
             is_blocked, error_message = check_same_day_restriction(pickup_date)
             if is_blocked:
+                logger.error(
+                    f"CRITICAL: Same-day restriction blocked guest booking AFTER payment: "
+                    f"pickup_date={pickup_date}, payment_intent={serializer.validated_data.get('payment_intent_id')}, "
+                    f"reason={error_message}"
+                )
                 return Response({
                     'error': 'same_day_restriction',
                     'message': error_message,

@@ -85,6 +85,8 @@ export function ServiceSelectionStep() {
   const [unpackingExpanded, setUnpackingExpanded] = useState(false);
   const [dateError, setDateError] = useState<string>('');
   const [timeError, setTimeError] = useState<string>('');
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false);
+  const [restrictionMessage, setRestrictionMessage] = useState('');
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['services', 'catalog'],
@@ -124,14 +126,22 @@ export function ServiceSelectionStep() {
       return false;
     }
     
-    const tomorrow = new Date();
-    tomorrow.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const selected = new Date(bookingData.blade_flight_date + 'T00:00:00');
-    
-    if (selected < tomorrow) {
+
+    if (selected <= today) {
       setDateError('Flight must be booked at least 1 day in advance');
+      return false;
+    }
+
+    // Rule 2: After 6 PM for next-day flight
+    if (now.getHours() >= 18 && selected.getTime() === tomorrow.getTime()) {
+      setRestrictionMessage('Bookings made after 6 PM for next-day service must be arranged through Tote Taxi Customer Service. Please call (631) 595-5100.');
+      setShowRestrictionModal(true);
       return false;
     }
     
@@ -923,6 +933,32 @@ export function ServiceSelectionStep() {
           Continue to Date & Time →
         </Button>
       </div>
+
+      {showRestrictionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-navy-900 mb-3">Booking Restriction</h3>
+            <p className="text-navy-700 mb-4">{restrictionMessage}</p>
+            <div className="bg-cream-50 border border-cream-200 rounded-md p-3 mb-4">
+              <p className="text-navy-900 font-medium text-center">
+                <a href="tel:6315955100" className="text-navy-700 hover:text-navy-900">
+                  (631) 595-5100
+                </a>
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setShowRestrictionModal(false);
+                updateBookingData({ blade_flight_date: undefined });
+              }}
+              className="w-full"
+              variant="primary"
+            >
+              Choose a Different Date
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

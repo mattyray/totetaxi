@@ -310,6 +310,8 @@ export function ReviewPaymentStep() {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [paymentIntentId, setPaymentIntentId] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
+  const [bookingError, setBookingError] = useState<string>('');
+  const [bookingErrorPhone, setBookingErrorPhone] = useState<string>('');
   const stripePromise = getStripe();
 
   // STEP 1: Create payment intent
@@ -394,7 +396,16 @@ export function ReviewPaymentStep() {
       console.error('❌ Payment intent failed:', error);
       setLoading(false);
       if ('response' in error && error.response) {
-        console.error('Error response:', error.response.data);
+        const data = error.response.data as any;
+        console.error('Error response:', data);
+        if (data?.error === 'same_day_restriction') {
+          setBookingError(data.message);
+          setBookingErrorPhone(data.contact_phone || '(631) 595-5100');
+        } else {
+          setBookingError(data?.message || data?.detail || 'Something went wrong creating your payment. Please try again.');
+        }
+      } else {
+        setBookingError('Network error. Please check your connection and try again.');
       }
     }
   });
@@ -485,7 +496,18 @@ export function ReviewPaymentStep() {
       console.error('❌ Booking creation failed:', error);
       setLoading(false);
       if ('response' in error && error.response) {
-        console.error('Error response:', error.response.data);
+        const data = error.response.data as any;
+        console.error('Error response:', data);
+        if (data?.error === 'same_day_restriction') {
+          setBookingError(data.message);
+          setBookingErrorPhone(data.contact_phone || '(631) 595-5100');
+        } else {
+          setBookingError(data?.message || data?.detail || 'Your payment was processed but we encountered an error creating your booking. Please call (631) 595-5100 for assistance.');
+          setBookingErrorPhone('(631) 595-5100');
+        }
+      } else {
+        setBookingError('Your payment was processed but we encountered a network error. Please call (631) 595-5100 for assistance.');
+        setBookingErrorPhone('(631) 595-5100');
       }
     }
   });
@@ -497,6 +519,8 @@ export function ReviewPaymentStep() {
     }
     
     console.log('=== INITIATING PAYMENT FLOW ===');
+    setBookingError('');
+    setBookingErrorPhone('');
     setLoading(true);
     createPaymentIntentMutation.mutate();
   };
@@ -1025,16 +1049,41 @@ export function ReviewPaymentStep() {
         </CardContent>
       </Card>
 
+      {bookingError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent>
+            <h3 className="text-lg font-medium text-red-800 mb-2">Booking Error</h3>
+            <p className="text-red-700 mb-3">{bookingError}</p>
+            {bookingErrorPhone && (
+              <div className="bg-white border border-red-200 rounded-md p-3 mb-3">
+                <p className="text-navy-900 font-medium text-center">
+                  <a href={`tel:${bookingErrorPhone.replace(/\D/g, '')}`} className="text-navy-700 hover:text-navy-900">
+                    {bookingErrorPhone}
+                  </a>
+                </p>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setBookingError(''); setBookingErrorPhone(''); }}
+            >
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-between items-center pt-4">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={handlePreviousStep}
         >
           ← Previous
         </Button>
-        
-        <Button 
-          variant="primary" 
+
+        <Button
+          variant="primary"
           size="lg"
           onClick={handleInitiatePayment}
           disabled={isLoading || createPaymentIntentMutation.isPending || !termsAccepted}
