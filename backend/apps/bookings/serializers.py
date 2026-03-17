@@ -862,6 +862,9 @@ class StaffBookingCreateSerializer(serializers.Serializer):
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     coi_required = serializers.BooleanField(default=False)
 
+    # Discount code (optional)
+    discount_code = serializers.CharField(required=False, max_length=50, allow_blank=True)
+
     # Staff price override (in cents). null = use auto-calculated price
     custom_total_override_cents = serializers.IntegerField(
         required=False, allow_null=True, min_value=0
@@ -1008,5 +1011,26 @@ class StaffBookingCreateSerializer(serializers.Serializer):
                     )
             # Re-save to recalculate pricing with specialty items
             booking.save()
+
+        # Apply discount code AFTER save so pre_discount_total_cents is correct
+        discount_code_str = (validated_data.get('discount_code') or '').strip()
+        if discount_code_str:
+            from .models import DiscountCode as DiscountCodeModel
+            try:
+                # Lock the discount row to prevent TOCTOU race on usage count
+                discount = DiscountCodeModel.objects.select_for_update().get(
+                    code__iexact=discount_code_str
+                )
+                email = validated_data['email']
+                is_valid, _ = discount.is_valid_for_customer(email)
+
+                if is_valid and discount.is_valid_for_service(validated_data['service_type']):
+                    discount_amount = discount.calculate_discount(booking.pre_discount_total_cents)
+                    booking.discount_code = discount
+                    booking.discount_amount_cents = discount_amount
+                    discount.record_usage(email=email, booking=booking)
+                    booking.save()
+            except DiscountCodeModel.DoesNotExist:
+                pass
 
         return booking

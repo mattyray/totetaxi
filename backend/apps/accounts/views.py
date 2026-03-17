@@ -983,18 +983,24 @@ class StaffBookingCreateView(APIView):
                 booking_id=booking.id,
             )
 
+            response_booking = {
+                'id': str(booking.id),
+                'booking_number': booking.booking_number,
+                'customer_name': booking.get_customer_name(),
+                'customer_email': customer_email,
+                'service_type': booking.get_service_type_display(),
+                'total_price_dollars': booking.total_price_dollars,
+                'status': booking.status,
+                'checkout_url': checkout_data['checkout_url'],
+            }
+            if booking.discount_code:
+                response_booking['discount_code'] = booking.discount_code.code
+                response_booking['discount_amount_dollars'] = booking.discount_amount_dollars
+                response_booking['pre_discount_total_dollars'] = booking.pre_discount_total_dollars
+
             return Response({
                 'message': 'Booking created and payment link sent',
-                'booking': {
-                    'id': str(booking.id),
-                    'booking_number': booking.booking_number,
-                    'customer_name': booking.get_customer_name(),
-                    'customer_email': customer_email,
-                    'service_type': booking.get_service_type_display(),
-                    'total_price_dollars': booking.total_price_dollars,
-                    'status': booking.status,
-                    'checkout_url': checkout_data['checkout_url'],
-                },
+                'booking': response_booking,
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

@@ -14,7 +14,7 @@ from django.contrib.auth.models import User
 from datetime import date, timedelta
 
 from apps.accounts.models import StaffProfile
-from apps.bookings.models import Booking, Address, GuestCheckout
+from apps.bookings.models import Booking, Address, GuestCheckout, DiscountCode, DiscountCodeUsage
 from apps.payments.models import Payment
 from apps.services.models import MiniMovePackage
 
@@ -345,3 +345,197 @@ class TestBookingDetailStaffFields:
         booking_data = response.data.get('booking', response.data)
         assert booking_data.get('is_staff_created') is True
         assert booking_data.get('created_by_staff_name') == 'Staff Member'
+
+
+# ============================================================
+# Staff Booking Create with Discount Code
+# ============================================================
+
+@pytest.fixture
+def percentage_discount(db):
+    return DiscountCode.objects.create(
+        code='STAFF20',
+        discount_type='percentage',
+        discount_value=20,
+        max_uses=100,
+        max_uses_per_customer=1,
+        is_active=True,
+    )
+
+
+@pytest.fixture
+def fixed_discount(db):
+    return DiscountCode.objects.create(
+        code='FIFTY_OFF',
+        discount_type='fixed',
+        discount_value=5000,  # $50
+        max_uses=50,
+        is_active=True,
+    )
+
+
+@pytest.fixture
+def service_restricted_discount(db):
+    return DiscountCode.objects.create(
+        code='MINIMOVE10',
+        discount_type='percentage',
+        discount_value=10,
+        allowed_service_types=['mini_move'],
+        is_active=True,
+    )
+
+
+@pytest.mark.django_db
+class TestStaffBookingCreateWithDiscount:
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_create_booking_with_discount_code(
+        self, mock_checkout, mock_email, staff_client, mini_move_package, percentage_discount
+    ):
+        """Staff booking with a valid discount code applies the discount."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_disc',
+            'payment_intent_id': 'pi_test_disc',
+            'payment': Mock(id='pay-uuid-disc'),
+        }
+
+        payload = _booking_payload(mini_move_package, discount_code='STAFF20')
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201, response.data
+        booking = Booking.objects.get(booking_number=response.data['booking']['booking_number'])
+        assert booking.discount_code == percentage_discount
+        assert booking.discount_amount_cents > 0
+        assert booking.total_price_cents == booking.pre_discount_total_cents - booking.discount_amount_cents
+
+        # Response should include discount info
+        assert response.data['booking'].get('discount_code') == 'STAFF20'
+        assert response.data['booking'].get('discount_amount_dollars') is not None
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_discount_records_usage(
+        self, mock_checkout, mock_email, staff_client, mini_move_package, percentage_discount
+    ):
+        """Applying a discount code should record usage for the customer email."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_usage',
+            'payment_intent_id': 'pi_test_usage',
+            'payment': Mock(id='pay-uuid-usage'),
+        }
+
+        payload = _booking_payload(mini_move_package, discount_code='STAFF20')
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201
+        assert DiscountCodeUsage.objects.filter(
+            discount_code=percentage_discount,
+            customer_email='jane@example.com',
+        ).exists()
+        percentage_discount.refresh_from_db()
+        assert percentage_discount.times_used == 1
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_invalid_discount_code_silently_ignored(
+        self, mock_checkout, mock_email, staff_client, mini_move_package
+    ):
+        """An invalid discount code should be silently ignored, not block booking creation."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_bad',
+            'payment_intent_id': 'pi_test_bad',
+            'payment': Mock(id='pay-uuid-bad'),
+        }
+
+        payload = _booking_payload(mini_move_package, discount_code='DOESNOTEXIST')
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201
+        booking = Booking.objects.get(booking_number=response.data['booking']['booking_number'])
+        assert booking.discount_code is None
+        assert booking.discount_amount_cents == 0
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_discount_code_case_insensitive(
+        self, mock_checkout, mock_email, staff_client, mini_move_package, percentage_discount
+    ):
+        """Discount codes should work case-insensitively."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_case',
+            'payment_intent_id': 'pi_test_case',
+            'payment': Mock(id='pay-uuid-case'),
+        }
+
+        payload = _booking_payload(mini_move_package, discount_code='staff20')
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201
+        booking = Booking.objects.get(booking_number=response.data['booking']['booking_number'])
+        assert booking.discount_code == percentage_discount
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_custom_total_overrides_discount(
+        self, mock_checkout, mock_email, staff_client, mini_move_package, percentage_discount
+    ):
+        """When custom_total_override is set, it takes precedence over discount."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_override',
+            'payment_intent_id': 'pi_test_override',
+            'payment': Mock(id='pay-uuid-override'),
+        }
+
+        payload = _booking_payload(
+            mini_move_package,
+            discount_code='STAFF20',
+            custom_total_override_cents=30000,
+        )
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201
+        booking = Booking.objects.get(booking_number=response.data['booking']['booking_number'])
+        # Custom override should win
+        assert booking.total_price_cents == 30000
+        # But discount is still recorded for tracking
+        assert booking.discount_code == percentage_discount
+
+    @patch('apps.customers.emails.send_payment_link_email', return_value=True)
+    @patch('apps.payments.services.StripePaymentService.create_checkout_session')
+    def test_no_discount_code_field_works(
+        self, mock_checkout, mock_email, staff_client, mini_move_package
+    ):
+        """Bookings without discount code should work exactly as before."""
+        mock_checkout.return_value = {
+            'checkout_url': 'https://checkout.stripe.com/test',
+            'checkout_session_id': 'cs_test_none',
+            'payment_intent_id': 'pi_test_none',
+            'payment': Mock(id='pay-uuid-none'),
+        }
+
+        payload = _booking_payload(mini_move_package)
+        response = staff_client.post(
+            '/api/staff/bookings/create/', payload, format='json',
+        )
+
+        assert response.status_code == 201
+        booking = Booking.objects.get(booking_number=response.data['booking']['booking_number'])
+        assert booking.discount_code is None
+        assert booking.discount_amount_cents == 0
+        assert 'discount_code' not in response.data['booking']

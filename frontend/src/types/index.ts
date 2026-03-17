@@ -237,6 +237,7 @@ export interface StaffCreateBookingRequest {
   delivery_address: BookingAddress;
   special_instructions?: string;
   coi_required?: boolean;
+  discount_code?: string;
   custom_total_override_cents?: number | null;
 }
 
@@ -251,5 +252,8 @@ export interface StaffCreateBookingResponse {
     total_price_dollars: number;
     status: string;
     checkout_url: string;
+    discount_code?: string;
+    discount_amount_dollars?: number;
+    pre_discount_total_dollars?: number;
   };
 }

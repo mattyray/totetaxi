@@ -114,6 +114,24 @@ class StripePaymentService:
         try:
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
 
+            # Build line item description with discount info if applicable
+            line_description = f'Booking #{booking.booking_number}'
+            if booking.discount_code and booking.discount_amount_cents > 0:
+                line_description += (
+                    f' | Discount: {booking.discount_code.code}'
+                    f' (-${booking.discount_amount_cents / 100:.2f})'
+                )
+
+            # Build metadata with discount tracking
+            session_metadata = {
+                'booking_id': str(booking.id),
+                'booking_number': booking.booking_number,
+            }
+            if booking.discount_code:
+                session_metadata['discount_code'] = booking.discount_code.code
+                session_metadata['discount_amount_cents'] = str(booking.discount_amount_cents)
+                session_metadata['pre_discount_total_cents'] = str(booking.pre_discount_total_cents)
+
             session = stripe.checkout.Session.create(
                 mode='payment',
                 payment_method_types=['card'],
@@ -122,7 +140,7 @@ class StripePaymentService:
                         'currency': 'usd',
                         'product_data': {
                             'name': f'Tote Taxi - {booking.get_service_type_display()}',
-                            'description': f'Booking #{booking.booking_number}',
+                            'description': line_description,
                         },
                         'unit_amount': int(booking.total_price_cents),
                     },
@@ -130,15 +148,9 @@ class StripePaymentService:
                 }],
                 customer_email=customer_email,
                 payment_intent_data={
-                    'metadata': {
-                        'booking_id': str(booking.id),
-                        'booking_number': booking.booking_number,
-                    },
+                    'metadata': session_metadata,
                 },
-                metadata={
-                    'booking_id': str(booking.id),
-                    'booking_number': booking.booking_number,
-                },
+                metadata=session_metadata,
                 success_url=success_url or f'{frontend_url}/booking/confirmation?booking_id={booking.id}',
                 cancel_url=cancel_url or frontend_url,
             )

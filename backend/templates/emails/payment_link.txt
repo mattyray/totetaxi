@@ -27,7 +27,9 @@ Special Instructions:
 {% endif %}
 
 === TOTAL ===
-${{ booking.total_price_dollars }}
+{% if booking.discount_code and booking.discount_amount_cents > 0 %}Subtotal: ${{ booking.pre_discount_total_dollars }}
+Discount ({{ booking.discount_code.code }}): -${{ booking.discount_amount_dollars }}
+Total: ${{ booking.total_price_dollars }}{% else %}${{ booking.total_price_dollars }}{% endif %}
 
 === PAY NOW ===
 {{ checkout_url }}

@@ -133,6 +133,7 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
   const [deliveryAddress, setDeliveryAddress] = useState({ ...emptyAddress });
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [coiRequired, setCoiRequired] = useState(false);
+  const [discountCode, setDiscountCode] = useState('');
   const [useCustomTotal, setUseCustomTotal] = useState(false);
   const [customTotalDollars, setCustomTotalDollars] = useState('');
 
@@ -218,6 +219,7 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
       setDeliveryAddress({ ...emptyAddress });
       setSpecialInstructions('');
       setCoiRequired(false);
+      setDiscountCode('');
       setUseCustomTotal(false);
       setCustomTotalDollars('');
     }
@@ -265,6 +267,10 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
       data.specific_pickup_hour = specificPickupHour;
     }
 
+    if (discountCode.trim()) {
+      data.discount_code = discountCode.trim();
+    }
+
     if (useCustomTotal && customTotalDollars) {
       data.custom_total_override_cents = Math.round(parseFloat(customTotalDollars) * 100);
     }
@@ -300,6 +306,14 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                 <div className="font-medium text-navy-900">{createdBooking.customer_name}</div>
                 <div className="text-navy-500">Service:</div>
                 <div className="font-medium text-navy-900">{createdBooking.service_type}</div>
+                {createdBooking.discount_code && (
+                  <>
+                    <div className="text-navy-500">Subtotal:</div>
+                    <div className="font-medium text-navy-900">${createdBooking.pre_discount_total_dollars?.toFixed(2)}</div>
+                    <div className="text-navy-500">Discount ({createdBooking.discount_code}):</div>
+                    <div className="font-medium text-green-700">-${createdBooking.discount_amount_dollars?.toFixed(2)}</div>
+                  </>
+                )}
                 <div className="text-navy-500">Total:</div>
                 <div className="font-medium text-navy-900">${createdBooking.total_price_dollars}</div>
                 <div className="text-navy-500">Status:</div>
@@ -710,10 +724,23 @@ export function StaffCreateBookingModal({ isOpen, onClose, onSuccess }: StaffCre
                 </div>
               </section>
 
-              {/* Custom Pricing */}
+              {/* Pricing & Discount */}
               <section>
                 <h3 className="text-lg font-semibold text-navy-900 mb-3">Pricing</h3>
                 <div className="bg-cream-50 rounded-lg p-4 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-navy-700 mb-1">Discount Code (optional)</label>
+                    <Input
+                      placeholder="e.g. SAVE20"
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                      className="w-48"
+                      disabled={useCustomTotal}
+                    />
+                    {useCustomTotal && discountCode && (
+                      <p className="text-xs text-amber-600 mt-1">Discount code is ignored when using a custom total.</p>
+                    )}
+                  </div>
                   <p className="text-sm text-navy-600">
                     Price will be auto-calculated based on service details. Toggle below to override with a custom quote.
                   </p>
