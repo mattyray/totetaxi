@@ -166,3 +166,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 - CORS is configured for `localhost:3000` and `totetaxi.netlify.app` by default
 - `fly ssh console` connects as root, but Python packages are installed under `appuser` — use `su appuser -c "cd /app && python manage.py ..."` to run management commands
 - `BookingData` interface is duplicated in both `frontend/src/types/index.ts` AND `frontend/src/stores/booking-store.ts` — must update both when adding fields
+- `Payment.booking` is nullable — Payment records are created at PaymentIntent time before a Booking exists. Always null-check `payment.booking` before accessing booking fields
+- `select_for_update()` cannot be combined with `select_related()` on nullable FKs in PostgreSQL — use `select_for_update().get()` then access relations separately
+- Fly.io `release_command` is disabled (OOM on 256MB machines) — run migrations manually: `fly ssh console -C "su appuser -c 'cd /app && python manage.py migrate'"`
+- Celery Beat runs `cleanup_orphaned_payments` daily at 6am — expires `Payment(booking=None, status='pending')` records older than 24 hours and cancels their Stripe PIs
