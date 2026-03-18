@@ -1,8 +1,14 @@
 import logging
+from datetime import timedelta
+
+import stripe
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 @shared_task(bind=True, max_retries=10, default_retry_delay=1)
@@ -214,3 +220,61 @@ def process_payment_failed(self, event_data):
     )
 
     return {'status': 'payment_failed', 'booking_number': booking.booking_number}
+
+
+@shared_task
+def cleanup_orphaned_payments():
+    """Cancel Stripe PIs and expire Payment records that were never linked to a booking.
+
+    Runs daily via Celery Beat. Targets payments older than 24 hours with no
+    booking attached — these are abandoned checkout flows where the customer
+    created a PaymentIntent but never completed the booking.
+    """
+    from apps.payments.models import Payment, PaymentAudit
+
+    cutoff = timezone.now() - timedelta(hours=24)
+    orphans = Payment.objects.filter(
+        booking__isnull=True,
+        status='pending',
+        created_at__lt=cutoff,
+    )
+
+    cancelled_count = 0
+    failed_count = 0
+
+    for payment in orphans:
+        # Try to cancel the Stripe PI so the hold is released
+        if payment.stripe_payment_intent_id:
+            try:
+                stripe.PaymentIntent.cancel(payment.stripe_payment_intent_id)
+            except stripe.error.InvalidRequestError:
+                # PI already cancelled, succeeded, or otherwise not cancellable
+                pass
+            except stripe.error.StripeError as e:
+                logger.warning(
+                    f"Failed to cancel orphaned PI {payment.stripe_payment_intent_id}: {e}"
+                )
+                failed_count += 1
+                continue
+
+        payment.status = 'failed'
+        payment.failure_reason = 'Expired — booking never completed'
+        payment.save(update_fields=['status', 'failure_reason', 'updated_at'])
+
+        PaymentAudit.log(
+            action='payment_failed',
+            description=(
+                f"Orphaned payment expired (PI: {payment.stripe_payment_intent_id}). "
+                f"No booking created within 24 hours."
+            ),
+            payment=payment,
+            user=None,
+        )
+        cancelled_count += 1
+
+    if cancelled_count or failed_count:
+        logger.info(
+            f"Orphaned payment cleanup: {cancelled_count} expired, {failed_count} failed to cancel"
+        )
+
+    return {'expired': cancelled_count, 'failed': failed_count}

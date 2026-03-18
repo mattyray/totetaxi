@@ -338,6 +338,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0),
         'options': {'expires': 3600}
     },
+    'cleanup-orphaned-payments-daily': {
+        'task': 'apps.payments.tasks.cleanup_orphaned_payments',
+        'schedule': crontab(hour=6, minute=0),
+        'options': {'expires': 3600}
+    },
 }# Replace your TESTING section cache configuration with this:
 # ADD THIS TO YOUR config/settings.py - COMPLETE TESTING SECTION
 
