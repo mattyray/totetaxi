@@ -86,9 +86,7 @@ def process_payment_succeeded(self, event_data):
 
     # Lock the row and re-read to avoid race with booking creation view
     with transaction.atomic():
-        payment = Payment.objects.select_for_update().select_related('booking').get(
-            id=payment.id
-        )
+        payment = Payment.objects.select_for_update().get(id=payment.id)
 
         # Re-check after lock — booking view may have already updated it
         if payment.status == 'succeeded':
