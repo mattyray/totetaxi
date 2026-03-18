@@ -232,9 +232,9 @@ class StripeWebhookView(APIView):
                 payment.status = 'failed'
                 payment.failure_reason = 'Checkout session expired'
                 payment.save()
+                booking_num = payment.booking.booking_number if payment.booking else 'UNLINKED'
                 logger.info(
-                    f"Checkout session expired for booking "
-                    f"{payment.booking.booking_number}"
+                    f"Checkout session expired for booking {booking_num}"
                 )
             except Payment.DoesNotExist:
                 logger.info(f"No pending payment found for expired PI {payment_intent_id}")
@@ -264,11 +264,12 @@ class MockPaymentConfirmView(APIView):
                         payment.booking.status = 'paid'
                         payment.booking.save(_skip_pricing=True)
                         logger.info(f"Mock payment: Booking {payment.booking.booking_number} status updated to 'paid'")
-                
+
+                booking_status = payment.booking.status if payment and payment.booking else 'unknown'
                 return Response({
                     'message': 'Payment confirmed successfully',
                     'payment': PaymentSerializer(payment).data,
-                    'booking_status': payment.booking.status if payment else 'unknown'
+                    'booking_status': booking_status
                 })
             else:
                 # Handle failed payment
@@ -276,15 +277,16 @@ class MockPaymentConfirmView(APIView):
                 payment.status = 'failed'
                 payment.failure_reason = serializer.validated_data.get('failure_reason', 'Payment failed')
                 payment.save()
-                
+
                 # Keep booking as pending for failed payments
-                payment.booking.status = 'pending'
-                payment.booking.save(_skip_pricing=True)
-                
+                if payment.booking:
+                    payment.booking.status = 'pending'
+                    payment.booking.save(_skip_pricing=True)
+
                 return Response({
                     'message': 'Payment marked as failed',
                     'payment': PaymentSerializer(payment).data,
-                    'booking_status': payment.booking.status
+                    'booking_status': payment.booking.status if payment.booking else 'unknown'
                 })
                 
         except Payment.DoesNotExist:
@@ -412,9 +414,10 @@ class RefundProcessView(APIView):
                     requested_by_user=request.user
                 )
                 
+                booking_num = payment.booking.booking_number if payment.booking else 'UNLINKED'
                 logger.info(
                     f"Refund processed by {request.user.get_full_name()}: "
-                    f"${amount_cents/100:.2f} for booking {payment.booking.booking_number}"
+                    f"${amount_cents/100:.2f} for booking {booking_num}"
                 )
             
             # Return success with refund details

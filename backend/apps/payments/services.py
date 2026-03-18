@@ -72,22 +72,24 @@ class StripePaymentService:
                 payment.save()
                 
                 booking = payment.booking
-                if booking.status == 'pending':
+                if booking and booking.status == 'pending':
                     booking.status = 'paid'
                     booking.save(_skip_pricing=True)
-                
-                try:
-                    if booking.customer and hasattr(booking.customer, 'customer_profile'):
-                        booking.customer.customer_profile.add_booking_stats(
-                            booking.total_price_cents
-                        )
-                        logger.info(f"Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
-                except Exception as stats_error:
-                    logger.warning(f"Failed to update customer stats: {stats_error}")
-                
+
+                if booking:
+                    try:
+                        if booking.customer and hasattr(booking.customer, 'customer_profile'):
+                            booking.customer.customer_profile.add_booking_stats(
+                                booking.total_price_cents
+                            )
+                            logger.info(f"Updated customer stats: {booking.customer.get_full_name()} - +${booking.total_price_dollars}")
+                    except Exception as stats_error:
+                        logger.warning(f"Failed to update customer stats: {stats_error}")
+
+                booking_num = booking.booking_number if booking else 'UNLINKED'
                 PaymentAudit.log(
                     action='payment_succeeded',
-                    description=f'Payment confirmed for booking {booking.booking_number}',
+                    description=f'Payment confirmed for booking {booking_num}',
                     payment=payment,
                     user=None
                 )

@@ -100,6 +100,31 @@ class CreatePaymentIntentView(APIView):
                 metadata=metadata
             )
 
+            # Create Payment record immediately so webhook can always find it
+            try:
+                Payment.objects.create(
+                    stripe_payment_intent_id=payment_intent.id,
+                    amount_cents=amount_cents,
+                    customer=request.user,
+                    status='pending',
+                )
+            except Exception:
+                # DB write failed — cancel PI so we don't have an orphaned charge
+                try:
+                    stripe.PaymentIntent.cancel(payment_intent.id)
+                except Exception:
+                    logger.critical(
+                        f"MANUAL ACTION REQUIRED: PI {payment_intent.id} created but "
+                        f"Payment record failed to save and PI cancel also failed."
+                    )
+                logger.error(
+                    f"Failed to create Payment record for PI {payment_intent.id}, PI cancelled"
+                )
+                return Response(
+                    {'error': 'Payment initialization failed'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
 
             return Response({
@@ -245,19 +270,32 @@ class CustomerBookingCreateView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    # Create payment record
+                    # Link existing Payment record to booking
                     charge_id = getattr(payment_intent, 'latest_charge', None)
                     if not isinstance(charge_id, str):
                         charge_id = ''
-                    Payment.objects.create(
-                        booking=booking,
-                        customer=request.user,
-                        amount_cents=payment_intent.amount,
-                        stripe_payment_intent_id=payment_intent_id,
-                        stripe_charge_id=charge_id,
-                        status='succeeded',
-                        processed_at=timezone.now(),
-                    )
+                    try:
+                        payment = Payment.objects.select_for_update().get(
+                            stripe_payment_intent_id=payment_intent_id
+                        )
+                        payment.booking = booking
+                        payment.customer = request.user
+                        payment.amount_cents = payment_intent.amount
+                        payment.stripe_charge_id = charge_id
+                        payment.status = 'succeeded'
+                        payment.processed_at = timezone.now()
+                        payment.save()
+                    except Payment.DoesNotExist:
+                        # Fallback: PI was created before this deploy
+                        Payment.objects.create(
+                            booking=booking,
+                            customer=request.user,
+                            amount_cents=payment_intent.amount,
+                            stripe_payment_intent_id=payment_intent_id,
+                            stripe_charge_id=charge_id,
+                            status='succeeded',
+                            processed_at=timezone.now(),
+                        )
 
                 logger.info(f"Payment record created for booking {booking.booking_number}")
 

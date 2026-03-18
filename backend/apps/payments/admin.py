@@ -41,8 +41,10 @@ class PaymentAdmin(admin.ModelAdmin):
     def get_customer_name(self, obj):
         if obj.customer:
             return obj.customer.full_name
-        else:
+        elif obj.booking:
             return obj.booking.get_customer_name()
+        else:
+            return 'Unknown'
     get_customer_name.short_description = 'Customer'
     
     def get_status_badge(self, obj):
@@ -100,7 +102,7 @@ class RefundAdmin(admin.ModelAdmin):
     actions = ['approve_refunds', 'deny_refunds']
     
     def get_booking_number(self, obj):
-        return obj.payment.booking.booking_number
+        return obj.payment.booking.booking_number if obj.payment.booking else 'N/A'
     get_booking_number.short_description = 'Booking #'
     
     def get_status_badge(self, obj):

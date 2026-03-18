@@ -18,11 +18,13 @@ class Payment(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # Link to booking
+    # Link to booking (nullable — Payment is created at PI time before booking exists)
     booking = models.ForeignKey(
         'bookings.Booking',
         on_delete=models.PROTECT,
-        related_name='payments'
+        related_name='payments',
+        null=True,
+        blank=True,
     )
     
     # Customer (if authenticated)
@@ -63,7 +65,8 @@ class Payment(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.booking.booking_number} - ${self.amount_dollars} ({self.status})"
+        booking_num = self.booking.booking_number if self.booking else 'UNLINKED'
+        return f"{booking_num} - ${self.amount_dollars} ({self.status})"
     
     @property
     def amount_dollars(self):
@@ -126,7 +129,8 @@ class Refund(models.Model):
         ]
     
     def __str__(self):
-        return f"Refund ${self.amount_dollars} for {self.payment.booking.booking_number}"
+        booking_num = self.payment.booking.booking_number if self.payment.booking else 'UNLINKED'
+        return f"Refund ${self.amount_dollars} for {booking_num}"
     
     @property
     def amount_dollars(self):

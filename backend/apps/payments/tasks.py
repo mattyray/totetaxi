@@ -83,8 +83,24 @@ def process_payment_succeeded(self, event_data):
     payment.processed_at = timezone.now()
     payment.save()
 
-    # Update booking status
+    # Update booking status (booking may be None if booking POST hasn't arrived yet)
     booking = payment.booking
+    if booking is None:
+        logger.info(
+            f"Webhook task: Payment {payment.id} succeeded but has no booking yet "
+            f"(PI: {payment_intent_id}). Booking creation will link it later."
+        )
+        PaymentAudit.log(
+            action='payment_succeeded',
+            description=(
+                f"Payment succeeded (PI: {payment_intent_id}) but no booking linked yet. "
+                f"Event: {event_id}"
+            ),
+            payment=payment,
+            user=None,
+        )
+        return {'status': 'success_no_booking', 'payment_intent_id': payment_intent_id}
+
     if booking.status == 'pending':
         old_status = booking.status
         booking.status = 'paid'
@@ -161,8 +177,23 @@ def process_payment_failed(self, event_data):
     ).get('message', 'Payment failed')
     payment.save()
 
-    # Keep booking as pending so customer can retry
+    # Keep booking as pending so customer can retry (booking may be None)
     booking = payment.booking
+    if booking is None:
+        logger.info(
+            f"Webhook task: Payment failed for PI {payment_intent_id} with no booking linked."
+        )
+        PaymentAudit.log(
+            action='payment_failed',
+            description=(
+                f"Payment failed (PI: {payment_intent_id}). No booking linked. "
+                f"Reason: {payment.failure_reason}"
+            ),
+            payment=payment,
+            user=None,
+        )
+        return {'status': 'payment_failed_no_booking', 'payment_intent_id': payment_intent_id}
+
     if booking.status != 'pending':
         booking.status = 'pending'
         booking.save(_skip_pricing=True)

@@ -139,14 +139,16 @@ class StaffDashboardView(APIView):
         paid_bookings = Booking.objects.filter(status='paid', deleted_at__isnull=True).count()
         completed_bookings = Booking.objects.filter(status='completed', deleted_at__isnull=True).count()
         
-        # Get payment statistics
-        total_payments = Payment.objects.filter(status='succeeded').count()
-        pending_payments = Payment.objects.filter(status='pending').count()
-        failed_payments = Payment.objects.filter(status='failed').count()
-        
-        # Calculate revenue
+        # Get payment statistics (exclude unlinked payments from counts)
+        total_payments = Payment.objects.filter(status='succeeded', booking__isnull=False).count()
+        pending_payments = Payment.objects.filter(status='pending', booking__isnull=False).count()
+        failed_payments = Payment.objects.filter(status='failed', booking__isnull=False).count()
+
+        # Calculate revenue (only payments linked to bookings)
         from django.db.models import Sum
-        total_revenue_cents = Payment.objects.filter(status='succeeded').aggregate(
+        total_revenue_cents = Payment.objects.filter(
+            status='succeeded', booking__isnull=False
+        ).aggregate(
             total=Sum('amount_cents')
         )['total'] or 0
         
@@ -799,20 +801,24 @@ class StaffReportsView(APIView):
         start_of_year = today.replace(month=1, day=1)
 
         # === REVENUE METRICS ===
-        # Total revenue all time
-        total_revenue_cents = Payment.objects.filter(status='succeeded').aggregate(
+        # Total revenue all time (only payments linked to bookings)
+        total_revenue_cents = Payment.objects.filter(
+            status='succeeded', booking__isnull=False
+        ).aggregate(
             total=Sum('amount_cents')
         )['total'] or 0
 
         # Revenue last 30 days
         revenue_30_days = Payment.objects.filter(
             status='succeeded',
+            booking__isnull=False,
             created_at__date__gte=thirty_days_ago
         ).aggregate(total=Sum('amount_cents'))['total'] or 0
 
         # Revenue by day (last 30 days) for chart
         daily_revenue = Payment.objects.filter(
             status='succeeded',
+            booking__isnull=False,
             created_at__date__gte=thirty_days_ago
         ).annotate(
             date=TruncDate('created_at')
@@ -823,6 +829,7 @@ class StaffReportsView(APIView):
         # Revenue by month (last 12 months) for chart
         monthly_revenue = Payment.objects.filter(
             status='succeeded',
+            booking__isnull=False,
             created_at__date__gte=today - timedelta(days=365)
         ).annotate(
             month=TruncMonth('created_at')

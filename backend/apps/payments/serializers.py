@@ -37,10 +37,10 @@ class PaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at')
 
     def get_booking_number(self, obj):
-        return obj.booking.booking_number
+        return obj.booking.booking_number if obj.booking else None
 
     def get_customer_name(self, obj):
-        return obj.booking.get_customer_name()
+        return obj.booking.get_customer_name() if obj.booking else None
 
     def get_total_refunded_cents(self, obj):
         return obj.refunds.filter(status='completed').aggregate(
@@ -97,7 +97,7 @@ class RefundSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at')
     
     def get_payment_booking_number(self, obj):
-        return obj.payment.booking.booking_number
+        return obj.payment.booking.booking_number if obj.payment.booking else None
     
     def get_requested_by_name(self, obj):
         return obj.requested_by.get_full_name() if obj.requested_by else None
