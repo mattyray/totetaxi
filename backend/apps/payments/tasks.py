@@ -4,6 +4,7 @@ from datetime import timedelta
 import stripe
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -83,13 +84,25 @@ def process_payment_succeeded(self, event_data):
         logger.info(f"Webhook task: Payment {payment.id} already succeeded")
         return {'status': 'already_succeeded'}
 
-    # Update payment status
-    payment.status = 'succeeded'
-    payment.stripe_charge_id = payment_intent.get('latest_charge', '')
-    payment.processed_at = timezone.now()
-    payment.save()
+    # Lock the row and re-read to avoid race with booking creation view
+    with transaction.atomic():
+        payment = Payment.objects.select_for_update().select_related('booking').get(
+            id=payment.id
+        )
 
-    # Update booking status (booking may be None if booking POST hasn't arrived yet)
+        # Re-check after lock — booking view may have already updated it
+        if payment.status == 'succeeded':
+            logger.info(f"Webhook task: Payment {payment.id} already succeeded (after lock)")
+            return {'status': 'already_succeeded'}
+
+        # Update payment status
+        payment.status = 'succeeded'
+        payment.stripe_charge_id = payment_intent.get('latest_charge', '')
+        payment.processed_at = timezone.now()
+        payment.save()
+
+    # Re-read booking outside the lock (it's now committed)
+    payment.refresh_from_db()
     booking = payment.booking
     if booking is None:
         logger.info(
