@@ -40,7 +40,7 @@ class PaymentAdmin(admin.ModelAdmin):
     
     def get_customer_name(self, obj):
         if obj.customer:
-            return obj.customer.full_name
+            return obj.customer.get_full_name()
         elif obj.booking:
             return obj.booking.get_customer_name()
         else:
