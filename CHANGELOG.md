@@ -1,13 +1,35 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** February 13, 2026
+**Last Updated:** March 18, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## March 18, 2026
+
+### Payment Architecture Fix — Orphaned Payment Prevention
+
+Fixed a critical architecture issue where customers could be charged via Stripe but no record existed in the database. This happened when the frontend crashed or the browser closed after payment but before the booking creation request fired.
+
+**Root cause:** A browser extension (password manager) crash on the `/book` page killed the JavaScript runtime after Stripe charged the card. The booking POST never executed. Confirmed via Sentry (`TOTETAXI-NEXT-4`).
+
+**What changed:**
+- Payment records are now created at PaymentIntent time (before the customer pays), not at booking time (after). Any charge on Stripe always has a matching database record.
+- Booking creation finds and links the existing Payment instead of creating a new one.
+- Webhook tasks handle payments with no booking gracefully — no more 5-minute retry loops ending in `ORPHANED PAYMENT` log messages.
+- Daily cleanup task (6am) expires abandoned Payment records older than 24 hours and cancels their Stripe PaymentIntents.
+- Null-safety guards added across 8 files (~20 locations) for the nullable `Payment.booking` FK.
+- Revenue/analytics queries exclude unlinked payments to prevent inflation.
+
+**Files changed:** `payments/models.py`, `payments/tasks.py`, `payments/views.py`, `payments/services.py`, `payments/serializers.py`, `payments/admin.py`, `bookings/views.py`, `customers/booking_views.py`, `accounts/views.py`, `config/settings.py`
+**Migration:** `payments/0005_make_booking_nullable`
+**Tests:** 182 passed, 0 regressions
 
 ---
 
