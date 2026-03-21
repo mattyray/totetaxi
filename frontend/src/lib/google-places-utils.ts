@@ -19,10 +19,13 @@ export function parseGooglePlace(
     c.types.includes('route')
   )?.long_name || '';
   
-  const city = components.find((c: google.maps.GeocoderAddressComponent) => 
+  const city = components.find((c: google.maps.GeocoderAddressComponent) =>
     c.types.includes('locality')
-  )?.long_name || 
-  components.find((c: google.maps.GeocoderAddressComponent) => 
+  )?.long_name ||
+  components.find((c: google.maps.GeocoderAddressComponent) =>
+    c.types.includes('sublocality_level_1')
+  )?.long_name ||
+  components.find((c: google.maps.GeocoderAddressComponent) =>
     c.types.includes('sublocality')
   )?.long_name || '';
   

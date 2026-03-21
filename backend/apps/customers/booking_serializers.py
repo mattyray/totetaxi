@@ -581,9 +581,9 @@ class AuthenticatedBookingCreateSerializer(serializers.Serializer):
                     nickname=unique_nickname,
                     address_line_1=new_address_data['address_line_1'],
                     address_line_2=new_address_data.get('address_line_2', ''),
-                    city=new_address_data['city'],
-                    state=new_address_data['state'],
-                    zip_code=new_address_data['zip_code'],
+                    city=new_address_data.get('city', ''),
+                    state=new_address_data.get('state', ''),
+                    zip_code=new_address_data.get('zip_code', ''),
                     delivery_instructions=new_address_data.get('delivery_instructions', ''),
                     times_used=1
                 )
