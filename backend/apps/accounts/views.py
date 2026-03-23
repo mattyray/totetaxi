@@ -156,7 +156,7 @@ class StaffDashboardView(APIView):
         urgent_bookings = Booking.objects.filter(
             status__in=['pending', 'confirmed'],
             deleted_at__isnull=True
-        ).order_by('pickup_date', 'created_at')[:10]
+        ).select_related('customer', 'guest_checkout').order_by('pickup_date', 'created_at')[:10]
         
         # Get customer statistics
         total_customers = CustomerProfile.objects.count()
