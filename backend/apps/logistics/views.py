@@ -243,7 +243,7 @@ class TaskStatusView(APIView):
             if date_filter:
                 tasks = tasks.filter(created_at__date=date_filter)
             
-            tasks = tasks.select_related('booking').order_by('-created_at')[:50]
+            tasks = tasks.select_related('booking__customer', 'booking__guest_checkout').order_by('-created_at')[:50]
             
             task_data = []
             for task in tasks:
