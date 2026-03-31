@@ -35,7 +35,10 @@ function BookingSuccessContent() {
   const redirectStatus = searchParams.get('redirect_status');
 
   const createBookingMutation = useMutation({
-    retry: 2,
+    retry: (failureCount, error) => {
+      if ('response' in error && (error as AxiosError).response) return false;
+      return failureCount < 2;
+    },
     retryDelay: 3000,
     mutationFn: async (piId: string) => {
       const endpoint = isAuthenticated

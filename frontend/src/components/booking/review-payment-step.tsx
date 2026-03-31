@@ -430,7 +430,11 @@ export function ReviewPaymentStep() {
 
   // STEP 2: Create booking AFTER payment succeeds (retries on transient failures)
   const createBookingMutation = useMutation({
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Only retry on network errors (no response), not server rejections (400/422/etc)
+      if ('response' in error && (error as AxiosError).response) return false;
+      return failureCount < 2;
+    },
     retryDelay: 3000,
     mutationFn: async (paymentIntentId: string): Promise<BookingResponse> => {
       const endpoint = isAuthenticated 
