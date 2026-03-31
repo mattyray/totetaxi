@@ -112,8 +112,8 @@ class PricingPreviewView(APIView):
         if pickup_date:
             is_blocked, error_message = check_same_day_restriction(pickup_date)
             if is_blocked:
-                logger.error(
-                    f"CRITICAL: Same-day restriction blocked booking AFTER payment: "
+                logger.warning(
+                    f"Same-day restriction blocked pricing preview: "
                     f"service={service_type}, pickup_date={pickup_date}, reason={error_message}"
                 )
                 return Response({
@@ -607,6 +607,11 @@ class CreateGuestPaymentIntentView(APIView):
             metadata = {
                 'service_type': validated_data['service_type'],
                 'customer_email': customer_email,
+                'customer_first_name': validated_data.get('first_name', ''),
+                'customer_last_name': validated_data.get('last_name', ''),
+                'customer_phone': validated_data.get('phone', ''),
+                'pickup_date': str(validated_data.get('pickup_date', '')),
+                'pickup_time': validated_data.get('pickup_time', ''),
             }
             if validated_data.get('_discount_code_id'):
                 metadata['discount_code_id'] = validated_data['_discount_code_id']

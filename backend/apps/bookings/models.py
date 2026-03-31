@@ -818,7 +818,7 @@ class Booking(models.Model):
                 else:
                     self.base_price_cents = 0
 
-                if self.specialty_items.exists():
+                if self.pk and self.specialty_items.exists():
                     specialty_total = 0
                     for booking_item in self.bookingspecialtyitem_set.all():
                         specialty_total += booking_item.subtotal_cents

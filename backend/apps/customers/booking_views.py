@@ -88,6 +88,9 @@ class CreatePaymentIntentView(APIView):
             metadata = {
                 'service_type': validated_data['service_type'],
                 'customer_email': customer_email,
+                'customer_name': request.user.get_full_name(),
+                'pickup_date': str(validated_data.get('pickup_date', '')),
+                'pickup_time': validated_data.get('pickup_time', ''),
             }
             if validated_data.get('_discount_code_id'):
                 metadata['discount_code_id'] = validated_data['_discount_code_id']

@@ -115,6 +115,79 @@ Fix deployed across 5 commits (`198105c` through `799dd02`):
 
 ---
 
+## INC-002: Orphaned Stripe Payment — Same Pattern, Different Customer
+
+**Date:** 2026-03-31
+**Severity:** High
+**Customer:** mayaseidler@edgelinefilms.com
+**Amount:** $285.00
+**Stripe PI:** `pi_3TH3c0IOokQBXWLK0Fv7SqPW`
+**Status:** RESOLVED — customer handled by Dipendra, fixes deployed 2026-03-31
+
+### What Happened
+
+Customer was charged $285 for a Standard Delivery (Brooklyn to Wainscott, pickup April 1) but no booking was created. Customer called to report the charge. Staff found the payment in Stripe dashboard.
+
+### Timeline (ET)
+
+| Time | Event |
+|------|-------|
+| 10:46:32 | PI #1 created (`pi_3TH3Yq...`) — $285, Payment record created (status=pending) |
+| 10:46–10:49 | Customer on Stripe form but never submitted — PI stayed `requires_payment_method` |
+| 10:49:48 | PI #2 created (`pi_3TH3c0...`) — $285, new Payment record created (status=pending) |
+| 10:50:11 | Stripe webhook fired → Celery task updated Payment to `status=succeeded` |
+| 10:50:11 | PaymentAudit logged: "Payment succeeded but no booking linked yet" |
+| 10:50+ | POST to `/api/public/guest-booking/` **never reached the server** |
+| ~11:36 | Staff found payment in admin, tried to create booking manually → hit M2M ValueError |
+
+### Comparison with INC-001 (Amanda)
+
+| | INC-001 (Amanda, Mar 17) | INC-002 (Maya, Mar 31) |
+|---|---|---|
+| **Core failure** | Booking POST never reached server | Booking POST never reached server |
+| **Payment DB record** | None existed (pre-fix) | Exists, status=succeeded, booking=null |
+| **Webhook** | Retried 10x, gave up | Succeeded, updated Payment record |
+| **Detection** | Customer called, manual Stripe search | Staff saw in Stripe immediately |
+| **3D Secure** | No | No |
+| **PI attempts** | 1 | 2 (first abandoned) |
+
+### Root Cause
+
+Same fundamental issue as INC-001: the frontend has an unprotected gap between `stripe.confirmPayment()` succeeding and the booking creation POST firing. If anything disrupts this flow — JS error, browser extension, network drop, tab close — the customer is charged with no booking.
+
+The March 18 fix (INC-001 resolution) solved the **database side** — Payment records now exist and webhooks process correctly. But the **frontend gap** was never addressed.
+
+Additional finding: the Stripe `return_url` in `confirmPayment()` points to `/booking-success` which did not exist as a route. Any future 3D Secure redirect would have landed on a 404.
+
+### Resolution (2026-03-31)
+
+Four fixes deployed:
+
+1. **Backend orphan alert task** — New Celery task runs every 15 minutes, emails staff when a Payment has `status=succeeded` but `booking=null` for more than 10 minutes. Uses `BOOKING_EMAIL_BCC` for recipients. Skips already-alerted payments via `PaymentAudit(action='orphan_alert_sent')`.
+
+2. **Frontend payment recovery** — `paymentIntentId` now persisted to localStorage via Zustand store. On page mount, if a pending PI exists with no completed booking, auto-retries booking creation. Also added `retry: 2, retryDelay: 3000` to the booking creation mutation for transient network failures.
+
+3. **`/booking-success` route** — New Next.js page handles Stripe 3D Secure redirects. Reads `payment_intent` and `redirect_status` from URL params, creates the booking using data from localStorage.
+
+4. **Enriched PI metadata** — Stripe PaymentIntent now stores customer name, phone, pickup date, and pickup time in metadata (both guest and authenticated flows). Enables future auto-recovery from webhook data.
+
+5. **Admin M2M bug fix** — Added `self.pk` guard in `Booking.calculate_pricing()` to prevent `ValueError` when creating bookings via Django admin.
+
+6. **Misleading log fix** — Changed pricing-preview same-day restriction log from `CRITICAL`/`error` to `warning` with accurate message text.
+
+### Files Changed
+
+- `backend/apps/payments/tasks.py` — new `alert_succeeded_orphans` task
+- `backend/config/settings.py` — Celery Beat schedule entry
+- `backend/apps/bookings/views.py` — enriched PI metadata, fixed log message
+- `backend/apps/bookings/models.py` — `self.pk` guard for M2M access
+- `backend/apps/customers/booking_views.py` — enriched PI metadata
+- `frontend/src/stores/booking-store.ts` — `pendingPaymentIntentId` persisted, store version 8
+- `frontend/src/components/booking/review-payment-step.tsx` — persist PI, recovery on mount, retry config
+- `frontend/src/app/booking-success/page.tsx` — new route for 3D Secure redirects
+
+---
+
 ## Edge Cases & Anomalies Log
 
 ### Multiple PaymentIntents Per Session

@@ -297,7 +297,7 @@ function DiscountCodeInput() {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, setPendingPaymentIntentId, clearPendingPaymentIntentId } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -313,6 +313,23 @@ export function ReviewPaymentStep() {
   const [bookingError, setBookingError] = useState<string>('');
   const [bookingErrorPhone, setBookingErrorPhone] = useState<string>('');
   const stripePromise = getStripe();
+
+  // Recovery: if we have a persisted PI from a previous session (page refresh, crash),
+  // auto-retry booking creation on mount
+  const recoveryAttempted = useRef(false);
+  useEffect(() => {
+    if (
+      pendingPaymentIntentId &&
+      !bookingComplete &&
+      !recoveryAttempted.current
+    ) {
+      recoveryAttempted.current = true;
+      console.log('🔄 Recovering orphaned payment:', pendingPaymentIntentId);
+      setLoading(true);
+      createBookingMutation.mutate(pendingPaymentIntentId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // STEP 1: Create payment intent
   const createPaymentIntentMutation = useMutation({
@@ -389,6 +406,7 @@ export function ReviewPaymentStep() {
 
       setClientSecret(data.client_secret);
       setPaymentIntentId(data.payment_intent_id);
+      setPendingPaymentIntentId(data.payment_intent_id);
       setShowPayment(true);
       setLoading(false);
     },
@@ -410,8 +428,10 @@ export function ReviewPaymentStep() {
     }
   });
 
-  // STEP 2: Create booking AFTER payment succeeds
+  // STEP 2: Create booking AFTER payment succeeds (retries on transient failures)
   const createBookingMutation = useMutation({
+    retry: 2,
+    retryDelay: 3000,
     mutationFn: async (paymentIntentId: string): Promise<BookingResponse> => {
       const endpoint = isAuthenticated 
         ? '/api/customer/bookings/create/'
@@ -482,11 +502,12 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       console.log('✅ Booking creation successful:', data);
+      clearPendingPaymentIntentId();
       setBookingNumber(data.booking.booking_number);
       setBookingCompleteLocal(true);
       setBookingComplete(data.booking.booking_number);
       setLoading(false);
-      
+
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['customer', 'dashboard'] });
         queryClient.invalidateQueries({ queryKey: ['customer', 'bookings'] });

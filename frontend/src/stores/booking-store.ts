@@ -80,6 +80,7 @@ interface BookingWizardState {
   userId?: string;
   isGuestMode: boolean;
   lastResetTimestamp?: number;
+  pendingPaymentIntentId?: string;
 }
 
 interface BookingWizardActions {
@@ -100,6 +101,8 @@ interface BookingWizardActions {
   getSpecialtyItemQuantity: (itemId: string) => number;
   applyDiscountCode: (code: string, discountInfo: NonNullable<BookingData['discount_info']>) => void;
   clearDiscountCode: () => void;
+  setPendingPaymentIntentId: (id: string) => void;
+  clearPendingPaymentIntentId: () => void;
 }
 
 const initialBookingData: BookingData = {
@@ -113,7 +116,7 @@ const initialBookingData: BookingData = {
   specialty_items: [],
 };
 
-const STORE_VERSION = 7;
+const STORE_VERSION = 8;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 const CHAT_PREFILL_KEY = 'totetaxi-chat-prefill';
 const CHAT_PREFILL_TTL_MS = 5 * 60 * 1000;
@@ -253,6 +256,9 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }));
       },
 
+      setPendingPaymentIntentId: (id) => set({ pendingPaymentIntentId: id }),
+      clearPendingPaymentIntentId: () => set({ pendingPaymentIntentId: undefined }),
+
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {
@@ -361,9 +367,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           completedBookingNumber: undefined,
           userId: preservedUserId,
           isGuestMode: calculatedGuestMode,  // ✅ Use calculated value
-          lastResetTimestamp: Date.now()
+          lastResetTimestamp: Date.now(),
+          pendingPaymentIntentId: undefined,
         };
-        
+
         set(newState);
         
         if (typeof window !== 'undefined') {
@@ -396,10 +403,11 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           completedBookingNumber: undefined,
           userId: 'guest',
           isGuestMode: true,
-          lastResetTimestamp: Date.now()
+          lastResetTimestamp: Date.now(),
+          pendingPaymentIntentId: undefined,
         });
       },
-      
+
       canProceedToStep: (step) => {
         const { bookingData, isGuestMode } = get();
         
@@ -486,7 +494,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         completedBookingNumber: state.completedBookingNumber,
         userId: state.userId,
         isGuestMode: state.isGuestMode,
-        lastResetTimestamp: state.lastResetTimestamp
+        lastResetTimestamp: state.lastResetTimestamp,
+        pendingPaymentIntentId: state.pendingPaymentIntentId,
       })
     }
   )

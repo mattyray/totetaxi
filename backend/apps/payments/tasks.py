@@ -289,3 +289,102 @@ def cleanup_orphaned_payments():
         )
 
     return {'expired': cancelled_count, 'failed': failed_count}
+
+
+@shared_task
+def alert_succeeded_orphans():
+    """Email staff when a payment succeeded but no booking was linked.
+
+    Runs every 15 minutes via Celery Beat. Targets payments that:
+    - status = 'succeeded'
+    - booking is null (never linked)
+    - created more than 10 minutes ago (gives frontend time to complete)
+    - created less than 48 hours ago (don't re-alert on old ones)
+
+    Skips payments that already have an 'orphan_alert_sent' audit entry.
+    """
+    from apps.payments.models import Payment, PaymentAudit
+    from django.core.mail import send_mail
+
+    now = timezone.now()
+    orphans = Payment.objects.filter(
+        status='succeeded',
+        booking__isnull=True,
+        created_at__lt=now - timedelta(minutes=10),
+        created_at__gt=now - timedelta(hours=48),
+    )
+
+    # Skip payments we've already alerted on
+    alerted_payment_ids = set(
+        PaymentAudit.objects.filter(
+            action='orphan_alert_sent',
+            payment__in=orphans,
+        ).values_list('payment_id', flat=True)
+    )
+    orphans_to_alert = [p for p in orphans if p.id not in alerted_payment_ids]
+
+    if not orphans_to_alert:
+        return {'alerted': 0}
+
+    # Build email body with details for each orphan
+    lines = [
+        f"{'=' * 60}",
+        f"URGENT: {len(orphans_to_alert)} payment(s) succeeded but have no booking.",
+        f"These customers were charged but did not receive a booking confirmation.",
+        f"{'=' * 60}",
+        "",
+    ]
+
+    for payment in orphans_to_alert:
+        # Fetch customer email from Stripe PI metadata
+        customer_email = "unknown"
+        service_type = "unknown"
+        try:
+            pi = stripe.PaymentIntent.retrieve(payment.stripe_payment_intent_id)
+            metadata = pi.get('metadata', {}) if hasattr(pi, 'get') else getattr(pi, 'metadata', {})
+            customer_email = metadata.get('customer_email', 'unknown')
+            service_type = metadata.get('service_type', 'unknown')
+        except Exception:
+            pass
+
+        lines.extend([
+            f"Payment ID: {payment.id}",
+            f"Amount: ${payment.amount_dollars:.2f}",
+            f"Customer: {customer_email}",
+            f"Service: {service_type}",
+            f"Stripe PI: {payment.stripe_payment_intent_id}",
+            f"Created: {payment.created_at.strftime('%Y-%m-%d %I:%M %p ET')}",
+            f"Stripe Dashboard: https://dashboard.stripe.com/payments/{payment.stripe_payment_intent_id}",
+            "",
+        ])
+
+        PaymentAudit.log(
+            action='orphan_alert_sent',
+            description=f"Staff alerted about orphaned payment (${payment.amount_dollars:.2f}, {customer_email})",
+            payment=payment,
+            user=None,
+        )
+
+    lines.append("Please create the booking manually or issue a refund.")
+
+    bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', '')
+    recipients = [addr.strip() for addr in bcc_list.split(',') if addr.strip()] if bcc_list else []
+
+    if not recipients:
+        logger.warning("alert_succeeded_orphans: No BOOKING_EMAIL_BCC configured, cannot send alert")
+        return {'alerted': len(orphans_to_alert), 'email_sent': False}
+
+    try:
+        send_mail(
+            subject=f"URGENT: {len(orphans_to_alert)} paid booking(s) need attention — ToteTaxi",
+            message="\n".join(lines),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipients,
+            fail_silently=False,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send orphan alert email: {e}")
+        return {'alerted': len(orphans_to_alert), 'email_sent': False}
+
+    logger.info(f"Orphan alert: emailed staff about {len(orphans_to_alert)} succeeded orphan(s)")
+    return {'alerted': len(orphans_to_alert), 'email_sent': True}

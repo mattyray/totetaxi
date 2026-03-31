@@ -1,13 +1,52 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** March 18, 2026
+**Last Updated:** March 31, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## March 31, 2026
+
+### Payment Recovery & Orphan Detection
+
+Second incident of a customer being charged with no booking created (Maya Seidler, $285 Standard Delivery). Same root cause as March 18: the frontend POST to create the booking never reached the server after Stripe charged the card. The March 18 database fix worked — a Payment record existed — but the frontend gap was never closed.
+
+**What changed:**
+
+1. **Orphan alert emails (backend)** — New Celery task runs every 15 minutes. Detects payments that succeeded but have no booking after 10 minutes, emails staff with customer details and Stripe dashboard link. Uses `PaymentAudit` to prevent re-alerting.
+
+2. **Payment recovery (frontend)** — The `paymentIntentId` is now persisted to localStorage via the Zustand booking store (version 8). If a customer refreshes or returns after paying, the app detects the pending payment and auto-retries booking creation. Also added automatic retry (2 attempts, 3s delay) on the booking creation mutation.
+
+3. **3D Secure redirect handling (frontend)** — Created `/booking-success` page to handle Stripe redirects after 3D Secure authentication. Previously, the `return_url` pointed to a non-existent route — any 3DS redirect would have landed on a 404.
+
+4. **Enriched Stripe PI metadata (backend)** — PaymentIntent metadata now includes customer name, phone, pickup date, and time (both guest and authenticated flows). Enables staff to identify orphaned payments and enables future auto-recovery.
+
+**Bug fixes:**
+- Fixed Django admin `ValueError` when creating bookings — `calculate_pricing()` accessed M2M `specialty_items` before the model was saved.
+- Fixed misleading `CRITICAL` log on pricing-preview endpoint — was logged as "blocked booking AFTER payment" but it's a pre-payment check.
+
+**Files changed:** `payments/tasks.py`, `config/settings.py`, `bookings/views.py`, `bookings/models.py`, `customers/booking_views.py`, `booking-store.ts`, `review-payment-step.tsx`, `booking-success/page.tsx` (new)
+
+---
+
+### Operational Fixes (March 21–23)
+
+Bug fixes and infrastructure improvements deployed between March 21–23.
+
+| Item | Description |
+|------|-------------|
+| OOM fix | Bumped web VM to 2GB, reduced gunicorn workers from 4 to 3 |
+| Health endpoint | Added `/health/` for UptimeRobot monitoring |
+| SEO assets | Added robots.txt, sitemap.xml, Google Search Console verification, fixed web manifest |
+| Google Places parsing | Fixed address autocomplete crash when city/state/zip missing from API response |
+| Guest checkout KeyError | Fixed staff logistics tasks endpoint crashing on guest bookings |
+| N+1 query | Fixed N+1 on staff dashboard urgent bookings query |
 
 ---
 
@@ -362,7 +401,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - R10: Payment/Refund views require IsStaffMember
 - R11: Discount validation uniform error response
 
-### Bugs Fixed: 11
+### Bugs Fixed: 17
 - Double-click login (CSRF)
 - Calendar not loading
 - Logistics stats empty
@@ -374,13 +413,20 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Free order flow (startsWith fix)
 - Onfleet airport geocoding (lat/lng coords)
 - Mobile menu scroll (overflow fix)
+- Google Places address parsing (missing city/state/zip)
+- Guest checkout KeyError on staff logistics
+- N+1 query on staff dashboard urgent bookings
+- Admin M2M ValueError on booking creation
+- Misleading CRITICAL log on pricing-preview
+- Missing /booking-success route (3D Secure time bomb)
 
-### Features Built: 5
+### Features Built: 6
 - Reports & Analytics page (full implementation)
 - Discount codes (percentage + fixed, per-customer limits, service restrictions)
 - Bi-directional airport transfer (to/from airport, terminal selection)
 - Item description field for standard delivery
 - AI chat assistant (LangGraph + Claude, SSE streaming, 6 tools, booking handoff)
+- Payment recovery system (orphan alerts, frontend retry, 3D Secure handling)
 
 ### Email Features: 2
 - Calendar invite (.ics) in reminder emails
@@ -394,13 +440,16 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Persistent Book Now nav button
 - Services page cleanup
 
-### Infrastructure Fixes: 6
+### Infrastructure Fixes: 9
 - Stripe webhook retry logic
 - Onfleet webhook retry logic
 - Onfleet Trigger 7 handler
 - Celery beat memory scaling
 - Google Places API billing enabled
 - api.totetaxi.com subdomain + SSL
+- Health endpoint for uptime monitoring
+- OOM fix (2GB VM, 3 workers)
+- SEO assets (robots.txt, sitemap, Search Console)
 
 ---
 

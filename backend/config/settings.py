@@ -343,6 +343,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=6, minute=0),
         'options': {'expires': 3600}
     },
+    'alert-succeeded-orphans': {
+        'task': 'apps.payments.tasks.alert_succeeded_orphans',
+        'schedule': crontab(minute='*/15'),
+        'options': {'expires': 900}
+    },
 }# Replace your TESTING section cache configuration with this:
 # ADD THIS TO YOUR config/settings.py - COMPLETE TESTING SECTION
 
