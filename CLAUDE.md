@@ -170,3 +170,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 - `select_for_update()` cannot be combined with `select_related()` on nullable FKs in PostgreSQL — use `select_for_update().get()` then access relations separately
 - Fly.io `release_command` is disabled (OOM on 256MB machines) — run migrations manually: `fly ssh console -C "su appuser -c 'cd /app && python manage.py migrate'"`
 - Celery Beat runs `cleanup_orphaned_payments` daily at 6am — expires `Payment(booking=None, status='pending')` records older than 24 hours and cancels their Stripe PIs
+- Celery Beat runs `alert_succeeded_orphans` every 15 min — emails `BOOKING_EMAIL_BCC` when `Payment(status='succeeded', booking=None)` exists for >10 min. Uses `PaymentAudit(action='orphan_alert_sent')` to prevent re-alerting
+- `/booking-success` page handles Stripe 3D Secure redirects — reads `payment_intent` and `redirect_status` from URL params, creates booking using `bookingData` from the Zustand store (localStorage)
+- `pendingPaymentIntentId` in the booking store (localStorage) enables crash recovery — if a customer pays then refreshes/crashes, `review-payment-step.tsx` auto-retries booking creation on mount
+- Docs (CHANGELOG, INCIDENTS, SECURITY_AUDIT) live in `docs/`, not project root. README.md and CLAUDE.md stay at root
