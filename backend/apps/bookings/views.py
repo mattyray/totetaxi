@@ -685,17 +685,6 @@ class GuestBookingCreateView(generics.CreateAPIView):
 
         is_free_order = payment_intent_id.startswith('free_order_')
 
-        # ========== C2: PaymentIntent reuse prevention ==========
-        if Payment.objects.filter(
-            stripe_payment_intent_id=payment_intent_id,
-            booking__isnull=False,
-        ).exists():
-            logger.warning(f"PI reuse attempt: {payment_intent_id}")
-            return Response(
-                {'error': 'This payment has already been used for a booking'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         if not is_free_order:
 
             # Verify payment with Stripe
@@ -739,6 +728,17 @@ class GuestBookingCreateView(generics.CreateAPIView):
         # ========== END RESTRICTION CHECK ==========
 
         with transaction.atomic():
+            # ========== C2: PaymentIntent reuse prevention (inside atomic for atomicity) ==========
+            if Payment.objects.select_for_update().filter(
+                stripe_payment_intent_id=payment_intent_id,
+                booking__isnull=False,
+            ).exists():
+                logger.warning(f"PI reuse attempt: {payment_intent_id}")
+                return Response(
+                    {'error': 'This payment has already been used for a booking'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             booking = serializer.save()
 
             if is_free_order:

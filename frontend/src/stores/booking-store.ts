@@ -461,7 +461,10 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             completedBookingNumber: undefined,
             userId: 'guest',
             isGuestMode: true,
-            lastResetTimestamp: Date.now()
+            lastResetTimestamp: Date.now(),
+            // Preserve pending PI across version migrations to avoid orphaning
+            // in-flight payments during a deploy
+            pendingPaymentIntentId: persistedState?.pendingPaymentIntentId,
           };
         }
         
@@ -487,7 +490,12 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       partialize: (state) => ({
         bookingData: {
           ...state.bookingData,
-          customer_info: undefined
+          // Persist customer_info only during an active payment flow (3D Secure
+          // redirect needs it after full page reload). Cleared when the PI is
+          // cleared on booking completion or wizard reset.
+          customer_info: state.pendingPaymentIntentId
+            ? state.bookingData.customer_info
+            : undefined,
         },
         currentStep: state.currentStep,
         isBookingComplete: state.isBookingComplete,

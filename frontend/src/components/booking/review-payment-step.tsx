@@ -523,6 +523,9 @@ export function ReviewPaymentStep() {
       if ('response' in error && error.response) {
         const data = error.response.data as any;
         console.error('Error response:', data);
+        // Server rejected — clear persisted PI to prevent infinite retry loop
+        // on subsequent page visits
+        clearPendingPaymentIntentId();
         if (data?.error === 'same_day_restriction') {
           setBookingError(data.message);
           setBookingErrorPhone(data.contact_phone || '(631) 595-5100');

@@ -254,12 +254,39 @@ def cleanup_orphaned_payments():
     failed_count = 0
 
     for payment in orphans:
+        # Before expiring, verify the PI hasn't actually been captured by Stripe.
+        # If the webhook task failed to update our DB but Stripe charged the card,
+        # we must NOT mark this as failed — it needs the orphan alert path instead.
+        if payment.stripe_payment_intent_id:
+            try:
+                pi = stripe.PaymentIntent.retrieve(payment.stripe_payment_intent_id)
+                if pi.status == 'succeeded':
+                    # Stripe captured funds but our DB still says 'pending' —
+                    # fix the DB status and let alert_succeeded_orphans handle it
+                    payment.status = 'succeeded'
+                    payment.stripe_charge_id = getattr(pi, 'latest_charge', '') or ''
+                    payment.processed_at = timezone.now()
+                    payment.save(update_fields=['status', 'stripe_charge_id', 'processed_at', 'updated_at'])
+                    logger.critical(
+                        f"ORPHAN CLEANUP: PI {payment.stripe_payment_intent_id} is succeeded in "
+                        f"Stripe but was pending in DB. Updated to succeeded — "
+                        f"alert_succeeded_orphans will notify staff."
+                    )
+                    failed_count += 1
+                    continue
+            except stripe.error.StripeError as e:
+                logger.warning(
+                    f"Failed to verify orphaned PI {payment.stripe_payment_intent_id}: {e}"
+                )
+                failed_count += 1
+                continue
+
         # Try to cancel the Stripe PI so the hold is released
         if payment.stripe_payment_intent_id:
             try:
                 stripe.PaymentIntent.cancel(payment.stripe_payment_intent_id)
             except stripe.error.InvalidRequestError:
-                # PI already cancelled, succeeded, or otherwise not cancellable
+                # PI already cancelled or otherwise not cancellable
                 pass
             except stripe.error.StripeError as e:
                 logger.warning(
@@ -335,6 +362,8 @@ def alert_succeeded_orphans():
         "",
     ]
 
+    # Collect per-payment details for the email body
+    payment_details = []
     for payment in orphans_to_alert:
         # Fetch customer email from Stripe PI metadata
         customer_email = "unknown"
@@ -357,13 +386,7 @@ def alert_succeeded_orphans():
             f"Stripe Dashboard: https://dashboard.stripe.com/payments/{payment.stripe_payment_intent_id}",
             "",
         ])
-
-        PaymentAudit.log(
-            action='orphan_alert_sent',
-            description=f"Staff alerted about orphaned payment (${payment.amount_dollars:.2f}, {customer_email})",
-            payment=payment,
-            user=None,
-        )
+        payment_details.append((payment, customer_email))
 
     lines.append("Please create the booking manually or issue a refund.")
 
@@ -385,6 +408,16 @@ def alert_succeeded_orphans():
     except Exception as e:
         logger.error(f"Failed to send orphan alert email: {e}")
         return {'alerted': len(orphans_to_alert), 'email_sent': False}
+
+    # Write audit records AFTER email succeeds — if email fails, we'll
+    # retry these orphans on the next run instead of silently losing them
+    for payment, customer_email in payment_details:
+        PaymentAudit.log(
+            action='orphan_alert_sent',
+            description=f"Staff alerted about orphaned payment (${payment.amount_dollars:.2f}, {customer_email})",
+            payment=payment,
+            user=None,
+        )
 
     logger.info(f"Orphan alert: emailed staff about {len(orphans_to_alert)} succeeded orphan(s)")
     return {'alerted': len(orphans_to_alert), 'email_sent': True}

@@ -114,9 +114,12 @@ function BookingSuccessContent() {
         const data = error.response.data as any;
         // If already used, the booking was likely created by the recovery mechanism
         if (data?.error === 'This payment has already been used for a booking') {
+          clearPendingPaymentIntentId();
           setError('Your booking has already been created. Please check your email for confirmation.');
           return;
         }
+        // Server rejected — clear PI to prevent infinite retry loop
+        clearPendingPaymentIntentId();
       }
       setError(
         'Your payment was processed but we encountered an error creating your booking. ' +
