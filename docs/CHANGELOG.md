@@ -1,13 +1,44 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** March 31, 2026
+**Last Updated:** April 2, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## April 2, 2026
+
+### Payment Security Audit & Hardening
+
+Comprehensive audit of the March 31 payment recovery system found 1 critical, 3 high, and 4 medium issues. All critical and high issues fixed in two commits.
+
+**Critical fix — 3D Secure guest checkout broken:**
+- `customer_info` (name, email, phone) was deliberately stripped from localStorage by the Zustand `partialize` function (PII protection). But after a 3D Secure redirect (full page reload), the `/booking-success` page needs this data to create the guest booking. The POST sent `undefined` for all required fields → 400 → customer charged with no booking.
+- Fix: `customer_info` is now conditionally persisted to localStorage only when `pendingPaymentIntentId` is set (active payment flow). Cleared when the PI is cleared on booking completion.
+
+**Critical fix — PaymentIntent session binding (stolen-PI replay):**
+- Anyone who obtained a succeeded PI id (from Stripe dashboard, logs, URLs) could craft a request to create a booking against someone else's charge. The backend only checked `status=succeeded`, not PI ownership.
+- Fix: Backend generates a random UUID `booking_token` at PI creation time, stores it in Stripe PI metadata, and returns it to the frontend. Booking creation views now verify the submitted token matches the PI metadata. Backwards compatible — PIs created before this deploy skip verification.
+
+**High fixes:**
+
+| Issue | Description | Fix |
+|-------|-------------|-----|
+| Orphan alert audit ordering | `PaymentAudit(action='orphan_alert_sent')` was written before `send_mail()` — failed email permanently skipped orphans | Moved audit writes to after email succeeds |
+| Infinite retry loop | Server-rejected booking creation (400/422) never cleared `pendingPaymentIntentId` — recovery fired on every page visit | `clearPendingPaymentIntentId()` called on all server rejection paths |
+| C2 reuse race condition | PI reuse check ran outside `transaction.atomic()` — two concurrent requests could both pass it | Moved inside atomic block with `select_for_update()` |
+| Cleanup hiding charged payments | `cleanup_orphaned_payments` could mark a payment as `failed` even though Stripe captured funds (webhook failure left DB at `pending`) | Task now calls `stripe.PaymentIntent.retrieve()` before expiring; updates DB to `succeeded` if PI was actually captured |
+
+**Other fixes:**
+- Store version migration now preserves `pendingPaymentIntentId` and `pendingBookingToken` across version bumps to avoid orphaning in-flight payments during deploys
+
+**Files changed:** `payments/tasks.py`, `bookings/views.py`, `customers/booking_views.py`, `booking-store.ts`, `review-payment-step.tsx`, `booking-success/page.tsx`
+**Tests:** 327 passed, 0 regressions
 
 ---
 
@@ -363,7 +394,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 
 ## Running Totals
 
-### Security Fixes: 36
+### Security Fixes: 38
 - C1: Payment amount verification
 - C2: PaymentIntent reuse prevention + guest Payment record
 - C3: Onfleet webhook HMAC authentication
@@ -400,8 +431,10 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - R9: STRIPE_WEBHOOK_SECRET required in production
 - R10: Payment/Refund views require IsStaffMember
 - R11: Discount validation uniform error response
+- A1: Booking token session binding (stolen-PI replay prevention)
+- A2: C2 reuse check moved inside transaction.atomic with select_for_update
 
-### Bugs Fixed: 17
+### Bugs Fixed: 21
 - Double-click login (CSRF)
 - Calendar not loading
 - Logistics stats empty
@@ -419,6 +452,10 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Admin M2M ValueError on booking creation
 - Misleading CRITICAL log on pricing-preview
 - Missing /booking-success route (3D Secure time bomb)
+- 3D Secure guest checkout losing customer_info on redirect
+- Orphan alert audit written before email (silent loss)
+- Infinite retry loop on server-rejected booking creation
+- Cleanup task hiding Stripe-captured payments as failed
 
 ### Features Built: 6
 - Reports & Analytics page (full implementation)

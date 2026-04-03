@@ -186,6 +186,19 @@ Four fixes deployed:
 - `frontend/src/components/booking/review-payment-step.tsx` — persist PI, recovery on mount, retry config
 - `frontend/src/app/booking-success/page.tsx` — new route for 3D Secure redirects
 
+### Post-Deployment Hardening (2026-04-02)
+
+Security audit of the March 31 recovery system found 6 additional issues. All fixed:
+
+1. **3D Secure guest checkout broken** — `customer_info` stripped from localStorage by `partialize`, so guest 3DS redirects always failed with 400. Fix: conditionally persist `customer_info` when `pendingPaymentIntentId` is set.
+2. **Stolen-PI replay** — No session binding on PaymentIntents; anyone with a succeeded PI id could create a booking against it. Fix: `booking_token` (UUID) generated at PI creation, stored in Stripe metadata, verified at booking creation.
+3. **Orphan alert audit ordering** — Audit records written before `send_mail()`, so email failure permanently skipped orphans. Fix: write after email succeeds.
+4. **Infinite retry loop** — `pendingPaymentIntentId` not cleared on server rejection (400/422). Fix: `clearPendingPaymentIntentId()` on all non-retryable error paths.
+5. **C2 reuse race** — Check ran outside `transaction.atomic()`. Fix: moved inside with `select_for_update()`.
+6. **Cleanup hiding charged payments** — Task marked payments as `failed` when Stripe PI was actually `succeeded`. Fix: verify Stripe status before expiring.
+
+Commits: `bf7e7fc`, `eed53ec`
+
 ---
 
 ## Edge Cases & Anomalies Log
