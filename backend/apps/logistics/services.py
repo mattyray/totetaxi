@@ -214,6 +214,13 @@ class ToteTaxiOnfleetIntegration:
 
     def _create_pickup_task(self, booking) -> dict:
         pickup_datetime = self._get_pickup_datetime(booking)
+        now = timezone.now()
+        # If the pickup window is already in the past (e.g., same-day booking
+        # created after the scheduled time), push the window forward so
+        # Onfleet doesn't reject it with "completeBefore must not be before
+        # creation time".
+        if pickup_datetime < now:
+            pickup_datetime = now + timedelta(minutes=15)
         window_start = pickup_datetime - timedelta(minutes=30)
         window_end = pickup_datetime + timedelta(minutes=30)
 
@@ -264,6 +271,9 @@ class ToteTaxiOnfleetIntegration:
 
     def _create_dropoff_task(self, booking, depends_on: str) -> dict:
         dropoff_datetime = self._get_dropoff_datetime(booking)
+        now = timezone.now()
+        if dropoff_datetime < now:
+            dropoff_datetime = now + timedelta(minutes=30)
         window_start = dropoff_datetime - timedelta(minutes=30)
         window_end = dropoff_datetime + timedelta(hours=1)
 
@@ -523,7 +533,7 @@ class ToteTaxiOnfleetIntegration:
                 onfleet_task.status = 'completed'
                 onfleet_task.completed_at = timezone.now()
                 completion = task_obj.get('completionDetails', {})
-                onfleet_task.signature_url = completion.get('signatureUploadId', '')
+                onfleet_task.signature_url = completion.get('signatureUploadId') or ''
                 onfleet_task.photo_urls = [p.get('uploadId', '') for p in completion.get('photoUploadIds', [])]
                 onfleet_task.delivery_notes = completion.get('notes', '')
                 onfleet_task.save()
