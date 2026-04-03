@@ -603,6 +603,11 @@ class CreateGuestPaymentIntentView(APIView):
             }, status=status.HTTP_200_OK)
 
         try:
+            # Generate a booking token to bind this PI to the originating session.
+            # The frontend must return this token when creating the booking,
+            # preventing stolen-PI replay attacks.
+            booking_token = str(_uuid_mod.uuid4())
+
             # Create Stripe payment intent
             metadata = {
                 'service_type': validated_data['service_type'],
@@ -612,6 +617,7 @@ class CreateGuestPaymentIntentView(APIView):
                 'customer_phone': validated_data.get('phone', ''),
                 'pickup_date': str(validated_data.get('pickup_date', '')),
                 'pickup_time': validated_data.get('pickup_time', ''),
+                'booking_token': booking_token,
             }
             if validated_data.get('_discount_code_id'):
                 metadata['discount_code_id'] = validated_data['_discount_code_id']
@@ -653,7 +659,8 @@ class CreateGuestPaymentIntentView(APIView):
             return Response({
                 'client_secret': payment_intent.client_secret,
                 'payment_intent_id': payment_intent.id,
-                'amount_dollars': amount_cents / 100
+                'amount_dollars': amount_cents / 100,
+                'booking_token': booking_token,
             }, status=status.HTTP_200_OK)
 
         except stripe.error.StripeError as e:
@@ -697,6 +704,22 @@ class GuestBookingCreateView(generics.CreateAPIView):
                         {'error': 'Payment has not succeeded'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
+
+                # ========== Booking token verification ==========
+                # Prevents stolen-PI replay: the token was generated at PI
+                # creation time and only returned to the originating session.
+                pi_metadata = getattr(payment_intent, 'metadata', None) or {}
+                expected_token = pi_metadata.get('booking_token', '') if isinstance(pi_metadata, dict) else ''
+                if expected_token and isinstance(expected_token, str):
+                    submitted_token = request.data.get('booking_token', '')
+                    if submitted_token != expected_token:
+                        logger.warning(
+                            f"Booking token mismatch for PI {payment_intent_id}"
+                        )
+                        return Response(
+                            {'error': 'Invalid booking token'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
                 logger.info(f"Payment verified: {payment_intent_id} - ${payment_intent.amount / 100}")
 

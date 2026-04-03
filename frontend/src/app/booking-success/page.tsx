@@ -24,7 +24,7 @@ import { AxiosError } from 'axios';
 function BookingSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { bookingData, setBookingComplete, clearPendingPaymentIntentId, isGuestMode, resetWizard } = useBookingWizard();
+  const { bookingData, setBookingComplete, clearPendingPaymentIntentId, isGuestMode, pendingBookingToken, resetWizard } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
 
   const [bookingNumber, setBookingNumber] = useState('');
@@ -47,6 +47,7 @@ function BookingSuccessContent() {
 
       const bookingRequest: any = {
         payment_intent_id: piId,
+        booking_token: pendingBookingToken,
         service_type: bookingData.service_type,
         pickup_date: bookingData.service_type === 'blade_transfer'
           ? bookingData.blade_flight_date

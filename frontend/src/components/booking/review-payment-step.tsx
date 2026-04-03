@@ -19,6 +19,7 @@ interface PaymentIntentResponse {
   client_secret: string;
   payment_intent_id: string;
   amount_dollars: number;
+  booking_token?: string;
 }
 
 interface BookingResponse {
@@ -297,7 +298,7 @@ function DiscountCodeInput() {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, setPendingPaymentIntentId, clearPendingPaymentIntentId } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, pendingBookingToken, setPendingPaymentIntentId, clearPendingPaymentIntentId } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -406,7 +407,7 @@ export function ReviewPaymentStep() {
 
       setClientSecret(data.client_secret);
       setPaymentIntentId(data.payment_intent_id);
-      setPendingPaymentIntentId(data.payment_intent_id);
+      setPendingPaymentIntentId(data.payment_intent_id, data.booking_token);
       setShowPayment(true);
       setLoading(false);
     },
@@ -443,9 +444,10 @@ export function ReviewPaymentStep() {
 
       let bookingRequest: any = {
         payment_intent_id: paymentIntentId,
+        booking_token: pendingBookingToken,
         service_type: bookingData.service_type,
-        pickup_date: bookingData.service_type === 'blade_transfer' 
-          ? bookingData.blade_flight_date 
+        pickup_date: bookingData.service_type === 'blade_transfer'
+          ? bookingData.blade_flight_date
           : bookingData.pickup_date,
         pickup_time: bookingData.pickup_time,
         specific_pickup_hour: bookingData.specific_pickup_hour,

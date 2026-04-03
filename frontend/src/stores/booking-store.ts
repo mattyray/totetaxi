@@ -81,6 +81,7 @@ interface BookingWizardState {
   isGuestMode: boolean;
   lastResetTimestamp?: number;
   pendingPaymentIntentId?: string;
+  pendingBookingToken?: string;
 }
 
 interface BookingWizardActions {
@@ -101,7 +102,7 @@ interface BookingWizardActions {
   getSpecialtyItemQuantity: (itemId: string) => number;
   applyDiscountCode: (code: string, discountInfo: NonNullable<BookingData['discount_info']>) => void;
   clearDiscountCode: () => void;
-  setPendingPaymentIntentId: (id: string) => void;
+  setPendingPaymentIntentId: (id: string, bookingToken?: string) => void;
   clearPendingPaymentIntentId: () => void;
 }
 
@@ -256,8 +257,14 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         }));
       },
 
-      setPendingPaymentIntentId: (id) => set({ pendingPaymentIntentId: id }),
-      clearPendingPaymentIntentId: () => set({ pendingPaymentIntentId: undefined }),
+      setPendingPaymentIntentId: (id, bookingToken) => set({
+        pendingPaymentIntentId: id,
+        pendingBookingToken: bookingToken,
+      }),
+      clearPendingPaymentIntentId: () => set({
+        pendingPaymentIntentId: undefined,
+        pendingBookingToken: undefined,
+      }),
 
       setLoading: (loading) => set({ isLoading: !!loading }),
       
@@ -369,6 +376,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           isGuestMode: calculatedGuestMode,  // ✅ Use calculated value
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
+          pendingBookingToken: undefined,
         };
 
         set(newState);
@@ -405,6 +413,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           isGuestMode: true,
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
+          pendingBookingToken: undefined,
         });
       },
 
@@ -465,6 +474,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
             // Preserve pending PI across version migrations to avoid orphaning
             // in-flight payments during a deploy
             pendingPaymentIntentId: persistedState?.pendingPaymentIntentId,
+            pendingBookingToken: persistedState?.pendingBookingToken,
           };
         }
         
@@ -504,6 +514,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         isGuestMode: state.isGuestMode,
         lastResetTimestamp: state.lastResetTimestamp,
         pendingPaymentIntentId: state.pendingPaymentIntentId,
+        pendingBookingToken: state.pendingBookingToken,
       })
     }
   )
