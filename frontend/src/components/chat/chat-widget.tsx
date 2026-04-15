@@ -17,7 +17,8 @@ const TOOL_LABELS: Record<string, string> = {
 
 const MAX_CHARS = 500;
 
-const PROACTIVE_NUDGE_KEY = 'totetaxi-chat-nudge-shown';
+const PROACTIVE_NUDGE_KEY = 'totetaxi-chat-nudge-shown-at';
+const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export function ChatWidget() {
   const pathname = usePathname();
@@ -30,18 +31,19 @@ export function ChatWidget() {
 
   const { messages, isStreaming, sendMessage, clearMessages } = useChatStream();
 
-  // Show a proactive nudge on /book (once per session) after 2s
+  // Show a proactive nudge site-wide (once per 24h per browser) after 3s
   useEffect(() => {
-    if (!pathname?.startsWith('/book')) return;
+    if (pathname?.startsWith('/staff')) return;
     if (isOpen) return;
     try {
-      if (sessionStorage.getItem(PROACTIVE_NUDGE_KEY)) return;
+      const shownAt = localStorage.getItem(PROACTIVE_NUDGE_KEY);
+      if (shownAt && Date.now() - Number(shownAt) < NUDGE_COOLDOWN_MS) return;
     } catch {}
     const showTimer = setTimeout(() => {
       setShowNudge(true);
-      try { sessionStorage.setItem(PROACTIVE_NUDGE_KEY, '1'); } catch {}
-    }, 2000);
-    const hideTimer = setTimeout(() => setShowNudge(false), 14000);
+      try { localStorage.setItem(PROACTIVE_NUDGE_KEY, String(Date.now())); } catch {}
+    }, 3000);
+    const hideTimer = setTimeout(() => setShowNudge(false), 9000);
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
@@ -98,39 +100,37 @@ export function ChatWidget() {
         />
       )}
 
-      {/* Proactive nudge */}
+      {/* Proactive nudge (auto-fades, no close button) */}
       {showNudge && !isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-64 rounded-2xl border border-cream-200 bg-white p-3 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <button
-            onClick={() => setShowNudge(false)}
-            className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-navy-900 text-white shadow hover:bg-navy-800"
-            aria-label="Dismiss"
-          >
-            <XMarkIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => {
-              setShowNudge(false);
-              setIsOpen(true);
-            }}
-            className="text-left w-full"
-          >
-            <p className="text-sm font-medium text-navy-900 mb-1">Need help?</p>
-            <p className="text-xs text-navy-600">Ask me about pricing, service areas, or which service fits your move.</p>
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setShowNudge(false);
+            setIsOpen(true);
+          }}
+          className="fixed bottom-24 right-6 z-50 w-60 rounded-2xl border border-cream-200 bg-white p-3 shadow-xl text-left animate-in fade-in slide-in-from-bottom-2 duration-300 hover:shadow-2xl transition-shadow"
+        >
+          <p className="text-sm font-medium text-navy-900">New here? Let me guide you.</p>
+          <p className="text-xs text-navy-600 mt-0.5">Tap to ask about services, pricing, or anything else.</p>
+        </button>
       )}
 
-      {/* Floating Bubble */}
+      {/* Floating Bubble with subtle pulse when closed */}
       <button
         onClick={handleToggle}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-navy-900 text-white shadow-lg transition-all duration-200 hover:bg-navy-800 hover:scale-105 active:scale-95"
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
+        {!isOpen && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full bg-white opacity-20 animate-ping"
+            style={{ animationDuration: '3s' }}
+          />
+        )}
         {isOpen ? (
-          <XMarkIcon className="h-6 w-6" />
+          <XMarkIcon className="h-6 w-6 relative" />
         ) : (
-          <ChatBubbleLeftRightIcon className="h-6 w-6" />
+          <ChatBubbleLeftRightIcon className="h-6 w-6 relative" />
         )}
       </button>
     </>
