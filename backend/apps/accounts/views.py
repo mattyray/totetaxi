@@ -144,10 +144,10 @@ class StaffDashboardView(APIView):
         pending_payments = Payment.objects.filter(status='pending', booking__isnull=False).count()
         failed_payments = Payment.objects.filter(status='failed', booking__isnull=False).count()
 
-        # Calculate revenue (only payments linked to bookings)
+        # Calculate revenue (only payments linked to non-deleted bookings)
         from django.db.models import Sum
         total_revenue_cents = Payment.objects.filter(
-            status='succeeded', booking__isnull=False
+            status='succeeded', booking__isnull=False, booking__deleted_at__isnull=True
         ).aggregate(
             total=Sum('amount_cents')
         )['total'] or 0
@@ -801,9 +801,9 @@ class StaffReportsView(APIView):
         start_of_year = today.replace(month=1, day=1)
 
         # === REVENUE METRICS ===
-        # Total revenue all time (only payments linked to bookings)
+        # Total revenue all time (only payments linked to non-deleted bookings)
         total_revenue_cents = Payment.objects.filter(
-            status='succeeded', booking__isnull=False
+            status='succeeded', booking__isnull=False, booking__deleted_at__isnull=True
         ).aggregate(
             total=Sum('amount_cents')
         )['total'] or 0
@@ -812,6 +812,7 @@ class StaffReportsView(APIView):
         revenue_30_days = Payment.objects.filter(
             status='succeeded',
             booking__isnull=False,
+            booking__deleted_at__isnull=True,
             created_at__date__gte=thirty_days_ago
         ).aggregate(total=Sum('amount_cents'))['total'] or 0
 
@@ -819,6 +820,7 @@ class StaffReportsView(APIView):
         daily_revenue = Payment.objects.filter(
             status='succeeded',
             booking__isnull=False,
+            booking__deleted_at__isnull=True,
             created_at__date__gte=thirty_days_ago
         ).annotate(
             date=TruncDate('created_at')
@@ -830,6 +832,7 @@ class StaffReportsView(APIView):
         monthly_revenue = Payment.objects.filter(
             status='succeeded',
             booking__isnull=False,
+            booking__deleted_at__isnull=True,
             created_at__date__gte=today - timedelta(days=365)
         ).annotate(
             month=TruncMonth('created_at')
