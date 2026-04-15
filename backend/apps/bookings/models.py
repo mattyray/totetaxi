@@ -118,8 +118,8 @@ class DiscountCode(models.Model):
         help_text="Maximum total uses. Null = unlimited."
     )
     max_uses_per_customer = models.PositiveIntegerField(
-        default=1,
-        help_text="Maximum uses per customer/email address"
+        null=True, blank=True, default=1,
+        help_text="Maximum uses per customer/email address. Leave blank for unlimited."
     )
     valid_from = models.DateTimeField(default=timezone.now)
     valid_until = models.DateTimeField(
@@ -181,9 +181,10 @@ class DiscountCode(models.Model):
         if not is_valid:
             return False, error
 
-        usage_count = self.usages.filter(customer_email__iexact=email).count()
-        if usage_count >= self.max_uses_per_customer:
-            return False, "You have already used this discount code."
+        if self.max_uses_per_customer is not None:
+            usage_count = self.usages.filter(customer_email__iexact=email).count()
+            if usage_count >= self.max_uses_per_customer:
+                return False, "You have already used this discount code."
 
         return True, None
 
