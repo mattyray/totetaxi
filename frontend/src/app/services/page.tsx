@@ -89,7 +89,7 @@ export default function ServicesPage() {
                           </li>
                           <li className="flex items-start">
                             <span className="text-green-500 mr-2 flex-shrink-0">&#10003;</span>
-                            Morning, afternoon, or evening windows
+                            Morning pickup window (8 AM – 11 AM)
                           </li>
                           <li className="flex items-start">
                             <span className="text-green-500 mr-2 flex-shrink-0">&#10003;</span>
@@ -108,17 +108,15 @@ export default function ServicesPage() {
                     <div>
                       <div className="bg-gold-50 border border-gold-200 rounded-lg p-6">
                         <h4 className="font-medium text-navy-900 mb-3">Need it today?</h4>
-                        <div className="text-2xl font-bold text-navy-900 mb-2">
-                          ${services.standard_delivery.same_day_flat_rate_dollars} flat
-                        </div>
                         <p className="text-sm text-navy-700 mb-4">
-                          Same-day delivery available for urgent items.
+                          Rush deliveries are arranged by phone — call us and we&apos;ll see what we can do.
                         </p>
-                        <ul className="space-y-1 text-xs text-navy-600">
-                          <li>Order by 10 AM</li>
-                          <li>Available Thursday through Monday</li>
-                          <li>Subject to availability</li>
-                        </ul>
+                        <a
+                          href="tel:+16315955100"
+                          className="inline-block text-navy-900 font-semibold hover:underline"
+                        >
+                          (631) 595-5100
+                        </a>
                       </div>
                     </div>
                   </div>
