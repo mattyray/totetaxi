@@ -153,8 +153,14 @@ The backend API is split by audience (defined in `config/urls.py`):
 | Redis      | 6382      | 6379     |
 
 ## MCP Servers (Claude Code)
-- **LangSmith:** `langsmith-mcp-server` is configured in `~/.claude.json`. Provides inline access to LangSmith traces, runs, and projects for the `totetaxi-assistant` project. Use `mcp__langsmith__fetch_runs`, `mcp__langsmith__list_projects`, etc. to inspect chat agent behavior, tool calls, token usage, and latency without leaving the terminal.
-- **Google Analytics:** `google-analytics` MCP is configured in `~/.claude.json` under the totetaxi project's `mcpServers`. Uses the official `analytics-mcp` pipx package with service account auth. Service account key at `~/.claude/ga4-service-account.json` (gitignored, 600 perms). GA4 Property ID: `533140405`. Google Cloud project: `tote-taxi-474517`. Service account email: `totetaxi-analytics-mcp@tote-taxi-474517.iam.gserviceaccount.com` has Viewer access on the property. Use `mcp__google-analytics__run_report` / `run_realtime_report` / `get_account_summaries` to query traffic, events, and funnels directly.
+
+Available MCP integrations for this project. At the start of every session, these should be recognized and usable.
+
+- **Google Analytics 4** — `mcp__google-analytics__*` tools (configured in `~/.claude.json` project-scoped). Uses the official `analytics-mcp` pipx package with service account auth. Service account key at `~/.claude/ga4-service-account.json` (gitignored, 600 perms). GA4 Property ID: `533140405`. Google Cloud project: `tote-taxi-474517`. Service account email: `totetaxi-analytics-mcp@tote-taxi-474517.iam.gserviceaccount.com` has Viewer role on the property. Use `run_report`, `run_realtime_report`, `get_account_summaries`, `get_property_details` to pull traffic, events, funnels, and realtime data directly.
+- **LangSmith** — `mcp__langsmith__*` tools. Provides access to traces, runs, and projects for the `totetaxi-assistant` LangGraph project. Use `fetch_runs`, `list_projects`, `get_thread_history` to inspect chat agent behavior, tool calls, token usage, and latency.
+- **Netlify** — `mcp__netlify__*` tools. Access to the Tote Taxi Netlify site (deploys, env vars, project settings). Use `netlify-project-services-reader` for config, `netlify-deploy-services-reader` for deploy history.
+- **Sentry** — `mcp__sentry__*` tools. Access to both Sentry projects (`matthew-raynor/totetaxi-django`, `matthew-raynor/totetaxi-next`, `danielle-candela/totetaxi-backend`). Use `list_issues`, `list_events`, `find_projects`, `get_sentry_resource` to investigate errors.
+- **Claude.ai hosted (OAuth required)** — Gmail (`mcp__claude_ai_Gmail__*`), Google Calendar (`mcp__claude_ai_Google_Calendar__*`), Stripe (`mcp__claude_ai_Stripe__*`). Require OAuth authentication on first use via the `__authenticate` tool.
 
 ## Important Gotchas
 - Backend `.env` is required locally — Docker won't start without it (see `.env.example`)
