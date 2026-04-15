@@ -107,7 +107,6 @@ interface BookingWizardActions {
 }
 
 const initialBookingData: BookingData = {
-  service_type: 'mini_move',
   pickup_time: 'morning',
   coi_required: false,
   include_packing: false,

@@ -17,15 +17,36 @@ const TOOL_LABELS: Record<string, string> = {
 
 const MAX_CHARS = 500;
 
+const PROACTIVE_NUDGE_KEY = 'totetaxi-chat-nudge-shown';
+
 export function ChatWidget() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [showNudge, setShowNudge] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const { messages, isStreaming, sendMessage, clearMessages } = useChatStream();
+
+  // Show a proactive nudge on /book (once per session) after 2s
+  useEffect(() => {
+    if (!pathname?.startsWith('/book')) return;
+    if (isOpen) return;
+    try {
+      if (sessionStorage.getItem(PROACTIVE_NUDGE_KEY)) return;
+    } catch {}
+    const showTimer = setTimeout(() => {
+      setShowNudge(true);
+      try { sessionStorage.setItem(PROACTIVE_NUDGE_KEY, '1'); } catch {}
+    }, 2000);
+    const hideTimer = setTimeout(() => setShowNudge(false), 14000);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [pathname, isOpen]);
 
   // Hide on staff pages
   if (pathname?.startsWith('/staff')) {
@@ -75,6 +96,29 @@ export function ChatWidget() {
           inputRef={inputRef}
           messagesEndRef={messagesEndRef}
         />
+      )}
+
+      {/* Proactive nudge */}
+      {showNudge && !isOpen && (
+        <div className="fixed bottom-24 right-6 z-50 w-64 rounded-2xl border border-cream-200 bg-white p-3 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <button
+            onClick={() => setShowNudge(false)}
+            className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-navy-900 text-white shadow hover:bg-navy-800"
+            aria-label="Dismiss"
+          >
+            <XMarkIcon className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => {
+              setShowNudge(false);
+              setIsOpen(true);
+            }}
+            className="text-left w-full"
+          >
+            <p className="text-sm font-medium text-navy-900 mb-1">Need help?</p>
+            <p className="text-xs text-navy-600">Ask me about pricing, service areas, or which service fits your move.</p>
+          </button>
+        </div>
       )}
 
       {/* Floating Bubble */}

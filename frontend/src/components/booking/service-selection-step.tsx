@@ -262,30 +262,11 @@ export function ServiceSelectionStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-navy-900 mb-4">Choose Your Service</h3>
+        <h3 className="text-lg font-medium text-navy-900 mb-2">Choose Your Service</h3>
+        <p className="text-sm text-navy-600 mb-4">Not sure which one fits? Chat with our assistant — the button is in the bottom-right.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => updateBookingData({ 
-              service_type: 'mini_move',
-              standard_delivery_item_count: undefined,
-              specialty_items: [],
-              blade_airport: undefined,
-              blade_flight_date: undefined,
-              blade_flight_time: undefined,
-              blade_bag_count: undefined,
-            })}
-            className={`p-4 rounded-lg border-2 text-left transition-all ${
-              bookingData.service_type === 'mini_move'
-                ? 'border-navy-500 bg-navy-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <h4 className="font-medium text-navy-900 mb-2">Mini Moves</h4>
-            <p className="text-sm text-navy-600">Complete packages for seasonal relocation</p>
-          </button>
-
-          <button
-            onClick={() => updateBookingData({ 
+            onClick={() => updateBookingData({
               service_type: 'standard_delivery',
               mini_move_package_id: undefined,
               package_type: undefined,
@@ -302,12 +283,34 @@ export function ServiceSelectionStep() {
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-2">Standard Delivery</h4>
-            <p className="text-sm text-navy-600">Regular items + specialty items</p>
+            <h4 className="font-medium text-navy-900 mb-1">Standard Delivery</h4>
+            <p className="text-xs font-semibold text-gold-700 mb-2">From $285</p>
+            <p className="text-sm text-navy-600">A few items, bags, or specialty pieces (Peloton, skis, surfboards, etc.)</p>
           </button>
 
           <button
-            onClick={() => updateBookingData({ 
+            onClick={() => updateBookingData({
+              service_type: 'mini_move',
+              standard_delivery_item_count: undefined,
+              specialty_items: [],
+              blade_airport: undefined,
+              blade_flight_date: undefined,
+              blade_flight_time: undefined,
+              blade_bag_count: undefined,
+            })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              bookingData.service_type === 'mini_move'
+                ? 'border-navy-500 bg-navy-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <h4 className="font-medium text-navy-900 mb-1">Mini Moves</h4>
+            <p className="text-xs font-semibold text-gold-700 mb-2">From $995</p>
+            <p className="text-sm text-navy-600">Full-package seasonal relocation — 8+ pieces, one flat rate</p>
+          </button>
+
+          <button
+            onClick={() => updateBookingData({
               service_type: 'blade_transfer',
               mini_move_package_id: undefined,
               package_type: undefined,
@@ -322,9 +325,9 @@ export function ServiceSelectionStep() {
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <h4 className="font-medium text-navy-900 mb-2">Airport Transfer</h4>
-            <p className="text-sm text-navy-600">Airport luggage transfer</p>
-            <p className="text-xs text-navy-500 mt-2">JFK/EWR &bull; To or From</p>
+            <h4 className="font-medium text-navy-900 mb-1">Airport Transfer</h4>
+            <p className="text-xs font-semibold text-gold-700 mb-2">From $150</p>
+            <p className="text-sm text-navy-600">Luggage to/from JFK or EWR — we meet you at the terminal</p>
           </button>
         </div>
       </div>
