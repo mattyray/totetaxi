@@ -121,11 +121,18 @@ export function ChatWidget() {
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
         {!isOpen && (
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 rounded-full bg-white opacity-20 animate-ping"
-            style={{ animationDuration: '3s' }}
-          />
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-gold-500 opacity-75 animate-ping"
+              style={{ animationDuration: '2s' }}
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-gold-400 opacity-50 animate-ping"
+              style={{ animationDuration: '2s', animationDelay: '1s' }}
+            />
+          </>
         )}
         {isOpen ? (
           <XMarkIcon className="h-6 w-6 relative" />
