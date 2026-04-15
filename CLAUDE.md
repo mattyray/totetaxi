@@ -154,6 +154,7 @@ The backend API is split by audience (defined in `config/urls.py`):
 
 ## MCP Servers (Claude Code)
 - **LangSmith:** `langsmith-mcp-server` is configured in `~/.claude.json`. Provides inline access to LangSmith traces, runs, and projects for the `totetaxi-assistant` project. Use `mcp__langsmith__fetch_runs`, `mcp__langsmith__list_projects`, etc. to inspect chat agent behavior, tool calls, token usage, and latency without leaving the terminal.
+- **Google Analytics:** `google-analytics` MCP is configured in `~/.claude.json` under the totetaxi project's `mcpServers`. Uses the official `analytics-mcp` pipx package with service account auth. Service account key at `~/.claude/ga4-service-account.json` (gitignored, 600 perms). GA4 Property ID: `533140405`. Google Cloud project: `tote-taxi-474517`. Service account email: `totetaxi-analytics-mcp@tote-taxi-474517.iam.gserviceaccount.com` has Viewer access on the property. Use `mcp__google-analytics__run_report` / `run_realtime_report` / `get_account_summaries` to query traffic, events, and funnels directly.
 
 ## Important Gotchas
 - Backend `.env` is required locally — Docker won't start without it (see `.env.example`)

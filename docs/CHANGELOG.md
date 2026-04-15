@@ -13,6 +13,60 @@ This document tracks all completed development work for client presentation and 
 
 ## April 15, 2026
 
+### Google Analytics 4 Integration
+
+Added GA4 tracking via `@next/third-parties/google`. GA only loads when `NEXT_PUBLIC_GA_ID` is set in Netlify env vars, so dev environments stay quiet.
+
+**Events tracked** (via `frontend/src/lib/analytics.ts`):
+- `start_booking` — every Book Now button on the services page (source param identifies which button: hero, standard-delivery, airport-transfer, mini-move tier, bottom CTA)
+- `booking_completed` — on successful booking creation (both normal flow and 3D Secure redirect path), includes value (USD), booking_number, and service_type
+- `chat_opened` — chat widget opened
+- `chat_message_sent` — user submitted a message in chat
+
+Page views are handled automatically by the `<GoogleAnalytics>` component in `layout.tsx`.
+
+**GA4 MCP server** also configured in `~/.claude.json` for the project — enables direct GA4 queries from Claude Code (traffic, events, funnels) via a Google Cloud service account with Viewer access on the property.
+
+---
+
+### Services Page Rewrite — Clarity & Conversion
+
+The services page led with Mini Move pricing ($995–$2,490), which was sticker shock for visitors who just wanted to ship a suitcase. Also had inherited jargon ("+50 lbs", undefined windows, fabricated same-day rules).
+
+**What changed:**
+- **Reordered sections:** Standard Delivery first (entry-level), Airport Transfer second, Mini Moves third (softened with "Starting at $995")
+- **Merged Specialty Items** into Standard Delivery as a "Have oversized items?" sub-section — removes the confusing separate section
+- **Rewrote tier copy** with plain-English "Best for…" taglines ("Best for a light seasonal move", "Best for couples or a small family move", "Best for a full household move")
+- **Translated jargon:** "+50 lbs" → "each under 50 lbs"; COI handling made explicit (+$50 on Petite, included on Standard/Full)
+- **Added per-tier CTAs:** each Mini Move card has a Select Petite/Standard/Full button
+- **Mention the AI assistant** for visitors who aren't sure which service fits
+
+**Copy accuracy fixes:**
+- Removed fabricated "Morning, afternoon, or evening windows" — the system only supports morning (8–11 AM) with optional 1-hour narrower window for a surcharge
+- Removed fabricated "$360 flat, order by 10 AM, Thursday through Monday" same-day delivery panel — same-day bookings are actually blocked by `check_same_day_restriction()` and must be arranged by phone. Replaced with "Rush deliveries arranged by phone" + (631) 595-5100
+- Added 2-bag minimum to Airport Transfer pricing display ("$75 per bag • $150 minimum (covers up to 2 bags)") — backend enforces this at `bookings/views.py:143` but it wasn't visible on the marketing page
+
+---
+
+### Chat Widget — Visibility Improvements
+
+The chat bubble was too easy to miss for new visitors. Added a subtle animated pulse and a site-wide one-time tooltip greeting.
+
+**Pulse:**
+- Gold ring at 75% opacity, 2s cycle (primary layer)
+- Second gold ring at 50% opacity, 2s cycle with 1s delay (offset layer for continuous motion)
+- Only visible when the chat is closed
+- Initial version used white at 20% opacity — too subtle against the navy button. Swapped to brand gold for contrast.
+
+**Tooltip:**
+- Appears 3s after page load, site-wide (was previously only on `/book`)
+- Text: "New here? Let me guide you." / "Tap to ask about services, pricing, or anything else."
+- 24-hour cooldown via localStorage (was once-per-session)
+- Auto-fades after 6s, no close button — clicking opens the chat
+- Hidden on `/staff/*` routes
+
+---
+
 ### Discount Code — Unlimited Per-Customer Usage
 
 Customers were complaining they couldn't reuse valid discount codes. The `max_uses_per_customer` field defaulted to 1 with no way to disable the limit.
@@ -495,13 +549,14 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Onfleet `completeBefore` rejected for past pickup times
 - Onfleet `signature_url` NOT NULL violation on contactless deliveries
 
-### Features Built: 6
+### Features Built: 7
 - Reports & Analytics page (full implementation)
 - Discount codes (percentage + fixed, per-customer limits, service restrictions)
 - Bi-directional airport transfer (to/from airport, terminal selection)
 - Item description field for standard delivery
 - AI chat assistant (LangGraph + Claude, SSE streaming, 6 tools, booking handoff)
 - Payment recovery system (orphan alerts, frontend retry, 3D Secure handling)
+- Google Analytics 4 integration (page views + 4 conversion events, MCP server for in-editor queries)
 
 ### Email Features: 2
 - Calendar invite (.ics) in reminder emails
