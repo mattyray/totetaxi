@@ -1,13 +1,49 @@
 # ToteTaxi Development Changelog
 
 **Project:** ToteTaxi Platform
-**Last Updated:** April 2, 2026
+**Last Updated:** April 15, 2026
 
 ---
 
 ## Summary
 
 This document tracks all completed development work for client presentation and internal reference.
+
+---
+
+## April 15, 2026
+
+### Discount Code — Unlimited Per-Customer Usage
+
+Customers were complaining they couldn't reuse valid discount codes. The `max_uses_per_customer` field defaulted to 1 with no way to disable the limit.
+
+**What changed:**
+- Made `max_uses_per_customer` nullable — admins can now clear the field on a specific code to allow unlimited reuse by the same email
+- Default remains 1 for new codes (existing behavior preserved)
+- Existing codes in production keep their current value (migration only alters column, doesn't touch data)
+- Django admin help text updated: "Leave blank for unlimited"
+
+**Files changed:** `bookings/models.py`, migration `0013_alter_discountcode_max_uses_per_customer`
+**Tests:** 326 passed, 0 regressions (1 pre-existing unrelated flaky test)
+
+---
+
+## April 3, 2026
+
+### Onfleet Task Creation Fixes
+
+Two bugs in the Onfleet integration were causing silent failures on bookings where the pickup time had passed or the driver completed delivery without a signature.
+
+**`completeBefore` rejected for past pickup times:**
+- When a booking was created with a pickup time already in the past (e.g., same-day morning pickup booked in the afternoon), the Onfleet task creation would fail with `"completeBefore must not be before creation time"`. The booking existed and was paid, but no driver was dispatched.
+- Fix: If the scheduled pickup window has already passed, push the window forward (pickup: +15 min, dropoff: +30 min from now) so Onfleet accepts the task.
+
+**`signature_url` NOT NULL violation on task completion:**
+- When a driver completed delivery without collecting a signature (contactless drop-off), Onfleet sent `"signatureUploadId": null` in the webhook payload. The code used `dict.get('signatureUploadId', '')` which returns `None` when the key exists with null value (default only applies when key is missing). The `URLField` then rejected the null on save → `IntegrityError` → delivery status never updated in the system.
+- Fix: Changed to `dict.get('signatureUploadId') or ''` to coerce None to empty string.
+
+**Files changed:** `logistics/services.py`
+**Tests:** 76 logistics tests passed
 
 ---
 
@@ -434,7 +470,7 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - A1: Booking token session binding (stolen-PI replay prevention)
 - A2: C2 reuse check moved inside transaction.atomic with select_for_update
 
-### Bugs Fixed: 21
+### Bugs Fixed: 23
 - Double-click login (CSRF)
 - Calendar not loading
 - Logistics stats empty
@@ -456,6 +492,8 @@ pi/public/availability/`) | `frontend/src/components/staff/booking-calendar.tsx`
 - Orphan alert audit written before email (silent loss)
 - Infinite retry loop on server-rejected booking creation
 - Cleanup task hiding Stripe-captured payments as failed
+- Onfleet `completeBefore` rejected for past pickup times
+- Onfleet `signature_url` NOT NULL violation on contactless deliveries
 
 ### Features Built: 6
 - Reports & Analytics page (full implementation)
