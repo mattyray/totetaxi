@@ -167,7 +167,7 @@ export default function ServicesPage() {
                       $75 per bag
                     </div>
                     <p className="text-navy-600 mb-6">
-                      JFK &amp; Newark (EWR) &bull; Terminal-specific pickup &amp; dropoff
+                      $150 minimum (covers up to 2 bags) &bull; JFK &amp; Newark (EWR) &bull; Terminal-specific pickup &amp; dropoff
                     </p>
 
                     <div className="space-y-3">
