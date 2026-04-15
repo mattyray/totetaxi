@@ -10,6 +10,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
+import { analytics } from '@/lib/analytics';
 
 /**
  * Handles Stripe 3D Secure redirects.
@@ -106,6 +107,11 @@ function BookingSuccessContent() {
     },
     onSuccess: (data) => {
       clearPendingPaymentIntentId();
+      analytics.bookingCompleted({
+        value: data.booking.total_price_dollars,
+        booking_number: data.booking.booking_number,
+        service_type: bookingData.service_type || 'unknown',
+      });
       setBookingNumber(data.booking.booking_number);
       setBookingComplete(data.booking.booking_number);
     },

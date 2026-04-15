@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { AxiosError } from 'axios';
 import type { ServiceCatalog } from '@/types';
 import { useDiscountCode } from '@/hooks/use-discount-code';
+import { analytics } from '@/lib/analytics';
 
 interface PaymentIntentResponse {
   client_secret: string;
@@ -509,6 +510,11 @@ export function ReviewPaymentStep() {
     onSuccess: (data) => {
       console.log('✅ Booking creation successful:', data);
       clearPendingPaymentIntentId();
+      analytics.bookingCompleted({
+        value: data.booking.total_price_dollars,
+        booking_number: data.booking.booking_number,
+        service_type: bookingData.service_type || 'unknown',
+      });
       setBookingNumber(data.booking.booking_number);
       setBookingCompleteLocal(true);
       setBookingComplete(data.booking.booking_number);

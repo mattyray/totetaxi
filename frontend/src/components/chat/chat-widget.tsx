@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ChatBubbleLeftRightIcon, XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { useChatStream, type ChatMessage } from '@/hooks/use-chat-stream';
 import { useClickAway } from '@/hooks/use-click-away';
+import { analytics } from '@/lib/analytics';
 
 const TOOL_LABELS: Record<string, string> = {
   check_zip_coverage: 'Checking service area...',
@@ -59,6 +60,7 @@ export function ChatWidget() {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
     setInput('');
+    analytics.chatMessageSent();
     await sendMessage(trimmed);
   };
 
@@ -78,7 +80,10 @@ export function ChatWidget() {
   };
 
   const handleToggle = () => {
-    setIsOpen(prev => !prev);
+    setIsOpen(prev => {
+      if (!prev) analytics.chatOpened();
+      return !prev;
+    });
   };
 
   return (

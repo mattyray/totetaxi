@@ -1,8 +1,11 @@
 // frontend/src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { ClientProviders } from "@/components/providers/client-providers";
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-playfair' });
@@ -75,6 +78,7 @@ export default function RootLayout({
         <ClientProviders>
           {children}
         </ClientProviders>
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   );

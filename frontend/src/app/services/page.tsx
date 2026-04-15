@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import type { ServiceCatalog } from '@/types';
+import { analytics } from '@/lib/analytics';
 
 export default function ServicesPage() {
   const { data: services, isLoading } = useQuery({
@@ -51,7 +52,7 @@ export default function ServicesPage() {
           <p className="text-sm text-navy-600 max-w-2xl mx-auto mb-8">
             Not sure which service fits? Tap the chat bubble in the bottom-right — our AI assistant can help you pick.
           </p>
-          <Link href="/book">
+          <Link href="/book" onClick={() => analytics.startBooking('services_hero')}>
             <Button variant="primary" size="lg">
               Book Now
             </Button>
@@ -99,7 +100,7 @@ export default function ServicesPage() {
                       </div>
 
                       <div className="mt-6">
-                        <Link href="/book">
+                        <Link href="/book" onClick={() => analytics.startBooking('services_standard_delivery')}>
                           <Button variant="primary" size="md">Book Standard Delivery</Button>
                         </Link>
                       </div>
@@ -193,7 +194,7 @@ export default function ServicesPage() {
                     </div>
 
                     <div className="mt-6">
-                      <Link href="/book">
+                      <Link href="/book" onClick={() => analytics.startBooking('services_airport_transfer')}>
                         <Button variant="primary" size="md">Book Airport Transfer</Button>
                       </Link>
                     </div>
@@ -319,7 +320,11 @@ export default function ServicesPage() {
                     </div>
 
                     <div className="mt-6">
-                      <Link href="/book" className="block">
+                      <Link
+                        href="/book"
+                        className="block"
+                        onClick={() => analytics.startBooking(`services_mini_move_${pkg.package_type}`)}
+                      >
                         <Button
                           variant={pkg.is_most_popular ? 'primary' : 'outline'}
                           size="md"
@@ -422,7 +427,7 @@ export default function ServicesPage() {
           <p className="text-navy-700 mb-8 max-w-2xl mx-auto">
             Or if you have questions first, tap the chat bubble in the bottom-right — our AI assistant can help you decide.
           </p>
-          <Link href="/book">
+          <Link href="/book" onClick={() => analytics.startBooking('services_bottom_cta')}>
             <Button variant="primary" size="lg">
               Start Your Booking
             </Button>
