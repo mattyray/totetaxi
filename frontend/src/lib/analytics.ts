@@ -23,7 +23,10 @@ export function trackEvent(eventName: string, params?: Record<string, unknown>) 
 
 // Named helpers for the events we actually fire — keeps call sites consistent
 export const analytics = {
-  startBooking: (source: string) => trackEvent('start_booking', { source }),
+  // `click_source` (not `source`) intentionally — GA4 has a built-in `source`
+  // dimension for traffic attribution, and passing our own `source` param
+  // collides with it in the Acquisition reports.
+  startBooking: (clickSource: string) => trackEvent('start_booking', { click_source: clickSource }),
   bookingStepCompleted: (step: number, stepName: string) =>
     trackEvent('booking_step_completed', { step, step_name: stepName }),
   bookingCompleted: (params: { value: number; booking_number: string; service_type: string }) =>
