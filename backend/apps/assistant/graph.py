@@ -24,6 +24,7 @@ from .tools import (
 
 logger = logging.getLogger(__name__)
 
+
 # All available tools
 ALL_TOOLS = [
     check_zip_coverage,
