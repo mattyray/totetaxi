@@ -201,6 +201,84 @@ Commits: `bf7e7fc`, `eed53ec`
 
 ---
 
+## INC-003: Triple Charge via Customer Wizard + Silent Recovery System
+
+**Date:** 2026-06-07
+**Severity:** High (small customer-money exposure, but the entire recovery/alert net was found offline)
+**Customer:** saraelsawy@gmail.com (registered customer, user id 210)
+**Amount charged:** 3 × $335.00 = $1,005.00 — **$670.00 is duplicate** (2 extra charges)
+**Booking:** TT-000148 (`788633e5-1dd0-4090-b133-9c1dfcaa3b56`), Standard Delivery, pickup 2026-06-13, status `paid`
+**Status:** UNDER INVESTIGATION — no refunds issued, no code changed. Charges NOT yet refunded.
+
+### What Happened
+
+Customer reported a Stripe payment notification with no booking, and suspected duplicate receipts. Investigation found she was **charged three times** for one Standard Delivery. She created a registered account at 08:29 ET and ran the **booking wizard three times** while logged in. The first two charges succeeded but the booking-creation step never completed; she retried each time, and the third attempt finally created **TT-000148**. Net result: one booking, two orphaned duplicate charges.
+
+Initial report suspected the booking was "pushed through the staff backend." **It was not.** All three PaymentIntents carry customer-wizard metadata (`booking_token`, `customer_name`, `pickup_date`, `service_type`); none have the staff signature (`booking_id`-only metadata + `stripe_checkout_url`). `created_by_staff` is null, there are zero `StaffAction` records for this customer/booking, and zero Django-admin entries. The backend cannot distinguish "customer clicked" from "staff clicked while logged in as her," but the **staff create-booking tool was definitively not used** — this was the customer wizard, three times.
+
+### Timeline (ET)
+
+| Time (ET) | PI | Result |
+|-----------|----|--------|
+| 08:34 | `pi_3Tffu3IOokQBXWLK0PW2wzlE` | succeeded $335 — Payment stuck `pending`, no booking → **orphan** |
+| 08:49 | `pi_3Tfg8tIOokQBXWLK1urMG57k` | succeeded $335 — Payment stuck `pending`, no booking → **orphan** (the customer's screenshot) |
+| 13:16 | `pi_3TfkIyIOokQBXWLK0bm2PTNx` | succeeded $335 — linked → **TT-000148**, status `paid` |
+| ~13:55 | — | `worker` machine OOM-killed (`exit 137`), restarted; backlog of retry tasks drained |
+| ~14:08 | — | ~39 "ORPHANED PAYMENT" Sentry alerts fired in a burst (mostly invoice false-positives, see below) |
+
+### Root Cause (three layers)
+
+1. **Customer-facing (the duplicate charges):** The wizard charges the card in a step *before* the booking is created, and there is **no duplicate-payment guard**. When the booking step fails, the customer retries; each retry mints a fresh PaymentIntent and charges again. Same two-step gap as INC-001/INC-002, now manifesting as repeat charges rather than a single orphan.
+
+2. **Why the booking step failed twice (inferred, not proven):** Card charged, booking POST didn't complete — the same frontend gap as the prior incidents. Not a server crash (backend Sentry clean of 5xx for this flow) and not deterministic (attempt 3 succeeded identically). The exact client-side failure is **unrecoverable from telemetry**: the frontend project (`totetaxi-next`) has **no error events and no session replay** for the session. Confirming it requires asking the customer.
+
+3. **Why the recovery system stayed silent (the real systemic finding):**
+   - **`beat` machine STOPPED since 2026-04-15 (~7 weeks).** Every scheduled safety-net task was offline: `alert_succeeded_orphans` (15-min orphan email), `cleanup_orphaned_payments` (daily Stripe reconciliation), `send_booking_reminders`.
+   - **`worker` dropped the webhook tasks.** Stripe delivered all three `payment_intent.succeeded` events (`pending_webhooks: 0`) and the web process set the idempotency cache flag and dispatched the Celery tasks — but the worker never executed the two orphan tasks (Celery default early-ack + worker instability = tasks lost, not redelivered). That's why those two Payments are stuck `pending` with empty `charge_id`. The third payment was marked `paid` by the synchronous booking-create view, which never depends on the worker.
+   - Combined effect: the orphans never reached `status=succeeded`, so even a *running* `alert_succeeded_orphans` wouldn't have caught them yet; and `cleanup_orphaned_payments` (which reconciles `pending`→`succeeded` against Stripe and would have surfaced them) was dead.
+
+### Broader Finding: Orphan Alert Is Noisy (False Positives)
+
+While investigating, a reconciliation of all succeeded Stripe charges (last ~120 days) initially looked like ~$34k of orphaned payments. **This was a false alarm.** ~47 of those (~$34.6k) are **Stripe Invoices** (description `Invoice XXXX-NNNN`) — staff billing customers directly outside the wizard, including recurring clients (`croider@aol.com`, `Caroline.Leventhal@gmail.com`). They are legitimate paid revenue, tracked in Stripe, and by design never create a DB booking. The `process_payment_succeeded` task flags **every** account payment without a booking as "ORPHANED PAYMENT — MANUAL REFUND REQUIRED," so all invoice traffic trips the alarm. This noise would bury the few real cases even when alerting is running.
+
+**Actual app-booking exposure (charges with wizard metadata, no paid booking, not refunded) is small (~$1,800):**
+
+| Customer | Amount | Date | Note |
+|----------|--------|------|------|
+| saraelsawy@gmail.com | 2 × $335 | 2026-06-07 | got TT-000148; two duplicate over-charges |
+| fryer.v@icloud.com | 2 × $150 | 2026-03-08 | two charges, no paid booking found — likely double-charge |
+| mayaseidler@edgelinefilms.com | $285 | 2026-03-31 | INC-002 (known/handled) |
+| michael.haas@lw.com | $285 | 2026-05-28 | got TT-000139 — duplicate over-charge |
+| walter2002@aol.com (staff PI) | $285 | 2026-04-20 | staff checkout, unlinked — needs verification |
+
+### Investigation Note
+
+One investigation `manage.py shell` session ran on the 512 MB `worker` machine; the worker OOM-restarted (`exit 137`) minutes later at ~13:55 ET. This likely triggered the restart that drained the backlog and surfaced the burst of alerts. **The charges pre-date the investigation by weeks/months** — investigation surfaced them, it did not create them.
+
+### Current State
+
+- **No money moved, no application code changed.** Investigation only.
+- **`beat` machine restarted** (manual `fly machine start`). Scheduled tasks run again. Expect orphan-alert emails to `BOOKING_EMAIL_BCC` once they fire — most will be the invoice false-positives until the alert is scoped to app PIs.
+
+### Action Items
+
+- [ ] Decide on Sara refund: `pi_3Tffu3...` and `pi_3Tfg8t...` ($670 total) — keep `pi_3TfkIy...` (TT-000148)
+- [ ] Reconcile the two stuck `pending` Payment records for Sara's orphan PIs after refund decision
+- [ ] Verify the small real list (fryer.v, walter2002) — served vs. owed
+- [ ] **Scope orphan detection to app PIs** (require `booking_token`/`service_type`) so Stripe Invoices stop tripping the alarm
+- [ ] **Add uptime monitoring for `beat` and `worker`** — a dead scheduler silently disabled the entire recovery net for 7 weeks
+- [ ] Harden worker task durability (`acks_late` + `task_reject_on_worker_lost`) so worker death doesn't drop webhook tasks
+- [ ] Set idempotency cache flag only after successful processing (currently set before dispatch, blocks reprocessing of dropped tasks)
+- [ ] (Customer-facing) Duplicate-payment guard in the wizard; add frontend Sentry + session replay to see the booking-step failure
+- [ ] Investigate why `beat` stopped on 2026-04-15 and was never restarted
+
+### Related
+
+- Builds on INC-001 (Amanda) and INC-002 (Maya) — same two-step frontend gap; this is the first manifestation as repeat charges and the first time the recovery net was found fully offline.
+- Stripe webhook endpoint: `we_1SKkzeIOokQBXWLKhGa7YBwE` → `https://totetaxi-backend.fly.dev/api/payments/webhook/` (enabled, delivering).
+
+---
+
 ## Edge Cases & Anomalies Log
 
 ### Multiple PaymentIntents Per Session

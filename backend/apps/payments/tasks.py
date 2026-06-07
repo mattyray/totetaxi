@@ -54,8 +54,22 @@ def process_payment_succeeded(self, event_data):
                 pass
 
     if payment is None:
+        metadata = payment_intent.get('metadata', {})
+        # Only payments originating from the booking wizard create a Payment
+        # record. PIs without app metadata (Stripe Invoices, manual dashboard
+        # charges, other products on the account) never will — don't retry or
+        # raise the "ORPHANED PAYMENT" alert for them, or every invoice payment
+        # floods Sentry with false MANUAL REFUND REQUIRED alerts (INC-003).
+        is_app_payment = bool(metadata.get('booking_token') or metadata.get('service_type'))
+        if not is_app_payment:
+            logger.info(
+                f"Webhook task: PI {payment_intent_id} has no booking-app metadata "
+                f"(likely a Stripe Invoice or manual charge) and no Payment record. "
+                f"Not an orphan — ignoring."
+            )
+            return {'status': 'ignored_non_app', 'payment_intent_id': payment_intent_id}
+
         if self.request.retries >= self.max_retries:
-            metadata = payment_intent.get('metadata', {})
             amount_dollars = payment_intent.get('amount', 0) / 100
             logger.critical(
                 f"ORPHANED PAYMENT: Stripe PI {payment_intent_id} succeeded "
@@ -390,8 +404,14 @@ def alert_succeeded_orphans():
 
     lines.append("Please create the booking manually or issue a refund.")
 
-    bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', '')
-    recipients = [addr.strip() for addr in bcc_list.split(',') if addr.strip()] if bcc_list else []
+    # BOOKING_EMAIL_BCC is configured as a list (env.list), but tolerate a
+    # comma-separated string too. Treating the list as a string here previously
+    # crashed the task with AttributeError the moment a real orphan appeared,
+    # silently defeating the alert (INC-003).
+    bcc_list = getattr(settings, 'BOOKING_EMAIL_BCC', []) or []
+    if isinstance(bcc_list, str):
+        bcc_list = bcc_list.split(',')
+    recipients = [addr.strip() for addr in bcc_list if addr and addr.strip()]
 
     if not recipients:
         logger.warning("alert_succeeded_orphans: No BOOKING_EMAIL_BCC configured, cannot send alert")

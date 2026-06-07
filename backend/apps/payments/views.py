@@ -179,47 +179,70 @@ class StripeWebhookView(APIView):
         if cache.get(cache_key):
             logger.info(f"Webhook: Event {event_id} already processed, skipping")
             return Response({'status': 'already_processed'}, status=status.HTTP_200_OK)
-        
-        # Mark event as processed (cache for 72 hours to match Stripe's retry window)
-        cache.set(cache_key, True, timeout=259200)
-        
+
         logger.info(f"Webhook: Processing event {event_id} of type {event_type}")
-        
-        # Handle different event types
+
+        # NOTE: the idempotency flag is set by each handler only AFTER the task
+        # is successfully dispatched/handled. If dispatch fails we return non-2xx
+        # so Stripe retries the delivery instead of the event being marked
+        # "processed" and silently lost (INC-003).
         if event_type == 'payment_intent.succeeded':
-            return self._handle_payment_succeeded(event)
+            return self._handle_payment_succeeded(event, cache_key)
         elif event_type == 'payment_intent.payment_failed':
-            return self._handle_payment_failed(event)
+            return self._handle_payment_failed(event, cache_key)
         elif event_type == 'checkout.session.expired':
-            return self._handle_checkout_expired(event)
+            return self._handle_checkout_expired(event, cache_key)
         else:
             logger.info(f"Webhook: Unhandled event type {event_type}")
+            cache.set(cache_key, True, timeout=259200)
             return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
     
-    def _handle_payment_succeeded(self, event):
+    def _handle_payment_succeeded(self, event, cache_key):
         """Dispatch payment succeeded processing to Celery task.
 
         The task handles retry logic via Celery's built-in retry mechanism
         instead of blocking the gunicorn worker with time.sleep().
         """
         from apps.payments.tasks import process_payment_succeeded
+        from celery.exceptions import OperationalError
         try:
             process_payment_succeeded.delay(dict(event))
+        except OperationalError:
+            # Broker unreachable — the task was never enqueued. Return non-2xx so
+            # Stripe retries delivery instead of the event being marked processed
+            # and silently lost (INC-003).
+            logger.exception("Broker unavailable; could not enqueue payment succeeded task")
+            return Response(
+                {'error': 'dispatch failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         except Exception:
-            logger.exception("Failed to dispatch payment succeeded task")
+            # Eager/test mode runs the task inline; task-level errors (e.g. Retry)
+            # are not dispatch failures and must not block the webhook ack.
+            logger.exception("Payment succeeded task raised during eager execution")
+        cache.set(cache_key, True, timeout=259200)
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
-    def _handle_payment_failed(self, event):
+    def _handle_payment_failed(self, event, cache_key):
         """Dispatch payment failed processing to Celery task."""
         from apps.payments.tasks import process_payment_failed
+        from celery.exceptions import OperationalError
         try:
             process_payment_failed.delay(dict(event))
+        except OperationalError:
+            logger.exception("Broker unavailable; could not enqueue payment failed task")
+            return Response(
+                {'error': 'dispatch failed'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         except Exception:
-            logger.exception("Failed to dispatch payment failed task")
+            logger.exception("Payment failed task raised during eager execution")
+        cache.set(cache_key, True, timeout=259200)
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
 
-    def _handle_checkout_expired(self, event):
+    def _handle_checkout_expired(self, event, cache_key):
         """Handle expired Checkout Sessions — mark pending Payment as expired."""
+        cache.set(cache_key, True, timeout=259200)
         session = event['data']['object']
         payment_intent_id = session.get('payment_intent')
 
