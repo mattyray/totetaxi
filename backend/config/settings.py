@@ -276,6 +276,15 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+# Task durability (INC-003): don't acknowledge a task until it finishes, and
+# requeue it if the worker dies mid-task. Without this, Celery's default early
+# ack means a worker OOM/restart silently drops in-flight tasks (this is how
+# two Stripe payment-succeeded webhooks were lost, leaving orphaned charges).
+# Safe here because the payment webhook tasks are idempotent (they early-return
+# when the Payment is already 'succeeded').
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True

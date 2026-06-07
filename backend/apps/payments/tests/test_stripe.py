@@ -10,6 +10,7 @@ from apps.bookings.models import Booking, Address, GuestCheckout
 from apps.services.models import MiniMovePackage
 from django.utils import timezone
 from datetime import timedelta
+from django.test import override_settings
 
 
 @pytest.fixture
@@ -318,7 +319,12 @@ class TestWebhookCeleryTasks:
         assert 'Insufficient funds' in payment.failure_reason
 
     def test_payment_succeeded_task_retries_on_missing(self, db):
-        """Task should retry when Payment record doesn't exist yet."""
+        """Task should retry when an APP payment's record doesn't exist yet.
+
+        The booking-app metadata (booking_token/service_type) marks this as a
+        wizard payment, so the task waits for the booking-creation flow to create
+        the Payment record rather than giving up immediately.
+        """
         from apps.payments.tasks import process_payment_succeeded
         from celery.exceptions import Retry
 
@@ -330,9 +336,92 @@ class TestWebhookCeleryTasks:
                     'id': 'pi_does_not_exist',
                     'latest_charge': 'ch_none',
                     'amount': 99500,
+                    'metadata': {'booking_token': 'tok_abc', 'service_type': 'mini_move'},
                 }
             },
         }
 
         with pytest.raises(Retry):
             process_payment_succeeded(event_data)
+
+    def test_payment_succeeded_task_ignores_non_app_payment(self, db):
+        """INC-003: a PI with no booking-app metadata (e.g. a Stripe Invoice or
+        manual charge) must NOT retry or raise the orphaned-payment alert."""
+        from apps.payments.tasks import process_payment_succeeded
+
+        event_data = {
+            'id': 'evt_invoice_test',
+            'type': 'payment_intent.succeeded',
+            'data': {
+                'object': {
+                    'id': 'pi_invoice_no_metadata',
+                    'latest_charge': 'ch_inv',
+                    'amount': 16331,
+                    'metadata': {},
+                }
+            },
+        }
+
+        # Should return cleanly (no Retry raised, no orphan alert)
+        result = process_payment_succeeded(event_data)
+        assert result['status'] == 'ignored_non_app'
+
+# ============================================================
+# INC-003: Orphan alert email end-to-end
+# ============================================================
+
+@pytest.mark.django_db
+class TestOrphanAlertEmail:
+    """Verify the succeeded-orphan alert actually builds recipients and sends."""
+
+    def setup_method(self):
+        cache.clear()
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        BOOKING_EMAIL_BCC=['ops@totetaxi.com', 'admin@totetaxi.com'],
+        DEFAULT_FROM_EMAIL='Tote Taxi <noreply@totetaxi.com>',
+    )
+    @patch('apps.payments.tasks.stripe.PaymentIntent.retrieve')
+    def test_alert_sends_email_with_list_bcc(self, mock_retrieve):
+        """A succeeded Payment with no booking, aged into the window, emails the
+        BCC list. Regression guard: BOOKING_EMAIL_BCC is a list, not a string."""
+        from apps.payments.tasks import alert_succeeded_orphans
+        from apps.payments.models import PaymentAudit
+        from django.core import mail
+
+        mock_retrieve.return_value = {
+            'metadata': {'customer_email': 'orphan@example.com', 'service_type': 'mini_move'}
+        }
+
+        p = Payment.objects.create(
+            amount_cents=99500,
+            stripe_payment_intent_id='pi_orphan_alert_test',
+            status='succeeded',
+        )
+        # Backdate into the 10-min–48-h alert window (bypass auto_now_add)
+        Payment.objects.filter(id=p.id).update(
+            created_at=timezone.now() - timedelta(minutes=20)
+        )
+
+        result = alert_succeeded_orphans()
+
+        assert result['alerted'] == 1
+        assert result['email_sent'] is True
+        assert len(mail.outbox) == 1
+        assert set(mail.outbox[0].recipients()) == {'ops@totetaxi.com', 'admin@totetaxi.com'}
+        assert PaymentAudit.objects.filter(action='orphan_alert_sent', payment=p).exists()
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        BOOKING_EMAIL_BCC=['ops@totetaxi.com'],
+    )
+    @patch('apps.payments.tasks.stripe.PaymentIntent.retrieve')
+    def test_alert_no_op_when_no_orphans(self, mock_retrieve):
+        """No succeeded orphans in window → no email, clean return."""
+        from apps.payments.tasks import alert_succeeded_orphans
+        from django.core import mail
+
+        result = alert_succeeded_orphans()
+        assert result['alerted'] == 0
+        assert len(mail.outbox) == 0
