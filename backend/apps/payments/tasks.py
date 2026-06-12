@@ -4,7 +4,7 @@ from datetime import timedelta
 import stripe
 from celery import shared_task
 from django.conf import settings
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -247,7 +247,7 @@ def process_payment_failed(self, event_data):
     return {'status': 'payment_failed', 'booking_number': booking.booking_number}
 
 
-@shared_task
+@shared_task(autoretry_for=(OperationalError,), retry_backoff=True, retry_backoff_max=60, max_retries=3)
 def cleanup_orphaned_payments():
     """Cancel Stripe PIs and expire Payment records that were never linked to a booking.
 
@@ -332,7 +332,7 @@ def cleanup_orphaned_payments():
     return {'expired': cancelled_count, 'failed': failed_count}
 
 
-@shared_task
+@shared_task(autoretry_for=(OperationalError,), retry_backoff=True, retry_backoff_max=60, max_retries=3)
 def alert_succeeded_orphans():
     """Email staff when a payment succeeded but no booking was linked.
 

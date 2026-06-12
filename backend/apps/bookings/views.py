@@ -3,6 +3,7 @@ from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.core.cache import cache
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -51,11 +52,19 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+SERVICE_CATALOG_CACHE_KEY = 'service_catalog_v1'
+SERVICE_CATALOG_CACHE_TTL = 300  # staff edits to the catalog take up to 5 min to appear
+
+
 class ServiceCatalogView(APIView):
     """Get all available services including organizing services - no authentication required"""
     permission_classes = [permissions.AllowAny]
-    
+
     def get(self, request):
+        cached = cache.get(SERVICE_CATALOG_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         organizing_services = OrganizingService.objects.filter(
             is_active=True
         ).order_by('mini_move_tier', 'is_packing_service')
@@ -73,7 +82,8 @@ class ServiceCatalogView(APIView):
             'specialty_items': SpecialtyItemSerializer(specialty_items, many=True).data,
             'standard_delivery': StandardDeliveryConfigSerializer(standard_config).data if standard_config else None
         }
-        
+
+        cache.set(SERVICE_CATALOG_CACHE_KEY, response_data, SERVICE_CATALOG_CACHE_TTL)
         return Response(response_data)
 
 

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import * as Sentry from '@sentry/nextjs';
 import { apiClient } from '@/lib/api-client';
 import { useBookingWizard } from '@/stores/booking-store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -88,13 +89,24 @@ export function ServiceSelectionStep() {
   const [showRestrictionModal, setShowRestrictionModal] = useState(false);
   const [restrictionMessage, setRestrictionMessage] = useState('');
 
-  const { data: services, isLoading } = useQuery({
+  const { data: services, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['services', 'catalog'],
     queryFn: async (): Promise<ServiceCatalog> => {
       const response = await apiClient.get('/api/public/services/');
       return response.data;
     }
   });
+
+  // A failed catalog fetch used to render the wizard with no packages and no
+  // explanation (the service cards below are hardcoded) — report it so we can
+  // see how often customers hit this.
+  useEffect(() => {
+    if (isError) {
+      Sentry.captureException(error, {
+        tags: { component: 'service-selection-step', fetch: 'service-catalog' },
+      });
+    }
+  }, [isError, error]);
 
   // Auto-resolve package_type (from chat handoff) to mini_move_package_id (DB UUID)
   useEffect(() => {
@@ -255,6 +267,22 @@ export function ServiceSelectionStep() {
             <div className="h-32 bg-navy-200 rounded-lg"></div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-navy-900 mb-2">We couldn&apos;t load our services</h3>
+        <p className="text-sm text-navy-600 max-w-md mx-auto mb-6">
+          Please check your connection and try again. Some corporate networks block this request —
+          if it keeps failing, try a personal device or call us at{' '}
+          <a href="tel:6315955100" className="text-navy-700 underline hover:text-navy-900">(631) 595-5100</a>.
+        </p>
+        <Button onClick={() => refetch()} disabled={isFetching} size="lg">
+          {isFetching ? 'Retrying…' : 'Try Again'}
+        </Button>
       </div>
     );
   }
