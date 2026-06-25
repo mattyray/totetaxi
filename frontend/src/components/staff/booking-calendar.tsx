@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookingDetailModal } from './booking-detail-modal';
+import { formatLocalDate, parseLocalDate } from '@/utils/date';
 
 interface CalendarBooking {
   id: string;
@@ -72,12 +73,12 @@ export function BookingCalendar() {
   const { startDate, endDate } = getDateRange();
 
   const { data: calendarData, isLoading } = useQuery({
-    queryKey: ['calendar', 'availability', viewMode, startDate.toISOString().split('T')[0]],
+    queryKey: ['calendar', 'availability', viewMode, formatLocalDate(startDate)],
     queryFn: async (): Promise<CalendarData> => {
       const response = await apiClient.get('/api/public/availability/', {
         params: {
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0]
+          start_date: formatLocalDate(startDate),
+          end_date: formatLocalDate(endDate)
         }
       });
       return response.data;
@@ -112,7 +113,7 @@ export function BookingCalendar() {
 
   // Handle day click - switch to day view
   const handleDayClick = (dateStr: string) => {
-    const clickedDate = new Date(dateStr);
+    const clickedDate = parseLocalDate(dateStr);
     setCurrentDate(clickedDate);
     setViewMode('day');
   };
@@ -135,14 +136,14 @@ export function BookingCalendar() {
     const currentDay = new Date(startDate);
     
     while (days.length < 42) { // 6 weeks × 7 days
-      const dateStr = currentDay.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(currentDay);
       const dayData = calendarData.availability.find(day => day.date === dateStr);
-      
+
       days.push({
         date: new Date(currentDay),
         dateStr,
         isCurrentMonth: currentDay.getMonth() === currentDate.getMonth(),
-        isToday: dateStr === new Date().toISOString().split('T')[0],
+        isToday: dateStr === formatLocalDate(new Date()),
         data: dayData
       });
       
@@ -162,13 +163,13 @@ export function BookingCalendar() {
     for (let i = 0; i < 7; i++) {
       const currentDay = new Date(weekStart);
       currentDay.setDate(weekStart.getDate() + i);
-      const dateStr = currentDay.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(currentDay);
       const dayData = calendarData.availability.find(day => day.date === dateStr);
-      
+
       days.push({
         date: new Date(currentDay),
         dateStr,
-        isToday: dateStr === new Date().toISOString().split('T')[0],
+        isToday: dateStr === formatLocalDate(new Date()),
         data: dayData
       });
     }
@@ -180,13 +181,13 @@ export function BookingCalendar() {
   const getDayData = () => {
     if (!calendarData) return null;
     
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = formatLocalDate(currentDate);
     const dayData = calendarData.availability.find(day => day.date === dateStr);
-    
+
     return {
       date: new Date(currentDate),
       dateStr,
-      isToday: dateStr === new Date().toISOString().split('T')[0],
+      isToday: dateStr === formatLocalDate(new Date()),
       data: dayData
     };
   };

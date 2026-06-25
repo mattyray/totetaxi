@@ -341,6 +341,11 @@ ONFLEET_WEBHOOK_SECRET = env('ONFLEET_WEBHOOK_SECRET', default='')
 
 BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
 
+# Kill-switch for the 24h booking-reminder emails. Set to False (via
+# `fly secrets set BOOKING_REMINDERS_ENABLED=false`) to pause reminders
+# without removing the Celery Beat schedule.
+BOOKING_REMINDERS_ENABLED = env.bool('BOOKING_REMINDERS_ENABLED', default=True)
+
 CELERY_BEAT_SCHEDULE = {
     'send-booking-reminders-hourly': {
         'task': 'apps.bookings.tasks.send_booking_reminders',
