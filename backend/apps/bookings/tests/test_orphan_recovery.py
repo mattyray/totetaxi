@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 from apps.bookings.models import Booking, Address, PendingBooking
 from apps.bookings.recovery import materialize_pending_booking
 from apps.payments.models import Payment, PaymentAudit
-from apps.payments.tasks import reconcile_pending_payments
+from apps.payments.tasks import reconcile_pending_payments, alert_succeeded_orphans
 from apps.services.models import MiniMovePackage
 
 
@@ -339,3 +339,84 @@ class TestHappyPathUnaffected:
         assert second.status_code == 400
         assert 'already been used' in str(second.data)
         assert Booking.objects.count() == 1
+
+
+@pytest.mark.django_db
+class TestHardeningRegression:
+    """Regression tests for the round-2 red-team fixes (concurrency/robustness)."""
+
+    def _succeeded_orphan(self, package, pi_id, pending_status='pending', age_min=20):
+        create_pi(APIClient(), package, pi_id=pi_id, cart_key=f'c-{pi_id}')
+        Payment.objects.filter(stripe_payment_intent_id=pi_id).update(
+            status='succeeded', created_at=timezone.now() - timedelta(minutes=age_min))
+        PendingBooking.objects.filter(stripe_payment_intent_id=pi_id).update(
+            status=pending_status, created_at=timezone.now() - timedelta(minutes=age_min))
+        return Payment.objects.get(stripe_payment_intent_id=pi_id)
+
+    def test_alert_skips_inflight_capture(self, package, settings):
+        """alert_succeeded_orphans must NOT tell staff to create a booking manually
+        while reconcile is still about to auto-create it (would double-book)."""
+        settings.BOOKING_EMAIL_BCC = ['ops@test.com']
+        p = self._succeeded_orphan(package, 'pi_alert_inflight', pending_status='pending')
+        result = alert_succeeded_orphans()
+        assert result['alerted'] == 0
+        assert not PaymentAudit.objects.filter(action='orphan_alert_sent', payment=p).exists()
+
+    def test_alert_fires_when_capture_terminal(self, package, settings):
+        """When auto-recovery is NOT in flight (capture failed / none), staff ARE
+        alerted for manual handling."""
+        settings.BOOKING_EMAIL_BCC = ['ops@test.com']
+        p = self._succeeded_orphan(package, 'pi_alert_fire', pending_status='failed')
+        result = alert_succeeded_orphans()
+        assert result['alerted'] >= 1
+        assert PaymentAudit.objects.filter(action='orphan_alert_sent', payment=p).exists()
+
+    @patch('apps.bookings.recovery.materialize_pending_booking')
+    def test_poison_row_does_not_abort_batch(self, mock_mat, package):
+        """One capture that raises an unexpected error must not starve the rest of
+        the batch (per-row isolation)."""
+        for pi in ('pi_poison_1', 'pi_poison_2'):
+            create_pi(APIClient(), package, pi_id=pi, cart_key=f'c-{pi}')
+            Payment.objects.filter(stripe_payment_intent_id=pi).update(status='succeeded')
+            _age_pending(pi)
+        calls = {'n': 0}
+        def side_effect(pending_id, source='reconcile'):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise RuntimeError('poison row')
+            return (Mock(), 'recovered')
+        mock_mat.side_effect = side_effect
+
+        result = reconcile_pending_payments()  # must not raise
+        assert calls['n'] == 2, 'both rows attempted despite the first poisoning'
+        assert result['failed'] >= 1
+        assert result['recovered'] >= 1
+
+    def test_reconcile_singleton_lock(self, package):
+        """Only one reconcile runs at a time; a second concurrent run no-ops."""
+        from django.core.cache import cache
+        create_pi(APIClient(), package, pi_id='pi_singleton')
+        Payment.objects.filter(stripe_payment_intent_id='pi_singleton').update(status='succeeded')
+        _age_pending('pi_singleton')
+        cache.add('reconcile_pending_payments_lock', '1', 540)  # pretend a run holds it
+        try:
+            result = reconcile_pending_payments()
+        finally:
+            cache.delete('reconcile_pending_payments_lock')
+        assert result.get('skipped') == 'locked'
+        assert PendingBooking.objects.get(
+            stripe_payment_intent_id='pi_singleton').status == 'pending'
+
+    def test_capture_retired_when_payment_failed(self, package):
+        """A capture whose payment failed (abandoned checkout) is retired so it is
+        not re-scanned forever."""
+        create_pi(APIClient(), package, pi_id='pi_retired')
+        Payment.objects.filter(stripe_payment_intent_id='pi_retired').update(status='failed')
+        _age_pending('pi_retired')
+
+        result = reconcile_pending_payments()
+        pending = PendingBooking.objects.get(stripe_payment_intent_id='pi_retired')
+        assert pending.status == 'failed'  # retired
+        assert result['recovered'] == 0
+        # No longer 'pending', so a second run does not touch it.
+        assert reconcile_pending_payments()['recovered'] == 0

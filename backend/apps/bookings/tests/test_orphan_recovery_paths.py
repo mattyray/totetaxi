@@ -126,51 +126,90 @@ class TestGuestRecoveryAllServices:
         assert payment.booking_id == booking.id
 
 
-@pytest.mark.django_db
-class TestAuthenticatedRecovery:
-    def _authed(self):
-        user = User.objects.create_user(
-            username='authpath@example.com', email='authpath@example.com',
-            password='x', first_name='Auth', last_name='Path', is_active=True)
-        CustomerProfile.objects.create(user=user, phone='5559998888')
-        client = APIClient()
-        client.force_authenticate(user=user)
-        return client, user
+def authed_client():
+    import uuid as _u
+    uname = f'authpath_{_u.uuid4().hex[:8]}@example.com'
+    user = User.objects.create_user(
+        username=uname, email=uname, password='x',
+        first_name='Auth', last_name='Path', is_active=True)
+    CustomerProfile.objects.create(user=user, phone='5559998888')
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client, user
 
-    def test_authenticated_mini_move_recovery(self, services):
-        client, user = self._authed()
-        pkg_id = str(services['package'].id)
-        top = {
-            'service_type': 'mini_move', 'mini_move_package_id': pkg_id,
-            'pickup_date': PICKUP, 'customer_email': user.email,
-            'pickup_zip_code': '10001', 'delivery_zip_code': '10002',
-        }
-        booking_payload = {
-            'service_type': 'mini_move', 'mini_move_package_id': pkg_id,
-            'pickup_date': PICKUP, 'pickup_time': 'morning',
-            'new_pickup_address': ADDR_P, 'new_delivery_address': ADDR_D,
-            'save_pickup_address': True, 'save_delivery_address': True,
-            'pickup_address_nickname': 'P', 'delivery_address_nickname': 'D',
-        }
-        with patch('stripe.PaymentIntent.create') as mock_create:
-            mock_create.return_value = Mock(id='pi_auth_1', client_secret='s')
-            resp = client.post('/api/customer/bookings/create-payment-intent/',
-                               {**top, 'cart_key': 'cart-auth', 'booking_payload': booking_payload},
-                               format='json')
+
+def make_auth_pi(client, user, service, services, *, cart_key='', pi_id='pi_a'):
+    spec = guest_service_fields(service, services)
+    top = {
+        'service_type': service, 'pickup_date': PICKUP,
+        'customer_email': user.email,
+        'pickup_zip_code': '10001', 'delivery_zip_code': '10002',
+        **spec,
+    }
+    booking_payload = {
+        'service_type': service, 'pickup_date': PICKUP, 'pickup_time': 'morning',
+        'new_pickup_address': ADDR_P, 'new_delivery_address': ADDR_D,
+        'save_pickup_address': True, 'save_delivery_address': True,
+        'pickup_address_nickname': 'P', 'delivery_address_nickname': 'D',
+        **spec,
+    }
+    with patch('stripe.PaymentIntent.create') as mock_create:
+        mock_create.return_value = Mock(id=pi_id, client_secret='s',
+                                        status='requires_payment_method')
+        resp = client.post('/api/customer/bookings/create-payment-intent/',
+                           {**top, 'cart_key': cart_key, 'booking_payload': booking_payload},
+                           format='json')
+    return resp
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('service', [
+    'mini_move', 'standard_delivery', 'specialty_item', 'blade_transfer',
+])
+class TestAuthenticatedRecoveryAllServices:
+    def test_capture_and_recovery(self, service, services):
+        client, user = authed_client()
+        resp = make_auth_pi(client, user, service, services,
+                            pi_id=f'pi_auth_{service}', cart_key=f'cart-auth-{service}')
         assert resp.status_code == 200, resp.data
 
-        pending = PendingBooking.objects.get(stripe_payment_intent_id='pi_auth_1')
+        pending = PendingBooking.objects.get(stripe_payment_intent_id=f'pi_auth_{service}')
         assert pending.is_authenticated is True
         assert pending.customer_id == user.id
+        charged = pending.amount_cents
 
-        orphan('pi_auth_1')
+        orphan(f'pi_auth_{service}')
         result = reconcile_pending_payments()
         assert result['recovered'] == 1, result
 
-        booking = PendingBooking.objects.get(stripe_payment_intent_id='pi_auth_1').booking
+        booking = PendingBooking.objects.get(stripe_payment_intent_id=f'pi_auth_{service}').booking
         assert booking is not None
         assert booking.customer_id == user.id
+        assert booking.service_type == service
         assert booking.status == 'paid'
+        assert booking.total_price_cents == charged
+
+
+@pytest.mark.django_db
+class TestAuthenticatedHappyPath:
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_happy_path_marks_materialized(self, mock_retrieve, services):
+        client, user = authed_client()
+        make_auth_pi(client, user, 'mini_move', services, pi_id='pi_auth_hp')
+        charged = PendingBooking.objects.get(stripe_payment_intent_id='pi_auth_hp').amount_cents
+        mock_retrieve.return_value = Mock(id='pi_auth_hp', status='succeeded',
+                                          amount=charged, latest_charge='ch')
+        resp = client.post('/api/customer/bookings/create/', {
+            'payment_intent_id': 'pi_auth_hp', 'service_type': 'mini_move',
+            'mini_move_package_id': str(services['package'].id),
+            'pickup_date': PICKUP, 'pickup_time': 'morning',
+            'new_pickup_address': ADDR_P, 'new_delivery_address': ADDR_D,
+        }, format='json')
+        assert resp.status_code == 201, resp.data
+        pending = PendingBooking.objects.get(stripe_payment_intent_id='pi_auth_hp')
+        assert pending.status == 'materialized'
+        orphan('pi_auth_hp')
+        assert reconcile_pending_payments()['recovered'] == 0
 
 
 @pytest.mark.django_db

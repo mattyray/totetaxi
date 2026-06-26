@@ -32,6 +32,15 @@ function BookingSuccessContent() {
   const [error, setError] = useState('');
   const [attempted, setAttempted] = useState(false);
 
+  // Wait for the persisted store to hydrate before deciding the booking details
+  // are missing — otherwise the one-shot effect below can run before zustand
+  // rehydrates bookingData from localStorage and wrongly short-circuit (INC-004).
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(useBookingWizard.persist.hasHydrated());
+    return useBookingWizard.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
+
   const paymentIntentId = searchParams.get('payment_intent');
   const redirectStatus = searchParams.get('redirect_status');
 
@@ -139,7 +148,7 @@ function BookingSuccessContent() {
   });
 
   useEffect(() => {
-    if (attempted) return;
+    if (!hydrated || attempted) return;
     setAttempted(true);
 
     if (!paymentIntentId || redirectStatus !== 'succeeded') {
@@ -161,7 +170,7 @@ function BookingSuccessContent() {
 
     createBookingMutation.mutate(paymentIntentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated]);
 
   // Success state
   if (bookingNumber) {

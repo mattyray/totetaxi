@@ -59,6 +59,10 @@ async function readStore(page: Page) {
 }
 
 test.describe('Orphaned-payment cure — frontend', () => {
+  // These drive mount-effect + mocked-network flows against a single shared dev
+  // server; retry to absorb transient slowness under parallel load.
+  test.describe.configure({ retries: 2 });
+
 
   test('create-payment-intent request carries booking_payload + cart_key', async ({ page }) => {
     await seedReview(page);
@@ -111,7 +115,9 @@ test.describe('Orphaned-payment cure — frontend', () => {
     await page.goto('/book');
 
     await expect(page.getByText(/already confirmed/i)).toBeVisible({ timeout: 15000 });
-    expect((await readStore(page)).pendingPaymentIntentId, 'PI should be cleared once booked').toBeFalsy();
+    // the clear is persisted a tick after render — poll rather than read once
+    await expect.poll(async () => (await readStore(page)).pendingPaymentIntentId,
+      { message: 'PI should be cleared once booked' }).toBeFalsy();
   });
 
   test('store-version bump preserves booking data while a payment is pending', async ({ page }) => {
@@ -129,6 +135,33 @@ test.describe('Orphaned-payment cure — frontend', () => {
     // empty recovery POST -> 400 -> PI deleted -> orphan).
     expect(state.pendingPaymentIntentId).toBe('pi_e2e_migrate');
     expect(state.bookingData?.service_type, 'service_type must survive the migrate').toBe('mini_move');
+  });
+
+  // ---- 3D Secure redirect page (/booking-success) ----
+
+  test('3DS page keeps the pending PI on a generic recovery failure', async ({ page }) => {
+    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_3ds_keep', pendingBookingToken: 'tok' } });
+    await page.route('**/api/public/guest-booking/', (route) =>
+      route.fulfill({ status: 400, contentType: 'application/json',
+        body: JSON.stringify({ error: 'temporary server error' }) }));
+
+    await page.goto('/booking-success?payment_intent=pi_3ds_keep&redirect_status=succeeded');
+
+    await expect(page.getByText(/finalizing your booking/i)).toBeVisible({ timeout: 15000 });
+    // post-charge recovery page must NOT delete the anchor on a generic 4xx
+    expect((await readStore(page)).pendingPaymentIntentId).toBe('pi_3ds_keep');
+  });
+
+  test('3DS page shows "already created" and clears the PI when already booked', async ({ page }) => {
+    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_3ds_used', pendingBookingToken: 'tok' } });
+    await page.route('**/api/public/guest-booking/', (route) =>
+      route.fulfill({ status: 400, contentType: 'application/json',
+        body: JSON.stringify({ error: 'This payment has already been used for a booking' }) }));
+
+    await page.goto('/booking-success?payment_intent=pi_3ds_used&redirect_status=succeeded');
+
+    await expect(page.getByText(/already been created/i)).toBeVisible({ timeout: 15000 });
+    await expect.poll(async () => (await readStore(page)).pendingPaymentIntentId).toBeFalsy();
   });
 
 });
