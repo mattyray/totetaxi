@@ -119,18 +119,21 @@ function BookingSuccessContent() {
       console.error('Booking creation failed after 3D Secure redirect:', error);
       if ('response' in error && error.response) {
         const data = error.response.data as any;
-        // If already used, the booking was likely created by the recovery mechanism
-        if (data?.error === 'This payment has already been used for a booking') {
+        const errText = `${data?.error || ''} ${data?.message || ''}`.toLowerCase();
+        // If already used, the booking was already created (likely by the backend
+        // auto-recovery mechanism). The anchor has done its job — clear it.
+        if (errText.includes('already been used')) {
           clearPendingPaymentIntentId();
           setError('Your booking has already been created. Please check your email for confirmation.');
           return;
         }
-        // Server rejected — clear PI to prevent infinite retry loop
-        clearPendingPaymentIntentId();
+        // This page is a post-charge recovery path. Do NOT clear the pending PI on
+        // a generic rejection — the customer was charged and the backend
+        // reconciliation task can still auto-recover the booking (INC-004).
       }
       setError(
-        'Your payment was processed but we encountered an error creating your booking. ' +
-        'Please call (631) 595-5100 for assistance.'
+        'Your payment was received and we are finalizing your booking. ' +
+        'You will get a confirmation email shortly — if you do not, please call (631) 595-5100.'
       );
     },
   });
@@ -145,9 +148,13 @@ function BookingSuccessContent() {
     }
 
     if (!bookingData.service_type) {
+      // Booking details aren't in this browser (e.g. data cleared / different
+      // device after the bank redirect). The backend captured the full booking at
+      // payment time and its reconciliation task will create it automatically
+      // (INC-004) — reassure rather than alarm, and don't touch the pending PI.
       setError(
-        'Your payment was processed but booking details were lost. ' +
-        'Please call (631) 595-5100 to complete your booking.'
+        'Your payment was received and we are finalizing your booking. ' +
+        'You will get a confirmation email shortly — if you do not, please call (631) 595-5100.'
       );
       return;
     }

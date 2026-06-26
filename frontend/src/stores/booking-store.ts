@@ -82,6 +82,10 @@ interface BookingWizardState {
   lastResetTimestamp?: number;
   pendingPaymentIntentId?: string;
   pendingBookingToken?: string;
+  // Stable per-checkout key sent to the server so repeated payment attempts in
+  // one session can be linked and de-duplicated during orphan auto-recovery
+  // (prevents the two-PI double-charge from becoming two bookings). INC-004.
+  cartKey?: string;
 }
 
 interface BookingWizardActions {
@@ -104,6 +108,7 @@ interface BookingWizardActions {
   clearDiscountCode: () => void;
   setPendingPaymentIntentId: (id: string, bookingToken?: string) => void;
   clearPendingPaymentIntentId: () => void;
+  ensureCartKey: () => string;
 }
 
 const initialBookingData: BookingData = {
@@ -116,7 +121,7 @@ const initialBookingData: BookingData = {
   specialty_items: [],
 };
 
-const STORE_VERSION = 8;
+const STORE_VERSION = 9;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 const CHAT_PREFILL_KEY = 'totetaxi-chat-prefill';
 const CHAT_PREFILL_TTL_MS = 5 * 60 * 1000;
@@ -265,6 +270,24 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         pendingBookingToken: undefined,
       }),
 
+      ensureCartKey: () => {
+        const existing = get().cartKey;
+        if (existing) return existing;
+        const generate = () => {
+          try {
+            if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+              return crypto.randomUUID();
+            }
+          } catch {
+            // fall through to manual generation
+          }
+          return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        };
+        const key = generate();
+        set({ cartKey: key });
+        return key;
+      },
+
       setLoading: (loading) => set({ isLoading: !!loading }),
       
       setError: (field, message) => {
@@ -376,6 +399,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
           pendingBookingToken: undefined,
+          cartKey: undefined,
         };
 
         set(newState);
@@ -413,6 +437,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
           pendingBookingToken: undefined,
+          cartKey: undefined,
         });
       },
 
@@ -460,20 +485,31 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       version: STORE_VERSION,
       migrate: (persistedState: any, version: number) => {
         if (version !== STORE_VERSION) {
+          // If a payment is in flight, the customer has already been charged and
+          // a booking still needs to be created. Wiping bookingData here (the old
+          // behavior) made the recovery POST send an empty body → 400 → the PI was
+          // deleted and the payment orphaned. Preserve the booking data alongside
+          // the pending PI so recovery can complete (INC-004). Backend
+          // auto-recovery is the ultimate safety net, but keeping the client able
+          // to finish is strictly better.
+          const hasPendingPayment = !!persistedState?.pendingPaymentIntentId;
           return {
-            currentStep: 0,
+            currentStep: hasPendingPayment ? (persistedState?.currentStep ?? 0) : 0,
             isLoading: false,
-            bookingData: { ...initialBookingData },
+            bookingData: hasPendingPayment && persistedState?.bookingData
+              ? { ...initialBookingData, ...persistedState.bookingData }
+              : { ...initialBookingData },
             errors: {},
             isBookingComplete: false,
             completedBookingNumber: undefined,
-            userId: 'guest',
-            isGuestMode: true,
+            userId: hasPendingPayment ? (persistedState?.userId ?? 'guest') : 'guest',
+            isGuestMode: hasPendingPayment ? (persistedState?.isGuestMode ?? true) : true,
             lastResetTimestamp: Date.now(),
             // Preserve pending PI across version migrations to avoid orphaning
             // in-flight payments during a deploy
             pendingPaymentIntentId: persistedState?.pendingPaymentIntentId,
             pendingBookingToken: persistedState?.pendingBookingToken,
+            cartKey: persistedState?.cartKey,
           };
         }
         
@@ -514,6 +550,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         lastResetTimestamp: state.lastResetTimestamp,
         pendingPaymentIntentId: state.pendingPaymentIntentId,
         pendingBookingToken: state.pendingBookingToken,
+        cartKey: state.cartKey,
       })
     }
   )

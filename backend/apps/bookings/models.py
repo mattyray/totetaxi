@@ -968,5 +968,78 @@ class Booking(models.Model):
                 })
             except OrganizingService.DoesNotExist:
                 pass
-        
+
+
+class PendingBooking(models.Model):
+    """Server-side capture of a booking payload at PaymentIntent-creation time.
+
+    This is the linchpin of orphaned-payment auto-recovery (INC-004). The full,
+    serializer-shaped booking payload is persisted here BEFORE the card is charged,
+    keyed to the Stripe PaymentIntent. If the customer's browser dies between the
+    charge succeeding and the booking-create POST landing, the server can still
+    materialize the exact booking the customer built — no fabrication from thin
+    Stripe metadata, no reliance on the frontend.
+
+    One row per PaymentIntent. `cart_key`/`fingerprint` link repeated checkout
+    attempts so a double-charge (two PIs) is detected and refused at recovery time
+    instead of becoming two real bookings.
+    """
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),            # captured, awaiting materialization
+        ('materialized', 'Materialized'),  # booking created (by happy path or recovery)
+        ('duplicate', 'Duplicate'),        # a sibling attempt already produced a booking
+        ('failed', 'Failed'),              # payload could not be materialized (alert staff)
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Binds this captured payload to the Stripe PaymentIntent (and originating session).
+    stripe_payment_intent_id = models.CharField(max_length=200, db_index=True)
+    booking_token = models.CharField(max_length=100, blank=True)
+
+    # Duplicate detection across repeated checkout attempts.
+    # cart_key: stable per checkout session (catches double-submit / two PIs same session)
+    # fingerprint: email|pickup_date|service_type|amount_cents (catches fresh re-checkouts)
+    cart_key = models.CharField(max_length=100, blank=True, db_index=True)
+    fingerprint = models.CharField(max_length=255, blank=True, db_index=True)
+
+    # Which create path/serializer materialization should use.
+    is_authenticated = models.BooleanField(default=False)
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pending_bookings',
+    )
+
+    # The exact booking-create request body to replay through the serializer.
+    payload = models.JSONField()
+    amount_cents = models.PositiveBigIntegerField()
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    failure_reason = models.TextField(blank=True)
+
+    # Set once a booking is created from (or matched to) this capture.
+    booking = models.ForeignKey(
+        'bookings.Booking',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pending_captures',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'bookings_pending_booking'
+        indexes = [
+            models.Index(fields=['status', 'created_at'], name='pending_status_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"PendingBooking {self.stripe_payment_intent_id} ({self.status})"
+
         return services

@@ -340,9 +340,12 @@ def alert_succeeded_orphans():
     - status = 'succeeded'
     - booking is null (never linked)
     - created more than 10 minutes ago (gives frontend time to complete)
-    - created less than 48 hours ago (don't re-alert on old ones)
 
-    Skips payments that already have an 'orphan_alert_sent' audit entry.
+    Skips payments that already have an 'orphan_alert_sent' audit entry, so there
+    is no need for an upper time bound — the per-payment de-dup guarantees each
+    orphan is alerted at most once, and removing the old 48h ceiling closes the
+    window where an orphan promoted near that edge became permanently un-alertable
+    (INC-004).
     """
     from apps.payments.models import Payment, PaymentAudit
     from django.core.mail import send_mail
@@ -352,7 +355,6 @@ def alert_succeeded_orphans():
         status='succeeded',
         booking__isnull=True,
         created_at__lt=now - timedelta(minutes=10),
-        created_at__gt=now - timedelta(hours=48),
     )
 
     # Skip payments we've already alerted on
@@ -362,7 +364,26 @@ def alert_succeeded_orphans():
             payment__in=orphans,
         ).values_list('payment_id', flat=True)
     )
-    orphans_to_alert = [p for p in orphans if p.id not in alerted_payment_ids]
+
+    # Skip orphans whose auto-recovery is still in flight: a PendingBooking in
+    # 'pending' state means reconcile will create the booking shortly. Telling
+    # staff to "create the booking manually" now would race reconcile and produce
+    # a DOUBLE booking on one charge (INC-004). Only alert when there is no
+    # capture, or it has terminally failed — i.e. genuine manual-intervention cases.
+    from apps.bookings.models import PendingBooking
+    inflight_pis = set(
+        PendingBooking.objects.filter(
+            status='pending',
+            stripe_payment_intent_id__in=[
+                p.stripe_payment_intent_id for p in orphans if p.stripe_payment_intent_id
+            ],
+        ).values_list('stripe_payment_intent_id', flat=True)
+    )
+    orphans_to_alert = [
+        p for p in orphans
+        if p.id not in alerted_payment_ids
+        and p.stripe_payment_intent_id not in inflight_pis
+    ]
 
     if not orphans_to_alert:
         return {'alerted': 0}
@@ -441,3 +462,160 @@ def alert_succeeded_orphans():
 
     logger.info(f"Orphan alert: emailed staff about {len(orphans_to_alert)} succeeded orphan(s)")
     return {'alerted': len(orphans_to_alert), 'email_sent': True}
+
+
+@shared_task(
+    autoretry_for=(OperationalError,),
+    retry_backoff=True,
+    retry_backoff_max=60,
+    max_retries=3,
+    time_limit=600,
+    soft_time_limit=540,
+)
+def reconcile_pending_payments():
+    """Auto-recover orphaned payments from captured PendingBooking rows (INC-004).
+
+    Runs every ~5 minutes. For each PendingBooking still awaiting materialization
+    and older than the grace window (lets the normal frontend flow win first):
+      1. Confirm the charge actually succeeded — promote a Payment stuck at
+         'pending' to 'succeeded' if Stripe says so (closes the webhook-miss gap
+         where reconciliation previously only ran once a day).
+      2. Materialize the booking from the captured payload via the shared,
+         idempotent, dedup-aware path.
+
+    Leaves genuinely-unpaid captures alone (cleanup_orphaned_payments cancels those
+    PIs); marks captures whose payment failed/refunded as abandoned so they stop
+    being re-scanned.
+    """
+    from apps.bookings.models import PendingBooking
+    from apps.bookings.recovery import (
+        autorecovery_enabled,
+        materialize_pending_booking,
+    )
+    from apps.payments.models import Payment
+    from django.core.cache import cache
+
+    if not autorecovery_enabled():
+        return {'recovered': 0, 'skipped': 'disabled'}
+
+    # Singleton guard: the per-run time budget (soft 540s) can exceed the 5-min
+    # beat interval, so two runs could otherwise overlap and double-process
+    # tie-ordered siblings. Only one reconcile runs at a time.
+    lock_id = 'reconcile_pending_payments_lock'
+    if not cache.add(lock_id, '1', timeout=540):
+        logger.info("reconcile_pending_payments: another run holds the lock, skipping")
+        return {'recovered': 0, 'skipped': 'locked'}
+
+    try:
+        grace_minutes = getattr(settings, 'ORPHAN_RECOVERY_GRACE_MINUTES', 3)
+        cutoff = timezone.now() - timedelta(minutes=grace_minutes)
+
+        BATCH = 200
+        pendings = list(PendingBooking.objects.filter(
+            status='pending',
+            created_at__lt=cutoff,
+        ).order_by('created_at', 'id')[:BATCH])  # deterministic order → concurrent
+        #                                          passes serialize on the same row
+
+        if len(pendings) >= BATCH:
+            logger.critical(
+                "reconcile_pending_payments: batch saturated at %d pending captures — "
+                "newer orphans may be delayed; investigate backlog.", BATCH
+            )
+
+        recovered = 0
+        duplicates = 0
+        failed = 0
+        not_yet_paid = 0
+
+        for pending in pendings:
+            try:
+                outcome = _reconcile_one(pending, Payment, materialize_pending_booking)
+            except Exception:
+                # Per-row isolation: one poison capture must not abort the whole
+                # batch (which, with oldest-first ordering, would starve every newer
+                # orphan permanently). Log and move on.
+                logger.exception(
+                    "reconcile_pending_payments: unexpected error processing "
+                    "PendingBooking %s (PI %s)", pending.id, pending.stripe_payment_intent_id
+                )
+                failed += 1
+                continue
+            if outcome == 'recovered':
+                recovered += 1
+            elif outcome == 'duplicate':
+                duplicates += 1
+            elif outcome == 'failed':
+                failed += 1
+            elif outcome == 'not_yet_paid':
+                not_yet_paid += 1
+            # 'retired' (abandoned capture) counts toward none
+
+        if recovered or duplicates or failed:
+            logger.info(
+                f"reconcile_pending_payments: recovered={recovered} "
+                f"duplicates={duplicates} failed={failed} not_yet_paid={not_yet_paid}"
+            )
+
+        return {
+            'recovered': recovered,
+            'duplicates': duplicates,
+            'failed': failed,
+            'not_yet_paid': not_yet_paid,
+        }
+    finally:
+        cache.delete(lock_id)
+
+
+def _reconcile_one(pending, Payment, materialize_pending_booking):
+    """Process a single PendingBooking. Returns an outcome category:
+    'retired' | 'not_yet_paid' | 'recovered' | 'duplicate' | 'failed'."""
+    pi_id = pending.stripe_payment_intent_id
+    payment = (
+        Payment.objects.filter(stripe_payment_intent_id=pi_id)
+        .order_by('created_at')
+        .first()
+    )
+
+    # If the payment already failed/refunded, the customer never completed —
+    # retire this capture so we stop scanning it.
+    if payment and payment.status in ('failed', 'refunded'):
+        pending.status = 'failed'
+        pending.failure_reason = f'Payment {payment.status}; checkout abandoned.'
+        pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
+        return 'retired'
+
+    # Confirm the charge actually went through.
+    charged = bool(payment and payment.status == 'succeeded')
+    if not charged:
+        try:
+            pi = stripe.PaymentIntent.retrieve(pi_id)
+        except stripe.error.StripeError as e:
+            logger.warning(f"reconcile: could not retrieve PI {pi_id}: {e}")
+            return 'not_yet_paid'
+        if pi.status == 'succeeded':
+            charged = True
+            # Promote a DB row stuck at 'pending' (webhook never landed).
+            if payment and payment.status == 'pending':
+                payment.status = 'succeeded'
+                payment.stripe_charge_id = getattr(pi, 'latest_charge', '') or ''
+                payment.processed_at = timezone.now()
+                payment.save(update_fields=[
+                    'status', 'stripe_charge_id', 'processed_at', 'updated_at',
+                ])
+                logger.warning(
+                    f"reconcile: promoted Payment for PI {pi_id} pending->succeeded "
+                    f"(webhook miss)"
+                )
+
+    if not charged:
+        return 'not_yet_paid'
+
+    _, outcome = materialize_pending_booking(pending.id, source='reconcile')
+    if outcome in ('recovered', 'already_materialized', 'already_linked'):
+        return 'recovered'
+    if outcome == 'duplicate':
+        return 'duplicate'
+    if outcome in ('failed', 'amount_mismatch'):
+        return 'failed'
+    return 'not_yet_paid'

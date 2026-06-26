@@ -132,6 +132,25 @@ class CreatePaymentIntentView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
+            # Capture the full booking payload for orphaned-payment auto-recovery
+            # (INC-004). Best-effort — never block a successful PaymentIntent.
+            try:
+                from apps.bookings.recovery import capture_pending_booking
+                capture_pending_booking(
+                    payment_intent_id=payment_intent.id,
+                    booking_token=booking_token,
+                    booking_payload=request.data.get('booking_payload'),
+                    amount_cents=amount_cents,
+                    is_authenticated=True,
+                    customer=request.user,
+                    cart_key=request.data.get('cart_key', ''),
+                )
+            except Exception:
+                logger.exception(
+                    f"Failed to capture PendingBooking for PI {payment_intent.id} "
+                    f"(auto-recovery unavailable for this payment)"
+                )
+
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
 
             return Response({
@@ -242,11 +261,22 @@ class CustomerBookingCreateView(APIView):
 
         try:
             with transaction.atomic():
-                # ========== C2: PaymentIntent reuse prevention (inside atomic for atomicity) ==========
-                if Payment.objects.select_for_update().filter(
+                # Same cross-sibling advisory lock as the recovery path so a
+                # concurrent reconcile recovering a sibling PI of this cart blocks
+                # and then sees this booking as a duplicate (INC-004).
+                from apps.bookings.recovery import take_dedup_advisory_locks
+                take_dedup_advisory_locks(cart_key=request.data.get('cart_key', ''))
+
+                # ========== C2: PaymentIntent reuse prevention ==========
+                # Lock the Payment row for this PI BEFORE creating the booking so a
+                # concurrent same-PI request (or the reconciliation task) blocks
+                # here and then sees the booking already linked, instead of both
+                # producing a booking for one charge (INC-004). filter().first() is
+                # zero/multi-row safe (free orders / legacy PIs / no unique index).
+                locked_payment = Payment.objects.select_for_update().filter(
                     stripe_payment_intent_id=payment_intent_id,
-                    booking__isnull=False,
-                ).exists():
+                ).order_by('created_at').first()
+                if locked_payment and locked_payment.booking_id:
                     logger.warning(f"PI reuse attempt by {request.user.email}: {payment_intent_id}")
                     return Response(
                         {'error': 'This payment has already been used for a booking'},
@@ -325,6 +355,11 @@ class CustomerBookingCreateView(APIView):
                 # Update booking status to paid since payment already succeeded
                 booking.status = 'paid'
                 booking.save(_skip_pricing=True)
+
+                # Mark any captured PendingBooking as materialized so the recovery
+                # path won't create a duplicate (INC-004).
+                from apps.bookings.recovery import mark_pending_materialized
+                mark_pending_materialized(payment_intent_id, booking)
 
         except Exception as e:
             logger.error(f"Error creating booking for {request.user.email}: {str(e)}", exc_info=True)
