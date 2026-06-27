@@ -310,18 +310,26 @@ class TestHappyPathUnaffected:
 
     @patch('apps.bookings.recovery.take_dedup_advisory_locks')
     @patch('stripe.PaymentIntent.retrieve')
-    def test_happy_path_takes_same_advisory_lock(self, mock_retrieve, mock_lock, package):
-        """Happy-path create takes the SAME cart_key lock so it serializes with a
-        concurrent reconcile recovering a sibling PI of the cart."""
+    def test_happy_path_takes_lock_from_pending_booking(self, mock_retrieve, mock_lock, package):
+        """Happy-path create takes the SAME cart_key + fingerprint lock the recovery
+        path uses — read from the server-captured PendingBooking, NOT the request body
+        (the real client never echoes cart_key on the booking-create POST). INC-004."""
         client = APIClient()
         create_pi(client, package, pi_id='pi_lock_2', cart_key='cartG')
+        captured = PendingBooking.objects.get(stripe_payment_intent_id='pi_lock_2')
         mock_retrieve.return_value = Mock(id='pi_lock_2', status='succeeded',
                                           amount=99500, latest_charge='ch')
+        # Deliberately do NOT put cart_key in the payload — mirrors the real client.
         payload = guest_booking_payload(package)
-        payload.update({'payment_intent_id': 'pi_lock_2', 'cart_key': 'cartG'})
+        payload['payment_intent_id'] = 'pi_lock_2'
         resp = client.post('/api/public/guest-booking/', payload, format='json')
         assert resp.status_code == 201, resp.data
-        assert any(c.kwargs.get('cart_key') == 'cartG' for c in mock_lock.call_args_list)
+        # The lock must still be taken with the captured cart_key + fingerprint.
+        assert any(
+            c.kwargs.get('cart_key') == 'cartG'
+            and c.kwargs.get('fingerprint') == captured.fingerprint
+            for c in mock_lock.call_args_list
+        ), mock_lock.call_args_list
 
     @patch('stripe.PaymentIntent.retrieve')
     def test_same_pi_cannot_create_two_bookings(self, mock_retrieve, package):
@@ -420,3 +428,44 @@ class TestHardeningRegression:
         assert result['recovered'] == 0
         # No longer 'pending', so a second run does not touch it.
         assert reconcile_pending_payments()['recovered'] == 0
+
+    def test_alert_fires_when_autorecovery_disabled(self, package, settings):
+        """Kill-switch ON (autorecovery disabled): a succeeded orphan whose capture is
+        still 'pending' must be ALERTED, not silently suppressed — the documented
+        alert-only fallback (INC-004)."""
+        settings.BOOKING_EMAIL_BCC = ['ops@test.com']
+        settings.ORPHAN_AUTORECOVERY_ENABLED = False
+        p = self._succeeded_orphan(package, 'pi_killswitch', pending_status='pending')
+        result = alert_succeeded_orphans()
+        assert result['alerted'] >= 1
+        assert PaymentAudit.objects.filter(action='orphan_alert_sent', payment=p).exists()
+
+    def test_alert_fires_for_stale_pending_capture(self, package, settings):
+        """Even with autorecovery ON, a capture stuck 'pending' beyond the in-flight
+        window stops suppressing the alert (poison-row / saturated-batch escape)."""
+        settings.BOOKING_EMAIL_BCC = ['ops@test.com']
+        # 'pending' but very old → past the inflight window → should alert
+        p = self._succeeded_orphan(package, 'pi_stale', pending_status='pending', age_min=180)
+        result = alert_succeeded_orphans()
+        assert result['alerted'] >= 1
+        assert PaymentAudit.objects.filter(action='orphan_alert_sent', payment=p).exists()
+
+    def test_materialize_refuses_refunded_payment(self, package):
+        """A charge refunded out-of-band must NOT be turned into a fulfilled booking."""
+        create_pi(APIClient(), package, pi_id='pi_refunded')
+        Payment.objects.filter(stripe_payment_intent_id='pi_refunded').update(status='refunded')
+        _age_pending('pi_refunded')
+        pending = PendingBooking.objects.get(stripe_payment_intent_id='pi_refunded')
+        booking, outcome = materialize_pending_booking(pending.id, source='test')
+        assert booking is None
+        assert outcome == 'failed'
+        assert not Booking.objects.filter(status='paid').exists()
+
+    def test_reconcile_retires_partially_refunded(self, package):
+        """A partially-refunded orphan is retired, not materialized at full price."""
+        create_pi(APIClient(), package, pi_id='pi_partial')
+        Payment.objects.filter(stripe_payment_intent_id='pi_partial').update(status='partially_refunded')
+        _age_pending('pi_partial')
+        result = reconcile_pending_payments()
+        assert result['recovered'] == 0
+        assert PendingBooking.objects.get(stripe_payment_intent_id='pi_partial').status == 'failed'

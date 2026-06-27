@@ -240,6 +240,26 @@ def materialize_pending_booking(pending_id, *, source='recovery'):
             pending.save(update_fields=['status', 'booking', 'updated_at'])
             return payment.booking, 'already_linked'
 
+        # If the charge was refunded out-of-band (e.g. a Stripe-dashboard refund),
+        # never materialize a fulfilled booking on refunded money — retire + alert
+        # so staff handle it manually instead of dispatching a free delivery (INC-004).
+        if payment and payment.status in ('refunded', 'partially_refunded'):
+            pending.status = 'failed'
+            pending.failure_reason = f'Payment {payment.status}; not materializing.'
+            pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
+            PaymentAudit.log(
+                action='auto_recovery_failed',
+                description=(
+                    f"Auto-recovery refused: PI {pi} payment is {payment.status}; "
+                    f"not creating a booking on refunded money. Source: {source}."
+                ),
+                payment=payment,
+            )
+            alert.update(kind='failed', pi=pi, amount_cents=pending.amount_cents,
+                         error=f'payment {payment.status}')
+            transaction.on_commit(lambda: _send_recovery_alert(alert))
+            return None, 'failed'
+
         # --- duplicate-charge detection (the two-PI double-charge case) ---
         sibling = _find_sibling_booking(pending)
         if sibling is not None:

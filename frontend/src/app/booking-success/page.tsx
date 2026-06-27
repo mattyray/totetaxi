@@ -37,8 +37,14 @@ function BookingSuccessContent() {
   // rehydrates bookingData from localStorage and wrongly short-circuit (INC-004).
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    setHydrated(useBookingWizard.persist.hasHydrated());
-    return useBookingWizard.persist.onFinishHydration(() => setHydrated(true));
+    if (useBookingWizard.persist.hasHydrated()) { setHydrated(true); return; }
+    const unsub = useBookingWizard.persist.onFinishHydration(() => setHydrated(true));
+    // Storage can be unavailable (embedded/privacy webviews) or the persisted blob
+    // corrupt — in which case hasHydrated() never flips and onFinishHydration never
+    // fires. Proceed anyway after a short wait so a charged customer falls through to
+    // the reassurance+phone message instead of an endless spinner (INC-004).
+    const t = setTimeout(() => setHydrated(true), 1500);
+    return () => { unsub(); clearTimeout(t); };
   }, []);
 
   const paymentIntentId = searchParams.get('payment_intent');

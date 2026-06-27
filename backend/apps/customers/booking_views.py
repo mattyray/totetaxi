@@ -261,11 +261,22 @@ class CustomerBookingCreateView(APIView):
 
         try:
             with transaction.atomic():
-                # Same cross-sibling advisory lock as the recovery path so a
-                # concurrent reconcile recovering a sibling PI of this cart blocks
-                # and then sees this booking as a duplicate (INC-004).
+                # Same cross-sibling advisory lock(s) as the recovery path so a
+                # concurrent reconcile recovering a sibling PI of this cart/fingerprint
+                # blocks and then sees this booking as a duplicate (INC-004). Keys come
+                # from the server-captured PendingBooking — the client does not echo
+                # cart_key on this request.
                 from apps.bookings.recovery import take_dedup_advisory_locks
-                take_dedup_advisory_locks(cart_key=request.data.get('cart_key', ''))
+                from apps.bookings.models import PendingBooking
+                _pend = (
+                    PendingBooking.objects
+                    .filter(stripe_payment_intent_id=payment_intent_id)
+                    .values('cart_key', 'fingerprint').first()
+                ) or {}
+                take_dedup_advisory_locks(
+                    cart_key=_pend.get('cart_key') or request.data.get('cart_key', ''),
+                    fingerprint=_pend.get('fingerprint') or '',
+                )
 
                 # ========== C2: PaymentIntent reuse prevention ==========
                 # Lock the Payment row for this PI BEFORE creating the booking so a

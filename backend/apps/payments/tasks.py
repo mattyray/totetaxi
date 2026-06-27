@@ -366,19 +366,30 @@ def alert_succeeded_orphans():
     )
 
     # Skip orphans whose auto-recovery is still in flight: a PendingBooking in
-    # 'pending' state means reconcile will create the booking shortly. Telling
-    # staff to "create the booking manually" now would race reconcile and produce
-    # a DOUBLE booking on one charge (INC-004). Only alert when there is no
-    # capture, or it has terminally failed — i.e. genuine manual-intervention cases.
+    # 'pending' state means reconcile will create the booking shortly, so telling
+    # staff to "create the booking manually" now would race reconcile into a DOUBLE
+    # booking on one charge (INC-004). BUT only suppress while recovery can actually
+    # act:
+    #   - If the kill-switch is OFF, no reconcile will run — fall back to alert-only
+    #     (never suppress) so charged orphans are never silent.
+    #   - Even when ON, a capture stuck 'pending' beyond a bounded window (poison row
+    #     / saturated batch) must stop suppressing so staff eventually get emailed.
     from apps.bookings.models import PendingBooking
-    inflight_pis = set(
-        PendingBooking.objects.filter(
-            status='pending',
-            stripe_payment_intent_id__in=[
-                p.stripe_payment_intent_id for p in orphans if p.stripe_payment_intent_id
-            ],
-        ).values_list('stripe_payment_intent_id', flat=True)
-    )
+    from apps.bookings.recovery import autorecovery_enabled
+    if not autorecovery_enabled():
+        inflight_pis = set()
+    else:
+        grace = getattr(settings, 'ORPHAN_RECOVERY_GRACE_MINUTES', 3)
+        inflight_cutoff = now - timedelta(minutes=max(grace * 10, 30))
+        inflight_pis = set(
+            PendingBooking.objects.filter(
+                status='pending',
+                created_at__gte=inflight_cutoff,
+                stripe_payment_intent_id__in=[
+                    p.stripe_payment_intent_id for p in orphans if p.stripe_payment_intent_id
+                ],
+            ).values_list('stripe_payment_intent_id', flat=True)
+        )
     orphans_to_alert = [
         p for p in orphans
         if p.id not in alerted_payment_ids
@@ -502,7 +513,9 @@ def reconcile_pending_payments():
     # beat interval, so two runs could otherwise overlap and double-process
     # tie-ordered siblings. Only one reconcile runs at a time.
     lock_id = 'reconcile_pending_payments_lock'
-    if not cache.add(lock_id, '1', timeout=540):
+    # TTL must exceed the hard time_limit (600s) so the guard cannot expire while a
+    # slow run is still alive (which would let a second run start concurrently).
+    if not cache.add(lock_id, '1', timeout=660):
         logger.info("reconcile_pending_payments: another run holds the lock, skipping")
         return {'recovered': 0, 'skipped': 'locked'}
 
@@ -577,11 +590,11 @@ def _reconcile_one(pending, Payment, materialize_pending_booking):
         .first()
     )
 
-    # If the payment already failed/refunded, the customer never completed —
-    # retire this capture so we stop scanning it.
-    if payment and payment.status in ('failed', 'refunded'):
+    # If the payment already failed/refunded (incl. partial), do not materialize a
+    # fulfilled booking on it — retire this capture so we stop scanning it.
+    if payment and payment.status in ('failed', 'refunded', 'partially_refunded'):
         pending.status = 'failed'
-        pending.failure_reason = f'Payment {payment.status}; checkout abandoned.'
+        pending.failure_reason = f'Payment {payment.status}; not recoverable.'
         pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
         return 'retired'
 
