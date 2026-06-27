@@ -82,6 +82,16 @@ interface BookingWizardState {
   lastResetTimestamp?: number;
   pendingPaymentIntentId?: string;
   pendingBookingToken?: string;
+  // Stable per-checkout key sent to the server so repeated payment attempts in
+  // one session can be linked and de-duplicated during orphan auto-recovery
+  // (prevents the two-PI double-charge from becoming two bookings). INC-004.
+  cartKey?: string;
+  // True once the customer has actually submitted the Stripe payment confirmation
+  // (set right before stripe.confirmPayment; persisted so it survives a 3DS redirect
+  // or crash). Distinguishes "PI created but unpaid" from "payment in flight" so the
+  // on-mount recovery only fires for a real charge — not a back-navigation to a
+  // created-but-unpaid PI (INC-004 #6).
+  paymentConfirmInFlight?: boolean;
 }
 
 interface BookingWizardActions {
@@ -104,6 +114,8 @@ interface BookingWizardActions {
   clearDiscountCode: () => void;
   setPendingPaymentIntentId: (id: string, bookingToken?: string) => void;
   clearPendingPaymentIntentId: () => void;
+  ensureCartKey: () => string;
+  setPaymentConfirmInFlight: (inFlight: boolean) => void;
 }
 
 const initialBookingData: BookingData = {
@@ -116,7 +128,7 @@ const initialBookingData: BookingData = {
   specialty_items: [],
 };
 
-const STORE_VERSION = 8;
+const STORE_VERSION = 9;
 const MAX_SESSION_AGE_MS = 24 * 60 * 60 * 1000;
 const CHAT_PREFILL_KEY = 'totetaxi-chat-prefill';
 const CHAT_PREFILL_TTL_MS = 5 * 60 * 1000;
@@ -155,6 +167,7 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       completedBookingNumber: undefined,
       userId: undefined,
       isGuestMode: true,
+      paymentConfirmInFlight: false,
       lastResetTimestamp: Date.now(),
 
       setCurrentStep: (step) => {
@@ -263,7 +276,32 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       clearPendingPaymentIntentId: () => set({
         pendingPaymentIntentId: undefined,
         pendingBookingToken: undefined,
+        // Clear the cart key on completion so a later booking in the same browser
+        // starts a fresh key — a stale key could otherwise make _find_sibling_booking
+        // falsely match the prior completed booking and refuse a real orphan (INC-004 #5).
+        cartKey: undefined,
+        paymentConfirmInFlight: false,
       }),
+
+      ensureCartKey: () => {
+        const existing = get().cartKey;
+        if (existing) return existing;
+        const generate = () => {
+          try {
+            if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+              return crypto.randomUUID();
+            }
+          } catch {
+            // fall through to manual generation
+          }
+          return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        };
+        const key = generate();
+        set({ cartKey: key });
+        return key;
+      },
+
+      setPaymentConfirmInFlight: (inFlight) => set({ paymentConfirmInFlight: !!inFlight }),
 
       setLoading: (loading) => set({ isLoading: !!loading }),
       
@@ -376,6 +414,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
           pendingBookingToken: undefined,
+          cartKey: undefined,
+          paymentConfirmInFlight: false,
         };
 
         set(newState);
@@ -413,6 +453,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
           lastResetTimestamp: Date.now(),
           pendingPaymentIntentId: undefined,
           pendingBookingToken: undefined,
+          cartKey: undefined,
+          paymentConfirmInFlight: false,
         });
       },
 
@@ -460,20 +502,32 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
       version: STORE_VERSION,
       migrate: (persistedState: any, version: number) => {
         if (version !== STORE_VERSION) {
+          // If a payment is in flight, the customer has already been charged and
+          // a booking still needs to be created. Wiping bookingData here (the old
+          // behavior) made the recovery POST send an empty body → 400 → the PI was
+          // deleted and the payment orphaned. Preserve the booking data alongside
+          // the pending PI so recovery can complete (INC-004). Backend
+          // auto-recovery is the ultimate safety net, but keeping the client able
+          // to finish is strictly better.
+          const hasPendingPayment = !!persistedState?.pendingPaymentIntentId;
           return {
-            currentStep: 0,
+            currentStep: hasPendingPayment ? (persistedState?.currentStep ?? 0) : 0,
             isLoading: false,
-            bookingData: { ...initialBookingData },
+            bookingData: hasPendingPayment && persistedState?.bookingData
+              ? { ...initialBookingData, ...persistedState.bookingData }
+              : { ...initialBookingData },
             errors: {},
             isBookingComplete: false,
             completedBookingNumber: undefined,
-            userId: 'guest',
-            isGuestMode: true,
+            userId: hasPendingPayment ? (persistedState?.userId ?? 'guest') : 'guest',
+            isGuestMode: hasPendingPayment ? (persistedState?.isGuestMode ?? true) : true,
             lastResetTimestamp: Date.now(),
             // Preserve pending PI across version migrations to avoid orphaning
             // in-flight payments during a deploy
             pendingPaymentIntentId: persistedState?.pendingPaymentIntentId,
             pendingBookingToken: persistedState?.pendingBookingToken,
+            cartKey: persistedState?.cartKey,
+            paymentConfirmInFlight: persistedState?.paymentConfirmInFlight,
           };
         }
         
@@ -514,6 +568,8 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
         lastResetTimestamp: state.lastResetTimestamp,
         pendingPaymentIntentId: state.pendingPaymentIntentId,
         pendingBookingToken: state.pendingBookingToken,
+        cartKey: state.cartKey,
+        paymentConfirmInFlight: state.paymentConfirmInFlight,
       })
     }
   )

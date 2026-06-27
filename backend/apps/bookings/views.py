@@ -664,6 +664,26 @@ class CreateGuestPaymentIntentView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
+            # Capture the full booking payload server-side so an orphaned payment
+            # (browser dies before the booking POST lands) can be auto-recovered
+            # without fabricating from thin Stripe metadata (INC-004). Best-effort:
+            # never let a capture failure block a successful PaymentIntent.
+            try:
+                from .recovery import capture_pending_booking
+                capture_pending_booking(
+                    payment_intent_id=payment_intent.id,
+                    booking_token=booking_token,
+                    booking_payload=request.data.get('booking_payload'),
+                    amount_cents=amount_cents,
+                    is_authenticated=False,
+                    cart_key=request.data.get('cart_key', ''),
+                )
+            except Exception:
+                logger.exception(
+                    f"Failed to capture PendingBooking for PI {payment_intent.id} "
+                    f"(auto-recovery unavailable for this payment)"
+                )
+
             logger.info(f"Payment intent created: {payment_intent.id} for ${amount_cents / 100}")
 
             return Response({
@@ -761,12 +781,57 @@ class GuestBookingCreateView(generics.CreateAPIView):
         # ========== END RESTRICTION CHECK ==========
 
         with transaction.atomic():
-            # ========== C2: PaymentIntent reuse prevention (inside atomic for atomicity) ==========
-            if Payment.objects.select_for_update().filter(
+            # Take the same cross-sibling advisory lock(s) the recovery path uses, so a
+            # concurrent reconcile recovering a sibling PI of this cart/fingerprint
+            # blocks until this booking commits and then sees it as a duplicate
+            # (prevents one double-charge becoming two bookings). INC-004.
+            # The keys MUST come from the server-captured PendingBooking — the client
+            # does not echo cart_key on this request, so reading request.data would
+            # acquire no lock and leave the race open.
+            from .recovery import take_dedup_advisory_locks
+            from .models import PendingBooking
+            _pend = (
+                PendingBooking.objects
+                .filter(stripe_payment_intent_id=payment_intent_id)
+                .values('cart_key', 'fingerprint').first()
+            ) or {}
+            # Keys come ONLY from the server-captured PendingBooking — never trust a
+            # client-supplied cart_key here (the real client doesn't send one on
+            # create anyway). No capture → no lock available (INC-004 trust boundary).
+            take_dedup_advisory_locks(
+                cart_key=_pend.get('cart_key') or '',
+                fingerprint=_pend.get('fingerprint') or '',
+            )
+
+            # ========== C2: PaymentIntent reuse prevention ==========
+            # Lock the Payment row for this PI BEFORE creating the booking, so a
+            # concurrent same-PI request (double-submit, two tabs, the 3DS
+            # /booking-success POST racing mount recovery, or the reconciliation
+            # task) blocks here and then sees the booking already linked — instead
+            # of both passing an unlinked-row check and producing two bookings for
+            # one charge (INC-004). filter().first() is zero/multi-row safe: free
+            # orders have no Payment row, legacy PIs may have none, and the column
+            # has no unique constraint. (Also blocks free-order PI replay when a
+            # matching Payment row already exists.)
+            locked_payment = Payment.objects.select_for_update().filter(
                 stripe_payment_intent_id=payment_intent_id,
-                booking__isnull=False,
-            ).exists():
+            ).order_by('created_at').first()
+            if locked_payment and locked_payment.booking_id:
                 logger.warning(f"PI reuse attempt: {payment_intent_id}")
+                return Response(
+                    {'error': 'This payment has already been used for a booking'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Cross-sibling duplicate check (INC-004): if a sibling charge of this
+            # cart/fingerprint already materialized into a booking (e.g. reconcile
+            # recovered the first of a double-charge before this POST landed), refuse
+            # instead of creating a SECOND booking for one order. Runs under the
+            # advisory lock taken above. The "already used" wording matches what the
+            # frontend treats as "already booked → reassure, don't alarm".
+            from .recovery import find_happy_path_sibling
+            if find_happy_path_sibling(payment_intent_id) is not None:
+                logger.warning(f"Duplicate charge blocked at create: {payment_intent_id}")
                 return Response(
                     {'error': 'This payment has already been used for a booking'},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -838,6 +903,11 @@ class GuestBookingCreateView(generics.CreateAPIView):
             # Update booking status to paid since payment already succeeded
             booking.status = 'paid'
             booking.save(_skip_pricing=True)
+
+            # Mark any captured PendingBooking as materialized so the recovery
+            # path (webhook / reconciliation) won't create a duplicate (INC-004).
+            from .recovery import mark_pending_materialized
+            mark_pending_materialized(payment_intent_id, booking)
 
         logger.info(f"Guest booking created: {booking.booking_number} - {booking.service_type} - ${booking.total_price_dollars}")
 

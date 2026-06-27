@@ -33,16 +33,20 @@ interface BookingResponse {
   };
 }
 
-function CheckoutForm({ 
-  clientSecret, 
+function CheckoutForm({
+  clientSecret,
   paymentIntentId,
-  totalAmount, 
-  onSuccess 
-}: { 
+  totalAmount,
+  onSuccess,
+  onConfirmStart,
+  onConfirmFailed,
+}: {
   clientSecret: string;
   paymentIntentId: string;
   totalAmount: number;
   onSuccess: (paymentIntentId: string) => void;
+  onConfirmStart?: () => void;
+  onConfirmFailed?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -59,6 +63,11 @@ function CheckoutForm({
     setIsProcessing(true);
     setErrorMessage(undefined);
 
+    // Mark payment as in-flight BEFORE confirming, so it persists across a 3DS
+    // redirect / crash and the on-mount recovery knows a real charge was attempted
+    // (INC-004 #6).
+    onConfirmStart?.();
+
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -68,6 +77,10 @@ function CheckoutForm({
     });
 
     if (error) {
+      // Card declined / auth failed — the PI was NOT charged. Reset the in-flight
+      // flag so a later back-navigation + remount doesn't fire mount-recovery on an
+      // unpaid PI and show a false "payment received" message (INC-004 #6 residual).
+      onConfirmFailed?.();
       setErrorMessage(error.message);
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
@@ -299,7 +312,7 @@ function DiscountCodeInput() {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, pendingBookingToken, setPendingPaymentIntentId, clearPendingPaymentIntentId } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, pendingBookingToken, setPendingPaymentIntentId, clearPendingPaymentIntentId, ensureCartKey, paymentConfirmInFlight, setPaymentConfirmInFlight } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -319,19 +332,92 @@ export function ReviewPaymentStep() {
   // Recovery: if we have a persisted PI from a previous session (page refresh, crash),
   // auto-retry booking creation on mount
   const recoveryAttempted = useRef(false);
+  // Tracks whether the in-flight booking-create is a silent auto-recovery (mount)
+  // vs a user-initiated submit. On recovery failures we must NOT delete the pending
+  // PI — the customer was already charged and the backend can still auto-recover it
+  // (INC-004). Only user-initiated submits clear the anchor.
+  const isRecoveryAttempt = useRef(false);
   useEffect(() => {
+    // Only auto-recover when a payment was actually confirmed (paymentConfirmInFlight).
+    // The pending PI is set at PI-creation, BEFORE payment — without this guard a
+    // back-navigation to a created-but-unpaid PI would fire booking-create on an
+    // unpaid PI, get rejected, and show a misleading "payment received" message
+    // with a stale PI (INC-004 #6).
     if (
       pendingPaymentIntentId &&
+      paymentConfirmInFlight &&
       !bookingComplete &&
       !recoveryAttempted.current
     ) {
       recoveryAttempted.current = true;
+      isRecoveryAttempt.current = true;
       console.log('🔄 Recovering orphaned payment:', pendingPaymentIntentId);
       setLoading(true);
       createBookingMutation.mutate(pendingPaymentIntentId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Build the full booking-create body. Shared between (a) the booking-create POST
+  // and (b) the `booking_payload` we stash at PI-creation time so the server can
+  // auto-recover an orphaned payment without the browser (INC-004).
+  const buildBookingPayload = (): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
+      service_type: bookingData.service_type,
+      pickup_date: bookingData.service_type === 'blade_transfer'
+        ? bookingData.blade_flight_date
+        : bookingData.pickup_date,
+      pickup_time: bookingData.pickup_time,
+      specific_pickup_hour: bookingData.specific_pickup_hour,
+      special_instructions: bookingData.special_instructions,
+      coi_required: bookingData.coi_required,
+    };
+
+    if (bookingData.service_type === 'mini_move') {
+      payload.mini_move_package_id = bookingData.mini_move_package_id;
+      payload.include_packing = bookingData.include_packing;
+      payload.include_unpacking = bookingData.include_unpacking;
+    } else if (bookingData.service_type === 'standard_delivery') {
+      payload.standard_delivery_item_count = bookingData.standard_delivery_item_count;
+      payload.item_description = bookingData.item_description;
+      payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+      payload.specialty_items = bookingData.specialty_items;
+    } else if (bookingData.service_type === 'specialty_item') {
+      payload.specialty_items = bookingData.specialty_items;
+      payload.is_same_day_delivery = bookingData.is_same_day_delivery;
+    } else if (bookingData.service_type === 'blade_transfer') {
+      payload.blade_airport = bookingData.blade_airport;
+      payload.blade_flight_date = bookingData.blade_flight_date;
+      payload.blade_flight_time = bookingData.blade_flight_time;
+      payload.blade_bag_count = bookingData.blade_bag_count;
+      payload.transfer_direction = bookingData.transfer_direction || 'to_airport';
+      if (bookingData.blade_terminal) payload.blade_terminal = bookingData.blade_terminal;
+    }
+
+    if (isAuthenticated) {
+      const timestamp = new Date().toISOString().slice(11, 16);
+      const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      payload.new_pickup_address = bookingData.pickup_address;
+      payload.new_delivery_address = bookingData.delivery_address;
+      payload.save_pickup_address = true;
+      payload.save_delivery_address = true;
+      payload.pickup_address_nickname = `Pickup ${dateStr} ${timestamp}`;
+      payload.delivery_address_nickname = `Delivery ${dateStr} ${timestamp}`;
+    } else {
+      payload.first_name = bookingData.customer_info?.first_name;
+      payload.last_name = bookingData.customer_info?.last_name;
+      payload.email = bookingData.customer_info?.email;
+      payload.phone = bookingData.customer_info?.phone;
+      payload.pickup_address = bookingData.pickup_address;
+      payload.delivery_address = bookingData.delivery_address;
+    }
+
+    if (bookingData.discount_code && bookingData.discount_validated) {
+      payload.discount_code = bookingData.discount_code;
+    }
+
+    return payload;
+  };
 
   // STEP 1: Create payment intent
   const createPaymentIntentMutation = useMutation({
@@ -390,6 +476,12 @@ export function ReviewPaymentStep() {
         paymentRequest.discount_code = bookingData.discount_code;
       }
 
+      // Stash the full booking body + a stable cart key so the server can
+      // auto-recover (and de-duplicate) an orphaned payment without the browser
+      // (INC-004). The PI endpoint ignores these for pricing; it only persists them.
+      paymentRequest.booking_payload = buildBookingPayload();
+      paymentRequest.cart_key = ensureCartKey();
+
       console.log('💳 Creating payment intent:', paymentRequest);
       const response = await apiClient.post(endpoint, paymentRequest);
       console.log('✅ Payment intent created:', response.data);
@@ -402,6 +494,7 @@ export function ReviewPaymentStep() {
       // Free order — skip Stripe payment, go directly to booking
       if (data.payment_intent_id.startsWith('free_order_')) {
         console.log('🎉 Free order — skipping payment');
+        isRecoveryAttempt.current = false;
         createBookingMutation.mutate(data.payment_intent_id);
         return;
       }
@@ -443,63 +536,11 @@ export function ReviewPaymentStep() {
         ? '/api/customer/bookings/create/'
         : '/api/public/guest-booking/';
 
-      let bookingRequest: any = {
+      const bookingRequest: any = {
+        ...buildBookingPayload(),
         payment_intent_id: paymentIntentId,
         booking_token: pendingBookingToken,
-        service_type: bookingData.service_type,
-        pickup_date: bookingData.service_type === 'blade_transfer'
-          ? bookingData.blade_flight_date
-          : bookingData.pickup_date,
-        pickup_time: bookingData.pickup_time,
-        specific_pickup_hour: bookingData.specific_pickup_hour,
-        special_instructions: bookingData.special_instructions,
-        coi_required: bookingData.coi_required,
       };
-
-      if (bookingData.service_type === 'mini_move') {
-        bookingRequest.mini_move_package_id = bookingData.mini_move_package_id;
-        bookingRequest.include_packing = bookingData.include_packing;
-        bookingRequest.include_unpacking = bookingData.include_unpacking;
-      } else if (bookingData.service_type === 'standard_delivery') {
-        bookingRequest.standard_delivery_item_count = bookingData.standard_delivery_item_count;
-        bookingRequest.item_description = bookingData.item_description;
-        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-        bookingRequest.specialty_items = bookingData.specialty_items;
-      } else if (bookingData.service_type === 'specialty_item') {
-        bookingRequest.specialty_items = bookingData.specialty_items;
-        bookingRequest.is_same_day_delivery = bookingData.is_same_day_delivery;
-      } else if (bookingData.service_type === 'blade_transfer') {
-        bookingRequest.blade_airport = bookingData.blade_airport;
-        bookingRequest.blade_flight_date = bookingData.blade_flight_date;
-        bookingRequest.blade_flight_time = bookingData.blade_flight_time;
-        bookingRequest.blade_bag_count = bookingData.blade_bag_count;
-        bookingRequest.transfer_direction = bookingData.transfer_direction || 'to_airport';
-        if (bookingData.blade_terminal) bookingRequest.blade_terminal = bookingData.blade_terminal;
-      }
-
-      if (isAuthenticated) {
-        const timestamp = new Date().toISOString().slice(11, 16);
-        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        bookingRequest.new_pickup_address = bookingData.pickup_address;
-        bookingRequest.new_delivery_address = bookingData.delivery_address;
-        bookingRequest.save_pickup_address = true;
-        bookingRequest.save_delivery_address = true;
-        bookingRequest.pickup_address_nickname = `Pickup ${dateStr} ${timestamp}`;
-        bookingRequest.delivery_address_nickname = `Delivery ${dateStr} ${timestamp}`;
-      } else {
-        bookingRequest.first_name = bookingData.customer_info?.first_name;
-        bookingRequest.last_name = bookingData.customer_info?.last_name;
-        bookingRequest.email = bookingData.customer_info?.email;
-        bookingRequest.phone = bookingData.customer_info?.phone;
-        bookingRequest.pickup_address = bookingData.pickup_address;
-        bookingRequest.delivery_address = bookingData.delivery_address;
-      }
-
-      // Include discount code if validated
-      if (bookingData.discount_code && bookingData.discount_validated) {
-        bookingRequest.discount_code = bookingData.discount_code;
-      }
 
       console.log('📦 Creating booking with payment:', bookingRequest);
       const response = await apiClient.post(endpoint, bookingRequest);
@@ -509,6 +550,7 @@ export function ReviewPaymentStep() {
     },
     onSuccess: (data) => {
       console.log('✅ Booking creation successful:', data);
+      isRecoveryAttempt.current = false;
       clearPendingPaymentIntentId();
       analytics.bookingCompleted({
         value: data.booking.total_price_dollars,
@@ -528,20 +570,49 @@ export function ReviewPaymentStep() {
     onError: (error: AxiosError | Error) => {
       console.error('❌ Booking creation failed:', error);
       setLoading(false);
+      const wasRecovery = isRecoveryAttempt.current;
+      isRecoveryAttempt.current = false;
+
       if ('response' in error && error.response) {
         const data = error.response.data as any;
         console.error('Error response:', data);
-        // Server rejected — clear persisted PI to prevent infinite retry loop
-        // on subsequent page visits
-        clearPendingPaymentIntentId();
+
+        const errText = `${data?.error || ''} ${data?.message || ''}`.toLowerCase();
+        const alreadyBooked = errText.includes('already been used');
+
+        if (alreadyBooked) {
+          // The booking already exists — the backend auto-recovered it, or this
+          // is a duplicate attempt. The anchor has done its job; clear it and
+          // reassure rather than alarm. (INC-004)
+          clearPendingPaymentIntentId();
+          setBookingError('Your booking is already confirmed — please check your email for the details. Questions? Call (631) 595-5100.');
+          setBookingErrorPhone('(631) 595-5100');
+          return;
+        }
+
         if (data?.error === 'same_day_restriction') {
+          // User-facing validation; safe to clear and let them adjust.
+          if (!wasRecovery) clearPendingPaymentIntentId();
           setBookingError(data.message);
           setBookingErrorPhone(data.contact_phone || '(631) 595-5100');
+          return;
+        }
+
+        if (wasRecovery) {
+          // Silent auto-recovery failed (e.g. transient/data-loss 400). Do NOT
+          // delete the pending PI — the customer was already charged and the
+          // backend reconciliation task can still auto-recover it (INC-004).
+          setBookingError('Your payment was received and we are finalizing your booking. You will get a confirmation email shortly — if you do not, please call (631) 595-5100.');
+          setBookingErrorPhone('(631) 595-5100');
         } else {
+          // User-initiated submit failed — clear the anchor so a later visit does
+          // not loop, and tell them we have their payment.
+          clearPendingPaymentIntentId();
           setBookingError(data?.message || data?.detail || 'Your payment was processed but we encountered an error creating your booking. Please call (631) 595-5100 for assistance.');
           setBookingErrorPhone('(631) 595-5100');
         }
       } else {
+        // Network error — never clear the anchor; recovery can still complete.
         setBookingError('Your payment was processed but we encountered a network error. Please call (631) 595-5100 for assistance.');
         setBookingErrorPhone('(631) 595-5100');
       }
@@ -563,6 +634,7 @@ export function ReviewPaymentStep() {
 
   const handlePaymentSuccess = (paymentIntentId: string) => {
     console.log('💳 Payment successful, creating booking with payment ID:', paymentIntentId);
+    isRecoveryAttempt.current = false;
     setLoading(true);
     createBookingMutation.mutate(paymentIntentId);
   };
@@ -694,11 +766,13 @@ export function ReviewPaymentStep() {
           </CardHeader>
           <CardContent>
             <Elements stripe={stripePromise} options={{ clientSecret }}>        
-              <CheckoutForm 
+              <CheckoutForm
                 clientSecret={clientSecret}
                 paymentIntentId={paymentIntentId}
                 totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
                 onSuccess={handlePaymentSuccess}
+                onConfirmStart={() => setPaymentConfirmInFlight(true)}
+                onConfirmFailed={() => setPaymentConfirmInFlight(false)}
               />
             </Elements>
           </CardContent>

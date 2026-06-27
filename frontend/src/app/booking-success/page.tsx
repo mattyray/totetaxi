@@ -32,6 +32,21 @@ function BookingSuccessContent() {
   const [error, setError] = useState('');
   const [attempted, setAttempted] = useState(false);
 
+  // Wait for the persisted store to hydrate before deciding the booking details
+  // are missing — otherwise the one-shot effect below can run before zustand
+  // rehydrates bookingData from localStorage and wrongly short-circuit (INC-004).
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    if (useBookingWizard.persist.hasHydrated()) { setHydrated(true); return; }
+    const unsub = useBookingWizard.persist.onFinishHydration(() => setHydrated(true));
+    // Storage can be unavailable (embedded/privacy webviews) or the persisted blob
+    // corrupt — in which case hasHydrated() never flips and onFinishHydration never
+    // fires. Proceed anyway after a short wait so a charged customer falls through to
+    // the reassurance+phone message instead of an endless spinner (INC-004).
+    const t = setTimeout(() => setHydrated(true), 1500);
+    return () => { unsub(); clearTimeout(t); };
+  }, []);
+
   const paymentIntentId = searchParams.get('payment_intent');
   const redirectStatus = searchParams.get('redirect_status');
 
@@ -119,24 +134,27 @@ function BookingSuccessContent() {
       console.error('Booking creation failed after 3D Secure redirect:', error);
       if ('response' in error && error.response) {
         const data = error.response.data as any;
-        // If already used, the booking was likely created by the recovery mechanism
-        if (data?.error === 'This payment has already been used for a booking') {
+        const errText = `${data?.error || ''} ${data?.message || ''}`.toLowerCase();
+        // If already used, the booking was already created (likely by the backend
+        // auto-recovery mechanism). The anchor has done its job — clear it.
+        if (errText.includes('already been used')) {
           clearPendingPaymentIntentId();
           setError('Your booking has already been created. Please check your email for confirmation.');
           return;
         }
-        // Server rejected — clear PI to prevent infinite retry loop
-        clearPendingPaymentIntentId();
+        // This page is a post-charge recovery path. Do NOT clear the pending PI on
+        // a generic rejection — the customer was charged and the backend
+        // reconciliation task can still auto-recover the booking (INC-004).
       }
       setError(
-        'Your payment was processed but we encountered an error creating your booking. ' +
-        'Please call (631) 595-5100 for assistance.'
+        'Your payment was received and we are finalizing your booking. ' +
+        'You will get a confirmation email shortly — if you do not, please call (631) 595-5100.'
       );
     },
   });
 
   useEffect(() => {
-    if (attempted) return;
+    if (!hydrated || attempted) return;
     setAttempted(true);
 
     if (!paymentIntentId || redirectStatus !== 'succeeded') {
@@ -145,16 +163,20 @@ function BookingSuccessContent() {
     }
 
     if (!bookingData.service_type) {
+      // Booking details aren't in this browser (e.g. data cleared / different
+      // device after the bank redirect). The backend captured the full booking at
+      // payment time and its reconciliation task will create it automatically
+      // (INC-004) — reassure rather than alarm, and don't touch the pending PI.
       setError(
-        'Your payment was processed but booking details were lost. ' +
-        'Please call (631) 595-5100 to complete your booking.'
+        'Your payment was received and we are finalizing your booking. ' +
+        'You will get a confirmation email shortly — if you do not, please call (631) 595-5100.'
       );
       return;
     }
 
     createBookingMutation.mutate(paymentIntentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated]);
 
   // Success state
   if (bookingNumber) {

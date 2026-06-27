@@ -154,6 +154,10 @@ class PaymentAudit(models.Model):
         ('refund_requested', 'Refund Requested'),
         ('refund_approved', 'Refund Approved'),
         ('refund_completed', 'Refund Completed'),
+        ('orphan_alert_sent', 'Orphan Alert Sent'),
+        ('booking_auto_recovered', 'Booking Auto-Recovered'),
+        ('duplicate_charge_detected', 'Duplicate Charge Detected'),
+        ('auto_recovery_failed', 'Auto-Recovery Failed'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

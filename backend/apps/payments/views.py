@@ -16,7 +16,7 @@ from django.contrib.auth import get_user_model
 
 from django_ratelimit.decorators import ratelimit
 
-from .models import Payment, Refund
+from .models import Payment, Refund, PaymentAudit
 from .serializers import (
     PaymentIntentCreateSerializer,
     PaymentSerializer,
@@ -192,6 +192,8 @@ class StripeWebhookView(APIView):
             return self._handle_payment_failed(event, cache_key)
         elif event_type == 'checkout.session.expired':
             return self._handle_checkout_expired(event, cache_key)
+        elif event_type == 'charge.refunded':
+            return self._handle_charge_refunded(event, cache_key)
         else:
             logger.info(f"Webhook: Unhandled event type {event_type}")
             cache.set(cache_key, True, timeout=259200)
@@ -239,6 +241,51 @@ class StripeWebhookView(APIView):
             logger.exception("Payment failed task raised during eager execution")
         cache.set(cache_key, True, timeout=259200)
         return Response({'status': 'processing'}, status=status.HTTP_200_OK)
+
+    def _handle_charge_refunded(self, event, cache_key):
+        """Sync Payment.status when a charge is refunded in Stripe (incl. dashboard
+        refunds). Keeps the DB authoritative so auto-recovery never materializes a
+        booking on refunded money (INC-004 B3). Refunds are never auto-issued by us —
+        this only records a refund that already happened in Stripe.
+        """
+        cache.set(cache_key, True, timeout=259200)
+        charge = event['data']['object']
+        payment_intent_id = charge.get('payment_intent')
+        if not payment_intent_id:
+            logger.info("charge.refunded with no payment_intent — ignoring")
+            return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
+
+        amount = charge.get('amount') or 0
+        amount_refunded = charge.get('amount_refunded') or 0
+        fully = bool(charge.get('refunded')) or (amount and amount_refunded >= amount)
+        new_status = 'refunded' if fully else 'partially_refunded'
+
+        updated = 0
+        for payment in Payment.objects.filter(stripe_payment_intent_id=payment_intent_id):
+            # Skip if already at the target state (avoids duplicate audits on
+            # redelivery) or already fully refunded (never downgrade refunded ->
+            # partially_refunded). A partial -> full refund still proceeds.
+            if payment.status == new_status or payment.status == 'refunded':
+                continue
+            payment.status = new_status
+            payment.save(update_fields=['status', 'updated_at'])
+            updated += 1
+            try:
+                PaymentAudit.log(
+                    action='refund_completed',
+                    description=(
+                        f"Stripe charge refund synced: PI {payment_intent_id} "
+                        f"${amount_refunded / 100:.2f} of ${amount / 100:.2f} → {new_status}"
+                    ),
+                    payment=payment,
+                )
+            except Exception:
+                logger.exception("charge.refunded: PaymentAudit.log failed for PI %s", payment_intent_id)
+
+        logger.info(
+            f"charge.refunded: PI {payment_intent_id} → {new_status} ({updated} Payment row(s) synced)"
+        )
+        return Response({'status': 'processed'}, status=status.HTTP_200_OK)
 
     def _handle_checkout_expired(self, event, cache_key):
         """Handle expired Checkout Sessions — mark pending Payment as expired."""

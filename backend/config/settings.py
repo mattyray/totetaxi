@@ -346,6 +346,14 @@ BLADE_PHONE_NUMBER = env('BLADE_PHONE_NUMBER', default='+1234567890')
 # without removing the Celery Beat schedule.
 BOOKING_REMINDERS_ENABLED = env.bool('BOOKING_REMINDERS_ENABLED', default=True)
 
+# Orphaned-payment auto-recovery (INC-004). Kill-switch: disable in prod with
+# `fly secrets set ORPHAN_AUTORECOVERY_ENABLED=false` to instantly fall back to
+# alert-only behavior (no code rollback needed). ORPHAN_RECOVERY_GRACE_MINUTES is
+# how long a captured PendingBooking waits before the reconciliation task recovers
+# it, giving the normal frontend booking-create flow time to win first.
+ORPHAN_AUTORECOVERY_ENABLED = env.bool('ORPHAN_AUTORECOVERY_ENABLED', default=True)
+ORPHAN_RECOVERY_GRACE_MINUTES = env.int('ORPHAN_RECOVERY_GRACE_MINUTES', default=3)
+
 CELERY_BEAT_SCHEDULE = {
     'send-booking-reminders-hourly': {
         'task': 'apps.bookings.tasks.send_booking_reminders',
@@ -361,6 +369,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.payments.tasks.alert_succeeded_orphans',
         'schedule': crontab(minute='*/15'),
         'options': {'expires': 900}
+    },
+    'reconcile-pending-payments': {
+        'task': 'apps.payments.tasks.reconcile_pending_payments',
+        'schedule': crontab(minute='*/5'),
+        'options': {'expires': 300}
     },
 }# Replace your TESTING section cache configuration with this:
 # ADD THIS TO YOUR config/settings.py - COMPLETE TESTING SECTION
