@@ -603,6 +603,38 @@ class TestReviewFixesRound4:
         assert Booking.objects.count() == 2
         assert not PendingBooking.objects.filter(status='duplicate').exists()
 
+    def test_fingerprint_reads_authenticated_and_saved_address_shapes(self):
+        """compute_fingerprint must read the REAL wizard payload shapes, not only the
+        guest `pickup_address` dict. INC-004 hotfix: authenticated checkouts send
+        `new_pickup_address` (a freshly entered address) or `pickup_address_id` (a saved
+        address) — reading only `pickup_address` silently dropped the address on every
+        authenticated order, so two DIFFERENT-address orders collapsed to one coarse
+        email|date|service|amount fingerprint and the second was falsely refused as a
+        duplicate. Reproduces the prod false-positive: 127 Lynncliff vs 11 Oak Drive."""
+        from apps.bookings.recovery import compute_fingerprint
+        base = {'email': 'a@b.com', 'pickup_date': '2026-07-16', 'service_type': 'specialty_item'}
+
+        # 1) authenticated 'new address' shape — the exact prod case
+        fa = compute_fingerprint({**base,
+            'new_pickup_address': {'address_line_1': '127 Lynncliff Road', 'zip_code': '11946'},
+            'new_delivery_address': {'address_line_1': '127 Lynncliff Road', 'zip_code': '11946'}}, 100)
+        fb = compute_fingerprint({**base,
+            'new_pickup_address': {'address_line_1': '11 Oak Drive', 'zip_code': '11946'},
+            'new_delivery_address': {'address_line_1': '11 Oak Drive', 'zip_code': '11946'}}, 100)
+        assert fa != fb, "different new_* addresses must yield different fingerprints"
+        assert '127 lynncliff road' in fa and '|~|~' not in fa
+
+        # 2) saved-address reference shape distinguishes by id
+        fc = compute_fingerprint({**base, 'pickup_address_id': 'UUID-1', 'delivery_address_id': 'UUID-1'}, 100)
+        fd = compute_fingerprint({**base, 'pickup_address_id': 'UUID-2', 'delivery_address_id': 'UUID-2'}, 100)
+        assert fc != fd and 'id:uuid-1' in fc
+
+        # 3) guest dict shape still works (backward compatible)
+        fg = compute_fingerprint({**base,
+            'pickup_address': {'address_line_1': '5 Guest Way', 'zip_code': '10001'},
+            'delivery_address': {'address_line_1': '5 Guest Way', 'zip_code': '10001'}}, 100)
+        assert '5 guest way' in fg
+
     def test_organizing_breakdown_returns_list_not_none(self, package):
         """#1/B1: get_organizing_services_breakdown must return a list — the `return
         services` was displaced into PendingBooking, making it return None for every
