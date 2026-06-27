@@ -95,14 +95,29 @@ def compute_fingerprint(payload, amount_cents, customer=None):
     pickup_date = str((payload or {}).get('pickup_date', '') or '')
     service_type = (payload or {}).get('service_type', '') or ''
 
-    def _addr_sig(a):
-        a = a or {}
-        line = (a.get('address_line_1', '') or '').strip().lower()
-        z = (a.get('zip_code', '') or '').strip().lower()
-        return f"{line}~{z}"
+    def _addr_sig(role):
+        # The address shape varies by checkout path, so read every form or the
+        # signature silently drops the address and dedup falls back to a coarse
+        # email|date|service|amount match (INC-004 hotfix — caused a false-positive
+        # duplicate refusal on authenticated checkouts):
+        #   - guest PI payloads carry a `pickup_address`/`delivery_address` dict
+        #   - authenticated/customer wizard payloads carry `new_pickup_address`/
+        #     `new_delivery_address` (a freshly entered address) ...
+        #   - ... or a saved-address reference `pickup_address_id`/`delivery_address_id`
+        p = payload or {}
+        a = p.get(f'{role}_address') or p.get(f'new_{role}_address')
+        if isinstance(a, dict) and a:
+            line = (a.get('address_line_1', '') or '').strip().lower()
+            z = (a.get('zip_code', '') or '').strip().lower()
+            if line or z:
+                return f"{line}~{z}"
+        saved_id = p.get(f'{role}_address_id')
+        if saved_id:
+            return f"id:{str(saved_id).strip().lower()}"
+        return "~"
 
-    pickup_addr = _addr_sig((payload or {}).get('pickup_address'))
-    delivery_addr = _addr_sig((payload or {}).get('delivery_address'))
+    pickup_addr = _addr_sig('pickup')
+    delivery_addr = _addr_sig('delivery')
     return f"{email}|{pickup_date}|{service_type}|{amount_cents}|{pickup_addr}|{delivery_addr}"
 
 
