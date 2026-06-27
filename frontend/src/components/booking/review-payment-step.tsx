@@ -33,16 +33,18 @@ interface BookingResponse {
   };
 }
 
-function CheckoutForm({ 
-  clientSecret, 
+function CheckoutForm({
+  clientSecret,
   paymentIntentId,
-  totalAmount, 
-  onSuccess 
-}: { 
+  totalAmount,
+  onSuccess,
+  onConfirmStart,
+}: {
   clientSecret: string;
   paymentIntentId: string;
   totalAmount: number;
   onSuccess: (paymentIntentId: string) => void;
+  onConfirmStart?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -58,6 +60,11 @@ function CheckoutForm({
 
     setIsProcessing(true);
     setErrorMessage(undefined);
+
+    // Mark payment as in-flight BEFORE confirming, so it persists across a 3DS
+    // redirect / crash and the on-mount recovery knows a real charge was attempted
+    // (INC-004 #6).
+    onConfirmStart?.();
 
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
@@ -299,7 +306,7 @@ function DiscountCodeInput() {
 }
 
 export function ReviewPaymentStep() {
-  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, pendingBookingToken, setPendingPaymentIntentId, clearPendingPaymentIntentId, ensureCartKey } = useBookingWizard();
+  const { bookingData, resetWizard, setLoading, isLoading, setBookingComplete, previousStep, isGuestMode, pendingPaymentIntentId, pendingBookingToken, setPendingPaymentIntentId, clearPendingPaymentIntentId, ensureCartKey, paymentConfirmInFlight, setPaymentConfirmInFlight } = useBookingWizard();
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -325,8 +332,14 @@ export function ReviewPaymentStep() {
   // (INC-004). Only user-initiated submits clear the anchor.
   const isRecoveryAttempt = useRef(false);
   useEffect(() => {
+    // Only auto-recover when a payment was actually confirmed (paymentConfirmInFlight).
+    // The pending PI is set at PI-creation, BEFORE payment — without this guard a
+    // back-navigation to a created-but-unpaid PI would fire booking-create on an
+    // unpaid PI, get rejected, and show a misleading "payment received" message
+    // with a stale PI (INC-004 #6).
     if (
       pendingPaymentIntentId &&
+      paymentConfirmInFlight &&
       !bookingComplete &&
       !recoveryAttempted.current
     ) {
@@ -747,11 +760,12 @@ export function ReviewPaymentStep() {
           </CardHeader>
           <CardContent>
             <Elements stripe={stripePromise} options={{ clientSecret }}>        
-              <CheckoutForm 
+              <CheckoutForm
                 clientSecret={clientSecret}
                 paymentIntentId={paymentIntentId}
                 totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
                 onSuccess={handlePaymentSuccess}
+                onConfirmStart={() => setPaymentConfirmInFlight(true)}
               />
             </Elements>
           </CardContent>

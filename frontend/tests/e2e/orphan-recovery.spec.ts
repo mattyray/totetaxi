@@ -93,7 +93,7 @@ test.describe('Orphaned-payment cure — frontend', () => {
   });
 
   test('auto-recovery failure (generic 4xx) keeps the pending PI and reassures', async ({ page }) => {
-    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_e2e_recovery', pendingBookingToken: 'tok' } });
+    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_e2e_recovery', pendingBookingToken: 'tok', paymentConfirmInFlight: true } });
     // the mount-recovery POST fails with a generic server error
     await page.route('**/api/public/guest-booking/', (route) =>
       route.fulfill({ status: 400, contentType: 'application/json',
@@ -107,7 +107,7 @@ test.describe('Orphaned-payment cure — frontend', () => {
   });
 
   test('"already used" response clears the PI and shows confirmation', async ({ page }) => {
-    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_e2e_used', pendingBookingToken: 'tok' } });
+    await seedReview(page, { state: { pendingPaymentIntentId: 'pi_e2e_used', pendingBookingToken: 'tok', paymentConfirmInFlight: true } });
     await page.route('**/api/public/guest-booking/', (route) =>
       route.fulfill({ status: 400, contentType: 'application/json',
         body: JSON.stringify({ error: 'This payment has already been used for a booking' }) }));

@@ -126,9 +126,15 @@ def mark_pending_materialized(payment_intent_id, booking):
     if not payment_intent_id or booking is None:
         return
     try:
+        # Only promote a still-'pending' capture. NEVER rewrite a terminal
+        # 'duplicate'/'failed' row: a capture reconcile flagged 'duplicate' (charge
+        # awaiting a manual refund, Payment left unlinked) must not be flipped to
+        # 'materialized' by a late happy-path POST — that would attach a real
+        # fulfilled booking to a charge staff were told to refund (INC-004 #3).
         PendingBooking.objects.filter(
             stripe_payment_intent_id=payment_intent_id,
-        ).exclude(status='materialized').update(
+            status='pending',
+        ).update(
             status='materialized', booking=booking, updated_at=timezone.now(),
         )
     except Exception:
@@ -163,6 +169,80 @@ def _find_sibling_booking(pending):
             return sib.booking
 
     return None
+
+
+def find_happy_path_sibling(payment_intent_id):
+    """Cross-sibling duplicate check for the booking-create VIEWS (INC-004 #2/B4).
+
+    The recovery path refuses to create a second booking for a duplicate charge, but
+    the happy-path create views only checked THEIR OWN PI's Payment row. So if
+    reconcile (or another tab) already materialized a sibling charge of the same
+    cart/fingerprint into a booking, this view would still create a SECOND booking
+    for one logical order. This runs the same sibling check; when a materialized
+    sibling exists it flags this PI's capture 'duplicate' (alert-only manual refund)
+    and returns a truthy value so the caller refuses.
+
+    Must be called inside the advisory-locked `transaction.atomic()` block (the
+    caller already holds the cart_key/fingerprint advisory lock). Returns the sibling
+    Booking (or a truthy marker) to refuse on, or None to proceed normally. Inert
+    when the kill-switch is off (no captures exist), so it's a no-op on a dark deploy.
+    """
+    from apps.payments.models import Payment, PaymentAudit
+    from .models import PendingBooking
+
+    if not autorecovery_enabled():
+        return None
+
+    pending = (
+        PendingBooking.objects
+        .filter(stripe_payment_intent_id=payment_intent_id)
+        .order_by('created_at')
+        .first()
+    )
+    if pending is None:
+        return None
+
+    # Already flagged a duplicate (by reconcile or a prior pass) — refuse outright so
+    # the charge staff were told to refund never gets a real booking attached.
+    if pending.status == 'duplicate':
+        return _find_sibling_booking(pending) or True
+
+    if pending.status != 'pending':
+        return None
+
+    sibling = _find_sibling_booking(pending)
+    if sibling is None:
+        return None
+
+    pending.status = 'duplicate'
+    pending.failure_reason = (
+        f"Duplicate of booking {sibling.booking_number}; charge "
+        f"{payment_intent_id} needs a manual refund."
+    )
+    pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
+    payment = (
+        Payment.objects.filter(stripe_payment_intent_id=payment_intent_id)
+        .order_by('created_at').first()
+    )
+    PaymentAudit.log(
+        action='duplicate_charge_detected',
+        description=(
+            f"Duplicate charge blocked at booking-create: PI {payment_intent_id} "
+            f"(${pending.amount_cents / 100:.2f}) duplicates booking "
+            f"{sibling.booking_number}. Manual refund required."
+        ),
+        payment=payment,
+    )
+    logger.critical(
+        "DUPLICATE CHARGE (happy path): PI %s duplicates booking %s — manual refund required",
+        payment_intent_id, sibling.booking_number,
+    )
+    info = {
+        'kind': 'duplicate', 'pi': payment_intent_id,
+        'amount_cents': pending.amount_cents, 'booking_number': sibling.booking_number,
+    }
+    transaction.on_commit(lambda: _send_recovery_alert(info))
+    return sibling
 
 
 def _build_booking(pending, payload):
@@ -312,8 +392,13 @@ def materialize_pending_booking(pending_id, *, source='recovery'):
 
         # --- C1: the booking total must equal what we actually charged ---
         if booking.total_price_cents != pending.amount_cents:
+            # This throwaway booking was never customer-visible — suppress the
+            # status-change email the pre_save signal would otherwise send (and skip
+            # the pricing recompute) so we don't tell a customer their never-seen
+            # booking was "cancelled" (INC-004 #4).
             booking.status = 'cancelled'
-            booking.save()
+            booking._suppress_status_email = True
+            booking.save(_skip_pricing=True)
             pending.status = 'failed'
             pending.failure_reason = (
                 f"Amount mismatch: booking={booking.total_price_cents} "

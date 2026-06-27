@@ -580,6 +580,29 @@ def reconcile_pending_payments():
         cache.delete(lock_id)
 
 
+def _charge_id(charge):
+    """Best-effort Stripe charge id from an expanded charge, a bare id string, or None."""
+    if not charge:
+        return ''
+    if isinstance(charge, str):
+        return charge
+    return str(getattr(charge, 'id', '') or '')
+
+
+def _charge_refunded(charge):
+    """True if a Stripe charge shows any refund. Defensive against test Mocks
+    (a bare Mock's attributes are truthy / non-numeric): only an explicit
+    refunded is True, or a positive integer amount_refunded, counts."""
+    if not charge or isinstance(charge, str):
+        return False
+    if getattr(charge, 'refunded', False) is True:
+        return True
+    try:
+        return int(getattr(charge, 'amount_refunded', 0) or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def _reconcile_one(pending, Payment, materialize_pending_booking):
     """Process a single PendingBooking. Returns an outcome category:
     'retired' | 'not_yet_paid' | 'recovered' | 'duplicate' | 'failed'."""
@@ -590,36 +613,68 @@ def _reconcile_one(pending, Payment, materialize_pending_booking):
         .first()
     )
 
-    # If the payment already failed/refunded (incl. partial), do not materialize a
-    # fulfilled booking on it — retire this capture so we stop scanning it.
-    if payment and payment.status in ('failed', 'refunded', 'partially_refunded'):
+    def _retire(reason):
         pending.status = 'failed'
-        pending.failure_reason = f'Payment {payment.status}; not recoverable.'
+        pending.failure_reason = reason
         pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
+
+    # Refunded money is terminal — never materialize a fulfilled booking on a
+    # refunded charge. DB status is authoritative when set (kept in sync by the
+    # charge.refunded webhook); a dashboard refund not yet synced to the DB is
+    # caught by the live charge check below.
+    if payment and payment.status in ('refunded', 'partially_refunded'):
+        _retire(f'Payment {payment.status}; not recoverable.')
         return 'retired'
 
-    # Confirm the charge actually went through.
+    # Confirm the charge actually went through. A DB 'failed' is NOT treated as
+    # terminal without asking Stripe: a same-PI retry (decline -> fix card ->
+    # succeed) whose success webhook was lost leaves DB=failed/Stripe=succeeded, and
+    # blindly retiring it would lose a charged customer with no booking AND no alert
+    # (INC-004 B2). So we re-check Stripe for both 'pending' and 'failed'.
     charged = bool(payment and payment.status == 'succeeded')
     if not charged:
         try:
-            pi = stripe.PaymentIntent.retrieve(pi_id)
+            pi = stripe.PaymentIntent.retrieve(pi_id, expand=['latest_charge'])
         except stripe.error.StripeError as e:
             logger.warning(f"reconcile: could not retrieve PI {pi_id}: {e}")
             return 'not_yet_paid'
-        if pi.status == 'succeeded':
-            charged = True
-            # Promote a DB row stuck at 'pending' (webhook never landed).
-            if payment and payment.status == 'pending':
-                payment.status = 'succeeded'
-                payment.stripe_charge_id = getattr(pi, 'latest_charge', '') or ''
-                payment.processed_at = timezone.now()
-                payment.save(update_fields=[
-                    'status', 'stripe_charge_id', 'processed_at', 'updated_at',
-                ])
-                logger.warning(
-                    f"reconcile: promoted Payment for PI {pi_id} pending->succeeded "
-                    f"(webhook miss)"
-                )
+
+        if getattr(pi, 'status', None) != 'succeeded':
+            # Stripe confirms no successful charge — safe to retire an
+            # abandoned/declined checkout so it stops being re-scanned.
+            _retire(f"Payment not completed (Stripe PI status: {getattr(pi, 'status', 'unknown')}).")
+            return 'retired'
+
+        charge = getattr(pi, 'latest_charge', None)
+
+        # Out-of-band refund on the freshly-retrieved charge (a Stripe-dashboard
+        # refund leaves PI.status=succeeded). Never fulfill refunded money — retire
+        # and sync DB status so it stays retired (INC-004 B3).
+        if _charge_refunded(charge):
+            _retire('Charge refunded out-of-band; not materializing.')
+            if payment and payment.status not in ('refunded', 'partially_refunded'):
+                amt = int(getattr(charge, 'amount', 0) or 0)
+                ref = int(getattr(charge, 'amount_refunded', 0) or 0)
+                payment.status = 'partially_refunded' if (amt and 0 < ref < amt) else 'refunded'
+                payment.save(update_fields=['status', 'updated_at'])
+            logger.warning(
+                f"reconcile: PI {pi_id} refunded out-of-band — retiring, not materializing"
+            )
+            return 'retired'
+
+        charged = True
+        # Promote a DB row stuck at 'pending'/'failed' (success webhook never landed).
+        if payment and payment.status in ('pending', 'failed'):
+            prev = payment.status
+            payment.status = 'succeeded'
+            payment.stripe_charge_id = _charge_id(charge)
+            payment.processed_at = timezone.now()
+            payment.save(update_fields=[
+                'status', 'stripe_charge_id', 'processed_at', 'updated_at',
+            ])
+            logger.warning(
+                f"reconcile: promoted Payment for PI {pi_id} {prev}->succeeded (webhook miss)"
+            )
 
     if not charged:
         return 'not_yet_paid'

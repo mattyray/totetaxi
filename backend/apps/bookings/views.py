@@ -820,6 +820,20 @@ class GuestBookingCreateView(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Cross-sibling duplicate check (INC-004): if a sibling charge of this
+            # cart/fingerprint already materialized into a booking (e.g. reconcile
+            # recovered the first of a double-charge before this POST landed), refuse
+            # instead of creating a SECOND booking for one order. Runs under the
+            # advisory lock taken above. The "already used" wording matches what the
+            # frontend treats as "already booked → reassure, don't alarm".
+            from .recovery import find_happy_path_sibling
+            if find_happy_path_sibling(payment_intent_id) is not None:
+                logger.warning(f"Duplicate charge blocked at create: {payment_intent_id}")
+                return Response(
+                    {'error': 'This payment has already been used for a booking'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             booking = serializer.save()
 
             if is_free_order:

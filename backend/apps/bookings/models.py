@@ -969,6 +969,8 @@ class Booking(models.Model):
             except OrganizingService.DoesNotExist:
                 pass
 
+        return services
+
 
 class PendingBooking(models.Model):
     """Server-side capture of a booking payload at PaymentIntent-creation time.
@@ -1041,5 +1043,3 @@ class PendingBooking(models.Model):
 
     def __str__(self):
         return f"PendingBooking {self.stripe_payment_intent_id} ({self.status})"
-
-        return services

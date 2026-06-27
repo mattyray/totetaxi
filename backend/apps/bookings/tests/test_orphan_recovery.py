@@ -415,11 +415,16 @@ class TestHardeningRegression:
         assert PendingBooking.objects.get(
             stripe_payment_intent_id='pi_singleton').status == 'pending'
 
-    def test_capture_retired_when_payment_failed(self, package):
-        """A capture whose payment failed (abandoned checkout) is retired so it is
-        not re-scanned forever."""
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_capture_retired_when_payment_failed(self, mock_retrieve, package):
+        """A capture whose charge never succeeded (abandoned/declined checkout) is
+        retired — but only AFTER Stripe confirms it did not succeed (INC-004 B2: a
+        DB 'failed' that since succeeded on a same-PI retry must NOT be dropped)."""
         create_pi(APIClient(), package, pi_id='pi_retired')
         Payment.objects.filter(stripe_payment_intent_id='pi_retired').update(status='failed')
+        mock_retrieve.return_value = Mock(
+            id='pi_retired', status='requires_payment_method', latest_charge=None,
+        )
         _age_pending('pi_retired')
 
         result = reconcile_pending_payments()
@@ -469,3 +474,110 @@ class TestHardeningRegression:
         result = reconcile_pending_payments()
         assert result['recovered'] == 0
         assert PendingBooking.objects.get(stripe_payment_intent_id='pi_partial').status == 'failed'
+
+
+@pytest.mark.django_db
+class TestReviewFixesRound4:
+    """Regression coverage for the two-pass review fixes (INC-004 #1-#6 + B2/B3)."""
+
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_failed_payment_promoted_when_stripe_succeeded(self, mock_retrieve, package):
+        """B2: DB Payment='failed' (lost success webhook after a same-PI retry) but
+        Stripe says succeeded → promote + recover; never silently drop a paid customer."""
+        create_pi(APIClient(), package, pi_id='pi_retry')
+        Payment.objects.filter(stripe_payment_intent_id='pi_retry').update(status='failed')
+        mock_retrieve.return_value = Mock(id='pi_retry', status='succeeded', latest_charge='ch_retry')
+        _age_pending('pi_retry')
+
+        result = reconcile_pending_payments()
+        assert result['recovered'] == 1
+        payment = Payment.objects.get(stripe_payment_intent_id='pi_retry')
+        assert payment.status == 'succeeded'
+        assert payment.booking_id is not None
+
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_reconcile_skips_out_of_band_refund(self, mock_retrieve, package):
+        """B3: a dashboard refund leaves PI.status=succeeded but the charge refunded.
+        reconcile must detect it (DB not yet synced) and NOT materialize a booking."""
+        create_pi(APIClient(), package, pi_id='pi_oob')  # Payment left 'pending'
+        mock_retrieve.return_value = Mock(
+            id='pi_oob', status='succeeded',
+            latest_charge=Mock(id='ch_oob', refunded=True, amount=99500, amount_refunded=99500),
+        )
+        _age_pending('pi_oob')
+
+        result = reconcile_pending_payments()
+        assert result['recovered'] == 0
+        assert PendingBooking.objects.get(stripe_payment_intent_id='pi_oob').status == 'failed'
+        assert Payment.objects.get(stripe_payment_intent_id='pi_oob').status == 'refunded'
+        assert not Booking.objects.filter(status='paid').exists()
+
+    @patch('stripe.PaymentIntent.retrieve')
+    def test_happy_path_refuses_when_sibling_already_materialized(self, mock_retrieve, package):
+        """#2/B4: reconcile recovers the first of a double-charge into a booking, THEN
+        the second PI's booking-create POST lands. It must be refused (no 2nd booking)."""
+        client = APIClient()
+        create_pi(client, package, cart_key='cart-RF', pi_id='pi_rf_1')
+        create_pi(client, package, cart_key='cart-RF', pi_id='pi_rf_2')
+        # First charge orphaned, then recovered by reconcile.
+        Payment.objects.filter(stripe_payment_intent_id='pi_rf_1').update(status='succeeded')
+        _age_pending('pi_rf_1')
+        assert reconcile_pending_payments()['recovered'] == 1
+        assert Booking.objects.count() == 1
+
+        # Now the SECOND PI's happy-path POST lands — must be refused.
+        mock_retrieve.return_value = Mock(id='pi_rf_2', status='succeeded',
+                                          amount=99500, latest_charge='ch_rf2')
+        payload = guest_booking_payload(package)
+        payload.update({'payment_intent_id': 'pi_rf_2'})
+        resp = client.post('/api/public/guest-booking/', payload, format='json')
+
+        assert resp.status_code == 400
+        assert 'already been used' in str(resp.data).lower()
+        assert Booking.objects.count() == 1  # still exactly one
+        assert PendingBooking.objects.get(stripe_payment_intent_id='pi_rf_2').status == 'duplicate'
+        assert PaymentAudit.objects.filter(action='duplicate_charge_detected').exists()
+
+    def test_mark_materialized_does_not_revive_duplicate(self, package):
+        """#3: a capture flagged 'duplicate' (charge awaiting manual refund) must NOT
+        be flipped to 'materialized' by a late happy-path mark."""
+        from apps.bookings.recovery import mark_pending_materialized
+        # Make a real, saved booking via recovery on a separate PI.
+        create_pi(APIClient(), package, pi_id='pi_real', cart_key='cx-real')
+        Payment.objects.filter(stripe_payment_intent_id='pi_real').update(status='succeeded')
+        _age_pending('pi_real')
+        reconcile_pending_payments()
+        real_booking = Booking.objects.get(status='paid')
+
+        # A separate capture that's already terminal-'duplicate'.
+        create_pi(APIClient(), package, pi_id='pi_dupe3', cart_key='cx-dupe')
+        PendingBooking.objects.filter(stripe_payment_intent_id='pi_dupe3').update(status='duplicate')
+
+        mark_pending_materialized('pi_dupe3', real_booking)
+
+        dupe = PendingBooking.objects.get(stripe_payment_intent_id='pi_dupe3')
+        assert dupe.status == 'duplicate'  # unchanged — not resurrected
+        assert dupe.booking_id is None
+
+    def test_amount_mismatch_sends_no_customer_email(self, package, mailoutbox):
+        """#4: the throwaway cancelled booking must NOT email the customer."""
+        create_pi(APIClient(), package, pi_id='pi_mm_email')
+        Payment.objects.filter(stripe_payment_intent_id='pi_mm_email').update(status='succeeded')
+        PendingBooking.objects.filter(stripe_payment_intent_id='pi_mm_email').update(
+            amount_cents=12345, created_at=timezone.now() - timedelta(minutes=10),
+        )
+        pending = PendingBooking.objects.get(stripe_payment_intent_id='pi_mm_email')
+        materialize_pending_booking(pending.id, source='test')
+
+        customer_mails = [m for m in mailoutbox if 'lauren@example.com' in m.to]
+        assert customer_mails == []
+
+    def test_organizing_breakdown_returns_list_not_none(self, package):
+        """#1/B1: get_organizing_services_breakdown must return a list — the `return
+        services` was displaced into PendingBooking, making it return None for every
+        mini-move with packing/unpacking."""
+        b = Booking(
+            service_type='mini_move', mini_move_package=package,
+            include_packing=False, include_unpacking=False,
+        )
+        assert b.get_organizing_services_breakdown() == []

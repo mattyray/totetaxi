@@ -294,6 +294,19 @@ class CustomerBookingCreateView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+                # Cross-sibling duplicate check (INC-004): refuse if a sibling charge
+                # of this cart/fingerprint already materialized into a booking, so a
+                # double-charge can't become two bookings. Runs under the advisory lock.
+                from apps.bookings.recovery import find_happy_path_sibling
+                if find_happy_path_sibling(payment_intent_id) is not None:
+                    logger.warning(
+                        f"Duplicate charge blocked at create by {request.user.email}: {payment_intent_id}"
+                    )
+                    return Response(
+                        {'error': 'This payment has already been used for a booking'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 booking = serializer.save()
                 logger.info(f"Booking created: {booking.booking_number} by {request.user.email}")
 
