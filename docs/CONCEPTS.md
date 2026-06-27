@@ -82,6 +82,12 @@ each other.
   used `cart_key`), not tied to a row. This is what made the duplicate-charge dedup
   safe, because the two charges are *different* rows a row-lock can't serialize.
 
+> **A lock only works if *everyone* takes it.** A door with a lock does nothing if
+> one person walks in through the window. We shipped exactly this bug: the recovery
+> path took the lock, but the normal path passed an *empty* key and locked nothing —
+> so they never actually blocked each other. The fix was to make both paths take the
+> *same* key (read from the server, see Trust boundary below).
+
 ### At-least-once delivery
 Platforms like Stripe may send the **same webhook event more than once** (network
 retries). You can never assume "this runs once" — which is *why* idempotency is
@@ -124,6 +130,29 @@ Different test layers catch different bugs:
   frontend sends/shows the right things.
 *In this project:* 354 pytest cases + a live Stripe-test run + a threaded Postgres
 concurrency test + 4 Playwright tests.
+
+### Trust boundary
+The line between data *you* control and data an *outsider* (the customer's browser)
+controls. Anything from the browser can be missing, wrong, or faked — so don't rely
+on it for anything that has to be correct. Read the trusted copy from your own
+database instead.
+*In this project:* the dedup lock key was being read from the browser's request —
+which didn't even send it. Fixed by reading `cart_key`/`fingerprint` from the
+`PendingBooking` row the *server* saved at payment time. Same idea as never trusting
+the browser for the price: the server already knows it.
+
+### Test fidelity (a test that lies)
+A test is only as good as how closely it mimics reality. If it feeds the code an
+input the real world never produces, it can pass while the real thing is broken —
+*worse* than no test, because it gives false confidence.
+*In this project:* our test for the lock manually handed the server a `cart_key` that
+the real browser never sends. The test went green; production was still broken. The
+fix: make the test send exactly what the real client sends (nothing), so it fails
+when the code is wrong.
+
+> **Related habit — re-attack your own fixes.** Confirming a fix works isn't the
+> same as proving it can't be broken. The round of red-teaming *after* we "fixed"
+> the dedup is what caught both the lying test and the dead lock.
 
 ---
 
