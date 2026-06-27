@@ -192,7 +192,7 @@ class StripeWebhookView(APIView):
             return self._handle_payment_failed(event, cache_key)
         elif event_type == 'checkout.session.expired':
             return self._handle_checkout_expired(event, cache_key)
-        elif event_type in ('charge.refunded', 'charge.refund.updated'):
+        elif event_type == 'charge.refunded':
             return self._handle_charge_refunded(event, cache_key)
         else:
             logger.info(f"Webhook: Unhandled event type {event_type}")
@@ -262,7 +262,10 @@ class StripeWebhookView(APIView):
 
         updated = 0
         for payment in Payment.objects.filter(stripe_payment_intent_id=payment_intent_id):
-            if payment.status in ('refunded',):
+            # Skip if already at the target state (avoids duplicate audits on
+            # redelivery) or already fully refunded (never downgrade refunded ->
+            # partially_refunded). A partial -> full refund still proceeds.
+            if payment.status == new_status or payment.status == 'refunded':
                 continue
             payment.status = new_status
             payment.save(update_fields=['status', 'updated_at'])

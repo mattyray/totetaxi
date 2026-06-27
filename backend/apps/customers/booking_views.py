@@ -273,8 +273,11 @@ class CustomerBookingCreateView(APIView):
                     .filter(stripe_payment_intent_id=payment_intent_id)
                     .values('cart_key', 'fingerprint').first()
                 ) or {}
+                # Keys come ONLY from the server-captured PendingBooking — never trust
+                # a client-supplied cart_key (the real client doesn't send one on
+                # create anyway). No capture → no lock available (trust boundary).
                 take_dedup_advisory_locks(
-                    cart_key=_pend.get('cart_key') or request.data.get('cart_key', ''),
+                    cart_key=_pend.get('cart_key') or '',
                     fingerprint=_pend.get('fingerprint') or '',
                 )
 

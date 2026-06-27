@@ -266,6 +266,9 @@ class TestAmountIntegrity:
         assert pending.status == 'failed'
         # no paid booking left behind
         assert not Booking.objects.filter(status='paid').exists()
+        # the savepoint rolled back the throwaway entirely — no orphan booking row
+        # and no consumed discount usage (INC-004 review #2)
+        assert Booking.objects.count() == 0
         assert PaymentAudit.objects.filter(action='auto_recovery_failed').exists()
 
 
@@ -571,6 +574,34 @@ class TestReviewFixesRound4:
 
         customer_mails = [m for m in mailoutbox if 'lauren@example.com' in m.to]
         assert customer_mails == []
+
+    def test_different_address_identical_orders_both_materialize(self, package):
+        """Tightened fingerprint now includes address: two same-day, same-tier,
+        same-price orders to DIFFERENT addresses are NOT deduped — both become real
+        bookings rather than one being refused as a 'duplicate' (INC-004 review #1)."""
+        from apps.bookings.recovery import compute_fingerprint
+        client = APIClient()
+        create_pi(client, package, cart_key='', pi_id='pi_addr_1')
+        create_pi(client, package, cart_key='', pi_id='pi_addr_2')
+        # Order 2 goes to a genuinely different delivery address.
+        p2 = PendingBooking.objects.get(stripe_payment_intent_id='pi_addr_2')
+        payload2 = dict(p2.payload)
+        payload2['delivery_address'] = {
+            **payload2['delivery_address'],
+            'address_line_1': '999 Different Blvd', 'zip_code': '11201',
+        }
+        p2.payload = payload2
+        p2.fingerprint = compute_fingerprint(payload2, p2.amount_cents)
+        p2.save(update_fields=['payload', 'fingerprint'])
+        for pi in ('pi_addr_1', 'pi_addr_2'):
+            Payment.objects.filter(stripe_payment_intent_id=pi).update(status='succeeded')
+            _age_pending(pi)
+
+        result = reconcile_pending_payments()
+        assert result['recovered'] == 2
+        assert result['duplicates'] == 0
+        assert Booking.objects.count() == 2
+        assert not PendingBooking.objects.filter(status='duplicate').exists()
 
     def test_organizing_breakdown_returns_list_not_none(self, package):
         """#1/B1: get_organizing_services_breakdown must return a list — the `return

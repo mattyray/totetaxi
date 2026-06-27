@@ -28,6 +28,12 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+class _AmountMismatch(Exception):
+    """Raised inside the materialize savepoint when the rebuilt booking total does
+    not equal the charged amount, so the serializer's side effects (Address rows,
+    consumed discount-code usage) roll back instead of leaking on a throwaway."""
+
+
 def autorecovery_enabled():
     """Kill-switch. Disable in prod via `fly secrets set ORPHAN_AUTORECOVERY_ENABLED=false`."""
     return getattr(settings, 'ORPHAN_AUTORECOVERY_ENABLED', True)
@@ -70,9 +76,15 @@ def take_dedup_advisory_locks(*, cart_key='', fingerprint=''):
 
 def compute_fingerprint(payload, amount_cents, customer=None):
     """Stable signature of a checkout attempt, used to catch re-checkouts that
-    produce a *new* cart_key (e.g. a fresh tab). Intentionally coarse —
-    a collision only matters in the recovery path, where the action is an
-    alert-for-manual-refund, not an automated charge.
+    produce a *new* cart_key (e.g. a fresh tab).
+
+    Includes the pickup + delivery address so two genuinely distinct same-day,
+    same-tier, same-price orders to DIFFERENT addresses are NOT treated as
+    duplicates (INC-004 review): this signature now gates the live happy-path
+    create too (find_happy_path_sibling), not just recovery, so a coarse
+    email|date|service|amount match would otherwise hard-refuse a legitimate
+    repeat order. Only a truly identical order (same addresses, date, price within
+    48h) still collides — and that case is genuinely ambiguous vs. a double-charge.
     """
     email = ''
     if customer is not None and getattr(customer, 'email', ''):
@@ -82,7 +94,16 @@ def compute_fingerprint(payload, amount_cents, customer=None):
     email = email.strip().lower()
     pickup_date = str((payload or {}).get('pickup_date', '') or '')
     service_type = (payload or {}).get('service_type', '') or ''
-    return f"{email}|{pickup_date}|{service_type}|{amount_cents}"
+
+    def _addr_sig(a):
+        a = a or {}
+        line = (a.get('address_line_1', '') or '').strip().lower()
+        z = (a.get('zip_code', '') or '').strip().lower()
+        return f"{line}~{z}"
+
+    pickup_addr = _addr_sig((payload or {}).get('pickup_address'))
+    delivery_addr = _addr_sig((payload or {}).get('delivery_address'))
+    return f"{email}|{pickup_date}|{service_type}|{amount_cents}|{pickup_addr}|{delivery_addr}"
 
 
 def capture_pending_booking(*, payment_intent_id, booking_token, booking_payload,
@@ -369,10 +390,50 @@ def materialize_pending_booking(pending_id, *, source='recovery'):
             transaction.on_commit(lambda: _send_recovery_alert(alert))
             return None, 'duplicate'
 
-        # --- materialize: replay the payload through the real serializer ---
+        # --- materialize: replay the payload through the real serializer, INSIDE a
+        # savepoint so a price mismatch rolls back ALL serializer side effects
+        # (Address/GuestCheckout rows AND a consumed discount-code usage) instead of
+        # leaving orphan rows + a burned discount on a throwaway booking (INC-004
+        # review #2). C1 (booking total == charged amount) runs inside the savepoint
+        # too, so a mismatch never persists anything.
+        booking = None
+        mismatch_total = None
         try:
-            booking = _build_booking(pending, pending.payload)
+            with transaction.atomic():  # savepoint
+                booking = _build_booking(pending, pending.payload)
+                if booking.total_price_cents != pending.amount_cents:
+                    mismatch_total = booking.total_price_cents
+                    raise _AmountMismatch()
+        except _AmountMismatch:
+            # Savepoint rolled back — no orphan rows, no consumed discount, and no
+            # throwaway booking to email a "cancelled" notice about.
+            pending.status = 'failed'
+            pending.failure_reason = (
+                f"Amount mismatch: booking={mismatch_total} charged={pending.amount_cents}"
+            )
+            pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
+            PaymentAudit.log(
+                action='auto_recovery_failed',
+                description=(
+                    f"Auto-recovery amount mismatch for PI {pi}: booking total "
+                    f"{mismatch_total} != charged {pending.amount_cents}. "
+                    f"Manual review required. Source: {source}."
+                ),
+                payment=payment,
+            )
+            alert.update(
+                kind='failed', pi=pi, amount_cents=pending.amount_cents,
+                error='booking total does not match charged amount',
+            )
+            logger.critical(
+                "AUTO-RECOVERY amount mismatch for PI %s: booking=%s charged=%s",
+                pi, mismatch_total, pending.amount_cents,
+            )
+            transaction.on_commit(lambda: _send_recovery_alert(alert))
+            return None, 'amount_mismatch'
         except Exception as exc:
+            # _build_booking raised (validation/serializer error) — savepoint rolled
+            # back. Customer charged with no booking; alert for manual action.
             pending.status = 'failed'
             pending.failure_reason = f"Materialization failed: {exc}"[:500]
             pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
@@ -389,41 +450,6 @@ def materialize_pending_booking(pending_id, *, source='recovery'):
             logger.critical("AUTO-RECOVERY FAILED for PI %s: %s", pi, exc, exc_info=True)
             transaction.on_commit(lambda: _send_recovery_alert(alert))
             return None, 'failed'
-
-        # --- C1: the booking total must equal what we actually charged ---
-        if booking.total_price_cents != pending.amount_cents:
-            # This throwaway booking was never customer-visible — suppress the
-            # status-change email the pre_save signal would otherwise send (and skip
-            # the pricing recompute) so we don't tell a customer their never-seen
-            # booking was "cancelled" (INC-004 #4).
-            booking.status = 'cancelled'
-            booking._suppress_status_email = True
-            booking.save(_skip_pricing=True)
-            pending.status = 'failed'
-            pending.failure_reason = (
-                f"Amount mismatch: booking={booking.total_price_cents} "
-                f"charged={pending.amount_cents}"
-            )
-            pending.save(update_fields=['status', 'failure_reason', 'updated_at'])
-            PaymentAudit.log(
-                action='auto_recovery_failed',
-                description=(
-                    f"Auto-recovery amount mismatch for PI {pi}: "
-                    f"booking total {booking.total_price_cents} != charged "
-                    f"{pending.amount_cents}. Manual review required. Source: {source}."
-                ),
-                payment=payment,
-            )
-            alert.update(
-                kind='failed', pi=pi, amount_cents=pending.amount_cents,
-                error='booking total does not match charged amount',
-            )
-            logger.critical(
-                "AUTO-RECOVERY amount mismatch for PI %s: booking=%s charged=%s",
-                pi, booking.total_price_cents, pending.amount_cents,
-            )
-            transaction.on_commit(lambda: _send_recovery_alert(alert))
-            return None, 'amount_mismatch'
 
         # --- link the Payment to the new booking ---
         if payment is None:

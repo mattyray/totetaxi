@@ -34,16 +34,6 @@ def booking_status_changed(sender, instance, **kwargs):
     if old_status == new_status:
         return
 
-    # Allow callers to suppress the customer-facing email for a status change on a
-    # booking the customer never saw — e.g. the auto-recovery amount-mismatch path
-    # that creates then immediately cancels a throwaway booking (INC-004 #4).
-    if getattr(instance, '_suppress_status_email', False):
-        logger.info(
-            f"Booking {old.booking_number} status {old_status} → {new_status}: "
-            f"customer email suppressed (_suppress_status_email)"
-        )
-        return
-
     logger.info(f"📧 Booking {old.booking_number} status changed: {old_status} → {new_status}")
     # Status update notification to customer
     try:

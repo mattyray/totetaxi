@@ -39,12 +39,14 @@ function CheckoutForm({
   totalAmount,
   onSuccess,
   onConfirmStart,
+  onConfirmFailed,
 }: {
   clientSecret: string;
   paymentIntentId: string;
   totalAmount: number;
   onSuccess: (paymentIntentId: string) => void;
   onConfirmStart?: () => void;
+  onConfirmFailed?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -75,6 +77,10 @@ function CheckoutForm({
     });
 
     if (error) {
+      // Card declined / auth failed — the PI was NOT charged. Reset the in-flight
+      // flag so a later back-navigation + remount doesn't fire mount-recovery on an
+      // unpaid PI and show a false "payment received" message (INC-004 #6 residual).
+      onConfirmFailed?.();
       setErrorMessage(error.message);
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
@@ -766,6 +772,7 @@ export function ReviewPaymentStep() {
                 totalAmount={bookingData.pricing_data?.total_price_dollars || 0}
                 onSuccess={handlePaymentSuccess}
                 onConfirmStart={() => setPaymentConfirmInFlight(true)}
+                onConfirmFailed={() => setPaymentConfirmInFlight(false)}
               />
             </Elements>
           </CardContent>
