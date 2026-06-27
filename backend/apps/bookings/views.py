@@ -602,6 +602,21 @@ class CreateGuestPaymentIntentView(APIView):
                     'contact_phone': '(631) 595-5100'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validation parity (INC-004): reject anything guest-booking would reject,
+        # BEFORE taking money. The captured booking_payload is the exact body
+        # guest-booking validates — run it through the SAME serializer so a customer
+        # can never be charged for an incomplete booking (e.g. standard delivery with
+        # items but no item_description, which previously only guest-booking caught,
+        # AFTER the charge → orphan).
+        booking_payload = request.data.get('booking_payload')
+        if isinstance(booking_payload, dict) and booking_payload:
+            _vp = dict(booking_payload)
+            _vp.setdefault('payment_intent_id', 'pending-validation')  # placeholder; validate() ignores it
+            _check = GuestBookingCreateSerializer(data=_vp)
+            if not _check.is_valid():
+                logger.warning(f"Guest PI rejected pre-charge (validation parity): {_check.errors}")
+                return Response(_check.errors, status=status.HTTP_400_BAD_REQUEST)
+
         # Handle free orders (100% discount)
         if amount_cents == 0:
             free_order_id = f'free_order_{_uuid_mod.uuid4()}'

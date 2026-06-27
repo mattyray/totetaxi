@@ -474,11 +474,25 @@ export const useBookingWizard = create<BookingWizardState & BookingWizardActions
                 bookingData.blade_bag_count >= 2
               );
             }
-            return !!bookingData.service_type && (
-              (bookingData.service_type === 'mini_move' && !!bookingData.mini_move_package_id) ||
-              (bookingData.service_type === 'standard_delivery' && !!bookingData.standard_delivery_item_count) ||
-              (bookingData.service_type === 'specialty_item' && !!bookingData.specialty_items?.length)
-            );
+            // Parity with service-selection-step.tsx canContinue(): this is the
+            // gate the wizard's sticky bottom "Continue" button uses, and it MUST
+            // enforce the same per-service rules as the step's own button — otherwise
+            // a required field (e.g. standard-delivery item_description) can be skipped
+            // by clicking the bottom button, and the customer gets charged for an
+            // invalid booking (the orphan we hit). Keep these two in lockstep.
+            if (bookingData.service_type === 'mini_move') {
+              return !!bookingData.mini_move_package_id;
+            }
+            if (bookingData.service_type === 'standard_delivery') {
+              const itemCount = bookingData.standard_delivery_item_count || 0;
+              const hasSpecialtyItems = (bookingData.specialty_items ?? []).some(item => item.quantity > 0);
+              if (itemCount > 0 && !(bookingData.item_description || '').trim()) return false;
+              return itemCount > 0 || hasSpecialtyItems;
+            }
+            if (bookingData.service_type === 'specialty_item') {
+              return (bookingData.specialty_items ?? []).some(item => item.quantity > 0);
+            }
+            return false;
           case 3:
             if (bookingData.service_type === 'blade_transfer') {
               return !!(bookingData.blade_flight_date);

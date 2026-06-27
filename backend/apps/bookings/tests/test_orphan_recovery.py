@@ -612,3 +612,68 @@ class TestReviewFixesRound4:
             include_packing=False, include_unpacking=False,
         )
         assert b.get_organizing_services_breakdown() == []
+
+
+@pytest.fixture
+def std_config(db):
+    from apps.services.models import StandardDeliveryConfig
+    return StandardDeliveryConfig.objects.create()  # all-default pricing
+
+
+@pytest.mark.django_db
+class TestValidationParity:
+    """create-payment-intent must reject anything guest-booking would reject, BEFORE
+    charging — so a customer is never charged for an invalid booking (INC-004)."""
+
+    def _std_payload(self, *, with_description):
+        future = (timezone.now().date() + timedelta(days=4)).isoformat()
+        p = {
+            'service_type': 'standard_delivery',
+            'first_name': 'Test', 'last_name': 'User',
+            'email': 'parity@example.com', 'phone': '2125550000',
+            'pickup_date': future, 'pickup_time': 'morning',
+            'pickup_address': {'address_line_1': '1 A St', 'city': 'New York', 'state': 'NY', 'zip_code': '10001'},
+            'delivery_address': {'address_line_1': '2 B St', 'city': 'New York', 'state': 'NY', 'zip_code': '10002'},
+            'standard_delivery_item_count': 3,
+        }
+        if with_description:
+            p['item_description'] = '3 boxes'
+        return p
+
+    def _pi_request(self, payload, cart_key):
+        return {
+            'service_type': 'standard_delivery',
+            'standard_delivery_item_count': 3,
+            'pickup_date': payload['pickup_date'],
+            'first_name': 'Test', 'last_name': 'User',
+            'email': 'parity@example.com', 'phone': '2125550000',
+            'pickup_zip_code': '10001', 'delivery_zip_code': '10002',
+            'booking_payload': payload, 'cart_key': cart_key,
+        }
+
+    def test_pi_rejects_missing_item_description_before_charging(self, std_config):
+        """The exact orphan we hit: standard delivery with items but no description.
+        Must 400 with NO Stripe charge, NO Payment, NO PendingBooking."""
+        payload = self._std_payload(with_description=False)
+        with patch('stripe.PaymentIntent.create') as mock_create:
+            resp = APIClient().post('/api/public/create-payment-intent/',
+                                    self._pi_request(payload, 'parity-bad'), format='json')
+        assert resp.status_code == 400, resp.data
+        assert 'item_description' in str(resp.data).lower()
+        mock_create.assert_not_called()          # CRITICAL: never charged
+        assert not PendingBooking.objects.exists()
+        assert not Payment.objects.exists()
+
+    def test_pi_accepts_valid_standard_delivery(self, std_config):
+        """A complete standard-delivery booking still prices, charges, and captures."""
+        payload = self._std_payload(with_description=True)
+        with patch('stripe.PaymentIntent.create') as mock_create:
+            mock_create.return_value = Mock(
+                id='pi_parity_ok', client_secret='sec', amount=28500,
+                status='requires_payment_method',
+            )
+            resp = APIClient().post('/api/public/create-payment-intent/',
+                                    self._pi_request(payload, 'parity-ok'), format='json')
+        assert resp.status_code == 200, resp.data
+        mock_create.assert_called_once()         # valid → charge proceeds
+        assert PendingBooking.objects.filter(stripe_payment_intent_id='pi_parity_ok').exists()

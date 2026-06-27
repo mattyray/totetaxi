@@ -73,6 +73,18 @@ class CreatePaymentIntentView(APIView):
                     'contact_phone': '(631) 595-5100'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validation parity (INC-004): reject anything the booking-create endpoint
+        # would reject, BEFORE charging — run the captured booking_payload through the
+        # SAME serializer so a customer is never charged for an incomplete booking.
+        booking_payload = request.data.get('booking_payload')
+        if isinstance(booking_payload, dict) and booking_payload:
+            _vp = dict(booking_payload)
+            _vp.setdefault('payment_intent_id', 'pending-validation')  # placeholder; validate() ignores it
+            _check = AuthenticatedBookingCreateSerializer(data=_vp, context={'user': request.user})
+            if not _check.is_valid():
+                logger.warning(f"Customer PI rejected pre-charge (validation parity): {_check.errors}")
+                return Response(_check.errors, status=status.HTTP_400_BAD_REQUEST)
+
         # Handle free orders (100% discount)
         if amount_cents == 0:
             free_order_id = f'free_order_{_uuid_mod.uuid4()}'
